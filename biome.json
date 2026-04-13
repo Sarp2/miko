@@ -1,0 +1,157 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.4.11/schema.json",
+	"vcs": {
+		"enabled": true,
+		"clientKind": "git",
+		"useIgnoreFile": true
+	},
+	"files": {
+		"ignoreUnknown": false,
+		"includes": ["src/**"]
+	},
+	"formatter": {
+		"enabled": true,
+		"indentStyle": "tab",
+		"lineWidth": 100
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"recommended": true,
+			"correctness": {
+				"noUnusedVariables": "error",
+				"noUnusedImports": "error",
+				"useExhaustiveDependencies": "error",
+				"noChildrenProp": "error",
+				"useJsxKeyInIterable": "error",
+				"noVoidElementsWithChildren": "error",
+				"noUndeclaredDependencies": "error",
+				"noUndeclaredVariables": "error",
+				"noUnreachable": "error",
+				"noUnreachableSuper": "error",
+				"useIsNan": "error",
+				"useValidForDirection": "error",
+				"noConstAssign": "error",
+				"noPrecisionLoss": "error",
+				"noSelfAssign": "error",
+				"noSwitchDeclarations": "error"
+			},
+			"suspicious": {
+				"noExplicitAny": "error",
+				"noConfusingVoidType": "error",
+				"noExtraNonNullAssertion": "error",
+				"noArrayIndexKey": "error",
+				"noCommentText": "error",
+				"noDuplicateJsxProps": "error",
+				"noDoubleEquals": "error",
+				"noRedeclare": "error",
+				"noShadowRestrictedNames": "error",
+				"noSparseArray": "error",
+				"noAsyncPromiseExecutor": "error",
+				"noCatchAssign": "error",
+				"noClassAssign": "error",
+				"noCompareNegZero": "error",
+				"noConfusingLabels": "error",
+				"noConsole": "warn",
+				"noDebugger": "error",
+				"noDuplicateCase": "error",
+				"noDuplicateObjectKeys": "error",
+				"noDuplicateParameters": "error",
+				"noFallthroughSwitchClause": "error",
+				"noFunctionAssign": "error",
+				"noGlobalAssign": "error",
+				"noImportAssign": "error",
+				"noMisleadingCharacterClass": "error",
+				"noPrototypeBuiltins": "error",
+				"noSelfCompare": "error",
+				"noUnsafeNegation": "error",
+				"useDefaultSwitchClauseLast": "error",
+				"noEmptyBlockStatements": "warn"
+			},
+			"style": {
+				"noNonNullAssertion": "warn",
+				"useConst": "error",
+				"useImportType": "error",
+				"noParameterAssign": "error",
+				"useBlockStatements": "error",
+				"useCollapsedElseIf": "error",
+				"useConsistentArrayType": "error",
+				"useEnumInitializers": "error",
+				"useExponentiationOperator": "error",
+				"useFragmentSyntax": "error",
+				"useLiteralEnumMembers": "error",
+				"useNamingConvention": "warn",
+				"useSelfClosingElements": "error",
+				"useShorthandAssign": "error",
+				"useTemplate": "error",
+				"useNumberNamespace": "error",
+				"noUselessElse": "error"
+			},
+			"complexity": {
+				"noForEach": "warn",
+				"noExcessiveCognitiveComplexity": "warn",
+				"noExtraBooleanCast": "error",
+				"noStaticOnlyClass": "error",
+				"noUselessCatch": "error",
+				"noUselessConstructor": "error",
+				"noUselessFragments": "error",
+				"noUselessLabel": "error",
+				"noUselessLoneBlockStatements": "error",
+				"noUselessRename": "error",
+				"noUselessSwitchCase": "error",
+				"noUselessTernary": "error",
+				"noUselessTypeConstraint": "error",
+				"noVoid": "error",
+				"useFlatMap": "error",
+				"useLiteralKeys": "error",
+				"useOptionalChain": "error",
+				"useSimplifiedLogicExpression": "warn"
+			},
+			"security": {
+				"noDangerouslySetInnerHtml": "error",
+				"noDangerouslySetInnerHtmlWithChildren": "error",
+				"noGlobalEval": "error"
+			},
+			"a11y": {
+				"noAccessKey": "error",
+				"noAriaUnsupportedElements": "error",
+				"noDistractingElements": "error",
+				"noHeaderScope": "error",
+				"noRedundantAlt": "error",
+				"noSvgWithoutTitle": "warn",
+				"useAltText": "error",
+				"useAnchorContent": "error",
+				"useButtonType": "error",
+				"useHtmlLang": "error",
+				"useIframeTitle": "error",
+				"useKeyWithClickEvents": "warn",
+				"useKeyWithMouseEvents": "warn",
+				"useMediaCaption": "warn",
+				"useValidAnchor": "error",
+				"useValidAriaProps": "error",
+				"useValidAriaRole": "error",
+				"useValidAriaValues": "error"
+			}
+		}
+	},
+	"javascript": {
+		"formatter": {
+			"quoteStyle": "double"
+		},
+		"globals": ["Bun"]
+	},
+	"css": {
+		"parser": {
+			"cssModules": true,
+			"tailwindDirectives": true
+		}
+	},
+	"assist": {
+		"enabled": true,
+		"actions": {
+			"source": {
+				"organizeImports": "on"
+			}
+		}
+	}
+}
