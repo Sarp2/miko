@@ -1,41 +1,78 @@
-import { serve } from "bun";
-import index from "./index.html";
+import path from "node:path";
+import type { ClientState } from "./ws/ws-router";
 
-const server = serve({
-	routes: {
-		// Serve index.html for all unmatched routes.
-		"/*": index,
+const distDir = path.join(import.meta.dir, "..", "..", "dist", "client");
 
-		"/api/hello": {
-			async GET(req) {
-				return Response.json({
-					message: "Hello, world!",
-					method: "GET",
+export async function startServer(options: { port?: number; host?: string } = {}) {
+	const port = options.port ?? 3210;
+	const hostname = options.host ?? "127.0.0.1";
+
+	const server = Bun.serve<ClientState>({
+		port,
+		hostname,
+		fetch(req, serverInstance) {
+			const url = new URL(req.url);
+
+			if (url.pathname === "/ws") {
+				const upgraded = serverInstance.upgrade(req, {
+					data: {
+						// Client state
+						subscriptions: new Map(),
+						snapshotSignatures: new Map(),
+					},
 				});
-			},
-			async PUT(req) {
-				return Response.json({
-					message: "Hello, world!",
-					method: "PUT",
-				});
-			},
+				return upgraded ? undefined : new Response("WebSocket upgrade failed", { status: 400 });
+			}
+
+			if (url.pathname === "/health") {
+				return Response.json({ ok: true, port });
+			}
+
+			return serveStatic(distDir, url.pathname);
 		},
 
-		"/api/hello/:name": async (req) => {
-			const name = req.params.name;
-			return Response.json({
-				message: `Hello, ${name}!`,
-			});
+		websocket: {
+			open(ws) {
+				console.log("client connected");
+			},
+			message(ws, message) {
+				// Echo for now — replace with router later
+				ws.send(message);
+			},
+			close(ws) {
+				console.log("client disconnected");
+			},
 		},
-	},
+	});
 
-	development: process.env.NODE_ENV !== "production" && {
-		// Enable browser hot reloading in development
-		hmr: true,
+	console.log(`Server running at http://${hostname}:${port}`);
 
-		// Echo console logs from the browser to the server
-		console: true,
-	},
-});
+	return { port, stop: () => server.stop(true) };
+}
 
-console.log(`🚀 Server running at ${server.url}`);
+startServer();
+
+async function serveStatic(distDir: string, pathname: string) {
+	const requestedPath = pathname === "/" ? "index.html" : pathname;
+	const filePath = path.join(distDir, requestedPath);
+	const indexPath = path.join(distDir, "index.html");
+
+	const file = Bun.file(filePath);
+	if (await file.exists()) {
+		return new Response(file);
+	}
+
+	// Fallback for Client-Side routing
+	const indexFile = Bun.file(indexPath);
+	if (await indexFile.exists()) {
+		return new Response(indexFile, {
+			headers: {
+				"Content-Type": "text/html; charset=utf-8",
+			},
+		});
+	}
+
+	return new Response(`Client bundle not found. Run \`bun run build\` inside workbench/ first.`, {
+		status: 503,
+	});
+}
