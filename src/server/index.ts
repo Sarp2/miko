@@ -1,11 +1,11 @@
-import path from "node:path";
-import type { ClientState } from "./ws/ws-router";
+import path from 'node:path';
+import type { ClientState } from './ws/ws-router';
 
-const distDir = path.join(import.meta.dir, "..", "..", "dist", "client");
+const distDir = path.join(import.meta.dir, '..', '..', 'dist', 'client');
 
 export async function startServer(options: { port?: number; host?: string } = {}) {
 	const port = options.port ?? 3210;
-	const hostname = options.host ?? "127.0.0.1";
+	const hostname = options.host ?? '127.0.0.1';
 
 	const server = Bun.serve<ClientState>({
 		port,
@@ -13,7 +13,7 @@ export async function startServer(options: { port?: number; host?: string } = {}
 		fetch(req, serverInstance) {
 			const url = new URL(req.url);
 
-			if (url.pathname === "/ws") {
+			if (url.pathname === '/ws') {
 				const upgraded = serverInstance.upgrade(req, {
 					data: {
 						// Client state
@@ -21,10 +21,10 @@ export async function startServer(options: { port?: number; host?: string } = {}
 						snapshotSignatures: new Map(),
 					},
 				});
-				return upgraded ? undefined : new Response("WebSocket upgrade failed", { status: 400 });
+				return upgraded ? undefined : new Response('WebSocket upgrade failed', { status: 400 });
 			}
 
-			if (url.pathname === "/health") {
+			if (url.pathname === '/health') {
 				return Response.json({ ok: true, port });
 			}
 
@@ -33,14 +33,14 @@ export async function startServer(options: { port?: number; host?: string } = {}
 
 		websocket: {
 			open(ws) {
-				console.log("client connected");
+				console.log('client connected');
 			},
 			message(ws, message) {
 				// Echo for now — replace with router later
 				ws.send(message);
 			},
 			close(ws) {
-				console.log("client disconnected");
+				console.log('client disconnected');
 			},
 		},
 	});
@@ -53,9 +53,9 @@ export async function startServer(options: { port?: number; host?: string } = {}
 startServer();
 
 async function serveStatic(distDir: string, pathname: string) {
-	const requestedPath = pathname === "/" ? "index.html" : pathname;
+	const requestedPath = pathname === '/' ? 'index.html' : pathname;
 	const filePath = path.join(distDir, requestedPath);
-	const indexPath = path.join(distDir, "index.html");
+	const indexPath = path.join(distDir, 'index.html');
 
 	const file = Bun.file(filePath);
 	if (await file.exists()) {
@@ -67,7 +67,7 @@ async function serveStatic(distDir: string, pathname: string) {
 	if (await indexFile.exists()) {
 		return new Response(indexFile, {
 			headers: {
-				"Content-Type": "text/html; charset=utf-8",
+				'Content-Type': 'text/html; charset=utf-8',
 			},
 		});
 	}

@@ -1,4 +1,4 @@
-import type { SubscriptionTopic } from "../../shared/protocol";
+import type { SubscriptionTopic } from '../../shared/protocol';
 
 export interface ClientState {
 	subscriptions: Map<string, SubscriptionTopic>;
