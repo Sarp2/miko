@@ -1,6 +1,6 @@
-export const DEV_CLIENT_PORT = 5174;
+export const DEFAULT_DEV_CLIENT_PORT = 5174;
 
-export function getDefaultDevServerPort(clientPort = DEV_CLIENT_PORT) {
+export function getDefaultDevServerPort(clientPort = DEFAULT_DEV_CLIENT_PORT) {
 	return clientPort + 1;
 }
 
@@ -14,7 +14,7 @@ export interface DevArgResolution {
 }
 
 export function resolveDevPorts(args: string[]) {
-	let clientPort = DEV_CLIENT_PORT;
+	let clientPort = DEFAULT_DEV_CLIENT_PORT;
 
 	for (let index = 0; index < args.length; index++) {
 		const arg = args[index];
