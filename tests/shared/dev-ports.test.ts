@@ -76,8 +76,8 @@ describe('parseDevArgs', () => {
 		expect(() => parseDevArgs(['--share', '--remote'], 'dev-machine')).toThrow(
 			'--share cannot be used with --remote',
 		);
-		
-        expect(() => parseDevArgs(['--remote', '--share'], 'dev-machine')).toThrow(
+
+		expect(() => parseDevArgs(['--remote', '--share'], 'dev-machine')).toThrow(
 			'--share cannot be used with --remote',
 		);
 	});
