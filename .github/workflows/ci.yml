@@ -1,29 +1,45 @@
-name: CI                                                                                                 
-  on:                                                                                             
-    push:
-      branches: [main]                                                                              
-    pull_request:
-      branches: [main]                                                                              
-                                                                                                  
-  jobs:
-    ci:
-      name: Format, Lint, Build & Test
-      runs-on: ubuntu-latest                                                                        
-      steps:
-        - uses: actions/checkout@v4                                                                 
-                                                                                                  
-        - uses: oven-sh/setup-bun@v2
+name: CI
 
-        - run: bun install
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
 
-        - name: Format check                                                                        
-          run: bunx biome format --check
-                                                                                                    
-        - name: Lint                                                                              
-          run: bunx biome check
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
-        - name: Typecheck & Build
-          run: bun run check
+permissions:
+  contents: read
 
-        - name: Test                                                                                
-          run: bun test
+jobs:
+  ci:
+    name: Lint, Build & Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.5
+
+      - name: Cache bun install
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-
+
+      - run: bun install --frozen-lockfile
+
+      - name: Lint & format
+        run: bun run lint
+
+      - name: Typecheck & Build
+        run: bun run check
+
+      - name: Test
+        run: bun run test
