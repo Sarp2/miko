@@ -5,89 +5,112 @@ import { parseDevArgs } from 'src/shared/dev-ports';
 
 const cwd = process.cwd();
 const forwardedArgs = process.argv.slice(2);
-const bunBin = process.execPath
+const bunBin = process.execPath;
 const localHostname = getHostname();
 const devArgs = parseDevArgs(forwardedArgs, localHostname);
 const { clientPort, serverPort, serverArgs, share: _share } = devArgs;
 
 const clientEnv = {
-    ...process.env,
-    MIKO_DEV_ALLOWED_HOSTS: typeof devArgs.allowedHosts === 'boolean' 
-        ? String(devArgs.allowedHosts) 
-        : JSON.stringify(devArgs.allowedHosts),
-    MIKO_DEV_BACKEND_TARGET_HOST: devArgs.backendTargetHost,
-    MIKO_DEV_BACKEND_PORT: String(serverPort),
-}
+	...process.env,
+	MIKO_DEV_ALLOWED_HOSTS:
+		typeof devArgs.allowedHosts === 'boolean'
+			? String(devArgs.allowedHosts)
+			: JSON.stringify(devArgs.allowedHosts),
+	MIKO_DEV_BACKEND_TARGET_HOST: devArgs.backendTargetHost,
+	MIKO_DEV_BACKEND_PORT: String(serverPort),
+};
 
 function spawnLabeledProcess(label: string, args: string[]) {
-    const child = spawn(bunBin, args, {
-        cwd,
-        stdio: 'inherit',
-        env: label === 'client' ? clientEnv : process.env,
-    });
+	const child = spawn(bunBin, args, {
+		cwd,
+		stdio: 'inherit',
+		env: label === 'client' ? clientEnv : process.env,
+	});
 
-    child.on('spawn', () => {
-        console.log(`${LOG_PREFIX.replace("]", `:${label}]`)} started`);
-    });
+	child.on('spawn', () => {
+		console.log(`${LOG_PREFIX.replace(']', `:${label}]`)} started`);
+	});
 
-    return child;
+	return child;
 }
 
-const client = spawnLabeledProcess("client", ["x", "vite", "--host", "0.0.0.0", "--port", String(clientPort), "--strictPort"])
-const server = spawn(bunBin, ["run", "./scripts/dev-server.ts", "--no-open", "--port", String(serverPort), "--strict-port", ...serverArgs], {
-    cwd,
-    stdio: "inherit",
-  env: process.env,
-});
+const client = spawnLabeledProcess('client', [
+	'x',
+	'vite',
+	'--host',
+	'0.0.0.0',
+	'--port',
+	String(clientPort),
+	'--strictPort',
+]);
+const server = spawn(
+	bunBin,
+	[
+		'run',
+		'./scripts/dev-server.ts',
+		'--no-open',
+		'--port',
+		String(serverPort),
+		'--strict-port',
+		...serverArgs,
+	],
+	{
+		cwd,
+		stdio: 'inherit',
+		env: process.env,
+	},
+);
 
 const children = [client, server];
 let shuttingDown = false;
 
 function stopChild(child: ChildProcess) {
-    if (child.killed || child.exitCode !== null) return;
-    child.kill('SIGTERM');
+	if (child.killed || child.exitCode !== null) return;
+	child.kill('SIGTERM');
 }
 
 function shutdown(exitCode = 0) {
-    if (shuttingDown) return;
-    shuttingDown = true;
+	if (shuttingDown) return;
+	shuttingDown = true;
 
-    for (const child of children) {
-        stopChild(child);
-    }
+	for (const child of children) {
+		stopChild(child);
+	}
 
-    setTimeout(() => {
-        for (const child of children) {
-            if (!child.killed && child.exitCode === null) {
-                child.kill('SIGKILL');
-            }
-        }
-    }, 2_000).unref();
+	setTimeout(() => {
+		for (const child of children) {
+			if (!child.killed && child.exitCode === null) {
+				child.kill('SIGKILL');
+			}
+		}
+	}, 2_000).unref();
 
-    process.exit(exitCode);
+	process.exit(exitCode);
 }
 
 function onChildExist(label: string, code: number | null, signal: NodeJS.Signals | null) {
-    if (shuttingDown) return;
-    const exitCode = code ?? (signal ? 1 : 0);
-    console.error(`${LOG_PREFIX.replace("]", `:${label}]`)} exited${signal ? ` via ${signal}` : ` with code ${String(exitCode)}`}`);
-    shutdown(exitCode);
+	if (shuttingDown) return;
+	const exitCode = code ?? (signal ? 1 : 0);
+	console.error(
+		`${LOG_PREFIX.replace(']', `:${label}]`)} exited${signal ? ` via ${signal}` : ` with code ${String(exitCode)}`}`,
+	);
+	shutdown(exitCode);
 }
 
 client.on('exit', (code, signal) => {
-    onChildExist('client', code, signal);
+	onChildExist('client', code, signal);
 });
 
 server.on('exit', (code, signal) => {
-    onChildExist('server', code, signal);
+	onChildExist('server', code, signal);
 });
 
 process.on('SIGINT', () => {
-    shutdown(0);
+	shutdown(0);
 });
 
 process.on('SIGTERM', () => {
-    shutdown(0);
+	shutdown(0);
 });
 
 console.log(`${LOG_PREFIX} dev client: http://localhost:${clientPort}`);
