@@ -1,4 +1,6 @@
 import { describe, expect, test } from 'bun:test';
+import { homedir } from 'node:os';
+import path from 'node:path';
 import type { ChatHistorySnapshot, MikoStatus, TranscriptEntry } from 'src/shared/types';
 import { createEmptyState } from './event';
 import { deriveChatSnapshot, deriveLocalProjectsSnapshot, deriveSidebarData } from './read-models';
@@ -169,6 +171,50 @@ describe('deriveLocalProjectsSnapshot', () => {
 		expect(snapshot.projects).toEqual([
 			{
 				localPath: '/tmp/project',
+				title: 'Saved Project',
+				source: 'saved',
+				lastOpenedAt: 100,
+				chatCount: 1,
+			},
+		]);
+	});
+
+	test('deduplicates discovered and saved projects after path normalization', () => {
+		const state = createEmptyState();
+		state.projectsById.set('project-1', {
+			id: 'project-1',
+			localPath: '~/project',
+			title: 'Saved Project',
+			createdAt: 1,
+			updatedAt: 50,
+		});
+
+		state.projectIdsByPath.set('~/project', 'project-1');
+
+		state.chatsById.set('chat-1', {
+			id: 'chat-1',
+			projectId: 'project-1',
+			title: 'Chat',
+			createdAt: 1,
+			updatedAt: 75,
+			unread: false,
+			provider: 'codex',
+			planMode: false,
+			sessionToken: null,
+			lastMessageAt: 100,
+			lastTurnOutcome: null,
+		});
+
+		const resolvedPath = path.join(homedir(), 'project');
+		const discoveredProjects = [
+			{ localPath: resolvedPath, title: 'Discovered Project', modifiedAt: 10 },
+		];
+
+		const snapshot = deriveLocalProjectsSnapshot(state, discoveredProjects, 'Local Machine');
+
+		expect(snapshot.projects).toEqual([
+			{
+				localPath: resolvedPath,
 				title: 'Saved Project',
 				source: 'saved',
 				lastOpenedAt: 100,

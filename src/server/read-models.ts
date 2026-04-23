@@ -75,6 +75,7 @@ export function deriveLocalProjectsSnapshot(
 	}
 
 	for (const project of [...state.projectsById.values()].filter((entry) => !entry.deletedAt)) {
+		const normalizedPath = resolveLocalPath(project.localPath);
 		const chats = [...state.chatsById.values()].filter(
 			(chat) => chat.projectId === project.id && !chat.deletedAt,
 		);
@@ -84,8 +85,8 @@ export function deriveLocalProjectsSnapshot(
 			project.updatedAt,
 		);
 
-		projects.set(project.localPath, {
-			localPath: project.localPath,
+		projects.set(normalizedPath, {
+			localPath: normalizedPath,
 			title: project.title,
 			source: 'saved',
 			lastOpenedAt,
