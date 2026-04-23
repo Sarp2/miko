@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { type ModelOptions } from 'src/shared/types';
+import type { ModelOptions } from 'src/shared/types';
 import {
 	codexServiceTierFromModelOptions,
 	normalizeClaudeModelOptions,
@@ -22,7 +22,7 @@ describe('normalizeClaudeModelOptions', () => {
 		expect(normalizeClaudeModelOptions('opus', undefined, 'max')).toEqual({
 			reasoningEffort: 'max',
 			contextWindow: '200k',
-		  })
+		});
 	});
 
 	test('keeps the 1m context window for models that support it', () => {

@@ -1,11 +1,11 @@
-import {
-	type ChatRuntime,
-	type ChatSnapshot,
-	type LocalProjectsSnapshot,
-	type MikoStatus,
-	type SidebarChatRow,
-	type SidebarData,
-	type SidebarProjectGroup,
+import type {
+	ChatRuntime,
+	ChatSnapshot,
+	LocalProjectsSnapshot,
+	MikoStatus,
+	SidebarChatRow,
+	SidebarData,
+	SidebarProjectGroup,
 } from 'src/shared/types';
 import type { ChatRecord, StoreState } from './event';
 import { resolveLocalPath } from './paths';

@@ -22,9 +22,9 @@ describe('deriveSidebarData', () => {
 			createdAt: 1,
 			updatedAt: 1,
 		});
-		
+
 		state.projectIdsByPath.set('/tmp/project', 'project-1');
-		
+
 		state.chatsById.set('chat-1', {
 			id: 'chat-1',
 			projectId: 'project-1',
@@ -37,7 +37,7 @@ describe('deriveSidebarData', () => {
 			sessionToken: 'thread-1',
 			lastTurnOutcome: null,
 		});
-		
+
 		const activeStatuses = new Map<string, MikoStatus>();
 		const sidebar = deriveSidebarData(state, activeStatuses);
 
@@ -57,7 +57,7 @@ describe('deriveSidebarData', () => {
 		});
 
 		state.projectIdsByPath.set('/tmp/project', 'project-1');
-		
+
 		state.chatsById.set('chat-older-activity', {
 			id: 'chat-older-activity',
 			projectId: 'project-1',
@@ -71,7 +71,7 @@ describe('deriveSidebarData', () => {
 			lastMessageAt: 100,
 			lastTurnOutcome: null,
 		});
-		
+
 		state.chatsById.set('chat-newer-activity', {
 			id: 'chat-newer-activity',
 			projectId: 'project-1',
@@ -104,9 +104,9 @@ describe('deriveChatSnapshot', () => {
 			createdAt: 1,
 			updatedAt: 1,
 		});
-		
+
 		state.projectIdsByPath.set('/tmp/project', 'project-1');
-		
+
 		state.chatsById.set('chat-1', {
 			id: 'chat-1',
 			projectId: 'project-1',
@@ -119,10 +119,10 @@ describe('deriveChatSnapshot', () => {
 			sessionToken: 'session-1',
 			lastTurnOutcome: null,
 		});
-		
+
 		const activeStatuses = new Map<string, MikoStatus>();
 		const drainingChatIds = new Set<string>();
-		
+
 		const getMessages = () => emptyTranscript;
 		const chat = deriveChatSnapshot(state, activeStatuses, drainingChatIds, 'chat-1', getMessages);
 
@@ -143,9 +143,9 @@ describe('deriveLocalProjectsSnapshot', () => {
 			createdAt: 1,
 			updatedAt: 50,
 		});
-		
+
 		state.projectIdsByPath.set('/tmp/project', 'project-1');
-		
+
 		state.chatsById.set('chat-1', {
 			id: 'chat-1',
 			projectId: 'project-1',
@@ -159,7 +159,7 @@ describe('deriveLocalProjectsSnapshot', () => {
 			lastMessageAt: 100,
 			lastTurnOutcome: null,
 		});
-		
+
 		const discoveredProjects = [
 			{ localPath: '/tmp/project', title: 'Discovered Project', modifiedAt: 10 },
 		];
