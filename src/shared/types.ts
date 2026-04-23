@@ -168,7 +168,7 @@ export function getClaudeContextWindowOptions(
 	return getClaudeModelOption(modelId)?.contextWindowOptions ?? [];
 }
 
-export function normalizedClaudeContextWindow(
+export function normalizeClaudeContextWindow(
 	modelId: string,
 	contextWindow?: unknown,
 ): ClaudeContextWindow {
@@ -218,7 +218,7 @@ export interface SidebarChatRow {
 	localPath: string;
 	provider: AgentProvider | null;
 	lastMessageAt?: number;
-	hasAutomation: number;
+	hasAutomation: boolean;
 }
 
 export interface SidebarProjectGroup {
