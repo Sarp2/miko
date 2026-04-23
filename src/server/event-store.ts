@@ -123,7 +123,7 @@ export class EventStore {
 			}
 
 			for (const chat of parsed.chats) {
-				this.state.chatsById.set(chat.id, { ...chat, unread: chat.unread ?? false });
+				this.state.chatsById.set(chat.id, { ...chat });
 			}
 		} catch (error) {
 			console.warn(`${LOG_PREFIX} Failed to load snapshot, resetting local history:`, error);
