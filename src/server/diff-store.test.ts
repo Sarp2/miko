@@ -665,7 +665,7 @@ describe('DiffStore.refreshSnapshot', () => {
 describe('DiffStore.previewMergeBranch', () => {
 	test('returns mergeable when the target branch has one clean commit', async () => {
 		const repoRoot = await createTempDir();
-		await runGit(['init'], repoRoot);
+		await runGit(['init', '-b', 'main'], repoRoot);
 		await runGit(['config', 'user.email', 'miko@example.com'], repoRoot);
 		await runGit(['config', 'user.name', 'Miko'], repoRoot);
 
@@ -697,7 +697,7 @@ describe('DiffStore.previewMergeBranch', () => {
 describe('DiffStore.mergeBranch', () => {
 	test('merges a clean target branch into the current branch', async () => {
 		const repoRoot = await createTempDir();
-		await runGit(['init'], repoRoot);
+		await runGit(['init', '-b', 'main'], repoRoot);
 		await runGit(['config', 'user.email', 'miko@example.com'], repoRoot);
 		await runGit(['config', 'user.name', 'Miko'], repoRoot);
 
@@ -729,7 +729,7 @@ describe('DiffStore.mergeBranch', () => {
 describe('DiffStore.checkoutBranch', () => {
 	test('switches to a local branch', async () => {
 		const repoRoot = await createTempDir();
-		await runGit(['init'], repoRoot);
+		await runGit(['init', '-b', 'main'], repoRoot);
 		await runGit(['config', 'user.email', 'miko@example.com'], repoRoot);
 		await runGit(['config', 'user.name', 'Miko'], repoRoot);
 
@@ -788,7 +788,7 @@ describe('DiffStore.syncBranch', () => {
 		const repoRoot = await createTempDir();
 
 		await runGit(['init', '--bare'], remoteRoot);
-		await runGit(['init'], repoRoot);
+		await runGit(['init', '-b', 'main'], repoRoot);
 		await runGit(['config', 'user.email', 'miko@example.com'], repoRoot);
 		await runGit(['config', 'user.name', 'Miko'], repoRoot);
 
