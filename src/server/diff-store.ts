@@ -483,6 +483,8 @@ export function parseStatusLine(line: string): DirtyPathEntry | null {
 }
 
 export async function listDirtyPaths(repoRoot: string) {
+	// TODO: switch to `git status --porcelain=v1 -z` and parse NUL-delimited records
+	// so quoted paths, newlines, and rename entries are handled without ambiguity.
 	const status = await runGit(['status', '--porcelain=v1', '--untracked-files=all'], repoRoot);
 	if (status.exitCode !== 0) {
 		throw new Error(formatGitFailure(status) || 'Failed to list git changes');
