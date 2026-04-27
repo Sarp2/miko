@@ -37,7 +37,10 @@ describe('parseChildArgsEnv', () => {
 	});
 
 	test('parses a JSON-encoded string array', () => {
-		expect(parseChildArgsEnv('["run","./scripts/dev-server.ts"]')).toEqual(['run', './scripts/dev-server.ts']);
+		expect(parseChildArgsEnv('["run","./scripts/dev-server.ts"]')).toEqual([
+			'run',
+			'./scripts/dev-server.ts',
+		]);
 	});
 
 	test('throws a labeled error on non-array JSON', () => {
