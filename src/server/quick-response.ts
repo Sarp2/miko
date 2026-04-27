@@ -110,6 +110,7 @@ export async function runClaudeStructured(args: ProviderRequest): Promise<unknow
 		},
 	});
 
+	let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
 	try {
 		const result = await Promise.race<unknown | null>([
 			(async () => {
@@ -122,7 +123,7 @@ export async function runClaudeStructured(args: ProviderRequest): Promise<unknow
 				return null;
 			})(),
 			new Promise<null>((_, reject) => {
-				setTimeout(() => {
+				timeoutHandle = setTimeout(() => {
 					reject(
 						new Error(
 							`Claude structured response timed out after ${CLAUDE_STRUCTURED_TIMEOUT_MS}ms`,
@@ -136,6 +137,7 @@ export async function runClaudeStructured(args: ProviderRequest): Promise<unknow
 	} catch {
 		return null;
 	} finally {
+		if (timeoutHandle !== undefined) clearTimeout(timeoutHandle);
 		try {
 			q.close();
 		} catch {
