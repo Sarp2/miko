@@ -437,7 +437,10 @@ async function getLastFetchedAt(repoRoot: string) {
 	if (gitPath.exitCode !== 0) return undefined;
 
 	try {
-		const info = await stat(gitPath.stdout.trim());
+		const fetchHeadPath = gitPath.stdout.trim();
+		const info = await stat(
+			path.isAbsolute(fetchHeadPath) ? fetchHeadPath : path.join(repoRoot, fetchHeadPath),
+		);
 		return info.mtime.toISOString();
 	} catch {
 		return undefined;

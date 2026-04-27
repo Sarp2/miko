@@ -937,3 +937,19 @@ describe('fetchGitHubPullRequests', () => {
 		expect(fetchCalled).toBe(false);
 	});
 });
+
+describe('DiffStore.refreshSnapshot lastFetchedAt', () => {
+	test('resolves a relative FETCH_HEAD path from the target repo root', async () => {
+		const repoRoot = await createTempDir();
+		await runGit(['init'], repoRoot);
+		await Bun.write(path.join(repoRoot, '.git', 'FETCH_HEAD'), 'fetch data\n');
+		const expectedFetchedAt = (
+			await stat(path.join(repoRoot, '.git', 'FETCH_HEAD'))
+		).mtime.toISOString();
+
+		const store = new DiffStore(repoRoot);
+		await store.refreshSnapshot('project-1', repoRoot);
+
+		expect(store.getProjectSnapshot('project-1').lastFetchedAt).toBe(expectedFetchedAt);
+	});
+});
