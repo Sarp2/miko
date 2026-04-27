@@ -19,7 +19,6 @@ function titleArgs(
 	overrides: Partial<StructuredQuickResponseArgs<string>> = {},
 ): StructuredQuickResponseArgs<string> {
 	return {
-		cwd: '/tmp/project',
 		task: 'title',
 		prompt: 'pick a title',
 		schema: TITLE_SCHEMA,

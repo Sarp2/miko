@@ -13,21 +13,23 @@ type JsonSchema = {
 };
 
 export interface StructuredQuickResponseArgs<T> {
-	cwd: string;
 	task: string;
 	prompt: string;
 	schema: JsonSchema;
 	parse: (value: unknown) => T | null;
 }
 
+export interface ProviderRequest {
+	cwd: string;
+	task: string;
+	prompt: string;
+	schema: JsonSchema;
+}
+
 interface QuickResponseAdapterArgs {
 	codexManager?: CodexAppServerManager;
-	runClaudeStructured?: (
-		args: Omit<StructuredQuickResponseArgs<unknown>, 'parse'>,
-	) => Promise<unknown | null>;
-	runCodexStructured?: (
-		args: Omit<StructuredQuickResponseArgs<unknown>, 'parse'>,
-	) => Promise<unknown | null>;
+	runClaudeStructured?: (args: ProviderRequest) => Promise<unknown | null>;
+	runCodexStructured?: (args: ProviderRequest) => Promise<unknown | null>;
 }
 
 export interface StructuredQuickResponseFailure {
@@ -90,9 +92,7 @@ export function structuredOutputFromSdkMessage(message: unknown): unknown | null
 	return null;
 }
 
-export async function runClaudeStructured(
-	args: Omit<StructuredQuickResponseArgs<unknown>, 'parse'>,
-): Promise<unknown | null> {
+export async function runClaudeStructured(args: ProviderRequest): Promise<unknown | null> {
 	const q = query({
 		prompt: args.prompt,
 		options: {
@@ -146,7 +146,7 @@ export async function runClaudeStructured(
 
 export async function runCodexStructured(
 	codexManager: CodexAppServerManager,
-	args: Omit<StructuredQuickResponseArgs<unknown>, 'parse'>,
+	args: ProviderRequest,
 ): Promise<unknown | null> {
 	const response = await codexManager.generateStructured({
 		cwd: args.cwd,
@@ -160,13 +160,8 @@ export async function runCodexStructured(
 
 export class QuickResponseAdapter {
 	private readonly codexManager: CodexAppServerManager;
-	private readonly runClaudeStructured: (
-		args: Omit<StructuredQuickResponseArgs<unknown>, 'parse'>,
-	) => Promise<unknown | null>;
-
-	private readonly runCodexStructured: (
-		args: Omit<StructuredQuickResponseArgs<unknown>, 'parse'>,
-	) => Promise<unknown | null>;
+	private readonly runClaudeStructured: (args: ProviderRequest) => Promise<unknown | null>;
+	private readonly runCodexStructured: (args: ProviderRequest) => Promise<unknown | null>;
 
 	constructor(args: QuickResponseAdapterArgs = {}) {
 		this.codexManager = args.codexManager ?? new CodexAppServerManager();
