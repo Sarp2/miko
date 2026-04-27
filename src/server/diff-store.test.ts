@@ -224,6 +224,7 @@ describe('extractGitHubRepoSlug', () => {
 		expect(extractGitHubRepoSlug('git@github.com:acme/repo.git')).toBe('acme/repo');
 		expect(extractGitHubRepoSlug('ssh://git@github.com/acme/repo.git')).toBe('acme/repo');
 		expect(extractGitHubRepoSlug('https://github.com/acme/repo.git')).toBe('acme/repo');
+		expect(extractGitHubRepoSlug('https://github.com/acme/my.repo.git')).toBe('acme/my.repo');
 	});
 
 	test('returns null for unsupported remotes', () => {

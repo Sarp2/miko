@@ -373,9 +373,9 @@ export function extractGitHubRepoSlug(remoteUrl: string | null | undefined) {
 	if (!remoteUrl) return null;
 
 	const patterns = [
-		/^git@github\.com:([^/]+\/[^/.]+)(?:\.git)?$/u,
-		/^ssh:\/\/git@github\.com\/([^/]+\/[^/.]+)(?:\.git)?$/u,
-		/^https:\/\/github\.com\/([^/]+\/[^/.]+)(?:\.git)?$/u,
+		/^git@github\.com:([^/]+\/[^/]+?)(?:\.git)?$/u,
+		/^ssh:\/\/git@github\.com\/([^/]+\/[^/]+?)(?:\.git)?$/u,
+		/^https:\/\/github\.com\/([^/]+\/[^/]+?)(?:\.git)?$/u,
 	];
 
 	for (const pattern of patterns) {
