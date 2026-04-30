@@ -35,8 +35,9 @@ export function sanitizeTitle(value: unknown): string | null {
 		.replace(/\s+/g, ' ')
 		.trim()
 		.replace(/^[-*#"'`]+/u, '')
-		.replace(/["'`.]+$/u, '')
+		.trim()
 		.slice(0, TITLE_MAX_LENGTH)
+		.replace(/[-*#"'`.]+$/u, '')
 		.trim();
 
 	return normalized.length > 0 ? normalized : null;

@@ -61,7 +61,10 @@ describe('sanitizeTitle', () => {
 		expect(sanitizeTitle(undefined)).toBeNull();
 		expect(sanitizeTitle('   \n  ')).toBeNull();
 		expect(sanitizeTitle('  "fix   login   flow."\nmore details  ')).toBe('fix login flow');
+		expect(sanitizeTitle('## Fix login flow ##')).toBe('Fix login flow');
+		expect(sanitizeTitle('**Fix login flow**')).toBe('Fix login flow');
 		expect(sanitizeTitle('a'.repeat(80))).toBe('a'.repeat(60));
+		expect(sanitizeTitle(`${'a'.repeat(59)}* more details`)).toBe('a'.repeat(59));
 	});
 });
 
