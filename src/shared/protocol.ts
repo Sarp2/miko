@@ -36,6 +36,7 @@ export interface TerminalSnapshot {
 	cols: number;
 	rows: number;
 	scrollback: number;
+	serializedState: string;
 	status: 'running' | 'exited';
 	exitCode: number | null;
 	signal?: number;
