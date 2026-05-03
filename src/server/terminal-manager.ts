@@ -109,11 +109,15 @@ function filterFocusReportInput(data: string, allowFocusReporting: boolean) {
 	return data.replaceAll(FOCUS_IN_SEQUENCE, '').replaceAll(FOCUS_OUT_SEQUENCE, '');
 }
 
+function isValidProcessGroupPid(pid: number) {
+	return Number.isInteger(pid) && pid > 0;
+}
+
 export function killTerminalProcessTree(subprocess: Bun.Subprocess | null) {
 	if (!subprocess) return;
 
 	const pid = subprocess.pid;
-	if (typeof pid !== 'number') return;
+	if (!isValidProcessGroupPid(pid)) return;
 
 	try {
 		process.kill(-pid, 'SIGKILL');
@@ -136,7 +140,7 @@ export function signalTerminalProcessGroup(
 	if (!subprocess) return false;
 
 	const pid = subprocess.pid;
-	if (typeof pid !== 'number') return false;
+	if (!isValidProcessGroupPid(pid)) return false;
 
 	try {
 		process.kill(-pid, signal);

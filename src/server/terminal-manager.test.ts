@@ -219,6 +219,19 @@ describe('killTerminalProcessTree', () => {
 		}
 	});
 
+	test('ignores invalid process ids', () => {
+		const kill = spyOn(process, 'kill').mockImplementation(() => true);
+
+		try {
+			killTerminalProcessTree({ pid: 0 } as Bun.Subprocess);
+			killTerminalProcessTree({ pid: Number.NaN } as Bun.Subprocess);
+
+			expect(kill).not.toHaveBeenCalled();
+		} finally {
+			kill.mockRestore();
+		}
+	});
+
 	test('falls back to killing only the subprocess when process group killing fails', () => {
 		const kill = spyOn(process, 'kill').mockImplementation(() => {
 			throw new Error('process group not found');
@@ -262,6 +275,20 @@ describe('signalTerminalProcessGroup', () => {
 		try {
 			expect(signalTerminalProcessGroup(subprocess, 'SIGINT')).toBe(true);
 			expect(kill).toHaveBeenCalledWith(-1234, 'SIGINT');
+		} finally {
+			kill.mockRestore();
+		}
+	});
+
+	test('returns false for invalid process ids', () => {
+		const kill = spyOn(process, 'kill').mockImplementation(() => true);
+
+		try {
+			expect(signalTerminalProcessGroup({ pid: 0 } as Bun.Subprocess, 'SIGINT')).toBe(false);
+			expect(signalTerminalProcessGroup({ pid: Number.NaN } as Bun.Subprocess, 'SIGINT')).toBe(
+				false,
+			);
+			expect(kill).not.toHaveBeenCalled();
 		} finally {
 			kill.mockRestore();
 		}
