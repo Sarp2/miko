@@ -50,7 +50,7 @@ export async function generateTitleForChatDetailed(
 ): Promise<GenerateChatTitleResult> {
 	const result = await adapter.generateStructuredWithDiagnostics<string>({
 		task: 'conversation title generation',
-		prompt: `Generate a short, descriptive title (under 30 chars) for a conversation that starts with this message.\n\n${messageContent}`,
+		prompt: `Generate a short, descriptive title (under 30 chars) for a conversation that starts with this message.\n\n${messageContent.slice(0, 12_000)}`,
 		schema: TITLE_SCHEMA,
 		parse: (value) => {
 			const output = value && typeof value === 'object' ? (value as { title?: unknown }) : {};
