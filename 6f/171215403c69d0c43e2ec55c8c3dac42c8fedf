@@ -1,0 +1,23 @@
+src/server/discovery.ts
+  a196f84f46504c28 111-117
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "6f171215403c69d0c43e2ec55c8c3dac42c8fedf",
+  "prompts": {
+    "a196f84f46504c28": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "97c143b7-404b-402d-9c86-d0ae3bdf1090",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Sarp",
+      "messages": [],
+      "total_additions": 7,
+      "total_deletions": 1,
+      "accepted_lines": 7,
+      "overriden_lines": 0
+    }
+  }
+}
