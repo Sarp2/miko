@@ -108,7 +108,13 @@ export class ClaudeProjectDiscoveryAdapter implements ProjectDiscoveryAdapter {
 				continue;
 			}
 
-			const stat = statSync(path.join(projectsDir, entry.name));
+			let stat: ReturnType<typeof statSync>;
+			try {
+				stat = statSync(path.join(projectsDir, entry.name));
+			} catch {
+				continue;
+			}
+
 			projects.push({
 				provider: this.provider,
 				localPath: normalizedPath,
