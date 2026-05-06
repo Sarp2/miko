@@ -60,6 +60,7 @@ describe('buildEditorCommand', () => {
 	});
 
 	test('routes custom preset through buildCustomEditorCommand', () => {
+		spyOn(processUtils, 'hasCommand').mockReturnValue(true);
 		expect(
 			buildEditorCommand({
 				localPath: '/u/me/x.ts',
@@ -142,7 +143,12 @@ describe('resolveEditorExecutable', () => {
 });
 
 describe('buildCustomEditorCommand', () => {
+	afterEach(() => {
+		spyOn(processUtils, 'hasCommand').mockRestore();
+	});
+
 	test('substitutes {path}, {line}, {column} and tokenizes the result', () => {
+		spyOn(processUtils, 'hasCommand').mockReturnValue(true);
 		expect(
 			buildCustomEditorCommand({
 				commandTemplate: 'myedit --goto {path}:{line}:{column}',
@@ -157,6 +163,16 @@ describe('buildCustomEditorCommand', () => {
 		expect(() =>
 			buildCustomEditorCommand({ commandTemplate: 'myedit --goto', localPath: '/u/me/x.ts' }),
 		).toThrow('{path}');
+	});
+
+	test('throws when the resolved command is not on PATH', () => {
+		spyOn(processUtils, 'hasCommand').mockReturnValue(false);
+		expect(() =>
+			buildCustomEditorCommand({
+				commandTemplate: 'nope-editor {path}',
+				localPath: '/u/me/x.ts',
+			}),
+		).toThrow('Custom editor command not found: nope-editor');
 	});
 });
 

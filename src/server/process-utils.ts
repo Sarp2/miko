@@ -1,7 +1,10 @@
 import { spawn, spawnSync } from 'node:child_process';
 
 export function spawnDetached(command: string, args: string[]) {
-	spawn(command, args, { stdio: 'ignore', detached: true }).unref();
+	const child = spawn(command, args, { stdio: 'ignore', detached: true });
+	// Swallow ENOENT/EACCES so a missing binary cannot crash the server.
+	child.on('error', () => {});
+	child.unref();
 }
 
 export function hasCommand(command: string) {

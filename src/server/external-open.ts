@@ -176,6 +176,9 @@ export function buildCustomEditorCommand(args: {
 	if (!command) {
 		throw new Error('Custom editor command is empty');
 	}
+	if (!hasCommand(command)) {
+		throw new Error(`Custom editor command not found: ${command}`);
+	}
 	return { command, args: commandArgs };
 }
 
