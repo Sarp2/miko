@@ -20,6 +20,12 @@ describe('spawnDetached', () => {
 			rmSync(dir, { recursive: true, force: true });
 		}
 	});
+
+	test('does not crash when the binary is missing', async () => {
+		spawnDetached('definitely-not-a-real-command-xyz', []);
+		// Let the async ENOENT 'error' event flush; without the listener this would crash the process.
+		await new Promise((r) => setTimeout(r, 50));
+	});
 });
 
 describe('hasCommand', () => {
