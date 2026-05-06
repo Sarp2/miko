@@ -1,0 +1,29 @@
+src/server/external-open.test.ts
+  181d3c5df6ab0f47 63,146-149,151,167-175
+src/server/process-utils.ts
+  181d3c5df6ab0f47 4-7
+src/server/external-open.ts
+  181d3c5df6ab0f47 179-181
+src/server/process-utils.test.ts
+  181d3c5df6ab0f47 23-28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "05b30d4f4b3e197b18cffe98b65f1b140cc5c73d",
+  "prompts": {
+    "181d3c5df6ab0f47": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c14b5a87-35ea-4638-8796-f9e5830e2604",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Sarp",
+      "messages": [],
+      "total_additions": 29,
+      "total_deletions": 1,
+      "accepted_lines": 29,
+      "overriden_lines": 0
+    }
+  }
+}
