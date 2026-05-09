@@ -644,7 +644,7 @@ export interface CompactBoundaryEntry extends TranscriptEntryBase {
 }
 
 export interface CompactSummaryEntry extends TranscriptEntryBase {
-	kind: 'compact_boundary';
+	kind: 'compact_summary';
 	summary: string;
 }
 
