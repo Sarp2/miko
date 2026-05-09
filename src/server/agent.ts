@@ -342,17 +342,6 @@ export function normalizeClaudeStreamMessage(message: any): TranscriptEntry[] {
 					}),
 				);
 			}
-
-			if (message.message.role === 'user' && typeof message.message.content === 'string') {
-				entries.push(
-					timestamped({
-						kind: 'compact_summary',
-						messageId,
-						summary: message.message.content,
-						debugRaw,
-					}),
-				);
-			}
 		}
 		return entries;
 	}
