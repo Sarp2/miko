@@ -630,7 +630,7 @@ describe('AgentCoordinator.respondTool', () => {
 });
 
 describe('AgentCoordinator.cancel', () => {
-	test('cancels an active turn, records interruption/cancel, and closes the turn', async () => {
+	test('cancels a Claude turn and resolves pending ask_user_question tool', async () => {
 		const appended: any[] = [];
 		let cancelledCount = 0;
 
@@ -696,7 +696,7 @@ describe('AgentCoordinator.cancel', () => {
 		});
 	});
 
-	test('resolves discarded pending exit_plan_mode tool for codex provider', async () => {
+	test('cancels a Codex turn and resolves pending exit_plan_mode tool', async () => {
 		const store = {
 			appendMessage: async () => {},
 			recordTurnCancelled: async () => {},
