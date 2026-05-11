@@ -186,6 +186,10 @@ describe('parseArgs', () => {
 		expect(() => parseArgs(['--host', '--no-open'])).toThrow('Missing value for --host');
 	});
 
+	test('unknown flags throw a clear error', () => {
+		expect(() => parseArgs(['--wat'])).toThrow('Unknown option: --wat');
+	});
+
 	test('--share is incompatible with --host and --remote', () => {
 		expect(() => parseArgs(['--share', '--host', 'dev-box'])).toThrow(
 			'--share cannot be used with --host',

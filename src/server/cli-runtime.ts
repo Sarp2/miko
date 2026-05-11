@@ -161,7 +161,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
 			continue;
 		}
 
-		if (!arg.startsWith('-')) throw new Error(`Unexpected positional argument: ${arg}`);
+		if (arg.startsWith('-')) throw new Error(`Unknown option: ${arg}`);
+		throw new Error(`Unexpected positional argument: ${arg}`);
 	}
 
 	return {
