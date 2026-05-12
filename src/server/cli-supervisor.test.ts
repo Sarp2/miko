@@ -66,14 +66,12 @@ describe('spawnChild', () => {
 			},
 		} as unknown as ReturnType<typeof childProcess.spawn>;
 
-		const spawn = spyOn(childProcess, 'spawn').mockImplementation(
-			((..._spawnArgs: unknown[]) => {
-				queueMicrotask(() => {
-					handlers.exit?.(7, null);
-				});
-				return fakeChild;
-			}) as never,
-		);
+		const spawn = spyOn(childProcess, 'spawn').mockImplementation(((..._spawnArgs: unknown[]) => {
+			queueMicrotask(() => {
+				handlers.exit?.(7, null);
+			});
+			return fakeChild;
+		}) as never);
 
 		const result = await spawnChild(['--port', '4000'], true);
 

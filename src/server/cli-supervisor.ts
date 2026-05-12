@@ -43,7 +43,7 @@ export function spawnChild(argv: string[], suppressOpenThisChild: boolean) {
 		const onSigint = () => {
 			forwardSignal('SIGINT');
 		};
-		
+
 		const onSigterm = () => {
 			forwardSignal('SIGTERM');
 		};
@@ -71,11 +71,13 @@ export async function runCliSupervisor(argv: string[]) {
 	while (true) {
 		const suppressOpenThisChild = suppressOpenOnNextChild;
 		suppressOpenOnNextChild = false;
-		
+
 		const result = await spawnChild(argv, suppressOpenThisChild);
 		if (shouldRestartCliProcess(result.code, result.signal)) {
 			suppressOpenOnNextChild = isUiUpdateRestart(result.code, result.signal);
-			console.log(`${LOG_PREFIX} supervisor restarting ${CLI_COMMAND} in the same terminal session`);
+			console.log(
+				`${LOG_PREFIX} supervisor restarting ${CLI_COMMAND} in the same terminal session`,
+			);
 			continue;
 		}
 
