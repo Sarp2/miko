@@ -1,0 +1,22 @@
+src/server/update-manager.test.ts
+  s_6249bca8412a18::t_bd4cd4217c2e99 291-292,304-306,310-311,313
+  s_6249bca8412a18::t_54f92277970fac 241-264,290,293-303,307-309,312,314-321
+src/server/update-manager.ts
+  s_6249bca8412a18::t_c9eeb0b288fb5b 108-112,114,122-129
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "f237d78abddcea4d45c4bc32bc3f4e8f2f632f73",
+  "prompts": {},
+  "sessions": {
+    "s_6249bca8412a18": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e17cc-9691-78a0-93e7-0e61a0f4bca8",
+        "model": "gpt-5.3-codex"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
