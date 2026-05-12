@@ -1,0 +1,19 @@
+src/server/cli.ts
+  s_7abb38d0a17f77::t_ab0bf9c36f788e 54
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "96fe43fe266897f0a29b079bf0549cc2a03ab730",
+  "prompts": {},
+  "sessions": {
+    "s_7abb38d0a17f77": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e17d0-cdf5-7841-941e-ed58dd2bc013",
+        "model": "gpt-5.3-codex"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
