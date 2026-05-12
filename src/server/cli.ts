@@ -10,6 +10,21 @@ const VERSION: string = pkg.version ?? '0.0.0';
 
 const argv = process.argv.slice(2);
 let resolveExitAction: ((action: 'ui_restart' | 'exit') => void) | null = null;
+let pendingExitAction: 'ui_restart' | 'exit' | null = null;
+
+function triggerExitAction(action: 'ui_restart' | 'exit') {
+	if (resolveExitAction) {
+		const resolve = resolveExitAction;
+		resolveExitAction = null;
+		resolve(action);
+		return;
+	}
+
+	// Buffer early actions until the exit promise is armed.
+	if (pendingExitAction === null || action === 'ui_restart') {
+		pendingExitAction = action;
+	}
+}
 
 const result = await runCli(argv, {
 	version: VERSION,
@@ -30,7 +45,7 @@ const result = await runCli(argv, {
 			maybeUpdateManager.updateManager.onChange((snapshot) => {
 				if (snapshot.status !== 'restart_pending') return;
 				console.log(`${LOG_PREFIX} update installed, shutting down current process for restart`);
-				resolveExitAction?.('ui_restart');
+				triggerExitAction('ui_restart');
 			});
 		}
 
@@ -63,8 +78,15 @@ if (result.kind === 'restarting') {
 const exitAction = await new Promise<'ui_restart' | 'exit'>((resolve) => {
 	resolveExitAction = resolve;
 
+	if (pendingExitAction) {
+		const action = pendingExitAction;
+		pendingExitAction = null;
+		triggerExitAction(action);
+		return;
+	}
+
 	const shutdown = () => {
-		resolve('exit');
+		triggerExitAction('exit');
 	};
 
 	process.once('SIGINT', shutdown);
