@@ -51,9 +51,7 @@ const result = await runCli(argv, {
 
 		return {
 			port: started.port,
-			stop: async () => {
-				started.stop();
-			},
+			stop: () => started.stop(),
 		};
 	},
 	fetchLatestVersion: fetchLatestPackageVersion,
