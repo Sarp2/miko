@@ -1,0 +1,25 @@
+scripts/dev-server.ts
+  s_7abb38d0a17f77::t_16d13ff95156dd 4,6
+src/server/cli.ts
+  s_7abb38d0a17f77::t_9be481d055bb4f 4
+  s_7abb38d0a17f77::t_14fa5cdd8b8956 1-2,6-21,36-77,79
+  s_7abb38d0a17f77::t_aff19d71689d3b 23-27,29-35
+  s_7abb38d0a17f77::t_93fb4847656bb7 3,5
+  s_7abb38d0a17f77::t_7fdc44380c10d8 22,28,78
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "37aedec62064a3f9144294fb48bc75c3ffa29153",
+  "prompts": {},
+  "sessions": {
+    "s_7abb38d0a17f77": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e17d0-cdf5-7841-941e-ed58dd2bc013",
+        "model": "gpt-5.3-codex"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
