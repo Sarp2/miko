@@ -1,0 +1,21 @@
+src/server/ws-router.ts
+  s_fb7ad57606bc08::t_7bf487c0df2bd3 736
+src/server/ws-router.test.ts
+  s_fb7ad57606bc08::t_4f1038546f031d 192,616
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "a79fdab810238d9c802c6307503a506e172d58b0",
+  "prompts": {},
+  "sessions": {
+    "s_fb7ad57606bc08": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e2f6c-3c8c-76c0-8c83-41945cd3d2f6",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
