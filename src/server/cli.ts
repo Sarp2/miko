@@ -1,8 +1,8 @@
 import process from 'node:process';
 import { LOG_PREFIX } from '../shared/branding';
 import { fetchLatestPackageVersion, installPackageVersion, openUrl, runCli } from './cli-runtime';
-import { startServer } from './index';
 import { CLI_STARTUP_UPDATE_RESTART_EXIT_CODE, CLI_UI_UPDATE_RESTART_EXIT_CODE } from './restart';
+import { startServer } from './server';
 
 // Read version from package.json at the package root.
 const pkg = await Bun.file(new URL('../../package.json', import.meta.url)).json();
