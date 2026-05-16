@@ -1,0 +1,51 @@
+src/server/ws-router.ts
+  s_fb7ad57606bc08::t_5b78478f8aa8b8 2-7,12,14,348-782
+  s_f8ef5bc2754208::t_2a345734b71ed1 25-26,28-29,55-57,59-62,64
+  s_f8ef5bc2754208::t_7c91fbd0532f77 168-258,271
+src/server/ws-router.test.ts
+  s_fb7ad57606bc08::t_f35c85bf4638a1 549-562
+  s_fb7ad57606bc08::t_b4754572f88ab7 232-234,236-247,249-252
+  s_fb7ad57606bc08::t_911b47cffe4d87 311-339
+  s_fb7ad57606bc08::t_49dee64f92d276 533-548
+  s_fb7ad57606bc08::t_5030daebbea974 642-683
+  s_fb7ad57606bc08::t_a96626b3c5cfc8 51-75
+  s_fb7ad57606bc08::t_efd4ccbe90fcf5 14
+  s_fb7ad57606bc08::t_b381ca970b267a 253-310
+  s_fb7ad57606bc08::t_324f26def3b505 340-364
+  s_fb7ad57606bc08::t_5b2132e987282c 365-397
+  s_fb7ad57606bc08::t_c74cce951f1b10 1-2,15-16
+  s_fb7ad57606bc08::t_ccd92e9c78dcde 400,417,436,470
+  s_fb7ad57606bc08::t_a69226f734b457 563-641
+  s_fb7ad57606bc08::t_a0c9c7d0bf157c 235,248
+  s_fb7ad57606bc08::t_42facdc6987503 17-31
+  s_fb7ad57606bc08::t_787cc25eeb266f 34-50,76-179,684
+  s_fb7ad57606bc08::t_1346f91e18e464 398-399,401-416,418-435,437-469,471-516,528-529,531-532
+  s_fb7ad57606bc08::t_c37a36a86456b1 3-13
+  s_fb7ad57606bc08::t_ea32d271444393 32-33
+  s_fb7ad57606bc08::t_323dc27a6949a6 517-527,530
+  s_fb7ad57606bc08::t_531688bd3b5ee7 180-231
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "7772f55d3faa0c28331ec16c7fe69fa805601953",
+  "prompts": {},
+  "sessions": {
+    "s_f8ef5bc2754208": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e24f3-fbe3-7523-a739-fff3d1c33fab",
+        "model": "gpt-5.3-codex"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    },
+    "s_fb7ad57606bc08": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e2f6c-3c8c-76c0-8c83-41945cd3d2f6",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
