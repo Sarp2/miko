@@ -185,15 +185,15 @@ export type ServerSnapshot =
 	| { type: 'local-projects'; data: LocalProjectsSnapshot }
 	| { type: 'update'; data: UpdateSnapshot }
 	| { type: 'keybindings'; data: KeybindingsSnapshot }
-	| { type: 'chat'; data: ChatSnapshot }
+	| { type: 'chat'; data: ChatSnapshot | null }
 	| { type: 'project-git'; data: ChatDiffSnapshot | null }
 	| { type: 'terminal'; data: TerminalSnapshot | null };
 
 export type ServerEnvelope =
-	| { v: 1; type: 'snapshot'; id: string; snapshot: ServerSnapshot }
-	| { v: 1; type: 'event'; id: string; event: TerminalEvent }
-	| { v: 1; type: 'ack'; id: string; result?: unknown | ChatHistoryPage }
-	| { v: 1; type: 'error'; id?: string; message: string };
+	| { type: 'snapshot'; id: string; snapshot: ServerSnapshot }
+	| { type: 'event'; id: string; event: TerminalEvent }
+	| { type: 'ack'; id: string; result?: unknown | ChatHistoryPage }
+	| { type: 'error'; id?: string; message: string };
 
 export function isClientEnvelope(value: unknown): value is ClientEnvelope {
 	if (!value || typeof value !== 'object') return false;
