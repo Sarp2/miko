@@ -609,7 +609,7 @@ describe('CodexAppServerManager.startSession', () => {
 
 		try {
 			await manager.startSession({
-				chatId: 'chat-1',
+				sessionId: 'chat-1',
 				cwd: '/tmp/project',
 				model: 'gpt-5.4',
 				serviceTier: 'fast',
@@ -662,7 +662,7 @@ describe('CodexAppServerManager.startTurn', () => {
 
 		try {
 			await manager.startSession({
-				chatId: 'chat-1',
+				sessionId: 'chat-1',
 				cwd: '/tmp/project',
 				model: 'gpt-5.4',
 				serviceTier: 'fast',
@@ -670,7 +670,7 @@ describe('CodexAppServerManager.startTurn', () => {
 			});
 
 			const turn = await manager.startTurn({
-				chatId: 'chat-1',
+				sessionId: 'chat-1',
 				model: 'gpt-5.4',
 				effort: 'medium',
 				serviceTier: 'fast',
@@ -727,7 +727,7 @@ describe('CodexAppServerManager.startTurn', () => {
 
 		try {
 			await manager.startSession({
-				chatId: 'chat-1',
+				sessionId: 'chat-1',
 				cwd: '/tmp/project',
 				model: 'gpt-5.4',
 				serviceTier: 'fast',
@@ -735,7 +735,7 @@ describe('CodexAppServerManager.startTurn', () => {
 			});
 
 			await manager.startTurn({
-				chatId: 'chat-1',
+				sessionId: 'chat-1',
 				model: 'gpt-5.4',
 				content: 'Write tests',
 				planMode: false,
@@ -823,7 +823,7 @@ describe('CodexAppServerManager.stopSession', () => {
 		});
 
 		await manager.startSession({
-			chatId: 'chat-1',
+			sessionId: 'chat-1',
 			cwd: '/tmp/project',
 			model: 'gpt-5.4',
 			serviceTier: 'fast',
@@ -831,7 +831,7 @@ describe('CodexAppServerManager.stopSession', () => {
 		});
 
 		const turn = await manager.startTurn({
-			chatId: 'chat-1',
+			sessionId: 'chat-1',
 			model: 'gpt-5.4',
 			content: 'Write tests',
 			planMode: false,
@@ -856,7 +856,7 @@ describe('CodexAppServerManager.stopSession', () => {
 		});
 
 		const startSession = manager.startSession({
-			chatId: 'chat-1',
+			sessionId: 'chat-1',
 			cwd: '/tmp/project',
 			model: 'gpt-5.4',
 			serviceTier: 'fast',

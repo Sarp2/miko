@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, spyOn, test } from 'bun:test';
 import { existsSync } from 'node:fs';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { TranscriptEntry } from 'src/shared/types';
@@ -27,181 +27,533 @@ async function createTempDataDir() {
 }
 
 function entry(
-	kind: 'user_prompt' | 'assistant_text',
+	kind: TranscriptEntry['kind'],
 	createdAt: number,
 	extra: Record<string, unknown> = {},
 ): TranscriptEntry {
 	const base = { _id: `${kind}-${createdAt}`, createdAt };
 	if (kind === 'user_prompt') {
-		return { ...base, kind, content: String(extra.content ?? '') };
+		return { ...base, ...extra, kind, content: String(extra.content ?? '') } as TranscriptEntry;
 	}
-	return { ...base, kind, text: String(extra.content ?? extra.text ?? '') };
+	if (kind === 'assistant_text') {
+		return {
+			...base,
+			...extra,
+			kind,
+			text: String(extra.content ?? extra.text ?? ''),
+		} as TranscriptEntry;
+	}
+	return { ...base, kind, ...extra } as TranscriptEntry;
 }
 
-describe('EventStore', () => {
+async function createReadyWorkspace(store: EventStore) {
+	const directory = await store.addDirectory({
+		localPath: '/tmp/miko',
+		title: 'Miko',
+		githubOwner: 'sarp',
+		githubRepo: 'miko',
+	});
+	const workspace = await store.createWorkspace({
+		directoryId: directory.id,
+		localPath: '/tmp/miko/atlas',
+		branchName: 'atlas',
+	});
+	await store.markWorkspaceSetupCompleted(workspace.id);
+	return { directory, workspace: store.requireWorkspace(workspace.id) };
+}
+
+describe('EventStore.constructor', () => {
 	test('uses the runtime profile for the default data dir', () => {
 		process.env.MIKO_RUNTIME_PROFILE = 'dev';
 		const store = new EventStore();
 
 		expect(store.dataDir).toEndWith('/.miko-dev/data');
 	});
+});
 
-	test('creates data dir, transcripts subdir, and empty log files for project, chats and turns', async () => {
+describe('EventStore.initialize', () => {
+	test('creates data dir, transcripts subdir, and empty log files', async () => {
 		const dataDir = await createTempDataDir();
 		const store = new EventStore(dataDir);
 		await store.initialize();
 
 		expect(existsSync(store.dataDir)).toBe(true);
 		expect(existsSync(join(dataDir, 'transcripts'))).toBe(true);
-		expect(existsSync(join(dataDir, 'projects.jsonl'))).toBe(true);
-		expect(existsSync(join(dataDir, 'chats.jsonl'))).toBe(true);
+		expect(existsSync(join(dataDir, 'directories.jsonl'))).toBe(true);
+		expect(existsSync(join(dataDir, 'workspaces.jsonl'))).toBe(true);
+		expect(existsSync(join(dataDir, 'sessions.jsonl'))).toBe(true);
 		expect(existsSync(join(dataDir, 'turns.jsonl'))).toBe(true);
 	});
 
-	test('opens existing projects by normalized path and removes them from active lists', async () => {
+	test('ignores corrupt trailing log lines while preserving prior events', async () => {
+		const dataDir = await createTempDataDir();
+		const warn = spyOn(console, 'warn').mockImplementation(() => {});
+		const directoryEvent = {
+			type: 'directory_added',
+			timestamp: 100,
+			directoryId: 'directory-1',
+			localPath: '/tmp/miko',
+			title: 'Miko',
+			githubOwner: 'sarp',
+			githubRepo: 'miko',
+			defaultBranchName: 'main',
+		};
+
+		await writeFile(
+			join(dataDir, 'directories.jsonl'),
+			`${JSON.stringify(directoryEvent)}\n{not json`,
+			'utf-8',
+		);
+
+		try {
+			const store = new EventStore(dataDir);
+			await store.initialize();
+
+			expect(store.getDirectory('directory-1')).toMatchObject({
+				id: 'directory-1',
+				localPath: '/tmp/miko',
+				title: 'Miko',
+			});
+			expect(await readFile(join(dataDir, 'directories.jsonl'), 'utf-8')).toContain(
+				'directory_added',
+			);
+		} finally {
+			warn.mockRestore();
+		}
+	});
+
+	test('resets local history for corrupt non-trailing log lines', async () => {
+		const dataDir = await createTempDataDir();
+		const warn = spyOn(console, 'warn').mockImplementation(() => {});
+		await mkdir(join(dataDir, 'transcripts'), { recursive: true });
+		await writeFile(join(dataDir, 'transcripts', 'orphan.jsonl'), '{"kind":"user_prompt"}\n');
+		const firstEvent = {
+			type: 'directory_added',
+			timestamp: 100,
+			directoryId: 'directory-1',
+			localPath: '/tmp/miko',
+			title: 'Miko',
+			githubOwner: 'sarp',
+			githubRepo: 'miko',
+			defaultBranchName: 'main',
+		};
+		const secondEvent = {
+			type: 'directory_added',
+			timestamp: 101,
+			directoryId: 'directory-2',
+			localPath: '/tmp/other',
+			title: 'Other',
+			githubOwner: 'sarp',
+			githubRepo: 'other',
+			defaultBranchName: 'main',
+		};
+
+		await writeFile(
+			join(dataDir, 'directories.jsonl'),
+			`${JSON.stringify(firstEvent)}\n{not json\n${JSON.stringify(secondEvent)}\n`,
+			'utf-8',
+		);
+
+		try {
+			const store = new EventStore(dataDir);
+			await store.initialize();
+
+			expect(store.listDirectories()).toEqual([]);
+			expect(await readFile(join(dataDir, 'snapshot.json'), 'utf-8')).toBe('');
+			expect(await readFile(join(dataDir, 'directories.jsonl'), 'utf-8')).toBe('');
+			expect(await readFile(join(dataDir, 'workspaces.jsonl'), 'utf-8')).toBe('');
+			expect(await readFile(join(dataDir, 'sessions.jsonl'), 'utf-8')).toBe('');
+			expect(await readFile(join(dataDir, 'turns.jsonl'), 'utf-8')).toBe('');
+			expect(await readFile(join(dataDir, 'transcripts', 'orphan.jsonl'), 'utf-8')).toBe(
+				'{"kind":"user_prompt"}\n',
+			);
+		} finally {
+			warn.mockRestore();
+		}
+	});
+});
+
+describe('EventStore.addDirectory', () => {
+	test('continues accepting writes after a transient write failure', async () => {
+		const dataDir = await createTempDataDir();
+		const store = new EventStore(dataDir);
+		await store.initialize();
+		const paths = store as unknown as { directoriesLogPath: string };
+
+		await rm(paths.directoriesLogPath, { force: true });
+		await mkdir(paths.directoriesLogPath);
+
+		await expect(
+			store.addDirectory({
+				localPath: '/tmp/broken',
+				githubOwner: 'sarp',
+				githubRepo: 'broken',
+			}),
+		).rejects.toThrow();
+
+		await rm(paths.directoriesLogPath, { recursive: true, force: true });
+		await writeFile(paths.directoriesLogPath, '');
+
+		const directory = await store.addDirectory({
+			localPath: '/tmp/miko',
+			githubOwner: 'sarp',
+			githubRepo: 'miko',
+		});
+
+		expect(directory).toMatchObject({ localPath: '/tmp/miko', githubRepo: 'miko' });
+		expect(store.listDirectories().map((candidate) => candidate.id)).toEqual([directory.id]);
+	});
+
+	test('deduplicates active directories by normalized path and reopens after removal', async () => {
 		const dataDir = await createTempDataDir();
 		const store = new EventStore(dataDir);
 		await store.initialize();
 
-		const first = await store.openProject('/tmp/project', 'Custom');
-		const second = await store.openProject('/tmp/project', 'Ignored');
+		const first = await store.addDirectory({
+			localPath: '/tmp/miko',
+			title: 'Custom',
+			githubOwner: 'sarp',
+			githubRepo: 'miko',
+		});
+		const second = await store.addDirectory({
+			localPath: '/tmp/miko',
+			title: 'Ignored',
+			githubOwner: 'sarp',
+			githubRepo: 'miko',
+		});
 
 		expect(second.id).toBe(first.id);
 		expect(second.title).toBe('Custom');
-		expect(store.listProjects().map((project) => project.id)).toEqual([first.id]);
+		expect(store.listDirectories().map((directory) => directory.id)).toEqual([first.id]);
 
-		await store.removeProject(first.id);
+		await store.removeDirectory(first.id);
 
-		expect(store.getProject(first.id)).toBeNull();
-		expect(store.listProjects()).toEqual([]);
+		expect(store.getDirectory(first.id)).toBeNull();
+		expect(store.listDirectories()).toEqual([]);
 
-		const reopened = await store.openProject('/tmp/project', 'Reopened');
+		const reopened = await store.addDirectory({
+			localPath: '/tmp/miko',
+			title: 'Reopened',
+			githubOwner: 'sarp',
+			githubRepo: 'miko',
+		});
 		expect(reopened.id).not.toBe(first.id);
 		expect(reopened.title).toBe('Reopened');
 	});
+});
 
-	test('creates, renames, deletes, and counts chats by project', async () => {
+describe('EventStore.createWorkspace', () => {
+	test('creates workspaces in creating state and blocks duplicate paths or branches', async () => {
 		const dataDir = await createTempDataDir();
 		const store = new EventStore(dataDir);
 		await store.initialize();
+		const directory = await store.addDirectory({
+			localPath: '/tmp/miko',
+			githubOwner: 'sarp',
+			githubRepo: 'miko',
+		});
 
-		const project = await store.openProject('/tmp/project');
-		const chat = await store.createChat(project.id);
+		const workspace = await store.createWorkspace({
+			directoryId: directory.id,
+			localPath: '/tmp/miko/atlas',
+			branchName: 'atlas',
+		});
 
-		expect(chat.title).toBe('New Chat');
-		expect(store.getChatCount(project.id)).toBe(1);
+		expect(workspace).toMatchObject({
+			directoryId: directory.id,
+			localPath: '/tmp/miko/atlas',
+			branchName: 'atlas',
+			setupState: 'creating',
+			reviewState: 'in_progress',
+			visibilityState: 'active',
+			hasUnreadAgentResult: false,
+		});
+		await expect(
+			store.createWorkspace({
+				directoryId: directory.id,
+				localPath: '/tmp/miko/atlas',
+				branchName: 'orion',
+			}),
+		).rejects.toThrow('Workspace path is already in use');
+		await expect(
+			store.createWorkspace({
+				directoryId: directory.id,
+				localPath: '/tmp/miko/orion',
+				branchName: 'atlas',
+			}),
+		).rejects.toThrow('Workspace branch is already in use for this directory');
+	});
 
-		await store.renameChat(chat.id, '   ');
-		expect(store.getChat(chat.id)?.title).toBe('New Chat');
+	test('updates workspace lifecycle, review, visibility, PR, unread, branch, and removal state', async () => {
+		const dataDir = await createTempDataDir();
+		const store = new EventStore(dataDir);
+		await store.initialize();
+		const { workspace } = await createReadyWorkspace(store);
 
-		await store.renameChat(chat.id, '  Better Chat  ');
-		expect(store.getChat(chat.id)?.title).toBe('Better Chat');
+		await store.setWorkspaceBranch(workspace.id, 'orion');
+		await store.setWorkspaceReviewState(workspace.id, 'in_review');
+		await store.setWorkspaceVisibilityState(workspace.id, 'archived');
+		await store.observeWorkspacePullRequest(workspace.id, {
+			number: 12,
+			status: 'open',
+			title: 'Add workspace model',
+			url: 'https://github.com/sarp/miko/pull/12',
+			headRefName: 'orion',
+			baseRefName: 'main',
+			ciStatus: 'passing',
+			lastObservedAt: 100,
+		});
+		await store.setWorkspaceUnreadAgentResult(workspace.id, true);
 
-		await store.deleteChat(chat.id);
+		expect(store.getWorkspace(workspace.id)).toMatchObject({
+			setupState: 'ready',
+			branchName: 'orion',
+			reviewState: 'in_review',
+			visibilityState: 'archived',
+			hasUnreadAgentResult: true,
+			pullRequest: { number: 12, status: 'open', ciStatus: 'passing' },
+		});
 
-		expect(store.getChat(chat.id)).toBeNull();
-		expect(store.listChatsByProject(project.id)).toEqual([]);
-		expect(store.getChatCount(project.id)).toBe(0);
-		expect(() => store.requireChat(chat.id)).toThrow('Chat not found');
+		await store.removeWorkspace(workspace.id);
+		expect(store.getWorkspace(workspace.id)).toBeNull();
+		expect(store.listWorkspaces()).toEqual([]);
+	});
+
+	test('records setup failures and lets setup completion clear the error', async () => {
+		const dataDir = await createTempDataDir();
+		const store = new EventStore(dataDir);
+		await store.initialize();
+		const directory = await store.addDirectory({
+			localPath: '/tmp/miko',
+			githubOwner: 'sarp',
+			githubRepo: 'miko',
+		});
+		const workspace = await store.createWorkspace({
+			directoryId: directory.id,
+			localPath: '/tmp/miko/atlas',
+			branchName: 'atlas',
+		});
+
+		await store.markWorkspaceSetupFailed(workspace.id, 'worktree failed');
+		expect(store.getWorkspace(workspace.id)).toMatchObject({
+			setupState: 'failed',
+			setupError: 'worktree failed',
+		});
+
+		await store.markWorkspaceSetupCompleted(workspace.id);
+		expect(store.getWorkspace(workspace.id)).toMatchObject({
+			setupState: 'ready',
+			setupError: undefined,
+		});
+	});
+});
+
+describe('EventStore.createSession', () => {
+	test('creates, renames, removes, and lists sessions by workspace', async () => {
+		const dataDir = await createTempDataDir();
+		const store = new EventStore(dataDir);
+		await store.initialize();
+		const { workspace } = await createReadyWorkspace(store);
+
+		const session = await store.createSession(workspace.id);
+
+		expect(session.title).toBe('New Session');
+		expect(store.listSessionsByWorkspace(workspace.id).map((candidate) => candidate.id)).toEqual([
+			session.id,
+		]);
+
+		await store.renameSession(session.id, '   ');
+		expect(store.getSession(session.id)?.title).toBe('New Session');
+
+		await store.renameSession(session.id, '  Better Session  ');
+		expect(store.getSession(session.id)?.title).toBe('Better Session');
+
+		await store.removeSession(session.id);
+
+		expect(store.getSession(session.id)).toBeNull();
+		expect(store.listSessionsByWorkspace(workspace.id)).toEqual([]);
+		expect(() => store.requireSession(session.id)).toThrow('Session not found');
+	});
+
+	test('rejects session creation before workspace setup is ready', async () => {
+		const dataDir = await createTempDataDir();
+		const store = new EventStore(dataDir);
+		await store.initialize();
+		const directory = await store.addDirectory({
+			localPath: '/tmp/miko',
+			githubOwner: 'sarp',
+			githubRepo: 'miko',
+		});
+		const workspace = await store.createWorkspace({
+			directoryId: directory.id,
+			localPath: '/tmp/miko/atlas',
+			branchName: 'atlas',
+		});
+
+		await expect(store.createSession(workspace.id)).rejects.toThrow('Workspace is not ready');
 	});
 
 	test('persists provider, plan mode, and session token across store instances', async () => {
 		const dataDir = await createTempDataDir();
 		const store = new EventStore(dataDir);
 		await store.initialize();
+		const { workspace } = await createReadyWorkspace(store);
+		const session = await store.createSession(workspace.id);
 
-		const project = await store.openProject('/tmp/project');
-		const chat = await store.createChat(project.id);
-
-		await store.setChatProvider(chat.id, 'codex');
-		await store.setPlanMode(chat.id, true);
-		await store.setSessionToken(chat.id, 'session-1');
+		await store.setSessionProvider(session.id, 'codex');
+		await store.setPlanMode(session.id, true);
+		await store.setSessionToken(session.id, 'session-1');
 
 		const reloaded = new EventStore(dataDir);
 		await reloaded.initialize();
 
-		expect(reloaded.getChat(chat.id)).toMatchObject({
+		expect(reloaded.getSession(session.id)).toMatchObject({
 			provider: 'codex',
 			planMode: true,
 			sessionToken: 'session-1',
 		});
 
-		await reloaded.setSessionToken(chat.id, null);
+		await reloaded.setSessionToken(session.id, null);
 
 		const reloadedAfterClear = new EventStore(dataDir);
 		await reloadedAfterClear.initialize();
-		expect(reloadedAfterClear.getChat(chat.id)?.sessionToken).toBeNull();
+		expect(reloadedAfterClear.getSession(session.id)?.sessionToken).toBeNull();
 	});
+});
 
-	test('appends transcript entries to per-chat jsonl files and reloads them', async () => {
+describe('EventStore.appendMessage', () => {
+	test('appends transcript entries to per-session jsonl files and reloads them', async () => {
 		const dataDir = await createTempDataDir();
 		const store = new EventStore(dataDir);
 		await store.initialize();
-
-		const project = await store.openProject('/tmp/project');
-		const chat = await store.createChat(project.id);
+		const { workspace } = await createReadyWorkspace(store);
+		const session = await store.createSession(workspace.id);
 		const userEntry = entry('user_prompt', 100, { content: 'hello' });
 		const assistantEntry = entry('assistant_text', 101, { content: 'world' });
 
-		await store.appendMessage(chat.id, userEntry);
-		await store.appendMessage(chat.id, assistantEntry);
+		await store.appendMessage(session.id, userEntry);
+		await store.appendMessage(session.id, assistantEntry);
 
-		expect(store.getMessages(chat.id)).toEqual([userEntry, assistantEntry]);
+		expect(store.getMessages(session.id)).toEqual([userEntry, assistantEntry]);
 
-		const transcriptPath = join(dataDir, 'transcripts', `${chat.id}.jsonl`);
+		const transcriptPath = join(dataDir, 'transcripts', `${session.id}.jsonl`);
 		const transcriptText = await readFile(transcriptPath, 'utf-8');
 		expect(transcriptText).toContain('"kind":"user_prompt"');
 		expect(transcriptText).toContain('"kind":"assistant_text"');
 
 		const reloaded = new EventStore(dataDir);
 		await reloaded.initialize();
-		expect(reloaded.getMessages(chat.id)).toEqual([userEntry, assistantEntry]);
+		expect(reloaded.getMessages(session.id)).toEqual([userEntry, assistantEntry]);
 	});
 
 	test('protects stored transcript entries from caller mutations', async () => {
 		const dataDir = await createTempDataDir();
 		const store = new EventStore(dataDir);
 		await store.initialize();
-
-		const project = await store.openProject('/tmp/project');
-		const chat = await store.createChat(project.id);
+		const { workspace } = await createReadyWorkspace(store);
+		const session = await store.createSession(workspace.id);
 		const original = entry('user_prompt', 100, { content: 'hello' });
-		await store.appendMessage(chat.id, original);
+		await store.appendMessage(session.id, original);
 
-		const messages = store.getMessages(chat.id);
+		const messages = store.getMessages(session.id);
 		if (messages[0]?.kind === 'user_prompt') {
 			messages[0].content = 'mutated';
 		}
 		messages.push(entry('assistant_text', 101, { content: 'extra' }));
 
-		expect(store.getMessages(chat.id)).toEqual([original]);
+		expect(store.getMessages(session.id)).toEqual([original]);
 
-		const page = store.getRecentMessagesPage(chat.id, 1);
+		const page = store.getRecentMessagesPage(session.id, 1);
 		if (page.messages[0]?.kind === 'user_prompt') {
 			page.messages[0].content = 'page-mutated';
 		}
 
-		expect(store.getRecentMessagesPage(chat.id, 1).messages).toEqual([original]);
+		expect(store.getRecentMessagesPage(session.id, 1).messages).toEqual([original]);
 	});
 
+	test('deep-clones nested transcript fields written to and read from the cache', async () => {
+		const dataDir = await createTempDataDir();
+		const store = new EventStore(dataDir);
+		await store.initialize();
+		const { workspace } = await createReadyWorkspace(store);
+		const session = await store.createSession(workspace.id);
+		const original = entry('user_prompt', 100, {
+			content: 'hello',
+			attachments: [
+				{
+					id: 'attachment-1',
+					kind: 'file',
+					displayName: 'notes.txt',
+					absolutePath: '/tmp/notes.txt',
+					relativePath: 'notes.txt',
+					contentUrl: '/content/notes.txt',
+					mimeType: 'text/plain',
+					size: 12,
+				},
+			],
+		});
+
+		await store.appendMessage(session.id, original);
+		if (original.kind === 'user_prompt' && original.attachments?.[0]) {
+			original.attachments[0].displayName = 'mutated.txt';
+		}
+
+		const messages = store.getMessages(session.id);
+		if (messages[0]?.kind === 'user_prompt' && messages[0].attachments?.[0]) {
+			expect(messages[0].attachments[0].displayName).toBe('notes.txt');
+			messages[0].attachments[0].displayName = 'read-mutated.txt';
+		}
+
+		const freshMessages = store.getMessages(session.id);
+		expect(
+			freshMessages[0]?.kind === 'user_prompt'
+				? freshMessages[0].attachments?.[0]?.displayName
+				: undefined,
+		).toBe('notes.txt');
+	});
+
+	test('ignores corrupt trailing transcript lines while preserving earlier entries', async () => {
+		const dataDir = await createTempDataDir();
+		const warn = spyOn(console, 'warn').mockImplementation(() => {});
+		const store = new EventStore(dataDir);
+		await store.initialize();
+		const { workspace } = await createReadyWorkspace(store);
+		const session = await store.createSession(workspace.id);
+		const userEntry = entry('user_prompt', 100, { content: 'hello' });
+		await store.appendMessage(session.id, userEntry);
+		const transcriptPath = join(dataDir, 'transcripts', `${session.id}.jsonl`);
+		await writeFile(transcriptPath, `${await readFile(transcriptPath, 'utf-8')}{not json`);
+
+		try {
+			const reloaded = new EventStore(dataDir);
+			await reloaded.initialize();
+
+			expect(reloaded.getMessages(session.id)).toEqual([userEntry]);
+			expect(reloaded.getSession(session.id)?.lastMessageAt).toBe(100);
+		} finally {
+			warn.mockRestore();
+		}
+	});
+});
+
+describe('EventStore.getRecentMessagesPage', () => {
 	test('paginates transcript history from newest to oldest', async () => {
 		const dataDir = await createTempDataDir();
 		const store = new EventStore(dataDir);
 		await store.initialize();
-
-		const project = await store.openProject('/tmp/project');
-		const chat = await store.createChat(project.id);
+		const { workspace } = await createReadyWorkspace(store);
+		const session = await store.createSession(workspace.id);
 
 		for (let index = 1; index <= 5; index++) {
 			await store.appendMessage(
-				chat.id,
+				session.id,
 				entry(index % 2 === 0 ? 'assistant_text' : 'user_prompt', 200 + index, {
 					content: `message-${index}`,
 				}),
 			);
 		}
 
-		const recentPage = store.getRecentMessagesPage(chat.id, 2);
+		const recentPage = store.getRecentMessagesPage(session.id, 2);
 		expect(recentPage.messages.map((message) => message._id)).toEqual([
 			'assistant_text-204',
 			'user_prompt-205',
@@ -214,7 +566,7 @@ describe('EventStore', () => {
 			throw new Error('Expected recent page to include an older cursor');
 		}
 
-		const olderPage = store.getMessagesPageBefore(chat.id, recentCursor, 2);
+		const olderPage = store.getMessagesPageBefore(session.id, recentCursor, 2);
 		expect(olderPage.messages.map((message) => message._id)).toEqual([
 			'assistant_text-202',
 			'user_prompt-203',
@@ -227,7 +579,7 @@ describe('EventStore', () => {
 			throw new Error('Expected older page to include an older cursor');
 		}
 
-		const oldestPage = store.getMessagesPageBefore(chat.id, olderCursor, 2);
+		const oldestPage = store.getMessagesPageBefore(session.id, olderCursor, 2);
 		expect(oldestPage.messages.map((message) => message._id)).toEqual(['user_prompt-201']);
 		expect(oldestPage.hasOlder).toBe(false);
 		expect(oldestPage.olderCursor).toBeNull();
@@ -237,298 +589,175 @@ describe('EventStore', () => {
 		const dataDir = await createTempDataDir();
 		const store = new EventStore(dataDir);
 		await store.initialize();
+		const { workspace } = await createReadyWorkspace(store);
+		const session = await store.createSession(workspace.id);
 
-		const project = await store.openProject('/tmp/project');
-		const chat = await store.createChat(project.id);
-
-		expect(store.getRecentMessagesPage(chat.id, 10)).toEqual({
+		expect(store.getRecentMessagesPage(session.id, 10)).toEqual({
 			messages: [],
 			hasOlder: false,
 			olderCursor: null,
 		});
-		expect(store.getRecentMessagesPage(chat.id, 0)).toEqual({
+		expect(store.getRecentMessagesPage(session.id, 0)).toEqual({
 			messages: [],
 			hasOlder: false,
 			olderCursor: null,
 		});
-		expect(store.getMessagesPageBefore(chat.id, 'idx:0', 0)).toEqual({
+		expect(store.getMessagesPageBefore(session.id, 'idx:0', 0)).toEqual({
 			messages: [],
 			hasOlder: false,
 			olderCursor: null,
 		});
 
-		expect(() => store.getMessagesPageBefore(chat.id, 'bad', 10)).toThrow('Invalid history cursor');
-		expect(() => store.getMessagesPageBefore(chat.id, 'idx:bad', 10)).toThrow(
+		expect(() => store.getMessagesPageBefore(session.id, 'bad', 10)).toThrow(
 			'Invalid history cursor',
 		);
-		expect(() => store.getMessagesPageBefore(chat.id, 'idx:-1', 10)).toThrow(
+		expect(() => store.getMessagesPageBefore(session.id, 'idx:bad', 10)).toThrow(
+			'Invalid history cursor',
+		);
+		expect(() => store.getMessagesPageBefore(session.id, 'idx:-1', 10)).toThrow(
 			'Invalid history cursor',
 		);
 	});
+});
 
-	test('marks chats unread on completed and failed turns and records outcomes', async () => {
+describe('EventStore.recordTurnFinished', () => {
+	test('marks workspace unread on completed and failed turns and records session outcomes', async () => {
 		const dataDir = await createTempDataDir();
 		const store = new EventStore(dataDir);
 		await store.initialize();
+		const { workspace } = await createReadyWorkspace(store);
+		const session = await store.createSession(workspace.id);
 
-		const project = await store.openProject('/tmp/project');
-		const chat = await store.createChat(project.id);
+		expect(store.getSession(session.id)).toMatchObject({ lastTurnOutcome: null });
+		expect(store.getWorkspace(workspace.id)?.hasUnreadAgentResult).toBe(false);
 
-		expect(store.getChat(chat.id)).toMatchObject({
-			unread: false,
-			lastTurnOutcome: null,
-		});
+		await store.recordTurnStarted(session.id);
+		expect(store.getSession(session.id)?.lastTurnOutcome).toBeNull();
 
-		await store.recordTurnStarted(chat.id);
-		expect(store.getChat(chat.id)?.lastTurnOutcome).toBeNull();
+		await store.recordTurnFinished(session.id);
+		expect(store.getSession(session.id)?.lastTurnOutcome).toBe('success');
+		expect(store.getWorkspace(workspace.id)?.hasUnreadAgentResult).toBe(true);
 
-		await store.recordTurnFinished(chat.id);
-		expect(store.getChat(chat.id)).toMatchObject({
-			unread: true,
-			lastTurnOutcome: 'success',
-		});
+		await store.setWorkspaceUnreadAgentResult(workspace.id, false);
+		expect(store.getWorkspace(workspace.id)?.hasUnreadAgentResult).toBe(false);
 
-		await store.setChatReadState(chat.id, false);
-		expect(store.getChat(chat.id)?.unread).toBe(false);
+		await store.recordTurnCancelled(session.id);
+		expect(store.getSession(session.id)?.lastTurnOutcome).toBe('cancelled');
+		expect(store.getWorkspace(workspace.id)?.hasUnreadAgentResult).toBe(false);
 
-		await store.recordTurnCancelled(chat.id);
-		expect(store.getChat(chat.id)).toMatchObject({
-			unread: false,
-			lastTurnOutcome: 'cancelled',
-		});
-
-		await store.recordTurnFailed(chat.id, 'boom');
-		expect(store.getChat(chat.id)).toMatchObject({
-			unread: true,
-			lastTurnOutcome: 'failed',
-		});
+		await store.recordTurnFailed(session.id, 'boom');
+		expect(store.getSession(session.id)?.lastTurnOutcome).toBe('failed');
+		expect(store.getWorkspace(workspace.id)?.hasUnreadAgentResult).toBe(true);
 
 		const reloaded = new EventStore(dataDir);
 		await reloaded.initialize();
-		expect(reloaded.getChat(chat.id)).toMatchObject({
-			unread: true,
-			lastTurnOutcome: 'failed',
-		});
+		expect(reloaded.getSession(session.id)?.lastTurnOutcome).toBe('failed');
+		expect(reloaded.getWorkspace(workspace.id)?.hasUnreadAgentResult).toBe(true);
 	});
+});
 
-	test('orders chats by last user message activity before internal updates', async () => {
+describe('EventStore.listWorkspaces', () => {
+	test('hides workspaces when their directory is removed', async () => {
 		const dataDir = await createTempDataDir();
 		const store = new EventStore(dataDir);
 		await store.initialize();
+		const { directory, workspace } = await createReadyWorkspace(store);
 
-		const project = await store.openProject('/tmp/project');
-		const chatA = await store.createChat(project.id);
-		const chatB = await store.createChat(project.id);
-		const laterUserActivity = Date.now() + 60_000;
+		expect(store.listWorkspaces().map((candidate) => candidate.id)).toEqual([workspace.id]);
 
-		await store.appendMessage(
-			chatA.id,
-			entry('user_prompt', laterUserActivity, { content: 'latest' }),
-		);
-		await store.recordTurnStarted(chatB.id);
+		await store.removeDirectory(directory.id);
 
-		expect(store.listChatsByProject(project.id).map((chat) => chat.id)).toEqual([
-			chatA.id,
-			chatB.id,
-		]);
+		expect(store.getWorkspace(workspace.id)).toBeNull();
+		expect(store.listWorkspaces()).toEqual([]);
 	});
+});
 
-	test('prunes stale empty chats after five minutes', async () => {
-		const dataDir = await createTempDataDir();
-		const store = new EventStore(dataDir);
-		await store.initialize();
-
-		const project = await store.openProject('/tmp/project');
-		const chat = await store.createChat(project.id);
-		const pruned = await store.pruneStaleEmptyChats({ now: chat.createdAt + 5 * 60 * 1000 });
-
-		expect(pruned).toEqual([chat.id]);
-		expect(store.getChat(chat.id)).toBeNull();
-	});
-
-	test('does not prune empty chats under five minutes old', async () => {
-		const dataDir = await createTempDataDir();
-		const store = new EventStore(dataDir);
-		await store.initialize();
-
-		const project = await store.openProject('/tmp/project');
-		const chat = await store.createChat(project.id);
-		const pruned = await store.pruneStaleEmptyChats({ now: chat.createdAt + 5 * 60 * 1000 - 1 });
-
-		expect(pruned).toEqual([]);
-		expect(store.getChat(chat.id)?.id).toBe(chat.id);
-	});
-
-	test('does not prune chats once they have transcript messages', async () => {
-		const dataDir = await createTempDataDir();
-		const store = new EventStore(dataDir);
-		await store.initialize();
-
-		const project = await store.openProject('/tmp/project');
-		const chat = await store.createChat(project.id);
-		await store.appendMessage(
-			chat.id,
-			entry('user_prompt', chat.createdAt + 1, { content: 'hello' }),
-		);
-
-		const pruned = await store.pruneStaleEmptyChats({ now: chat.createdAt + 5 * 60 * 1000 });
-
-		expect(pruned).toEqual([]);
-		expect(store.getChat(chat.id)?.id).toBe(chat.id);
-	});
-
-	test('does not prune stale chats that are currently active', async () => {
-		const dataDir = await createTempDataDir();
-		const store = new EventStore(dataDir);
-		await store.initialize();
-
-		const project = await store.openProject('/tmp/project');
-		const chat = await store.createChat(project.id);
-		const pruned = await store.pruneStaleEmptyChats({
-			now: chat.createdAt + 5 * 60 * 1000,
-			activeChatIds: [chat.id],
-		});
-
-		expect(pruned).toEqual([]);
-		expect(store.getChat(chat.id)?.id).toBe(chat.id);
-	});
-
+describe('EventStore.compact', () => {
 	test('compacts logs into a snapshot and reloads state without transcript loss', async () => {
 		const dataDir = await createTempDataDir();
 		const store = new EventStore(dataDir);
 		await store.initialize();
-
-		const project = await store.openProject('/tmp/project', 'Project');
-		const chat = await store.createChat(project.id);
+		const { directory, workspace } = await createReadyWorkspace(store);
+		const session = await store.createSession(workspace.id);
 		const userEntry = entry('user_prompt', 100, { content: 'hello' });
 		const assistantEntry = entry('assistant_text', 101, { content: 'world' });
 
-		await store.setChatProvider(chat.id, 'codex');
-		await store.setPlanMode(chat.id, true);
-		await store.setSessionToken(chat.id, 'session-1');
-		await store.appendMessage(chat.id, userEntry);
-		await store.appendMessage(chat.id, assistantEntry);
-		await store.recordTurnFinished(chat.id);
+		await store.setSessionProvider(session.id, 'codex');
+		await store.setPlanMode(session.id, true);
+		await store.setSessionToken(session.id, 'session-1');
+		await store.appendMessage(session.id, userEntry);
+		await store.appendMessage(session.id, assistantEntry);
+		await store.recordTurnFinished(session.id);
 		await store.compact();
 
-		expect(await readFile(join(dataDir, 'projects.jsonl'), 'utf-8')).toBe('');
-		expect(await readFile(join(dataDir, 'chats.jsonl'), 'utf-8')).toBe('');
+		expect(await readFile(join(dataDir, 'directories.jsonl'), 'utf-8')).toBe('');
+		expect(await readFile(join(dataDir, 'workspaces.jsonl'), 'utf-8')).toBe('');
+		expect(await readFile(join(dataDir, 'sessions.jsonl'), 'utf-8')).toBe('');
 		expect(await readFile(join(dataDir, 'turns.jsonl'), 'utf-8')).toBe('');
 
 		const snapshot = JSON.parse(
 			await readFile(join(dataDir, 'snapshot.json'), 'utf-8'),
-		) as SnapshotFile;
-		expect(snapshot.projects.map((candidate) => candidate.id)).toEqual([project.id]);
-		expect(snapshot.chats.map((candidate) => candidate.id)).toEqual([chat.id]);
-		expect(snapshot.chats[0]).toMatchObject({
+		) as SnapshotFile & { messages?: unknown };
+		expect(snapshot.directories.map((candidate) => candidate.id)).toEqual([directory.id]);
+		expect(snapshot.workspaces.map((candidate) => candidate.id)).toEqual([workspace.id]);
+		expect(snapshot.sessions.map((candidate) => candidate.id)).toEqual([session.id]);
+		expect(snapshot.sessions[0]).toMatchObject({
 			provider: 'codex',
 			planMode: true,
 			sessionToken: 'session-1',
-			unread: true,
 			lastTurnOutcome: 'success',
 		});
+		expect(snapshot.workspaces[0]).toMatchObject({ hasUnreadAgentResult: true });
 		expect(snapshot.messages).toBeUndefined();
 
 		const reloaded = new EventStore(dataDir);
 		await reloaded.initialize();
 
-		expect(reloaded.getProject(project.id)?.title).toBe('Project');
-		expect(reloaded.getChat(chat.id)).toMatchObject({
+		expect(reloaded.getDirectory(directory.id)?.title).toBe('Miko');
+		expect(reloaded.getWorkspace(workspace.id)).toMatchObject({ setupState: 'ready' });
+		expect(reloaded.getSession(session.id)).toMatchObject({
 			provider: 'codex',
 			planMode: true,
 			sessionToken: 'session-1',
 		});
-		expect(reloaded.getMessages(chat.id)).toEqual([userEntry, assistantEntry]);
+		expect(reloaded.getMessages(session.id)).toEqual([userEntry, assistantEntry]);
 	});
+});
 
-	test('ignores corrupt trailing log lines while preserving prior events', async () => {
-		const dataDir = await createTempDataDir();
-		const warn = spyOn(console, 'warn').mockImplementation(() => {});
-		const projectEvent = {
-			type: 'project_opened',
-			timestamp: 100,
-			projectId: 'project-1',
-			localPath: '/tmp/project',
-			title: 'Project',
-		};
-
-		await writeFile(
-			join(dataDir, 'projects.jsonl'),
-			`${JSON.stringify(projectEvent)}\n{not json`,
-			'utf-8',
-		);
-
-		try {
-			const store = new EventStore(dataDir);
-			await store.initialize();
-
-			expect(store.getProject('project-1')).toMatchObject({
-				id: 'project-1',
-				localPath: '/tmp/project',
-				title: 'Project',
-			});
-			expect(await readFile(join(dataDir, 'projects.jsonl'), 'utf-8')).toContain('project_opened');
-		} finally {
-			warn.mockRestore();
-		}
-	});
-
-	test('resets local history for corrupt non-trailing log lines', async () => {
-		const dataDir = await createTempDataDir();
-		const warn = spyOn(console, 'warn').mockImplementation(() => {});
-		const firstEvent = {
-			type: 'project_opened',
-			timestamp: 100,
-			projectId: 'project-1',
-			localPath: '/tmp/project',
-			title: 'Project',
-		};
-		const secondEvent = {
-			type: 'project_opened',
-			timestamp: 101,
-			projectId: 'project-2',
-			localPath: '/tmp/project-2',
-			title: 'Project 2',
-		};
-
-		await writeFile(
-			join(dataDir, 'projects.jsonl'),
-			`${JSON.stringify(firstEvent)}\n{not json\n${JSON.stringify(secondEvent)}\n`,
-			'utf-8',
-		);
-
-		try {
-			const store = new EventStore(dataDir);
-			await store.initialize();
-
-			expect(store.listProjects()).toEqual([]);
-			expect(await readFile(join(dataDir, 'snapshot.json'), 'utf-8')).toBe('');
-			expect(await readFile(join(dataDir, 'projects.jsonl'), 'utf-8')).toBe('');
-			expect(await readFile(join(dataDir, 'chats.jsonl'), 'utf-8')).toBe('');
-			expect(await readFile(join(dataDir, 'turns.jsonl'), 'utf-8')).toBe('');
-		} finally {
-			warn.mockRestore();
-		}
-	});
-
-	test('throws when mutating missing projects or chats', async () => {
+describe('EventStore.requireDirectory', () => {
+	test('throws when mutating missing directories, workspaces, or sessions', async () => {
 		const dataDir = await createTempDataDir();
 		const store = new EventStore(dataDir);
 		await store.initialize();
 
-		await expect(store.createChat('missing-project')).rejects.toThrow('Project not found');
-		await expect(store.removeProject('missing-project')).rejects.toThrow('Project not found');
-		await expect(store.renameChat('missing-chat', 'Title')).rejects.toThrow('Chat not found');
-		await expect(store.deleteChat('missing-chat')).rejects.toThrow('Chat not found');
 		await expect(
-			store.appendMessage('missing-chat', entry('user_prompt', 100, { content: 'hello' })),
-		).rejects.toThrow('Chat not found');
-		await expect(store.recordTurnStarted('missing-chat')).rejects.toThrow('Chat not found');
-		await expect(store.recordTurnFinished('missing-chat')).rejects.toThrow('Chat not found');
-		await expect(store.recordTurnFailed('missing-chat', 'boom')).rejects.toThrow('Chat not found');
-		await expect(store.recordTurnCancelled('missing-chat')).rejects.toThrow('Chat not found');
-		await expect(store.setSessionToken('missing-chat', 'session-1')).rejects.toThrow(
-			'Chat not found',
+			store.createWorkspace({
+				directoryId: 'missing-directory',
+				localPath: '/tmp/miko/atlas',
+				branchName: 'atlas',
+			}),
+		).rejects.toThrow('Directory not found');
+		await expect(store.removeDirectory('missing-directory')).rejects.toThrow('Directory not found');
+		await expect(store.createSession('missing-workspace')).rejects.toThrow('Workspace not found');
+		await expect(store.removeWorkspace('missing-workspace')).rejects.toThrow('Workspace not found');
+		await expect(store.setWorkspaceBranch('missing-workspace', 'orion')).rejects.toThrow(
+			'Workspace not found',
+		);
+		await expect(store.renameSession('missing-session', 'Title')).rejects.toThrow(
+			'Session not found',
+		);
+		await expect(store.removeSession('missing-session')).rejects.toThrow('Session not found');
+		await expect(
+			store.appendMessage('missing-session', entry('user_prompt', 100, { content: 'hello' })),
+		).rejects.toThrow('Session not found');
+		await expect(store.recordTurnStarted('missing-session')).rejects.toThrow('Session not found');
+		await expect(store.recordTurnFinished('missing-session')).rejects.toThrow('Session not found');
+		await expect(store.recordTurnFailed('missing-session', 'boom')).rejects.toThrow(
+			'Session not found',
+		);
+		await expect(store.recordTurnCancelled('missing-session')).rejects.toThrow('Session not found');
+		await expect(store.setSessionToken('missing-session', 'session-1')).rejects.toThrow(
+			'Session not found',
 		);
 	});
 });

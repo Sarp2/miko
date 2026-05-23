@@ -1,6 +1,24 @@
-import { describe, expect, test } from 'bun:test';
-import { createEmptyState } from './event';
+import { afterEach, describe, expect, test } from 'bun:test';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import type { WorkspaceGitHubSnapshot, WorkspaceGitSnapshot } from 'src/shared/types';
+import { EventStore } from './event-store';
 import { createWsRouter } from './ws-router';
+
+const tempDirs: string[] = [];
+
+afterEach(async () => {
+	await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
+});
+
+async function waitFor(predicate: () => boolean) {
+	const startedAt = Date.now();
+	while (!predicate()) {
+		if (Date.now() - startedAt > 1000) throw new Error('Timed out waiting for condition');
+		await Bun.sleep(1);
+	}
+}
 
 class FakeWebSocket {
 	readonly sent: unknown[] = [];
@@ -14,669 +32,510 @@ class FakeWebSocket {
 	}
 }
 
-function createRouter(overrides: Record<string, unknown> = {}) {
-	return createWsRouter({
-		store: { state: createEmptyState(), pruneStaleEmptyChats: async () => {} } as never,
-		agent: { getActiveStatuses: () => new Map(), getDrainingChatIds: () => new Set() } as never,
-		terminals: { getSnapshot: () => null, onEvent: () => () => {} } as never,
-		keybindings: {
-			getSnapshot: () => ({ bindings: {}, warnings: [], filePath: '/tmp/keybindings.json' }),
-			onChange: () => () => {},
-		} as never,
-		refreshDiscovery: async () => [],
-		getDiscoveredProjects: () => [],
-		machineDisplayName: 'Local Machine',
-		updateManager: null,
-		...overrides,
-	} as never);
+function unknownGitSnapshot(): WorkspaceGitSnapshot {
+	return {
+		status: 'unknown',
+		files: [],
+		branchHistory: { entries: [] },
+	};
 }
 
-describe('createWsRouter', () => {
-	describe('createWsRouter.createEnvelope', () => {
-		test('creates a sidebar snapshot', async () => {
-			const router = createRouter();
-			const ws = new FakeWebSocket();
+function readyGitSnapshot(): WorkspaceGitSnapshot {
+	return {
+		status: 'ready',
+		branchName: 'atlas',
+		defaultBranchName: 'main',
+		hasOriginRemote: true,
+		originRepoSlug: 'sarp/miko',
+		hasUpstream: false,
+		files: [
+			{
+				path: 'src/app.ts',
+				changeType: 'modified',
+				isUntracked: false,
+				additions: 2,
+				deletions: 1,
+				patchDigest: 'digest',
+			},
+		],
+		hasPushedCommits: false,
+		branchPublishState: 'local_only',
+		mainAheadCount: 0,
+		branchHistory: { entries: [] },
+	};
+}
 
-			await router.handleMessage(
-				ws as never,
-				JSON.stringify({ v: 1, type: 'subscribe', id: 'sub-1', topic: { type: 'sidebar' } }),
-			);
+async function createSeededStore() {
+	const dataDir = await mkdtemp(path.join(tmpdir(), 'miko-ws-router-'));
+	tempDirs.push(dataDir);
+	const store = new EventStore(dataDir);
+	await store.initialize();
 
-			expect(ws.sent[0]).toMatchObject({
-				id: 'sub-1',
-				snapshot: { type: 'sidebar' },
-			});
-		});
+	const directory = await store.addDirectory({
+		localPath: '/repo/miko',
+		title: 'Miko',
+		githubOwner: 'sarp',
+		githubRepo: 'miko',
+	});
+	const workspace = await store.createWorkspace({
+		directoryId: directory.id,
+		localPath: '/repo/miko/atlas',
+		branchName: 'atlas',
+	});
+	await store.markWorkspaceSetupCompleted(workspace.id);
+	const session = await store.createSession(workspace.id);
 
-		test('creates a local projects snapshot', async () => {
-			const router = createRouter({
-				getDiscoveredProjects: () => [
-					{ localPath: '/tmp/project', title: 'Project', modifiedAt: 1 },
-				],
-			});
-			const ws = new FakeWebSocket();
+	return { store, workspaceId: workspace.id, sessionId: session.id };
+}
 
-			await router.handleMessage(
-				ws as never,
-				JSON.stringify({
-					v: 1,
-					type: 'subscribe',
-					id: 'sub-1',
-					topic: { type: 'local-projects' },
-				}),
-			);
-			await Bun.sleep(0);
+async function createRouter(overrides: Record<string, unknown> = {}) {
+	let gitSnapshot = unknownGitSnapshot();
+	const seeded = await createSeededStore();
 
-			expect(ws.sent[0]).toMatchObject({
-				id: 'sub-1',
-				snapshot: { type: 'local-projects' },
-			});
-		});
+	const diffStore = {
+		getWorkspaceGitSnapshot: () => gitSnapshot,
+		refreshWorkspaceGitSnapshot: async () => {
+			gitSnapshot = readyGitSnapshot();
+			return true;
+		},
+		fetchWorkspaceGit: async () => ({ ok: true, branchName: 'atlas', snapshotChanged: true }),
+		initializeGit: async () => ({ ok: true, snapshotChanged: false }),
+		getGitHubPublishInfo: async () => ({
+			ghInstalled: true,
+			authenticated: true,
+			owners: ['sarp'],
+			suggestedRepoName: 'miko',
+		}),
+		checkGitHubRepoAvailability: async () => ({ available: true, message: 'available' }),
+		publishToGitHub: async () => ({ ok: true, snapshotChanged: false }),
+		inspectGitHubBackedRepo: async () => ({ ok: true }),
+		discardFile: async () => ({ snapshotChanged: true }),
+		ignoreFile: async () => ({ snapshotChanged: true }),
+		readPatch: async () => ({ patch: 'diff' }),
+	};
 
-		test('creates a keybindings snapshot', async () => {
-			const router = createRouter();
-			const ws = new FakeWebSocket();
+	const workspaceManager = {
+		getWorkspaceHealthState: async () => 'healthy',
+		markWorkspaceInstructionTurnStarted: () => {},
+		clearWorkspaceInstructionTurn: () => {},
+		createWorkspace: async () => ({ workspace: {}, session: null }),
+		renameWorkspaceBranch: async () => ({}),
+	};
 
-			await router.handleMessage(
-				ws as never,
-				JSON.stringify({ v: 1, type: 'subscribe', id: 'sub-1', topic: { type: 'keybindings' } }),
-			);
+	const prSnapshot: WorkspaceGitHubSnapshot = {
+		status: 'none',
+		owner: 'sarp',
+		repo: 'miko',
+		comments: [],
+		checks: [],
+	};
+	const prManager = {
+		getWorkspaceGitHubSnapshot: () => null,
+		refreshWorkspacePrState: async () => prSnapshot,
+		fetchFailingCheckLogs: async () => [],
+		mergeWorkspacePullRequest: async () => ({ status: 'merged' }),
+	};
 
-			expect(ws.sent[0]).toMatchObject({
-				id: 'sub-1',
-				snapshot: { type: 'keybindings' },
-			});
-		});
+	const router = createWsRouter({
+		store: seeded.store,
+		diffStore,
+		workspaceManager,
+		prManager,
+		agent: {
+			getActiveStatuses: () => new Map(),
+			getDrainingSessionIds: () => new Set(),
+			send: async () => ({ sessionId: seeded.sessionId }),
+			cancel: async () => {},
+			closeSession: async () => {},
+			stopDraining: async () => {},
+			respondTool: async () => {},
+			setBackgroundErrorReporter: () => {},
+		} as never,
+		terminals: {
+			getSnapshot: () => null,
+			onEvent: () => () => {},
+			createTerminal: () => ({ terminalId: 'terminal-1' }),
+			write: () => {},
+			resize: () => {},
+			close: () => {},
+		} as never,
+		keybindings: {
+			getSnapshot: () => ({
+				bindings: {},
+				warning: null,
+				filePathDisplay: '/tmp/keybindings.json',
+			}),
+			onChange: () => () => {},
+			write: async () => ({
+				bindings: {},
+				warning: null,
+				filePathDisplay: '/tmp/keybindings.json',
+			}),
+		} as never,
+		machineDisplayName: 'Local Machine',
+		updateManager: null,
+		refreshWorkspacePrStage: async () => ({ refreshed: true, snapshot: prSnapshot }),
+		...overrides,
+	} as never);
 
-		test('creates an update snapshot', async () => {
-			const router = createRouter();
-			const ws = new FakeWebSocket();
+	return { router, ...seeded };
+}
 
-			await router.handleMessage(
-				ws as never,
-				JSON.stringify({ v: 1, type: 'subscribe', id: 'sub-1', topic: { type: 'update' } }),
-			);
+async function subscribe(ws: FakeWebSocket, topic: unknown) {
+	const { router } = await createRouter();
+	await router.handleMessage(
+		ws as never,
+		JSON.stringify({ type: 'subscribe', id: 'sub-1', topic }),
+	);
+	return router;
+}
 
-			expect(ws.sent[0]).toMatchObject({
-				id: 'sub-1',
-				snapshot: { type: 'update' },
-			});
-		});
-
-		test('creates a terminal snapshot', async () => {
-			const router = createRouter();
-			const ws = new FakeWebSocket();
-
-			await router.handleMessage(
-				ws as never,
-				JSON.stringify({
-					v: 1,
-					type: 'subscribe',
-					id: 'sub-1',
-					topic: { type: 'terminal', terminalId: 'terminal-1' },
-				}),
-			);
-
-			expect(ws.sent[0]).toMatchObject({
-				id: 'sub-1',
-				snapshot: { type: 'terminal' },
-			});
-		});
-
-		test('creates a project git snapshot', async () => {
-			const state = createEmptyState();
-			state.projectsById.set('project-1', {
-				id: 'project-1',
-				localPath: '/tmp/project',
-				title: 'Project',
-				createdAt: 1,
-				updatedAt: 1,
-			});
-			const router = createRouter({
-				store: {
-					state,
-					getProject: (projectId: string) => state.projectsById.get(projectId) ?? null,
-					pruneStaleEmptyChats: async () => {},
+describe('createWsRouter.refreshWorkspaceOpenState', () => {
+	test('refreshes workspace health and git state after workspace subscribe', async () => {
+		let gitSnapshot = unknownGitSnapshot();
+		const { router, workspaceId } = await createRouter({
+			diffStore: {
+				getWorkspaceGitSnapshot: () => gitSnapshot,
+				refreshWorkspaceGitSnapshot: async () => {
+					gitSnapshot = readyGitSnapshot();
+					return true;
 				},
-			});
-			const ws = new FakeWebSocket();
-
-			await router.handleMessage(
-				ws as never,
-				JSON.stringify({
-					v: 1,
-					type: 'subscribe',
-					id: 'sub-1',
-					topic: { type: 'project-git', projectId: 'project-1' },
-				}),
-			);
-
-			expect(ws.sent[0]).toMatchObject({
-				id: 'sub-1',
-				snapshot: { type: 'project-git' },
-			});
+			},
+			workspaceManager: {
+				getWorkspaceHealthState: async () => 'branch_missing',
+			},
 		});
+		const ws = new FakeWebSocket();
 
-		test('creates a chat snapshot', async () => {
-			const router = createRouter();
-			const ws = new FakeWebSocket();
+		await router.handleMessage(
+			ws as never,
+			JSON.stringify({
+				type: 'subscribe',
+				id: 'workspace-sub',
+				topic: { type: 'workspace', workspaceId },
+			}),
+		);
+		await waitFor(() => ws.sent.length >= 2);
 
-			await router.handleMessage(
-				ws as never,
-				JSON.stringify({
-					v: 1,
-					type: 'subscribe',
-					id: 'sub-1',
-					topic: { type: 'chat', chatId: 'chat-1' },
-				}),
-			);
+		expect(ws.sent[0]).toMatchObject({
+			id: 'workspace-sub',
+			snapshot: { type: 'workspace', data: { healthState: 'healthy' } },
+		});
+		expect(ws.sent.at(-1)).toMatchObject({
+			id: 'workspace-sub',
+			snapshot: {
+				type: 'workspace',
+				data: { healthState: 'branch_missing', git: { status: 'ready' } },
+			},
+		});
+	});
+});
 
-			expect(ws.sent[0]).toMatchObject({
-				id: 'sub-1',
-				snapshot: { type: 'chat' },
-			});
+describe('createWsRouter.createEnvelope', () => {
+	test('creates a sidebar snapshot', async () => {
+		const ws = new FakeWebSocket();
+		await subscribe(ws, { type: 'sidebar' });
+
+		expect(ws.sent[0]).toMatchObject({
+			type: 'snapshot',
+			id: 'sub-1',
+			snapshot: { type: 'sidebar' },
 		});
 	});
 
-	describe('createWsRouter.pushSnapshots', () => {
-		test('prunes before sending snapshots by default', async () => {
-			let pruneCalls = 0;
-			const router = createRouter({
-				store: {
-					state: createEmptyState(),
-					pruneStaleEmptyChats: async () => {
-						pruneCalls += 1;
-					},
-				},
-			});
+	test('creates a directories snapshot', async () => {
+		const ws = new FakeWebSocket();
+		await subscribe(ws, { type: 'directories' });
 
-			const ws = new FakeWebSocket();
-
-			await router.handleMessage(
-				ws as never,
-				JSON.stringify({ v: 1, type: 'subscribe', id: 'sub-1', topic: { type: 'sidebar' } }),
-			);
-
-			expect(pruneCalls).toBe(1);
-		});
-
-		test('sends snapshots for subscriptions', async () => {
-			const router = createRouter();
-			const ws = new FakeWebSocket();
-
-			ws.data.subscriptions.set('sidebar-1', { type: 'sidebar' });
-			ws.data.subscriptions.set('keys-1', { type: 'keybindings' });
-			await router.broadcastSnapshots();
-
-			expect(ws.sent).toHaveLength(0);
-
-			router.handleOpen(ws as never);
-			await router.broadcastSnapshots();
-
-			expect(ws.sent).toHaveLength(2);
-		});
-
-		test('does not resend unchanged snapshots', async () => {
-			const router = createRouter();
-			const ws = new FakeWebSocket();
-
-			await router.handleMessage(
-				ws as never,
-				JSON.stringify({ v: 1, type: 'subscribe', id: 'sub-1', topic: { type: 'sidebar' } }),
-			);
-			await router.broadcastSnapshots();
-
-			expect(ws.sent).toHaveLength(1);
+		expect(ws.sent[0]).toMatchObject({
+			type: 'snapshot',
+			id: 'sub-1',
+			snapshot: { type: 'directories' },
 		});
 	});
+});
 
-	describe('createWsRouter.broadcastError', () => {
-		test('sends errors to open sockets', () => {
-			let reportError = (_message: string) => {};
-			const router = createRouter({
-				agent: {
-					getActiveStatuses: () => new Map(),
-					getDrainingChatIds: () => new Set(),
-					setBackgroundErrorReporter: (reporter: (message: string) => void) => {
-						reportError = reporter;
-					},
-				},
-			});
-			const ws = new FakeWebSocket();
+describe('createWsRouter.broadcastSnapshots', () => {
+	test('does not resend unchanged snapshots', async () => {
+		const { router } = await createRouter();
+		const ws = new FakeWebSocket();
 
-			router.handleOpen(ws as never);
-			reportError('boom');
+		await router.handleMessage(
+			ws as never,
+			JSON.stringify({ type: 'subscribe', id: 'sub-1', topic: { type: 'sidebar' } }),
+		);
+		await router.broadcastSnapshots();
 
-			expect(ws.sent).toEqual([{ type: 'error', message: 'boom' }]);
-		});
+		expect(ws.sent).toHaveLength(1);
 	});
 
-	describe('createWsRouter.pushTerminalSnapshot', () => {
-		test('sends terminal snapshots to matching subscriptions', async () => {
-			const router = createRouter({
-				terminals: {
-					getSnapshot: () => ({ terminalId: 'terminal-1' }),
-					onEvent: () => () => {},
-					close: () => {},
+	test('broadcasts only to open sockets', async () => {
+		const { router } = await createRouter();
+		const ws = new FakeWebSocket();
+		ws.data.subscriptions.set('sidebar-1', { type: 'sidebar' });
+
+		await router.broadcastSnapshots();
+		expect(ws.sent).toEqual([]);
+
+		router.handleOpen(ws as never);
+		await router.broadcastSnapshots();
+		expect(ws.sent).toHaveLength(1);
+	});
+});
+
+describe('createWsRouter.broadcastError', () => {
+	test('sends background errors to open sockets', async () => {
+		let reportError: (message: string) => void = () => {};
+		const { router } = await createRouter({
+			agent: {
+				getActiveStatuses: () => new Map(),
+				getDrainingSessionIds: () => new Set(),
+				setBackgroundErrorReporter: (reporter: (message: string) => void) => {
+					reportError = reporter;
 				},
-			});
-			const ws = new FakeWebSocket();
+			},
+		});
+		const ws = new FakeWebSocket();
 
-			router.handleOpen(ws as never);
-			ws.data.subscriptions.set('sub-1', { type: 'terminal', terminalId: 'terminal-1' });
+		router.handleOpen(ws as never);
+		reportError('boom');
 
-			await router.handleMessage(
-				ws as never,
-				JSON.stringify({
-					v: 1,
-					type: 'command',
-					id: 'close-1',
-					command: { type: 'terminal.close', terminalId: 'terminal-1' },
+		expect(ws.sent).toEqual([{ type: 'error', message: 'boom' }]);
+	});
+});
+
+describe('createWsRouter.pushTerminalEvent', () => {
+	test('pushes terminal events to matching subscriptions', async () => {
+		let emitTerminalEvent: (event: unknown) => void = () => {};
+		const { router } = await createRouter({
+			terminals: {
+				getSnapshot: () => null,
+				onEvent: (listener: (event: unknown) => void) => {
+					emitTerminalEvent = listener;
+					return () => {};
+				},
+			},
+		});
+		const ws = new FakeWebSocket();
+
+		router.handleOpen(ws as never);
+		ws.data.subscriptions.set('terminal-sub', { type: 'terminal', terminalId: 'terminal-1' });
+		emitTerminalEvent({ type: 'terminal.output', terminalId: 'terminal-1', data: 'hello' });
+
+		expect(ws.sent).toEqual([
+			{
+				type: 'event',
+				id: 'terminal-sub',
+				event: { type: 'terminal.output', terminalId: 'terminal-1', data: 'hello' },
+			},
+		]);
+	});
+});
+
+describe('createWsRouter.sendWorkspaceInstruction', () => {
+	test('starts commit-and-push as a workspace instruction turn', async () => {
+		let markedIntent: unknown;
+		let sentCommand: unknown;
+		const { router, workspaceId, sessionId } = await createRouter({
+			workspaceManager: {
+				markWorkspaceInstructionTurnStarted: (args: unknown) => {
+					markedIntent = args;
+				},
+				clearWorkspaceInstructionTurn: () => {},
+			},
+			agent: {
+				getActiveStatuses: () => new Map(),
+				getDrainingSessionIds: () => new Set(),
+				send: async (command: unknown) => {
+					sentCommand = command;
+					return { sessionId };
+				},
+				setBackgroundErrorReporter: () => {},
+			},
+		});
+		const ws = new FakeWebSocket();
+
+		await router.handleMessage(
+			ws as never,
+			JSON.stringify({
+				type: 'command',
+				id: 'commit-1',
+				command: {
+					type: 'workspace.commitAndPush',
+					workspaceId,
+					sessionId,
+				},
+			}),
+		);
+
+		expect(markedIntent).toEqual({
+			workspaceId,
+			sessionId,
+			intent: 'commit_and_push',
+		});
+		expect(sentCommand).toMatchObject({
+			type: 'session.send',
+			sessionId,
+			workspaceId,
+			content: 'Commit and Push',
+		});
+		expect(ws.sent[0]).toEqual({ type: 'ack', id: 'commit-1', result: { sessionId } });
+	});
+
+	test('clears workspace instruction intent when the agent turn fails to start', async () => {
+		let clearedSessionId: string | null = null;
+		const { router, workspaceId, sessionId } = await createRouter({
+			workspaceManager: {
+				markWorkspaceInstructionTurnStarted: () => {},
+				clearWorkspaceInstructionTurn: (id: string) => {
+					clearedSessionId = id;
+				},
+			},
+			agent: {
+				getActiveStatuses: () => new Map(),
+				getDrainingSessionIds: () => new Set(),
+				send: async () => {
+					throw new Error('agent failed');
+				},
+				setBackgroundErrorReporter: () => {},
+			},
+		});
+		const ws = new FakeWebSocket();
+
+		await router.handleMessage(
+			ws as never,
+			JSON.stringify({
+				type: 'command',
+				id: 'commit-1',
+				command: {
+					type: 'workspace.commitAndPush',
+					workspaceId,
+					sessionId,
+				},
+			}),
+		);
+
+		expect(clearedSessionId as string | null).toBe(sessionId);
+		expect(ws.sent).toEqual([{ type: 'error', id: 'commit-1', message: 'agent failed' }]);
+	});
+});
+
+describe('createWsRouter.handleCommand', () => {
+	test('reads workspace diff patches', async () => {
+		const { router, workspaceId } = await createRouter();
+		const ws = new FakeWebSocket();
+
+		await router.handleMessage(
+			ws as never,
+			JSON.stringify({
+				type: 'command',
+				id: 'patch-1',
+				command: { type: 'workspace.readDiffPatch', workspaceId, path: 'app.txt' },
+			}),
+		);
+
+		expect(ws.sent).toEqual([{ type: 'ack', id: 'patch-1', result: { patch: 'diff' } }]);
+	});
+
+	test('normalizes refresh PR stage command results', async () => {
+		const { router, workspaceId } = await createRouter();
+		const ws = new FakeWebSocket();
+
+		await router.handleMessage(
+			ws as never,
+			JSON.stringify({
+				type: 'command',
+				id: 'refresh-1',
+				command: { type: 'workspace.refreshPrStage', workspaceId },
+			}),
+		);
+
+		expect(ws.sent).toEqual([
+			{
+				type: 'ack',
+				id: 'refresh-1',
+				result: {
+					refreshed: true,
+					snapshot: { status: 'none', owner: 'sarp', repo: 'miko', comments: [], checks: [] },
+				},
+			},
+		]);
+	});
+});
+
+describe('createWsRouter.handleMessage', () => {
+	test('returns errors for invalid JSON', async () => {
+		const { router } = await createRouter();
+		const ws = new FakeWebSocket();
+
+		await router.handleMessage(ws as never, '{');
+
+		expect(ws.sent).toEqual([{ type: 'error', message: 'Invalid JSON' }]);
+	});
+
+	test('unsubscribes and acknowledges the request', async () => {
+		const { router } = await createRouter();
+		const ws = new FakeWebSocket();
+		ws.data.subscriptions.set('sub-1', { type: 'sidebar' });
+
+		await router.handleMessage(ws as never, JSON.stringify({ type: 'unsubscribe', id: 'sub-1' }));
+
+		expect(ws.data.subscriptions.has('sub-1')).toBe(false);
+		expect(ws.sent).toEqual([{ type: 'ack', id: 'sub-1' }]);
+	});
+});
+
+describe('createWsRouter.dispose', () => {
+	test('disposes background listeners', async () => {
+		let clearedReporter: unknown;
+		let terminalDisposed = false;
+		let keybindingsDisposed = false;
+		let updateDisposed = false;
+		const { router } = await createRouter({
+			agent: {
+				getActiveStatuses: () => new Map(),
+				getDrainingSessionIds: () => new Set(),
+				setBackgroundErrorReporter: (reporter: unknown) => {
+					clearedReporter = reporter;
+				},
+			},
+			terminals: {
+				getSnapshot: () => null,
+				onEvent: () => () => {
+					terminalDisposed = true;
+				},
+			},
+			keybindings: {
+				getSnapshot: () => ({
+					bindings: {},
+					warning: null,
+					filePathDisplay: '/tmp/keybindings.json',
 				}),
-			);
-
-			expect(ws.sent.at(-1)).toMatchObject({
-				id: 'sub-1',
-				snapshot: { type: 'terminal' },
-			});
-		});
-
-		test('skips non-matching terminal subscriptions', async () => {
-			const router = createRouter({
-				terminals: {
-					getSnapshot: () => ({ terminalId: 'terminal-1' }),
-					onEvent: () => () => {},
-					close: () => {},
+				onChange: () => () => {
+					keybindingsDisposed = true;
 				},
-			});
-			const ws = new FakeWebSocket();
-
-			router.handleOpen(ws as never);
-			ws.data.subscriptions.set('sub-1', { type: 'terminal', terminalId: 'terminal-2' });
-
-			await router.handleMessage(
-				ws as never,
-				JSON.stringify({
-					v: 1,
-					type: 'command',
-					id: 'close-1',
-					command: { type: 'terminal.close', terminalId: 'terminal-1' },
+			},
+			updateManager: {
+				getSnapshot: () => ({
+					currentVersion: '1.0.0',
+					latestVersion: null,
+					status: 'idle',
+					updateAvailable: false,
+					lastCheckedAt: null,
+					error: null,
+					installAction: 'restart',
 				}),
-			);
-
-			expect(ws.sent).toEqual([{ type: 'ack', id: 'close-1' }]);
-		});
-	});
-
-	describe('createWsRouter.pushTerminalEvent', () => {
-		test('sends events to matching terminal subscriptions', () => {
-			let emitTerminalEvent = (_event: unknown) => {};
-			const router = createRouter({
-				terminals: {
-					getSnapshot: () => null,
-					onEvent: (listener: (event: unknown) => void) => {
-						emitTerminalEvent = listener;
-						return () => {};
-					},
+				onChange: () => () => {
+					updateDisposed = true;
 				},
-			});
-			const ws = new FakeWebSocket();
-
-			router.handleOpen(ws as never);
-			ws.data.subscriptions.set('sub-1', { type: 'terminal', terminalId: 'terminal-1' });
-			emitTerminalEvent({ type: 'terminal.output', terminalId: 'terminal-1', data: 'hello' });
-
-			expect(ws.sent).toEqual([
-				{
-					type: 'event',
-					id: 'sub-1',
-					event: { type: 'terminal.output', terminalId: 'terminal-1', data: 'hello' },
-				},
-			]);
-		});
-	});
-
-	describe('createWsRouter.disposeKeybindingEvents', () => {
-		test('sends changed keybinding snapshots to subscribers', () => {
-			let emitKeybindingsChange = () => {};
-			const router = createRouter({
-				keybindings: {
-					getSnapshot: () => ({ bindings: {}, warnings: [], filePath: '/tmp/keybindings.json' }),
-					onChange: (listener: () => void) => {
-						emitKeybindingsChange = listener;
-						return () => {};
-					},
-				},
-			});
-			const ws = new FakeWebSocket();
-
-			router.handleOpen(ws as never);
-			ws.data.subscriptions.set('sub-1', { type: 'keybindings' });
-			emitKeybindingsChange();
-
-			expect(ws.sent[0]).toMatchObject({
-				id: 'sub-1',
-				snapshot: { type: 'keybindings' },
-			});
-		});
-	});
-
-	describe('createWsRouter.disposeUpdateEvents', () => {
-		test('sends changed update snapshots to subscribers', () => {
-			let emitUpdateChange = () => {};
-			const router = createRouter({
-				updateManager: {
-					getSnapshot: () => ({
-						currentVersion: '1.0.0',
-						latestVersion: null,
-						status: 'idle',
-						updateAvailable: false,
-						lastCheckedAt: null,
-						error: null,
-						installAction: 'restart',
-					}),
-					onChange: (listener: () => void) => {
-						emitUpdateChange = listener;
-						return () => {};
-					},
-				},
-			});
-			const ws = new FakeWebSocket();
-
-			router.handleOpen(ws as never);
-			ws.data.subscriptions.set('sub-1', { type: 'update' });
-			emitUpdateChange();
-
-			expect(ws.sent[0]).toMatchObject({
-				id: 'sub-1',
-				snapshot: { type: 'update' },
-			});
-		});
-	});
-
-	describe('createWsRouter.handleCommand', () => {
-		test('acks system ping commands without broadcasting snapshots', async () => {
-			const router = createRouter();
-			const ws = new FakeWebSocket();
-
-			await router.handleMessage(
-				ws as never,
-				JSON.stringify({
-					v: 1,
-					type: 'command',
-					id: 'ping-1',
-					command: { type: 'system.ping' },
-				}),
-			);
-
-			expect(ws.sent).toEqual([{ type: 'ack', id: 'ping-1' }]);
+			},
 		});
 
-		test('returns an error when update installation is unavailable', async () => {
-			const router = createRouter();
-			const ws = new FakeWebSocket();
+		router.dispose();
 
-			await router.handleMessage(
-				ws as never,
-				JSON.stringify({
-					v: 1,
-					type: 'command',
-					id: 'install-1',
-					command: { type: 'update.install' },
-				}),
-			);
-
-			expect(ws.sent).toEqual([
-				{ type: 'error', id: 'install-1', message: 'Update manager unavailable.' },
-			]);
-		});
-
-		test('reads project diff patches', async () => {
-			const state = createEmptyState();
-			state.projectsById.set('project-1', {
-				id: 'project-1',
-				localPath: '/tmp/project',
-				title: 'Project',
-				createdAt: 1,
-				updatedAt: 1,
-			});
-			const router = createRouter({
-				store: {
-					state,
-					getProject: (projectId: string) => state.projectsById.get(projectId) ?? null,
-					pruneStaleEmptyChats: async () => {},
-				},
-				diffStore: {
-					readPatch: async () => ({ patch: 'diff' }),
-				},
-			});
-			const ws = new FakeWebSocket();
-
-			await router.handleMessage(
-				ws as never,
-				JSON.stringify({
-					v: 1,
-					type: 'command',
-					id: 'patch-1',
-					command: { type: 'project.readDiffPatch', projectId: 'project-1', path: 'app.txt' },
-				}),
-			);
-
-			expect(ws.sent).toEqual([{ type: 'ack', id: 'patch-1', result: { patch: 'diff' } }]);
-		});
-
-		test('broadcasts sidebar snapshots after marking a chat as read', async () => {
-			const state = createEmptyState();
-			state.projectsById.set('project-1', {
-				id: 'project-1',
-				localPath: '/tmp/project',
-				title: 'Project',
-				createdAt: 1,
-				updatedAt: 1,
-			});
-			state.projectIdsByPath.set('/tmp/project', 'project-1');
-			state.chatsById.set('chat-1', {
-				id: 'chat-1',
-				projectId: 'project-1',
-				title: 'Chat',
-				createdAt: 1,
-				updatedAt: 1,
-				unread: true,
-				provider: null,
-				planMode: false,
-				sessionToken: null,
-				lastTurnOutcome: null,
-			});
-			const router = createRouter({
-				store: {
-					state,
-					pruneStaleEmptyChats: async () => {},
-					setChatReadState: async (chatId: string, unread: boolean) => {
-						const chat = state.chatsById.get(chatId);
-						if (chat) chat.unread = unread;
-					},
-				},
-			});
-			const ws = new FakeWebSocket();
-
-			router.handleOpen(ws as never);
-			ws.data.subscriptions.set('sub-1', { type: 'sidebar' });
-
-			await router.handleMessage(
-				ws as never,
-				JSON.stringify({
-					v: 1,
-					type: 'command',
-					id: 'read-1',
-					command: { type: 'chat.markRead', chatId: 'chat-1' },
-				}),
-			);
-
-			expect(ws.sent[0]).toEqual({ type: 'ack', id: 'read-1' });
-			expect(ws.sent[1]).toMatchObject({
-				id: 'sub-1',
-				snapshot: {
-					type: 'sidebar',
-					data: {
-						projectGroups: [
-							{
-								chats: [{ chatId: 'chat-1', unread: false }],
-							},
-						],
-					},
-				},
-			});
-		});
-	});
-
-	describe('createWsRouter.handleOpen', () => {
-		test('adds sockets to future broadcasts', async () => {
-			const router = createRouter();
-			const ws = new FakeWebSocket();
-
-			ws.data.subscriptions.set('sub-1', { type: 'sidebar' });
-			router.handleOpen(ws as never);
-			await router.broadcastSnapshots();
-
-			expect(ws.sent[0]).toMatchObject({
-				id: 'sub-1',
-				snapshot: { type: 'sidebar' },
-			});
-		});
-	});
-
-	describe('createWsRouter.handleClose', () => {
-		test('removes sockets from future broadcasts', async () => {
-			const router = createRouter();
-			const ws = new FakeWebSocket();
-
-			ws.data.subscriptions.set('sub-1', { type: 'sidebar' });
-			router.handleOpen(ws as never);
-			router.handleClose(ws as never);
-			await router.broadcastSnapshots();
-
-			expect(ws.sent).toEqual([]);
-		});
-	});
-
-	describe('createWsRouter.handleMessage', () => {
-		test('returns an error for invalid JSON', async () => {
-			const router = createRouter();
-			const ws = new FakeWebSocket();
-
-			await router.handleMessage(ws as never, '{');
-
-			expect(ws.sent).toEqual([{ type: 'error', message: 'Invalid JSON' }]);
-		});
-
-		test('returns an error for invalid envelopes', async () => {
-			const router = createRouter();
-			const ws = new FakeWebSocket();
-
-			await router.handleMessage(ws as never, JSON.stringify({ hello: 'world' }));
-
-			expect(ws.sent).toEqual([{ type: 'error', message: 'Invalid envolope' }]);
-		});
-
-		test('subscribes and sends snapshots', async () => {
-			const router = createRouter();
-			const ws = new FakeWebSocket();
-
-			await router.handleMessage(
-				ws as never,
-				JSON.stringify({ v: 1, type: 'subscribe', id: 'sub-1', topic: { type: 'sidebar' } }),
-			);
-
-			expect(ws.data.subscriptions.get('sub-1')).toEqual({ type: 'sidebar' });
-			expect(ws.sent[0]).toMatchObject({
-				id: 'sub-1',
-				snapshot: { type: 'sidebar' },
-			});
-		});
-
-		test('refreshes discovery before local project snapshots', async () => {
-			let refreshed = false;
-			const router = createRouter({
-				refreshDiscovery: async () => {
-					refreshed = true;
-					return [];
-				},
-			});
-			const ws = new FakeWebSocket();
-
-			await router.handleMessage(
-				ws as never,
-				JSON.stringify({
-					v: 1,
-					type: 'subscribe',
-					id: 'sub-1',
-					topic: { type: 'local-projects' },
-				}),
-			);
-
-			await Bun.sleep(0);
-
-			expect(refreshed).toBe(true);
-			expect(ws.sent[0]).toMatchObject({
-				id: 'sub-1',
-				snapshot: { type: 'local-projects' },
-			});
-		});
-
-		test('unsubscribes and acknowledges the request', async () => {
-			const router = createRouter();
-			const ws = new FakeWebSocket();
-			ws.data.subscriptions.set('sub-1', { type: 'sidebar' });
-
-			await router.handleMessage(
-				ws as never,
-				JSON.stringify({ v: 1, type: 'unsubscribe', id: 'sub-1' }),
-			);
-
-			expect(ws.data.subscriptions.has('sub-1')).toBe(false);
-			expect(ws.sent).toEqual([{ type: 'ack', id: 'sub-1' }]);
-		});
-	});
-
-	describe('createWsRouter.dispose', () => {
-		test('clears the reporter and disposes listeners', () => {
-			let clearedReporter: unknown;
-			let terminalDisposed = false;
-			let keybindingsDisposed = false;
-			let updateDisposed = false;
-			const router = createRouter({
-				agent: {
-					getActiveStatuses: () => new Map(),
-					getDrainingChatIds: () => new Set(),
-					setBackgroundErrorReporter: (reporter: unknown) => {
-						clearedReporter = reporter;
-					},
-				},
-				terminals: {
-					getSnapshot: () => null,
-					onEvent: () => () => {
-						terminalDisposed = true;
-					},
-				},
-				keybindings: {
-					getSnapshot: () => ({ bindings: {}, warnings: [], filePath: '/tmp/keybindings.json' }),
-					onChange: () => () => {
-						keybindingsDisposed = true;
-					},
-				},
-				updateManager: {
-					onChange: () => () => {
-						updateDisposed = true;
-					},
-				},
-			});
-
-			router.dispose();
-
-			expect(clearedReporter).toBeNull();
-			expect(terminalDisposed).toBe(true);
-			expect(keybindingsDisposed).toBe(true);
-			expect(updateDisposed).toBe(true);
-		});
+		expect(clearedReporter).toBeNull();
+		expect(terminalDisposed).toBe(true);
+		expect(keybindingsDisposed).toBe(true);
+		expect(updateDisposed).toBe(true);
 	});
 });

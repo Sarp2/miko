@@ -5,18 +5,36 @@ import {
 	type ServerEnvelope,
 	type SubscriptionTopic,
 } from 'src/shared/protocol';
+import type {
+	ChatAttachment,
+	MikoStatus,
+	WorkspaceGitHubSnapshot,
+	WorkspaceGitSnapshot,
+	WorkspaceHealthState,
+} from 'src/shared/types';
 import type { AgentCoordinator } from './agent';
+import {
+	writeCreatePrInstructionsAttachment,
+	writeFailingCiLogsAttachment,
+	writeSelectedReviewCommentsAttachment,
+} from './agent-instruction-attachments';
 import type { DiffStore } from './diff-store';
-import type { DiscoveredProject } from './discovery';
 import type { EventStore } from './event-store';
 import { openExternal } from './external-open';
 import type { KeybindingsManager } from './keybindings';
-import { ensureProjectDirectory } from './paths';
-import { deriveChatSnapshot, deriveLocalProjectsSnapshot, deriveSidebarData } from './read-models';
+import { ensureDirectoryPath } from './paths';
+import type { PrManager } from './pr-manager';
+import {
+	deriveDirectoryListSnapshot,
+	deriveSessionSnapshot,
+	deriveSidebarSnapshot,
+	deriveWorkspaceSnapshot,
+} from './read-models';
 import type { TerminalManager } from './terminal-manager';
 import type { UpdateManager } from './update-manager';
+import type { WorkspaceManager, WorkspaceTurnIntent } from './workspace-manager';
 
-const DEFAULT_CHAT_RECENT_LIMIT = 300;
+const DEFAULT_SESSION_RECENT_LIMIT = 300;
 
 export interface ClientState {
 	subscriptions: Map<string, SubscriptionTopic>;
@@ -25,33 +43,28 @@ export interface ClientState {
 
 interface CreateWsRouterArgs {
 	store: EventStore;
-	diffStore?: Pick<
+	diffStore: Pick<
 		DiffStore,
-		| 'getProjectSnapshot'
-		| 'refreshSnapshot'
+		| 'getWorkspaceGitSnapshot'
+		| 'refreshWorkspaceGitSnapshot'
+		| 'fetchWorkspaceGit'
 		| 'initializeGit'
 		| 'getGitHubPublishInfo'
 		| 'checkGitHubRepoAvailability'
 		| 'publishToGitHub'
-		| 'listBranches'
-		| 'previewMergeBranch'
-		| 'mergeBranch'
-		| 'syncBranch'
-		| 'checkoutBranch'
-		| 'createBranch'
-		| 'generateCommitMessage'
-		| 'commitFiles'
+		| 'inspectGitHubBackedRepo'
 		| 'discardFile'
 		| 'ignoreFile'
 		| 'readPatch'
 	>;
+	workspaceManager: WorkspaceManager;
+	prManager: PrManager;
 	agent: AgentCoordinator;
 	terminals: TerminalManager;
 	keybindings: KeybindingsManager;
-	refreshDiscovery: () => Promise<DiscoveredProject[]>;
-	getDiscoveredProjects: () => DiscoveredProject[];
 	machineDisplayName: string;
 	updateManager: UpdateManager | null;
+	refreshWorkspacePrStage: (workspaceId: string, options?: { force?: boolean }) => Promise<unknown>;
 }
 
 function send(ws: ServerWebSocket<ClientState>, message: ServerEnvelope) {
@@ -65,128 +78,132 @@ function ensureSnapshotSignatures(ws: ServerWebSocket<ClientState>) {
 	return ws.data.snapshotSignatures;
 }
 
+function createGitSnapshots(store: EventStore, diffStore: CreateWsRouterArgs['diffStore']) {
+	const gitSnapshots = new Map<string, WorkspaceGitSnapshot>();
+	for (const workspace of store.listWorkspaces()) {
+		gitSnapshots.set(workspace.id, diffStore.getWorkspaceGitSnapshot(workspace.id));
+	}
+	return gitSnapshots;
+}
+
+function createGithubSnapshots(store: EventStore, prManager: PrManager) {
+	const githubSnapshots = new Map<string, WorkspaceGitHubSnapshot>();
+	for (const workspace of store.listWorkspaces()) {
+		const snapshot = prManager.getWorkspaceGitHubSnapshot(workspace.id);
+		if (snapshot) githubSnapshots.set(workspace.id, snapshot);
+	}
+	return githubSnapshots;
+}
+
 export function createWsRouter({
 	store,
 	diffStore,
+	workspaceManager,
+	prManager,
 	agent,
 	terminals,
 	keybindings,
-	refreshDiscovery,
-	getDiscoveredProjects,
 	machineDisplayName,
 	updateManager,
+	refreshWorkspacePrStage,
 }: CreateWsRouterArgs) {
 	const sockets = new Set<ServerWebSocket<ClientState>>();
-	const resolvedDiffStore = diffStore ?? {
-		getProjectSnapshot: () => ({
-			status: 'unknown',
-			branchName: undefined,
-			defaultBranchName: undefined,
-			hasOriginRemote: undefined,
-			originRepoSlug: undefined,
-			hasUpstream: undefined,
-			aheadCount: undefined,
-			behindCount: undefined,
-			lastFetchedAt: undefined,
-			files: [] as const,
-			branchHistory: { entries: [] as const },
-		}),
-		refreshSnapshot: async () => false,
-		initializeGit: async () => ({ ok: true, branchName: undefined, snapshotChanged: false }),
-		getGitHubPublishInfo: async () => ({
-			ghInstalled: false,
-			authenticated: false,
-			activeAccountLogin: undefined,
-			owners: [],
-			suggestedRepoName: 'my-repo',
-		}),
-		checkGitHubRepoAvailability: async () => ({ available: false, message: 'Unavailable' }),
-		publishToGitHub: async () => ({
-			ok: false,
-			title: 'Publish failed',
-			message: 'Unavailable',
-			snapshotChanged: false,
-		}),
-		listBranches: async () => ({
-			recent: [],
-			local: [],
-			remote: [],
-			pullRequests: [],
-			pullRequestsStatus: 'unavailable' as const,
-		}),
-		previewMergeBranch: async () => ({
-			currentBranchName: undefined,
-			targetBranchName: '',
-			targetDisplayName: '',
-			status: 'error' as const,
-			commitCount: 0,
-			hasConflicts: false,
-			message: 'Merge preview unavailable.',
-		}),
-		mergeBranch: async () => ({
-			ok: false as const,
-			title: 'Merge failed',
-			message: 'Merge unavailable.',
-			snapshotChanged: false,
-		}),
-		syncBranch: async () => ({
-			ok: true,
-			action: 'fetch' as const,
-			branchName: undefined,
-			snapshotChanged: false,
-		}),
-		checkoutBranch: async () => ({ ok: true, branchName: undefined, snapshotChanged: false }),
-		createBranch: async () => ({ ok: true, branchName: 'main', snapshotChanged: false }),
-		generateCommitMessage: async () => ({
-			subject: 'Update selected files',
-			body: '',
-			usedFallback: true,
-			failureMessage: null,
-		}),
-		commitFiles: async () => ({
-			ok: true,
-			mode: 'commit_only' as const,
-			branchName: undefined,
-			pushed: false,
-			snapshotChanged: false,
-		}),
-		discardFile: async () => ({ snapshotChanged: false }),
-		ignoreFile: async () => ({ snapshotChanged: false }),
-		readPatch: async () => ({ patch: '' }),
-	};
+	const workspaceHealthStates = new Map<string, WorkspaceHealthState>();
 
-	function getProctedChatIds() {
-		return new Set([...agent.getActiveStatuses().keys(), ...agent.getDrainingChatIds().values()]);
+	function getActiveStatuses() {
+		return agent.getActiveStatuses() as Map<string, MikoStatus>;
 	}
 
-	async function maybePruneStaleEmptyChats() {
-		await store.pruneStaleEmptyChats?.({
-			activeChatIds: getProctedChatIds(),
-		});
+	function getDrainingSessionIds() {
+		return agent.getDrainingSessionIds();
 	}
 
-	function createEnvelope(id: string, topic: SubscriptionTopic): ServerEnvelope {
+	async function refreshWorkspaceOpenState(workspaceId: string) {
+		if (!store.getWorkspace(workspaceId)) return;
+
+		const [healthState] = await Promise.all([
+			workspaceManager.getWorkspaceHealthState(workspaceId),
+			refreshWorkspaceGit(workspaceId, false),
+		]);
+
+		workspaceHealthStates.set(workspaceId, healthState);
+
+		const workspace = store.getWorkspace(workspaceId);
+		if (workspace?.reviewState !== 'in_review') return;
+
+		if (refreshWorkspacePrStage) {
+			await refreshWorkspacePrStage(workspace.id);
+		} else {
+			await prManager.refreshWorkspacePrState(workspace.id);
+		}
+	}
+
+	async function createEnvelope(id: string, topic: SubscriptionTopic): Promise<ServerEnvelope> {
 		if (topic.type === 'sidebar') {
 			return {
 				type: 'snapshot',
 				id,
 				snapshot: {
 					type: 'sidebar',
-					data: deriveSidebarData(store.state, agent.getActiveStatuses()),
+					data: deriveSidebarSnapshot({
+						state: store.state,
+						activeStatuses: getActiveStatuses(),
+						gitSnapshots: createGitSnapshots(store, diffStore),
+						githubSnapshots: createGithubSnapshots(store, prManager),
+					}),
 				},
 			};
 		}
 
-		if (topic.type === 'local-projects') {
-			const discoveredProjects = getDiscoveredProjects();
-			const data = deriveLocalProjectsSnapshot(store.state, discoveredProjects, machineDisplayName);
-
+		if (topic.type === 'directories') {
 			return {
 				type: 'snapshot',
 				id,
 				snapshot: {
-					type: 'local-projects',
-					data,
+					type: 'directories',
+					data: deriveDirectoryListSnapshot(store.state, machineDisplayName),
+				},
+			};
+		}
+
+		if (topic.type === 'workspace') {
+			const workspace = store.getWorkspace(topic.workspaceId);
+			return {
+				type: 'snapshot',
+				id,
+				snapshot: {
+					type: 'workspace',
+					data: workspace
+						? deriveWorkspaceSnapshot({
+								state: store.state,
+								activeStatuses: getActiveStatuses(),
+								workspaceId: topic.workspaceId,
+								healthState: workspaceHealthStates.get(topic.workspaceId),
+								git: diffStore.getWorkspaceGitSnapshot(topic.workspaceId),
+								github: prManager.getWorkspaceGitHubSnapshot(topic.workspaceId),
+							})
+						: null,
+				},
+			};
+		}
+
+		if (topic.type === 'session') {
+			return {
+				type: 'snapshot',
+				id,
+				snapshot: {
+					type: 'session',
+					data: deriveSessionSnapshot(
+						store.state,
+						getActiveStatuses(),
+						getDrainingSessionIds(),
+						topic.sessionId,
+						(sessionId) =>
+							store.getRecentSessionHistory(
+								sessionId,
+								topic.recentLimit ?? DEFAULT_SESSION_RECENT_LIMIT,
+							),
+					),
 				},
 			};
 		}
@@ -195,10 +212,7 @@ export function createWsRouter({
 			return {
 				type: 'snapshot',
 				id,
-				snapshot: {
-					type: 'keybindings',
-					data: keybindings.getSnapshot(),
-				},
+				snapshot: { type: 'keybindings', data: keybindings.getSnapshot() },
 			};
 		}
 
@@ -221,58 +235,20 @@ export function createWsRouter({
 			};
 		}
 
-		if (topic.type === 'terminal') {
-			return {
-				type: 'snapshot',
-				id,
-				snapshot: {
-					type: 'terminal',
-					data: terminals.getSnapshot(topic.terminalId),
-				},
-			};
-		}
-
-		if (topic.type === 'project-git') {
-			return {
-				type: 'snapshot',
-				id,
-				snapshot: {
-					type: 'project-git',
-					data: store.getProject(topic.projectId)
-						? resolvedDiffStore.getProjectSnapshot(topic.projectId)
-						: null,
-				},
-			};
-		}
-
 		return {
 			type: 'snapshot',
 			id,
 			snapshot: {
-				type: 'chat',
-				data: deriveChatSnapshot(
-					store.state,
-					agent.getActiveStatuses(),
-					agent.getDrainingChatIds(),
-					topic.chatId,
-					(chatId) =>
-						store.getRecentChatHistory(chatId, topic.recentLimit ?? DEFAULT_CHAT_RECENT_LIMIT),
-				),
+				type: 'terminal',
+				data: terminals.getSnapshot(topic.terminalId),
 			},
 		};
 	}
 
-	async function pushSnapshots(
-		ws: ServerWebSocket<ClientState>,
-		options?: { skipPrune?: boolean },
-	) {
-		if (!options?.skipPrune) {
-			await maybePruneStaleEmptyChats();
-		}
-
+	async function pushSnapshots(ws: ServerWebSocket<ClientState>) {
 		const snapshotSignatures = ensureSnapshotSignatures(ws);
 		for (const [id, topic] of ws.data.subscriptions.entries()) {
-			const envelope = createEnvelope(id, topic);
+			const envelope = await createEnvelope(id, topic);
 			if (envelope.type !== 'snapshot') continue;
 
 			const signature = JSON.stringify(envelope.snapshot);
@@ -284,32 +260,45 @@ export function createWsRouter({
 	}
 
 	async function broadcastSnapshots() {
-		await maybePruneStaleEmptyChats();
 		for (const ws of sockets) {
-			await pushSnapshots(ws, { skipPrune: true });
+			await pushSnapshots(ws);
 		}
 	}
 
 	function broadcastError(message: string) {
 		for (const ws of sockets) {
-			send(ws, {
-				type: 'error',
-				message,
-			});
+			send(ws, { type: 'error', message });
 		}
 	}
 
-	function pushTerminalSnapshot(terminalId: string) {
+	async function pushSubscribedSnapshot(topicType: SubscriptionTopic['type']) {
+		for (const ws of sockets) {
+			const snapshotSignatures = ensureSnapshotSignatures(ws);
+			for (const [id, topic] of ws.data.subscriptions.entries()) {
+				if (topic.type !== topicType) continue;
+				const envelope = await createEnvelope(id, topic);
+				if (envelope.type !== 'snapshot') continue;
+
+				const signature = JSON.stringify(envelope.snapshot);
+				if (snapshotSignatures.get(id) === signature) continue;
+
+				snapshotSignatures.set(id, signature);
+				send(ws, envelope);
+			}
+		}
+	}
+
+	async function pushTerminalSnapshot(terminalId: string) {
 		for (const ws of sockets) {
 			const snapshotSignatures = ensureSnapshotSignatures(ws);
 			for (const [id, topic] of ws.data.subscriptions.entries()) {
 				if (topic.type !== 'terminal' || topic.terminalId !== terminalId) continue;
-				const envelope = createEnvelope(id, topic);
-
+				const envelope = await createEnvelope(id, topic);
 				if (envelope.type !== 'snapshot') continue;
-				const signature = JSON.stringify(envelope.snapshot);
 
+				const signature = JSON.stringify(envelope.snapshot);
 				if (snapshotSignatures.get(id) === signature) continue;
+
 				snapshotSignatures.set(id, signature);
 				send(ws, envelope);
 			}
@@ -323,11 +312,7 @@ export function createWsRouter({
 		for (const ws of sockets) {
 			for (const [id, topic] of ws.data.subscriptions.entries()) {
 				if (topic.type !== 'terminal' || topic.terminalId !== terminalId) continue;
-				send(ws, {
-					type: 'event',
-					id,
-					event,
-				});
+				send(ws, { type: 'event', id, event });
 			}
 		}
 	}
@@ -337,50 +322,64 @@ export function createWsRouter({
 	});
 
 	const disposeKeybindingEvents = keybindings.onChange(() => {
-		for (const ws of sockets) {
-			const snapshotSignatures = ensureSnapshotSignatures(ws);
-			for (const [id, topic] of ws.data.subscriptions.entries()) {
-				if (topic.type !== 'keybindings') continue;
-				const envelope = createEnvelope(id, topic);
-
-				if (envelope.type !== 'snapshot') continue;
-				const signature = JSON.stringify(envelope.snapshot);
-
-				if (snapshotSignatures.get(id) === signature) continue;
-				snapshotSignatures.set(id, signature);
-				send(ws, envelope);
-			}
-		}
+		void pushSubscribedSnapshot('keybindings');
 	});
 
 	const disposeUpdateEvents =
 		updateManager?.onChange(() => {
-			for (const ws of sockets) {
-				const snapshotSignatures = ensureSnapshotSignatures(ws);
-				for (const [id, topic] of ws.data.subscriptions.entries()) {
-					if (topic.type !== 'update') continue;
-					const envelope = createEnvelope(id, topic);
-
-					if (envelope.type !== 'snapshot') continue;
-					const signature = JSON.stringify(envelope.snapshot);
-
-					if (snapshotSignatures.get(id) === signature) continue;
-					snapshotSignatures.set(id, signature);
-					send(ws, envelope);
-				}
-			}
+			void pushSubscribedSnapshot('update');
 		}) ?? (() => {});
 
 	agent.setBackgroundErrorReporter?.(broadcastError);
 
-	function resolveChatProject(chatId: string) {
-		const chat = store.getChat(chatId);
-		if (!chat) throw new Error('Chat not found');
+	function requireWorkspace(workspaceId: string) {
+		return store.requireWorkspace(workspaceId);
+	}
 
-		const project = store.getProject(chat.projectId);
-		if (!project) throw new Error('Project not found');
+	async function sendWorkspaceInstruction(
+		workspaceId: string,
+		sessionId: string,
+		content: string,
+		attachments: ChatAttachment[] = [],
+		intent: WorkspaceTurnIntent,
+	) {
+		const session = store.requireSession(sessionId);
+		if (session.workspaceId !== workspaceId) {
+			throw new Error('Session does not belong to workspace');
+		}
 
-		return { chat, project };
+		workspaceManager.markWorkspaceInstructionTurnStarted({ workspaceId, sessionId, intent });
+
+		try {
+			return await agent.send({
+				type: 'session.send',
+				sessionId,
+				workspaceId,
+				content,
+				attachments,
+				modelOptions: {},
+			});
+		} catch (error) {
+			workspaceManager.clearWorkspaceInstructionTurn(sessionId);
+			throw error;
+		}
+	}
+
+	async function refreshWorkspaceGit(workspaceId: string, fetchRemote: boolean) {
+		const workspace = requireWorkspace(workspaceId);
+		if (fetchRemote) {
+			const result = await diffStore.fetchWorkspaceGit({
+				workspaceId: workspace.id,
+				workspacePath: workspace.localPath,
+			});
+			return result;
+		}
+
+		const snapshotChanged = await diffStore.refreshWorkspaceGitSnapshot(
+			workspace.id,
+			workspace.localPath,
+		);
+		return { ok: true as const, branchName: workspace.branchName, snapshotChanged };
 	}
 
 	async function handleCommand(
@@ -405,13 +404,12 @@ export function createWsRouter({
 						: {
 								currentVersion: 'unknown',
 								latestVersion: null,
-								status: 'error',
+								status: 'error' as const,
 								updateAvailable: false,
 								lastCheckedAt: Date.now(),
 								error: 'Update manager unavailable.',
-								installAction: 'restart',
+								installAction: 'restart' as const,
 							};
-
 					send(ws, { type: 'ack', id, result: snapshot });
 					return;
 				}
@@ -430,259 +428,236 @@ export function createWsRouter({
 					send(ws, { type: 'ack', id, result: snapshot });
 					return;
 				}
-				case 'project.open': {
-					await ensureProjectDirectory(command.localPath);
-					const project = await store.openProject(command.localPath);
-					await refreshDiscovery();
-
-					send(ws, { type: 'ack', id, result: { projectId: project.id } });
+				case 'directory.add': {
+					await ensureDirectoryPath(command.localPath);
+					const directory = await store.addDirectory(command);
+					send(ws, { type: 'ack', id, result: { directoryId: directory.id } });
 					break;
 				}
-				case 'project.create': {
-					await ensureProjectDirectory(command.localPath);
-					const project = await store.openProject(command.localPath, command.title);
-					await refreshDiscovery();
-
-					send(ws, { type: 'ack', id, result: { projectId: project.id } });
+				case 'directory.remove': {
+					await store.removeDirectory(command.directoryId);
+					send(ws, { type: 'ack', id });
 					break;
 				}
-				case 'project.readDiffPatch': {
-					const project = store.getProject(command.projectId);
-					if (!project) throw new Error('Project not found');
-
-					const result = await resolvedDiffStore.readPatch({
-						projectPath: project.localPath,
-						path: command.path,
-					});
-
+				case 'directory.initializeGit': {
+					const result = await diffStore.initializeGit({ localPath: command.localPath });
+					send(ws, { type: 'ack', id, result });
+					break;
+				}
+				case 'directory.getGithubPublishInfo': {
+					const result = await diffStore.getGitHubPublishInfo({ localPath: command.localPath });
 					send(ws, { type: 'ack', id, result });
 					return;
 				}
-				case 'chat.create': {
-					const chat = await store.createChat(command.projectId);
-					send(ws, { type: 'ack', id, result: { chatId: chat.id } });
+				case 'directory.checkGithubRepoAvailability': {
+					const result = await diffStore.checkGitHubRepoAvailability(command);
+					send(ws, { type: 'ack', id, result });
+					return;
+				}
+				case 'directory.publishToGithub': {
+					const result = await diffStore.publishToGitHub(command);
+					send(ws, { type: 'ack', id, result });
 					break;
 				}
-				case 'chat.rename': {
-					await store.renameChat(command.chatId, command.title);
+				case 'workspace.create': {
+					const result = await workspaceManager.createWorkspace(command.directoryId);
+					send(ws, {
+						type: 'ack',
+						id,
+						result: { workspaceId: result.workspace.id, sessionId: result.session?.id ?? null },
+					});
+					break;
+				}
+				case 'workspace.remove': {
+					await store.removeWorkspace(command.workspaceId);
 					send(ws, { type: 'ack', id });
 					break;
 				}
-				case 'chat.delete': {
-					await agent.cancel(command.chatId);
-					await agent.closeChat(command.chatId);
-					await store.deleteChat(command.chatId);
+				case 'workspace.setVisibility': {
+					await store.setWorkspaceVisibilityState(command.workspaceId, command.visibilityState);
+					send(ws, { type: 'ack', id });
+					break;
+				}
+				case 'workspace.renameBranch': {
+					const workspace = await workspaceManager.renameWorkspaceBranch(
+						command.workspaceId,
+						command.branchName,
+					);
+					send(ws, { type: 'ack', id, result: { workspaceId: workspace.id } });
+					break;
+				}
+				case 'workspace.markRead': {
+					await store.setWorkspaceUnreadAgentResult(command.workspaceId, false);
+					send(ws, { type: 'ack', id });
+					break;
+				}
+				case 'workspace.refreshGit': {
+					const result = await refreshWorkspaceGit(command.workspaceId, true);
+					send(ws, { type: 'ack', id, result });
+					break;
+				}
+				case 'workspace.refreshPrStage': {
+					const result = await refreshWorkspacePrStage(command.workspaceId, { force: true });
+					send(ws, { type: 'ack', id, result });
+					break;
+				}
+				case 'workspace.readDiffPatch': {
+					const workspace = requireWorkspace(command.workspaceId);
+					const result = await diffStore.readPatch({
+						workspacePath: workspace.localPath,
+						path: command.path,
+					});
+					send(ws, { type: 'ack', id, result });
+					return;
+				}
+				case 'workspace.commitAndPush': {
+					const result = await sendWorkspaceInstruction(
+						command.workspaceId,
+						command.sessionId,
+						'Commit and Push',
+						[],
+						'commit_and_push',
+					);
+					send(ws, { type: 'ack', id, result });
+					break;
+				}
+				case 'workspace.pullLatestMain': {
+					const result = await sendWorkspaceInstruction(
+						command.workspaceId,
+						command.sessionId,
+						'Pull latest main',
+						[],
+						'pull_latest_main',
+					);
+					send(ws, { type: 'ack', id, result });
+					break;
+				}
+				case 'workspace.createPr': {
+					const workspace = requireWorkspace(command.workspaceId);
+					const directory = store.requireDirectory(workspace.directoryId);
+					await diffStore.refreshWorkspaceGitSnapshot(workspace.id, workspace.localPath);
+					const attachment = await writeCreatePrInstructionsAttachment({
+						workspace,
+						directory,
+						git: diffStore.getWorkspaceGitSnapshot(workspace.id),
+					});
+					const result = await sendWorkspaceInstruction(
+						command.workspaceId,
+						command.sessionId,
+						'Create a pull request using the attached instructions.',
+						[attachment],
+						'create_pr',
+					);
+					send(ws, { type: 'ack', id, result });
+					break;
+				}
+				case 'workspace.fixCi': {
+					const workspace = requireWorkspace(command.workspaceId);
+					const logs = await prManager.fetchFailingCheckLogs(workspace.id);
+					const attachment = await writeFailingCiLogsAttachment({ workspace, logs });
+					const result = await sendWorkspaceInstruction(
+						command.workspaceId,
+						command.sessionId,
+						'Fix the failing CI using the attached logs.',
+						[attachment],
+						'fix_ci',
+					);
+					send(ws, { type: 'ack', id, result });
+					break;
+				}
+				case 'workspace.addressReviewComments': {
+					const workspace = requireWorkspace(command.workspaceId);
+					const github = prManager.getWorkspaceGitHubSnapshot(workspace.id);
+					if (!github || github.status === 'none' || github.status === 'unknown') {
+						throw new Error('Workspace does not have a current pull request snapshot');
+					}
+					if (command.commentIds.length === 0) {
+						throw new Error('Select at least one review comment');
+					}
 
+					const commentsById = new Map(github.comments.map((comment) => [comment.id, comment]));
+					const selectedComments = command.commentIds.map((commentId) => {
+						const comment = commentsById.get(commentId);
+						if (!comment) throw new Error(`Review comment is no longer available: ${commentId}`);
+						return comment;
+					});
+
+					const attachment = await writeSelectedReviewCommentsAttachment({
+						workspace,
+						comments: selectedComments,
+						prNumber: github.prNumber,
+						prTitle: github.title,
+					});
+					const result = await sendWorkspaceInstruction(
+						command.workspaceId,
+						command.sessionId,
+						'Address the selected PR review comments using the attached review context.',
+						[attachment],
+						'address_review_comments',
+					);
+					send(ws, { type: 'ack', id, result });
+					break;
+				}
+				case 'workspace.mergePr': {
+					const result = await prManager.mergeWorkspacePullRequest(command.workspaceId);
+					send(ws, { type: 'ack', id, result });
+					break;
+				}
+				case 'session.create': {
+					const session = await store.createSession(command.workspaceId);
+					send(ws, { type: 'ack', id, result: { sessionId: session.id } });
+					break;
+				}
+				case 'session.rename': {
+					await store.renameSession(command.sessionId, command.title);
 					send(ws, { type: 'ack', id });
 					break;
 				}
-				case 'chat.markRead': {
-					await store.setChatReadState(command.chatId, false);
+				case 'session.remove': {
+					await agent.cancel(command.sessionId);
+					await agent.closeSession(command.sessionId);
+					await store.removeSession(command.sessionId);
 					send(ws, { type: 'ack', id });
 					break;
 				}
-				case 'chat.send': {
+				case 'session.send': {
 					const result = await agent.send(command);
 					send(ws, { type: 'ack', id, result });
 					break;
 				}
-				case 'chat.refreshDiffs': {
-					const { project } = resolveChatProject(command.chatId);
-					const changed = await resolvedDiffStore.refreshSnapshot(project.id, project.localPath);
-					send(ws, { type: 'ack', id });
-
-					if (changed) void broadcastSnapshots();
-					return;
-				}
-				case 'chat.initGit': {
-					const { project } = resolveChatProject(command.chatId);
-					const result = await resolvedDiffStore.initializeGit({
-						projectId: project.id,
-						projectPath: project.localPath,
-					});
-
-					send(ws, { type: 'ack', id, result });
-					if (result.snapshotChanged) void broadcastSnapshots();
-					return;
-				}
-				case 'chat.getGithubPublishInfo': {
-					const { project } = resolveChatProject(command.chatId);
-					const result = await resolvedDiffStore.getGitHubPublishInfo({
-						projectPath: project.localPath,
-					});
-
-					send(ws, { type: 'ack', id, result });
-					return;
-				}
-				case 'chat.checkGithubRepoAvailability': {
-					const result = await resolvedDiffStore.checkGitHubRepoAvailability({
-						owner: command.owner,
-						name: command.name,
-					});
-
-					send(ws, { type: 'ack', id, result });
-					return;
-				}
-				case 'chat.publishToGithub': {
-					const { project } = resolveChatProject(command.chatId);
-					const result = await resolvedDiffStore.publishToGitHub({
-						projectId: project.id,
-						projectPath: project.localPath,
-						owner: command.owner,
-						name: command.name,
-						visibility: command.visibility,
-						description: command.description,
-					});
-
-					send(ws, { type: 'ack', id, result });
-					if (result.snapshotChanged) void broadcastSnapshots();
-					return;
-				}
-				case 'chat.listBranches': {
-					const { project } = resolveChatProject(command.chatId);
-					const result = await resolvedDiffStore.listBranches({
-						projectPath: project.localPath,
-					});
-
-					send(ws, { type: 'ack', id, result });
-					return;
-				}
-				case 'chat.previewMergeBranch': {
-					const { project } = resolveChatProject(command.chatId);
-					const result = await resolvedDiffStore.previewMergeBranch({
-						projectPath: project.localPath,
-						branch: command.branch,
-					});
-
-					send(ws, { type: 'ack', id, result });
-					return;
-				}
-				case 'chat.mergeBranch': {
-					const { project } = resolveChatProject(command.chatId);
-					const result = await resolvedDiffStore.mergeBranch({
-						projectId: project.id,
-						projectPath: project.localPath,
-						branch: command.branch,
-					});
-
-					send(ws, { type: 'ack', id, result });
-					if (result.snapshotChanged) void broadcastSnapshots();
-					return;
-				}
-				case 'chat.checkoutBranch': {
-					const { project } = resolveChatProject(command.chatId);
-					const result = await resolvedDiffStore.checkoutBranch({
-						projectId: project.id,
-						projectPath: project.localPath,
-						branch: command.branch,
-						bringChanges: command.bringChanges,
-					});
-
-					send(ws, { type: 'ack', id, result });
-					if (result.snapshotChanged) void broadcastSnapshots();
-					return;
-				}
-				case 'chat.syncBranch': {
-					const { project } = resolveChatProject(command.chatId);
-					const result = await resolvedDiffStore.syncBranch({
-						projectId: project.id,
-						projectPath: project.localPath,
-						action: command.action,
-					});
-
-					send(ws, { type: 'ack', id, result });
-					if (result.snapshotChanged) void broadcastSnapshots();
-					return;
-				}
-				case 'chat.createBranch': {
-					const { project } = resolveChatProject(command.chatId);
-					const result = await resolvedDiffStore.createBranch({
-						projectId: project.id,
-						projectPath: project.localPath,
-						name: command.name,
-						baseBranchName: command.baseBranchName,
-					});
-
-					send(ws, { type: 'ack', id, result });
-					if (result.snapshotChanged) void broadcastSnapshots();
-					return;
-				}
-				case 'chat.generateCommitMessage': {
-					const { project } = resolveChatProject(command.chatId);
-					const result = await resolvedDiffStore.generateCommitMessage({
-						projectPath: project.localPath,
-						paths: command.paths,
-					});
-
-					send(ws, { type: 'ack', id, result });
-					return;
-				}
-				case 'chat.commitDiffs': {
-					const { project } = resolveChatProject(command.chatId);
-					const result = await resolvedDiffStore.commitFiles({
-						projectId: project.id,
-						projectPath: project.localPath,
-						paths: command.paths,
-						summary: command.summary,
-						description: command.description,
-						mode: command.mode,
-					});
-
-					send(ws, { type: 'ack', id, result });
-					if (result.snapshotChanged) void broadcastSnapshots();
-					return;
-				}
-				case 'chat.discardDiffFile': {
-					const { project } = resolveChatProject(command.chatId);
-					const result = await resolvedDiffStore.discardFile({
-						projectId: project.id,
-						projectPath: project.localPath,
-						path: command.path,
-					});
-
-					send(ws, { type: 'ack', id, result });
-					if (result.snapshotChanged) void broadcastSnapshots();
-					return;
-				}
-				case 'chat.ignoreDiffFile': {
-					const { project } = resolveChatProject(command.chatId);
-					const result = await resolvedDiffStore.ignoreFile({
-						projectId: project.id,
-						projectPath: project.localPath,
-						path: command.path,
-					});
-
-					send(ws, { type: 'ack', id, result });
-					if (result.snapshotChanged) void broadcastSnapshots();
-					return;
-				}
-				case 'chat.cancel': {
-					await agent.cancel(command.chatId);
+				case 'session.cancel': {
+					await agent.cancel(command.sessionId);
 					send(ws, { type: 'ack', id });
 					break;
 				}
-				case 'chat.stopDraining': {
-					await agent.stopDraining(command.chatId);
+				case 'session.stopDraining': {
+					await agent.stopDraining(command.sessionId);
 					send(ws, { type: 'ack', id });
 					break;
 				}
-				case 'chat.respondTool': {
+				case 'session.loadHistory': {
+					const result = store.getMessagesPageBefore(
+						command.sessionId,
+						command.beforeCursor,
+						command.limit,
+					);
+					send(ws, { type: 'ack', id, result });
+					return;
+				}
+				case 'session.respondTool': {
 					await agent.respondTool(command);
 					send(ws, { type: 'ack', id });
 					break;
 				}
 				case 'terminal.create': {
-					const project = store.getProject(command.projectId);
-					if (!project) throw new Error('Project not found');
-
+					const workspace = requireWorkspace(command.workspaceId);
 					const snapshot = terminals.createTerminal({
-						projectPath: project.localPath,
+						workspacePath: workspace.localPath,
 						terminalId: command.terminalId,
 						cols: command.cols,
 						rows: command.rows,
 						scrollback: command.scrollback,
 					});
-
 					send(ws, { type: 'ack', id, result: snapshot });
 					return;
 				}
@@ -699,8 +674,7 @@ export function createWsRouter({
 				case 'terminal.close': {
 					terminals.close(command.terminalId);
 					send(ws, { type: 'ack', id });
-
-					pushTerminalSnapshot(command.terminalId);
+					await pushTerminalSnapshot(command.terminalId);
 					return;
 				}
 			}
@@ -708,12 +682,7 @@ export function createWsRouter({
 			await broadcastSnapshots();
 		} catch (error) {
 			const messageText = error instanceof Error ? error.message : String(error);
-			console.error('[ws-router] command failed', {
-				id,
-				type: command.type,
-				message: messageText,
-			});
-
+			console.error('[ws-router] command failed', { id, type: command.type, message: messageText });
 			send(ws, { type: 'error', id, message: messageText });
 		}
 	}
@@ -739,23 +708,24 @@ export function createWsRouter({
 			}
 
 			if (!isClientEnvelope(parsed)) {
-				send(ws, { type: 'error', message: 'Invalid envolope' });
+				send(ws, { type: 'error', message: 'Invalid envelope' });
 				return;
 			}
 
 			if (parsed.type === 'subscribe') {
 				const snapshotSignatures = ensureSnapshotSignatures(ws);
-
 				ws.data.subscriptions.set(parsed.id, parsed.topic);
 				snapshotSignatures.delete(parsed.id);
 
-				if (parsed.topic.type === 'local-projects') {
-					void refreshDiscovery().then(() => {
-						if (ws.data.subscriptions.has(parsed.id)) {
-							void pushSnapshots(ws);
-						}
-					});
-					return;
+				if (parsed.topic.type === 'workspace') {
+					const { workspaceId } = parsed.topic;
+					if (store.getWorkspace(workspaceId)) {
+						void refreshWorkspaceOpenState(workspaceId)
+							.then(() => pushSnapshots(ws))
+							.catch((error) =>
+								broadcastError(error instanceof Error ? error.message : String(error)),
+							);
+					}
 				}
 
 				await pushSnapshots(ws);
@@ -766,7 +736,6 @@ export function createWsRouter({
 				const snapshotSignatures = ensureSnapshotSignatures(ws);
 				ws.data.subscriptions.delete(parsed.id);
 				snapshotSignatures.delete(parsed.id);
-
 				send(ws, { type: 'ack', id: parsed.id });
 				return;
 			}

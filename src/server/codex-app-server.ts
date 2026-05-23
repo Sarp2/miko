@@ -103,7 +103,7 @@ interface PendingTurn {
 }
 
 interface SessionContext {
-	chatId: string;
+	sessionId: string;
 	cwd: string;
 	child: CodexAppServerProcess;
 	pendingRequests: Map<CodexRequestId, PendingRequest<unknown>>;
@@ -114,7 +114,7 @@ interface SessionContext {
 }
 
 export interface StartCodexSessionArgs {
-	chatId: string;
+	sessionId: string;
 	cwd: string;
 	model: string;
 	serviceTier?: ServiceTier;
@@ -122,7 +122,7 @@ export interface StartCodexSessionArgs {
 }
 
 export interface StartCodexTurnArgs {
-	chatId: string;
+	sessionId: string;
 	model: string;
 	effort?: CodexReasoningEffort;
 	serviceTier?: ServiceTier;
@@ -779,18 +779,18 @@ export class CodexAppServerManager {
 	}
 
 	async startSession(args: StartCodexSessionArgs) {
-		const existing = this.sessions.get(args.chatId);
+		const existing = this.sessions.get(args.sessionId);
 		if (existing && !existing.closed && existing.cwd === args.cwd) {
 			return;
 		}
 
 		if (existing) {
-			this.stopSession(args.chatId);
+			this.stopSession(args.sessionId);
 		}
 
 		const child = this.spawnProcess(args.cwd);
 		const context: SessionContext = {
-			chatId: args.chatId,
+			sessionId: args.sessionId,
 			cwd: args.cwd,
 			child,
 			pendingRequests: new Map(),
@@ -800,7 +800,7 @@ export class CodexAppServerManager {
 			closed: false,
 		};
 
-		this.sessions.set(args.chatId, context);
+		this.sessions.set(args.sessionId, context);
 		this.attachListeners(context);
 
 		await this.sendRequest(context, 'initialize', {
@@ -842,7 +842,7 @@ export class CodexAppServerManager {
 				} satisfies ThreadResumeParams);
 			} catch (error) {
 				if (!isRecoverableResumeError(error)) {
-					this.stopSession(args.chatId);
+					this.stopSession(args.sessionId);
 					throw error;
 				}
 				response = await this.sendRequest<ThreadStartResponse>(
@@ -859,7 +859,7 @@ export class CodexAppServerManager {
 	}
 
 	async startTurn(args: StartCodexTurnArgs): Promise<HarnessTurn> {
-		const context = this.requireSession(args.chatId);
+		const context = this.requireSession(args.sessionId);
 		if (context.pendingTurn) {
 			throw new Error('Codex turn is already running');
 		}
@@ -949,14 +949,14 @@ export class CodexAppServerManager {
 	}
 
 	async generateStructured(args: GenerateStructuredArgs): Promise<string | null> {
-		const chatId = `quick-${randomUUID()}`;
+		const sessionId = `quick-${randomUUID()}`;
 		let turn: HarnessTurn | null = null;
 		let assistantText = '';
 		let resultText = '';
 
 		try {
 			await this.startSession({
-				chatId,
+				sessionId,
 				cwd: args.cwd,
 				model: args.model ?? 'gpt-5.4',
 				serviceTier: args.serviceTier ?? 'fast',
@@ -964,7 +964,7 @@ export class CodexAppServerManager {
 			});
 
 			turn = await this.startTurn({
-				chatId,
+				sessionId,
 				model: args.model ?? 'gpt-5.4',
 				effort: args.effort,
 				serviceTier: args.serviceTier ?? 'fast',
@@ -988,12 +988,12 @@ export class CodexAppServerManager {
 			return candidate || null;
 		} finally {
 			turn?.close();
-			this.stopSession(chatId);
+			this.stopSession(sessionId);
 		}
 	}
 
-	stopSession(chatId: string) {
-		const context = this.sessions.get(chatId);
+	stopSession(sessionId: string) {
+		const context = this.sessions.get(sessionId);
 		if (!context) return;
 
 		context.closed = true;
@@ -1004,7 +1004,7 @@ export class CodexAppServerManager {
 		}
 
 		context.pendingRequests.clear();
-		this.sessions.delete(chatId);
+		this.sessions.delete(sessionId);
 
 		try {
 			context.child.kill('SIGKILL');
@@ -1014,13 +1014,13 @@ export class CodexAppServerManager {
 	}
 
 	stopAll() {
-		for (const chatId of this.sessions.keys()) {
-			this.stopSession(chatId);
+		for (const sessionId of this.sessions.keys()) {
+			this.stopSession(sessionId);
 		}
 	}
 
-	private requireSession(chatId: string) {
-		const context = this.sessions.get(chatId);
+	private requireSession(sessionId: string) {
+		const context = this.sessions.get(sessionId);
 		if (!context || context.closed) {
 			throw new Error('Codex session not started');
 		}

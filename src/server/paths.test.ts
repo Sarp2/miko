@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'bun:test';
 import { homedir } from 'node:os';
 import path from 'node:path';
-import { getProjectUploadDir, resolveLocalPath } from './paths';
+import { getWorkspaceUploadDir, resolveLocalPath } from './paths';
 
 describe('resolveLocalPath', () => {
 	test('throws error on empty string', () => {
-		expect(() => resolveLocalPath('')).toThrow('Project path is required');
+		expect(() => resolveLocalPath('')).toThrow('Directory path is required');
 	});
 
 	test('expands ~ to home directory', () => {
@@ -26,9 +26,9 @@ describe('resolveLocalPath', () => {
 	});
 });
 
-describe('getProjectUploadDir', () => {
-	test('appends pahts correctly', () => {
-		const result = getProjectUploadDir('/Users/test/project');
-		expect(result).toBe('/Users/test/project/.miko/uploads');
+describe('getWorkspaceUploadDir', () => {
+	test('appends paths correctly', () => {
+		const result = getWorkspaceUploadDir('/Users/test/workspace');
+		expect(result).toBe('/Users/test/workspace/.miko/uploads');
 	});
 });

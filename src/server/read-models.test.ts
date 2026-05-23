@@ -1,11 +1,21 @@
 import { describe, expect, test } from 'bun:test';
-import { homedir } from 'node:os';
-import path from 'node:path';
-import type { ChatHistorySnapshot, MikoStatus, TranscriptEntry } from 'src/shared/types';
+import type {
+	MikoStatus,
+	SessionHistorySnapshot,
+	TranscriptEntry,
+	WorkspaceGitHubSnapshot,
+	WorkspaceGitSnapshot,
+} from 'src/shared/types';
 import { createEmptyState } from './event';
-import { deriveChatSnapshot, deriveLocalProjectsSnapshot, deriveSidebarData } from './read-models';
+import {
+	deriveDirectoryListSnapshot,
+	deriveSessionSnapshot,
+	deriveSidebarSnapshot,
+	deriveStatus,
+	deriveWorkspaceSnapshot,
+} from './read-models';
 
-const emptyTranscript: { messages: TranscriptEntry[]; history: ChatHistorySnapshot } = {
+const emptyTranscript: { messages: TranscriptEntry[]; history: SessionHistorySnapshot } = {
 	messages: [],
 	history: {
 		hasOlder: false,
@@ -14,212 +24,332 @@ const emptyTranscript: { messages: TranscriptEntry[]; history: ChatHistorySnapsh
 	},
 };
 
-describe('deriveSidebarData', () => {
-	test('includes provider and unread flags on sidebar rows', () => {
-		const state = createEmptyState();
-		state.projectsById.set('project-1', {
-			id: 'project-1',
-			localPath: '/tmp/project',
-			title: 'Project',
-			createdAt: 1,
-			updatedAt: 1,
-		});
-
-		state.projectIdsByPath.set('/tmp/project', 'project-1');
-
-		state.chatsById.set('chat-1', {
-			id: 'chat-1',
-			projectId: 'project-1',
-			title: 'Chat',
-			createdAt: 1,
-			updatedAt: 1,
-			unread: true,
-			provider: 'codex',
-			planMode: false,
-			sessionToken: 'thread-1',
-			lastTurnOutcome: null,
-		});
-
-		const activeStatuses = new Map<string, MikoStatus>();
-		const sidebar = deriveSidebarData(state, activeStatuses);
-
-		const firstRow = sidebar.projectGroups[0]?.chats[0];
-		expect(firstRow?.provider).toBe('codex');
-		expect(firstRow?.unread).toBe(true);
+function addDirectoryWorkspaceAndSession() {
+	const state = createEmptyState();
+	state.directoriesById.set('directory-1', {
+		id: 'directory-1',
+		localPath: '/repo/miko',
+		title: 'Miko',
+		githubOwner: 'sarp',
+		githubRepo: 'miko',
+		defaultBranchName: 'main',
+		createdAt: 1,
+		updatedAt: 1,
 	});
 
-	test('orders sidebar chats by latest message time', () => {
-		const state = createEmptyState();
-		state.projectsById.set('project-1', {
-			id: 'project-1',
-			localPath: '/tmp/project',
-			title: 'Project',
-			createdAt: 1,
-			updatedAt: 1,
-		});
+	state.workspacesById.set('workspace-1', {
+		id: 'workspace-1',
+		directoryId: 'directory-1',
+		localPath: '/repo/miko/atlas',
+		branchName: 'atlas',
+		setupState: 'ready',
+		reviewState: 'in_progress',
+		visibilityState: 'active',
+		hasUnreadAgentResult: false,
+		createdAt: 2,
+		updatedAt: 2,
+	});
 
-		state.projectIdsByPath.set('/tmp/project', 'project-1');
+	state.sessionsById.set('session-1', {
+		id: 'session-1',
+		workspaceId: 'workspace-1',
+		title: 'Session',
+		createdAt: 3,
+		updatedAt: 3,
+		provider: 'codex',
+		planMode: true,
+		sessionToken: 'thread-1',
+		lastTurnOutcome: null,
+	});
 
-		state.chatsById.set('chat-older-activity', {
-			id: 'chat-older-activity',
-			projectId: 'project-1',
-			title: 'Older user activity',
-			createdAt: 10,
-			updatedAt: 500,
-			unread: false,
-			provider: 'claude',
-			planMode: false,
-			sessionToken: null,
-			lastMessageAt: 100,
-			lastTurnOutcome: null,
-		});
+	return state;
+}
 
-		state.chatsById.set('chat-newer-activity', {
-			id: 'chat-newer-activity',
-			projectId: 'project-1',
-			title: 'Newer user activity',
-			createdAt: 20,
-			updatedAt: 50,
-			unread: false,
-			provider: 'claude',
-			planMode: false,
-			sessionToken: null,
-			lastMessageAt: 200,
-			lastTurnOutcome: null,
-		});
-		const activeStatuses = new Map<string, MikoStatus>();
+function dirtyGitSnapshot(): WorkspaceGitSnapshot {
+	return {
+		status: 'ready',
+		branchName: 'atlas',
+		defaultBranchName: 'main',
+		hasOriginRemote: true,
+		originRepoSlug: 'sarp/miko',
+		hasUpstream: false,
+		files: [
+			{
+				path: 'src/app.ts',
+				changeType: 'modified',
+				isUntracked: false,
+				additions: 2,
+				deletions: 1,
+				patchDigest: 'digest',
+			},
+		],
+		hasPushedCommits: false,
+		branchHistory: { entries: [] },
+	};
+}
 
-		const sidebar = deriveSidebarData(state, activeStatuses);
+function openPullRequestSnapshot(): WorkspaceGitHubSnapshot {
+	return {
+		status: 'open',
+		owner: 'sarp',
+		repo: 'miko',
+		prNumber: 12,
+		title: 'Add workspace model',
+		ciStatus: 'passing',
+		comments: [],
+		checks: [],
+	};
+}
 
-		const chatIdsInOrder = sidebar.projectGroups[0]?.chats.map((chat) => chat.chatId);
-		expect(chatIdsInOrder).toEqual(['chat-newer-activity', 'chat-older-activity']);
+describe('deriveStatus', () => {
+	test('prefers active status over stored turn outcome', () => {
+		const state = addDirectoryWorkspaceAndSession();
+		const session = state.sessionsById.get('session-1');
+		expect(session).toBeDefined();
+		if (!session) throw new Error('session missing');
+		session.lastTurnOutcome = 'failed';
+
+		expect(deriveStatus(session, 'running')).toBe('running');
+	});
+
+	test('falls back to failed when the last turn failed', () => {
+		const state = addDirectoryWorkspaceAndSession();
+		const session = state.sessionsById.get('session-1');
+		expect(session).toBeDefined();
+		if (!session) throw new Error('session missing');
+		session.lastTurnOutcome = 'failed';
+
+		expect(deriveStatus(session)).toBe('failed');
 	});
 });
 
-describe('deriveChatSnapshot', () => {
-	test('includes available providers in the chat snapshot', () => {
-		const state = createEmptyState();
-		state.projectsById.set('project-1', {
-			id: 'project-1',
-			localPath: '/tmp/project',
-			title: 'Project',
-			createdAt: 1,
-			updatedAt: 1,
+describe('deriveSidebarSnapshot', () => {
+	test('groups active workspaces by directory and includes active session and unread flags', () => {
+		const state = addDirectoryWorkspaceAndSession();
+		const workspace = state.workspacesById.get('workspace-1');
+		expect(workspace).toBeDefined();
+		if (!workspace) throw new Error('workspace missing');
+		workspace.hasUnreadAgentResult = true;
+		const activeStatuses = new Map<string, MikoStatus>([['session-1', 'running']]);
+
+		const sidebar = deriveSidebarSnapshot({ state, activeStatuses });
+
+		expect(sidebar.directoryGroups).toHaveLength(1);
+		expect(sidebar.directoryGroups[0]).toMatchObject({
+			groupKey: 'directory-1',
+			directoryId: 'directory-1',
+			title: 'Miko',
+		});
+		expect(sidebar.directoryGroups[0]?.workspaces[0]).toMatchObject({
+			workspaceId: 'workspace-1',
+			displayName: 'atlas',
+			indicator: 'agent_active',
+			hasActiveSession: true,
+			hasUnreadAgentResult: true,
+		});
+	});
+
+	test('hides archived workspaces from the sidebar', () => {
+		const state = addDirectoryWorkspaceAndSession();
+		const workspace = state.workspacesById.get('workspace-1');
+		expect(workspace).toBeDefined();
+		if (!workspace) throw new Error('workspace missing');
+		workspace.visibilityState = 'archived';
+
+		const sidebar = deriveSidebarSnapshot({ state, activeStatuses: new Map() });
+
+		expect(sidebar.directoryGroups).toEqual([]);
+	});
+
+	test('uses git and GitHub state to derive labels and indicators', () => {
+		const state = addDirectoryWorkspaceAndSession();
+		const workspace = state.workspacesById.get('workspace-1');
+		expect(workspace).toBeDefined();
+		if (!workspace) throw new Error('workspace missing');
+		workspace.reviewState = 'in_review';
+		workspace.pullRequest = {
+			number: 12,
+			status: 'open',
+			title: 'Stored PR title',
+			lastObservedAt: 10,
+		};
+		const github = openPullRequestSnapshot();
+
+		const sidebar = deriveSidebarSnapshot({
+			state,
+			activeStatuses: new Map(),
+			gitSnapshots: new Map([['workspace-1', dirtyGitSnapshot()]]),
+			githubSnapshots: new Map([['workspace-1', github]]),
 		});
 
-		state.projectIdsByPath.set('/tmp/project', 'project-1');
+		expect(sidebar.directoryGroups[0]?.workspaces[0]).toMatchObject({
+			displayName: 'Add workspace model',
+			indicator: 'commit_and_push',
+			prNumber: 12,
+		});
+	});
 
-		state.chatsById.set('chat-1', {
-			id: 'chat-1',
-			projectId: 'project-1',
-			title: 'Chat',
-			createdAt: 1,
-			updatedAt: 1,
-			unread: false,
-			provider: 'claude',
+	test('orders workspaces by latest session activity', () => {
+		const state = addDirectoryWorkspaceAndSession();
+		state.workspacesById.set('workspace-2', {
+			id: 'workspace-2',
+			directoryId: 'directory-1',
+			localPath: '/repo/miko/orion',
+			branchName: 'orion',
+			setupState: 'ready',
+			reviewState: 'in_progress',
+			visibilityState: 'active',
+			hasUnreadAgentResult: false,
+			createdAt: 4,
+			updatedAt: 4,
+		});
+		state.sessionsById.set('session-2', {
+			id: 'session-2',
+			workspaceId: 'workspace-2',
+			title: 'Newer activity',
+			createdAt: 5,
+			updatedAt: 5,
+			lastMessageAt: 500,
+			provider: null,
+			planMode: false,
+			sessionToken: null,
+			lastTurnOutcome: null,
+		});
+
+		const sidebar = deriveSidebarSnapshot({ state, activeStatuses: new Map() });
+
+		expect(
+			sidebar.directoryGroups[0]?.workspaces.map((workspace) => workspace.workspaceId),
+		).toEqual(['workspace-2', 'workspace-1']);
+	});
+});
+
+describe('deriveDirectoryListSnapshot', () => {
+	test('includes directories and archived workspaces for the archive page', () => {
+		const state = addDirectoryWorkspaceAndSession();
+		const workspace = state.workspacesById.get('workspace-1');
+		expect(workspace).toBeDefined();
+		if (!workspace) throw new Error('workspace missing');
+		workspace.visibilityState = 'archived';
+
+		const snapshot = deriveDirectoryListSnapshot(state, 'Local Machine');
+
+		expect(snapshot.machine).toEqual({ id: 'local', displayName: 'Local Machine' });
+		expect(snapshot.directories).toHaveLength(1);
+		expect(snapshot.workspaces).toHaveLength(1);
+		expect(snapshot.workspaces[0]).toMatchObject({
+			id: 'workspace-1',
+			visibilityState: 'archived',
+		});
+	});
+
+	test('does not include removed records', () => {
+		const state = addDirectoryWorkspaceAndSession();
+		const directory = state.directoriesById.get('directory-1');
+		const workspace = state.workspacesById.get('workspace-1');
+		expect(directory).toBeDefined();
+		expect(workspace).toBeDefined();
+		if (!directory || !workspace) throw new Error('seed missing');
+		directory.removedAt = 10;
+		workspace.removedAt = 10;
+
+		const snapshot = deriveDirectoryListSnapshot(state, 'Local Machine');
+
+		expect(snapshot.directories).toEqual([]);
+		expect(snapshot.workspaces).toEqual([]);
+	});
+});
+
+describe('deriveWorkspaceSnapshot', () => {
+	test('returns workspace detail with sessions, health, git, and GitHub state', () => {
+		const state = addDirectoryWorkspaceAndSession();
+		const activeStatuses = new Map<string, MikoStatus>([['session-1', 'running']]);
+		const git = dirtyGitSnapshot();
+		const github = openPullRequestSnapshot();
+
+		const snapshot = deriveWorkspaceSnapshot({
+			state,
+			activeStatuses,
+			workspaceId: 'workspace-1',
+			healthState: 'branch_missing',
+			git,
+			github,
+		});
+
+		expect(snapshot).toMatchObject({
+			primaryLabel: 'Add workspace model',
+			healthState: 'branch_missing',
+			hasActiveSession: true,
+			hasUnreadAgentResult: false,
+			git,
+			github,
+		});
+		expect(snapshot?.sessions.map((session) => session.id)).toEqual(['session-1']);
+	});
+
+	test('returns null when the workspace is removed', () => {
+		const state = addDirectoryWorkspaceAndSession();
+		const workspace = state.workspacesById.get('workspace-1');
+		expect(workspace).toBeDefined();
+		if (!workspace) throw new Error('workspace missing');
+		workspace.removedAt = 10;
+
+		expect(
+			deriveWorkspaceSnapshot({
+				state,
+				activeStatuses: new Map(),
+				workspaceId: 'workspace-1',
+			}),
+		).toBeNull();
+	});
+});
+
+describe('deriveSessionSnapshot', () => {
+	test('includes runtime, messages, history, and providers for a session', () => {
+		const state = addDirectoryWorkspaceAndSession();
+		const activeStatuses = new Map<string, MikoStatus>([['session-1', 'running']]);
+		const drainingSessionIds = new Set<string>(['session-1']);
+
+		const session = deriveSessionSnapshot(
+			state,
+			activeStatuses,
+			drainingSessionIds,
+			'session-1',
+			() => emptyTranscript,
+		);
+
+		expect(session?.runtime).toMatchObject({
+			sessionId: 'session-1',
+			workspaceId: 'workspace-1',
+			directoryId: 'directory-1',
+			localPath: '/repo/miko/atlas',
+			title: 'Session',
+			status: 'running',
+			isDraining: true,
+			provider: 'codex',
 			planMode: true,
-			sessionToken: 'session-1',
-			lastTurnOutcome: null,
+			sessionToken: 'thread-1',
 		});
-
-		const activeStatuses = new Map<string, MikoStatus>();
-		const drainingChatIds = new Set<string>();
-
-		const getMessages = () => emptyTranscript;
-		const chat = deriveChatSnapshot(state, activeStatuses, drainingChatIds, 'chat-1', getMessages);
-
-		expect(chat?.runtime.provider).toBe('claude');
-		expect(chat?.history.recentLimit).toBe(200);
-		expect(chat?.availableProviders.length).toBeGreaterThan(1);
-		expect(chat?.availableProviders.some((provider) => provider.id === 'codex')).toBe(true);
-	});
-});
-
-describe('deriveLocalProjectsSnapshot', () => {
-	test('prefers saved project metadata over discovered entries for the same path', () => {
-		const state = createEmptyState();
-		state.projectsById.set('project-1', {
-			id: 'project-1',
-			localPath: '/tmp/project',
-			title: 'Saved Project',
-			createdAt: 1,
-			updatedAt: 50,
-		});
-
-		state.projectIdsByPath.set('/tmp/project', 'project-1');
-
-		state.chatsById.set('chat-1', {
-			id: 'chat-1',
-			projectId: 'project-1',
-			title: 'Chat',
-			createdAt: 1,
-			updatedAt: 75,
-			unread: false,
-			provider: 'codex',
-			planMode: false,
-			sessionToken: null,
-			lastMessageAt: 100,
-			lastTurnOutcome: null,
-		});
-
-		const discoveredProjects = [
-			{ localPath: '/tmp/project', title: 'Discovered Project', modifiedAt: 10 },
-		];
-
-		const snapshot = deriveLocalProjectsSnapshot(state, discoveredProjects, 'Local Machine');
-
-		expect(snapshot.projects).toEqual([
-			{
-				localPath: '/tmp/project',
-				title: 'Saved Project',
-				source: 'saved',
-				lastOpenedAt: 100,
-				chatCount: 1,
-			},
-		]);
+		expect(session?.messages).toEqual([]);
+		expect(session?.history.recentLimit).toBe(200);
+		expect(session?.availableProviders.some((provider) => provider.id === 'codex')).toBe(true);
 	});
 
-	test('deduplicates discovered and saved projects after path normalization', () => {
-		const state = createEmptyState();
-		state.projectsById.set('project-1', {
-			id: 'project-1',
-			localPath: '~/project',
-			title: 'Saved Project',
-			createdAt: 1,
-			updatedAt: 50,
-		});
+	test('returns null when the parent workspace is removed', () => {
+		const state = addDirectoryWorkspaceAndSession();
+		const workspace = state.workspacesById.get('workspace-1');
+		expect(workspace).toBeDefined();
+		if (!workspace) throw new Error('workspace missing');
+		workspace.removedAt = 10;
 
-		state.projectIdsByPath.set('~/project', 'project-1');
+		const session = deriveSessionSnapshot(
+			state,
+			new Map(),
+			new Set(),
+			'session-1',
+			() => emptyTranscript,
+		);
 
-		state.chatsById.set('chat-1', {
-			id: 'chat-1',
-			projectId: 'project-1',
-			title: 'Chat',
-			createdAt: 1,
-			updatedAt: 75,
-			unread: false,
-			provider: 'codex',
-			planMode: false,
-			sessionToken: null,
-			lastMessageAt: 100,
-			lastTurnOutcome: null,
-		});
-
-		const resolvedPath = path.join(homedir(), 'project');
-		const discoveredProjects = [
-			{ localPath: resolvedPath, title: 'Discovered Project', modifiedAt: 10 },
-		];
-
-		const snapshot = deriveLocalProjectsSnapshot(state, discoveredProjects, 'Local Machine');
-
-		expect(snapshot.projects).toEqual([
-			{
-				localPath: resolvedPath,
-				title: 'Saved Project',
-				source: 'saved',
-				lastOpenedAt: 100,
-				chatCount: 1,
-			},
-		]);
+		expect(session).toBeNull();
 	});
 });

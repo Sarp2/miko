@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import {
 	fallbackTitleFromMessage,
-	generateTitleForChat,
-	generateTitleForChatDetailed,
+	generateTitleForSession,
+	generateTitleForSessionDetailed,
 } from './generate-title';
 import { QuickResponseAdapter } from './quick-response';
 
@@ -22,14 +22,14 @@ describe('fallbackTitleFromMessage', () => {
 	});
 });
 
-describe('generateTitleForChatDetailed', () => {
+describe('generateTitleForSessionDetailed', () => {
 	test('returns the normalized provider title on success', async () => {
 		const adapter = new QuickResponseAdapter({
 			runClaudeStructured: async () => ({ title: '  Fix   login   flow  ' }),
 			runCodexStructured: async () => null,
 		});
 
-		await expect(generateTitleForChatDetailed('login is broken', adapter)).resolves.toEqual({
+		await expect(generateTitleForSessionDetailed('login is broken', adapter)).resolves.toEqual({
 			title: 'Fix login flow',
 			usedFallback: false,
 			failureMessage: null,
@@ -42,19 +42,19 @@ describe('generateTitleForChatDetailed', () => {
 			runCodexStructured: async () => null,
 		});
 
-		const result = await generateTitleForChatDetailed('hi', adapter);
+		const result = await generateTitleForSessionDetailed('hi', adapter);
 
 		expect(result.title).toBe('a'.repeat(80));
 		expect(result.usedFallback).toBe(false);
 	});
 
-	test('rejects "New Chat" and falls back to the message-derived title', async () => {
+	test('rejects "New Session" and falls back to the message-derived title', async () => {
 		const adapter = new QuickResponseAdapter({
-			runClaudeStructured: async () => ({ title: 'New Chat' }),
-			runCodexStructured: async () => ({ title: 'New Chat' }),
+			runClaudeStructured: async () => ({ title: 'New Session' }),
+			runCodexStructured: async () => ({ title: 'New Session' }),
 		});
 
-		const result = await generateTitleForChatDetailed('build a settings page', adapter);
+		const result = await generateTitleForSessionDetailed('build a settings page', adapter);
 
 		expect(result.title).toBe('build a settings page');
 		expect(result.usedFallback).toBe(true);
@@ -66,7 +66,7 @@ describe('generateTitleForChatDetailed', () => {
 			runCodexStructured: async () => null,
 		});
 
-		const result = await generateTitleForChatDetailed('login is broken', adapter);
+		const result = await generateTitleForSessionDetailed('login is broken', adapter);
 
 		expect(result.title).toBe('login is broken');
 		expect(result.usedFallback).toBe(true);
@@ -75,13 +75,13 @@ describe('generateTitleForChatDetailed', () => {
 	});
 });
 
-describe('generateTitleForChat', () => {
+describe('generateTitleForSession', () => {
 	test('unwraps the title from the detailed result', async () => {
 		const adapter = new QuickResponseAdapter({
 			runClaudeStructured: async () => ({ title: 'Picked Title' }),
 			runCodexStructured: async () => null,
 		});
 
-		expect(await generateTitleForChat('hello', adapter)).toBe('Picked Title');
+		expect(await generateTitleForSession('hello', adapter)).toBe('Picked Title');
 	});
 });

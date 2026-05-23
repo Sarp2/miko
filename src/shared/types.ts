@@ -200,51 +200,117 @@ export function resolveClaudeContextWindowTokens(contextWindow: ClaudeContextWin
 
 export type MikoStatus = 'idle' | 'starting' | 'running' | 'waiting_for_user' | 'failed';
 
-export interface ProjectSummary {
+export interface DirectorySummary {
 	id: string;
 	localPath: string;
 	title: string;
+	githubOwner: string;
+	githubRepo: string;
+	defaultBranchName: 'main';
 	createdAt: number;
 	updatedAt: number;
 }
 
-export interface SidebarChatRow {
+export type WorkspaceReviewState = 'in_progress' | 'in_review' | 'done' | 'closed';
+export type WorkspaceVisibilityState = 'active' | 'archived';
+export type WorkspaceSetupState = 'creating' | 'ready' | 'failed';
+export type WorkspacePullRequestStatus = 'open' | 'merged' | 'closed';
+export type WorkspaceHealthState =
+	| 'healthy'
+	| 'source_missing'
+	| 'workspace_missing'
+	| 'git_invalid'
+	| 'worktree_mismatch'
+	| 'branch_missing'
+	| 'detached_head'
+	| 'repo_mismatch';
+
+export interface WorkspacePullRequestSummary {
+	number: number;
+	status: WorkspacePullRequestStatus;
+	title?: string;
+	url?: string;
+	headRefName?: string;
+	baseRefName?: string;
+	ciStatus?: 'unknown' | 'pending' | 'passing' | 'failing';
+	lastObservedAt: number;
+}
+
+export interface WorkspaceSummary {
+	id: string;
+	directoryId: string;
+	localPath: string;
+	branchName: string;
+	setupState: WorkspaceSetupState;
+	setupError?: string;
+	reviewState: WorkspaceReviewState;
+	visibilityState: WorkspaceVisibilityState;
+	hasUnreadAgentResult: boolean;
+	pullRequest?: WorkspacePullRequestSummary;
+	createdAt: number;
+	updatedAt: number;
+}
+
+export interface SessionSummary {
+	id: string;
+	workspaceId: string;
+	title: string;
+	createdAt: number;
+	updatedAt: number;
+	provider: AgentProvider | null;
+	planMode: boolean;
+	sessionToken: string | null;
+	lastMessageAt?: number;
+	lastTurnOutcome: 'success' | 'failed' | 'cancelled' | null;
+}
+
+export type WorkspaceSidebarIndicator =
+	| 'none'
+	| 'workspace_creating'
+	| 'workspace_failed'
+	| 'agent_active'
+	| 'commit_and_push'
+	| 'create_pr'
+	| 'pr_opened'
+	| 'ci_failed'
+	| 'merged'
+	| 'closed';
+
+export interface SidebarWorkspaceRow {
 	_id: string;
 	_creationTime: number;
-	chatId: string;
-	title: string;
-	status: MikoStatus;
-	unread: boolean;
+	workspaceId: string;
+	displayName: string;
+	reviewState: WorkspaceReviewState;
+	visibilityState: WorkspaceVisibilityState;
+	indicator: WorkspaceSidebarIndicator;
+	hasUnreadAgentResult: boolean;
+	hasActiveSession: boolean;
 	localPath: string;
-	provider: AgentProvider | null;
-	lastMessageAt?: number;
-	hasAutomation: boolean;
+	branchName: string;
+	prNumber?: number;
+	lastActivityAt?: number;
 }
 
-export interface SidebarProjectGroup {
+export interface SidebarDirectoryGroup {
 	groupKey: string;
-	localPath: string;
-	chats: SidebarChatRow[];
-}
-
-export interface SidebarData {
-	projectGroups: SidebarProjectGroup[];
-}
-
-export interface LocalProjectSummary {
+	directoryId: string;
 	localPath: string;
 	title: string;
-	source: 'saved' | 'discovered';
-	lastOpenedAt?: number;
-	chatCount: number;
+	workspaces: SidebarWorkspaceRow[];
 }
 
-export interface LocalProjectsSnapshot {
+export interface SidebarSnapshot {
+	directoryGroups: SidebarDirectoryGroup[];
+}
+
+export interface DirectoryListSnapshot {
 	machine: {
 		id: 'local';
 		displayName: string;
 	};
-	projects: LocalProjectSummary[];
+	directories: DirectorySummary[];
+	workspaces: WorkspaceSummary[];
 }
 
 export type UpdateStatus =
@@ -282,9 +348,9 @@ export type KeybindingAction =
 	| 'openInFinder'
 	| 'openInEditor'
 	| 'addSplitTerminal'
-	| 'jumpToSidebarChat'
-	| 'createChatInCurrentProject'
-	| 'openAddProject';
+	| 'jumpToSidebarWorkspace'
+	| 'createSessionInCurrentWorkspace'
+	| 'openAddDirectory';
 
 export const DEFAULT_KEYBINDINGS: Record<KeybindingAction, string[]> = {
 	toggleEmbeddedTerminal: ['cmd+j', 'ctrl+`'],
@@ -292,9 +358,9 @@ export const DEFAULT_KEYBINDINGS: Record<KeybindingAction, string[]> = {
 	openInFinder: ['cmd+alt+f', 'ctrl+alt+f'],
 	openInEditor: ['cmd+shift+o', 'ctrl+shift+o'],
 	addSplitTerminal: ['cmd+/', 'ctrl+/'],
-	jumpToSidebarChat: ['cmd+alt'],
-	createChatInCurrentProject: ['cmd+alt+n'],
-	openAddProject: ['cmd+alt+o'],
+	jumpToSidebarWorkspace: ['cmd+alt'],
+	createSessionInCurrentWorkspace: ['cmd+alt+n'],
+	openAddDirectory: ['cmd+alt+o'],
 };
 
 export interface KeybindingsSnapshot {
@@ -484,7 +550,7 @@ export interface ContextWindowUsageSnapshot {
 	compactsAutomatically: boolean;
 }
 
-export interface ChatDiffFile {
+export interface WorkspaceDiffFile {
 	path: string;
 	changeType: 'added' | 'deleted' | 'modified' | 'renamed';
 	isUntracked: boolean;
@@ -495,7 +561,7 @@ export interface ChatDiffFile {
 	size?: number;
 }
 
-export interface ChatBranchHistoryEntry {
+export interface WorkspaceBranchHistoryEntry {
 	sha: string;
 	summary: string;
 	description: string;
@@ -505,15 +571,15 @@ export interface ChatBranchHistoryEntry {
 	githubUrl?: string;
 }
 
-export interface ChatBranchHistorySnapshot {
-	entries: ChatBranchHistoryEntry[];
+export interface WorkspaceBranchHistorySnapshot {
+	entries: WorkspaceBranchHistoryEntry[];
 }
 
-export type ChatBranchListEntryKind = 'local' | 'remote' | 'pull_request';
+export type WorkspaceBranchListEntryKind = 'local' | 'remote' | 'pull_request';
 
-export interface ChatBranchListEntry {
+export interface WorkspaceBranchListEntry {
 	id: string;
-	kind: ChatBranchListEntryKind;
+	kind: WorkspaceBranchListEntryKind;
 	name: string;
 	displayName: string;
 	updatedAt?: string;
@@ -526,13 +592,13 @@ export interface ChatBranchListEntry {
 	isCrossRepository?: boolean;
 }
 
-export interface ChatBranchListResult {
+export interface WorkspaceBranchListResult {
 	currentBranchName?: string;
 	defaultBranchName?: string;
-	recent: ChatBranchListEntry[];
-	local: ChatBranchListEntry[];
-	remote: ChatBranchListEntry[];
-	pullRequests: ChatBranchListEntry[];
+	recent: WorkspaceBranchListEntry[];
+	local: WorkspaceBranchListEntry[];
+	remote: WorkspaceBranchListEntry[];
+	pullRequests: WorkspaceBranchListEntry[];
 	pullRequestsStatus: 'available' | 'unavailable' | 'error';
 	pullRequestsError?: string;
 }
@@ -564,10 +630,68 @@ export interface UpstreamStatus {
 	lastFetchedAt?: string;
 }
 
-export interface ChatDiffSnapshot extends BranchMetadata, UpstreamStatus {
+export interface WorkspaceGitSnapshot extends BranchMetadata, UpstreamStatus {
 	status: 'unknown' | 'ready' | 'no_repo';
-	files: ChatDiffFile[];
-	branchHistory?: ChatBranchHistorySnapshot;
+	files: WorkspaceDiffFile[];
+	hasPushedCommits?: boolean;
+	branchPublishState?: 'unknown' | 'local_only' | 'published';
+	mainAheadCount?: number;
+	branchHistory?: WorkspaceBranchHistorySnapshot;
+}
+
+export interface WorkspaceGitHubSnapshot {
+	status: 'unknown' | 'none' | 'open' | 'merged' | 'closed';
+	owner: string;
+	repo: string;
+	prNumber?: number;
+	title?: string;
+	body?: string;
+	url?: string;
+	headRefName?: string;
+	baseRefName?: string;
+	ciStatus?: 'unknown' | 'pending' | 'passing' | 'failing';
+	unresolvedCommentCount?: number;
+	comments: PullRequestCommentSnapshot[];
+	checks: PullRequestCheckSnapshot[];
+	lastRefreshedAt?: number;
+}
+
+export interface PullRequestCommentSnapshot {
+	id: string;
+	author?: string;
+	authorAssociation?: string;
+	body: string;
+	url?: string;
+	path?: string;
+	line?: number;
+	isResolved?: boolean;
+	isBot: boolean;
+	source: 'issue' | 'review' | 'thread';
+	createdAt?: string;
+	updatedAt?: string;
+}
+
+export interface PullRequestCheckSnapshot {
+	name: string;
+	workflowName?: string;
+	status: 'unknown' | 'pending' | 'passing' | 'failing';
+	conclusion?: string;
+	detailsUrl?: string;
+	startedAt?: string;
+	completedAt?: string;
+	summary?: string;
+	canFetchLogs: boolean;
+}
+
+export interface WorkspaceSnapshot {
+	workspace: WorkspaceSummary;
+	primaryLabel: string;
+	healthState: WorkspaceHealthState;
+	git: WorkspaceGitSnapshot | null;
+	github: WorkspaceGitHubSnapshot | null;
+	sessions: SessionSummary[];
+	hasActiveSession: boolean;
+	hasUnreadAgentResult: boolean;
 }
 
 export interface BranchActionSuccess {
@@ -585,45 +709,45 @@ export interface BranchActionFailure {
 	snapshotChanged?: boolean;
 }
 
-export type ChatSyncSuccess = BranchActionSuccess & {
+export type WorkspaceSyncSuccess = BranchActionSuccess & {
 	action: 'fetch' | 'pull' | 'push' | 'publish';
 	aheadCount?: number;
 	behindCount?: number;
 };
 
-export type ChatSyncFailure = BranchActionFailure & {
+export type WorkspaceSyncFailure = BranchActionFailure & {
 	action: 'fetch' | 'pull' | 'push' | 'publish';
 };
 
-export type ChatSyncResult = ChatSyncSuccess | ChatSyncFailure;
+export type WorkspaceSyncResult = WorkspaceSyncSuccess | WorkspaceSyncFailure;
 
 export type DiffCommitMode = 'commit_and_push' | 'commit_only';
 
-export type ChatCheckoutBranchSuccess = BranchActionSuccess;
-export type ChatCheckoutBranchFailure = BranchActionFailure;
-export type ChatCheckoutBranchResult = ChatCheckoutBranchSuccess | ChatCheckoutBranchFailure;
+export type WorkspaceCheckoutBranchSuccess = BranchActionSuccess;
+export type WorkspaceCheckoutBranchFailure = BranchActionFailure;
+export type WorkspaceCheckoutBranchResult =
+	| WorkspaceCheckoutBranchSuccess
+	| WorkspaceCheckoutBranchFailure;
+export type WorkspaceCreateBranchSuccess = BranchActionSuccess & { branchName: string };
+export type WorkspaceCreateBranchFailure = BranchActionFailure;
+export type WorkspaceCreateBranchResult =
+	| WorkspaceCreateBranchSuccess
+	| WorkspaceCreateBranchFailure;
+export type WorkspaceMergePreviewStatus = 'up_to_date' | 'mergeable' | 'conflicts' | 'error';
 
-export type ChatCreateBranchSuccess = BranchActionSuccess & { branchName: string };
-export type ChatCreateBranchFailure = BranchActionFailure;
-export type ChatCreateBranchResult = ChatCreateBranchSuccess | ChatCreateBranchFailure;
-
-export type ChatMergePreviewStatus = 'up_to_date' | 'mergeable' | 'conflicts' | 'error';
-
-export interface ChatMergePreviewResult {
+export interface WorkspaceMergePreviewResult {
 	currentBranchName?: string;
 	targetBranchName: string;
 	targetDisplayName: string;
-	status: ChatMergePreviewStatus;
+	status: WorkspaceMergePreviewStatus;
 	commitCount: number;
 	hasConflicts: boolean;
 	message: string;
 	detail?: string;
 }
-
-export type ChatMergeBranchSuccess = BranchActionSuccess;
-export type ChatMergeBranchFailure = BranchActionFailure;
-export type ChatMergeBranchResult = ChatMergeBranchSuccess | ChatMergeBranchFailure;
-
+export type WorkspaceMergeBranchSuccess = BranchActionSuccess;
+export type WorkspaceMergeBranchFailure = BranchActionFailure;
+export type WorkspaceMergeBranchResult = WorkspaceMergeBranchSuccess | WorkspaceMergeBranchFailure;
 export type DiffCommitSuccess = BranchActionSuccess & { mode: DiffCommitMode; pushed: boolean };
 
 export type DiffCommitFailure = BranchActionFailure & {
@@ -893,9 +1017,10 @@ export type HydratedTranscriptMessage =
 	  }
 	| ({ id: string; messageId?: string; hidden?: boolean } & HydratedToolCall);
 
-export interface ChatRuntime {
-	chatId: string;
-	projectId: string;
+export interface SessionRuntime {
+	sessionId: string;
+	workspaceId: string;
+	directoryId: string;
 	localPath: string;
 	title: string;
 	status: MikoStatus;
@@ -905,28 +1030,28 @@ export interface ChatRuntime {
 	sessionToken: string | null;
 }
 
-export interface ChatHistorySnapshot {
+export interface SessionHistorySnapshot {
 	hasOlder: boolean;
 	olderCursor: string | null;
 	recentLimit: number;
 }
 
-export interface ChatSnapshot {
-	runtime: ChatRuntime;
+export interface SessionSnapshot {
+	runtime: SessionRuntime;
 	messages: TranscriptEntry[];
-	history: ChatHistorySnapshot;
+	history: SessionHistorySnapshot;
 	availableProviders: ProviderCatalogEntry[];
 }
 
-export interface ChatHistoryPage {
+export interface SessionHistoryPage {
 	messages: TranscriptEntry[];
 	hasOlder: boolean;
 	olderCursor: string | null;
 }
 
-export interface MikoSnapshot {
-	sidebar: SidebarData;
-	chat?: ChatSnapshot | null;
+export interface WorkspaceAppSnapshot {
+	sidebar: SidebarSnapshot;
+	session?: SessionSnapshot | null;
 }
 
 export interface PendingToolSnapshot {

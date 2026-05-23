@@ -3,16 +3,16 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { ChatAttachment } from '../shared/types';
-import { getProjectUploadDir } from './paths';
+import { getWorkspaceUploadDir } from './paths';
 import {
 	handleAttachmentContent,
-	handleProjectFileContent,
-	handleProjectUpload,
-	handleProjectUploadDelete,
+	handleWorkspaceFileContent,
+	handleWorkspaceUpload,
+	handleWorkspaceUploadDelete,
 	persistUploadedFiles,
 	serveStatic,
 } from './server';
-import { persistProjectUpload } from './uploads';
+import { persistWorkspaceUpload } from './uploads';
 
 function createUploadRequest(args: {
 	method?: string;
@@ -29,37 +29,40 @@ function createUploadRequest(args: {
 		formData.append('files', 'not-a-file');
 	}
 
-	return new Request(args.url ?? 'http://localhost/api/projects/project-1/uploads', {
+	return new Request(args.url ?? 'http://localhost/api/workspaces/workspace-1/uploads', {
 		method: args.method ?? 'POST',
 		body: formData,
 	});
 }
 
-function createStore(project: { id: string; localPath: string } | null) {
+function createStore(workspace: { id: string; localPath: string } | null) {
 	return {
-		getProject(projectId: string) {
-			return project && project.id === projectId ? project : null;
+		getWorkspace(workspaceId: string) {
+			return workspace && workspace.id === workspaceId ? workspace : null;
 		},
 	} as unknown as import('./event-store').EventStore;
 }
 
 function createAttachmentContentRequest(args: { method?: string; url?: string }) {
 	return new Request(
-		args.url ?? 'http://localhost/api/projects/project-1/uploads/notes.md/content',
+		args.url ?? 'http://localhost/api/workspaces/workspace-1/uploads/notes.md/content',
 		{
 			method: args.method ?? 'GET',
 		},
 	);
 }
 
-function createProjectFileContentRequest(args: { method?: string; url?: string }) {
-	return new Request(args.url ?? 'http://localhost/api/projects/project-1/files/notes.md/content', {
-		method: args.method ?? 'GET',
-	});
+function createWorkspaceFileContentRequest(args: { method?: string; url?: string }) {
+	return new Request(
+		args.url ?? 'http://localhost/api/workspaces/workspace-1/files/notes.md/content',
+		{
+			method: args.method ?? 'GET',
+		},
+	);
 }
 
 function createUploadDeleteRequest(args: { method?: string; url?: string }) {
-	return new Request(args.url ?? 'http://localhost/api/projects/project-1/uploads/notes.md', {
+	return new Request(args.url ?? 'http://localhost/api/workspaces/workspace-1/uploads/notes.md', {
 		method: args.method ?? 'DELETE',
 	});
 }
@@ -67,7 +70,7 @@ function createUploadDeleteRequest(args: { method?: string; url?: string }) {
 describe('persistUploadedFiles', () => {
 	test('persists every file and forwards upload metadata', async () => {
 		const calls: Array<{
-			projectId: string;
+			workspaceId: string;
 			localPath: string;
 			fileName: string;
 			bytes: Uint8Array;
@@ -80,8 +83,8 @@ describe('persistUploadedFiles', () => {
 		];
 
 		const attachments = await persistUploadedFiles({
-			projectId: 'project-1',
-			localPath: '/tmp/project-1',
+			workspaceId: 'workspace-1',
+			localPath: '/tmp/workspace-1',
 			files,
 			persistUpload: async (args) => {
 				calls.push(args);
@@ -89,9 +92,9 @@ describe('persistUploadedFiles', () => {
 					id: `attachment-${calls.length}`,
 					kind: 'file',
 					displayName: args.fileName,
-					absolutePath: `/tmp/project-1/${args.fileName}`,
+					absolutePath: `/tmp/workspace-1/${args.fileName}`,
 					relativePath: `./.miko/uploads/${args.fileName}`,
-					contentUrl: `/api/projects/${args.projectId}/uploads/${args.fileName}/content`,
+					contentUrl: `/api/workspaces/${args.workspaceId}/uploads/${args.fileName}/content`,
 					mimeType: args.fallbackMimeType ?? 'application/octet-stream',
 					size: args.bytes.byteLength,
 				} satisfies ChatAttachment;
@@ -101,8 +104,8 @@ describe('persistUploadedFiles', () => {
 		expect(attachments).toHaveLength(2);
 		expect(calls).toHaveLength(2);
 		expect(calls[0]).toMatchObject({
-			projectId: 'project-1',
-			localPath: '/tmp/project-1',
+			workspaceId: 'workspace-1',
+			localPath: '/tmp/workspace-1',
 			fileName: 'hello.txt',
 			fallbackMimeType: 'text/plain;charset=utf-8',
 		});
@@ -123,14 +126,14 @@ describe('persistUploadedFiles', () => {
 
 			await expect(
 				persistUploadedFiles({
-					projectId: 'project-1',
+					workspaceId: 'workspace-1',
 					localPath,
 					files: [new File(['first'], 'first.txt'), new File(['second'], tooLongFileName)],
 				}),
 			).rejects.toThrow();
 
 			const firstUploadExists = await Bun.file(
-				path.join(getProjectUploadDir(localPath), 'first.txt'),
+				path.join(getWorkspaceUploadDir(localPath), 'first.txt'),
 			).exists();
 			expect(firstUploadExists).toBe(false);
 		} finally {
@@ -139,36 +142,36 @@ describe('persistUploadedFiles', () => {
 	});
 });
 
-describe('handleProjectUpload', () => {
+describe('handleWorkspaceUpload', () => {
 	test('returns null for non-POST requests', async () => {
 		const req = createUploadRequest({ method: 'GET' });
-		const response = await handleProjectUpload(req, new URL(req.url), createStore(null));
+		const response = await handleWorkspaceUpload(req, new URL(req.url), createStore(null));
 		expect(response).toBeNull();
 	});
 
 	test('returns null for non-upload paths', async () => {
 		const req = createUploadRequest({
-			url: 'http://localhost/api/projects/project-1/files',
+			url: 'http://localhost/api/workspaces/workspace-1/files',
 		});
 
-		const response = await handleProjectUpload(req, new URL(req.url), createStore(null));
+		const response = await handleWorkspaceUpload(req, new URL(req.url), createStore(null));
 		expect(response).toBeNull();
 	});
 
-	test('returns 404 when project is missing', async () => {
+	test('returns 404 when workspace is missing', async () => {
 		const req = createUploadRequest({});
-		const response = await handleProjectUpload(req, new URL(req.url), createStore(null));
+		const response = await handleWorkspaceUpload(req, new URL(req.url), createStore(null));
 
 		expect(response?.status).toBe(404);
-		expect(await response?.json()).toEqual({ error: 'Project not found' });
+		expect(await response?.json()).toEqual({ error: 'Workspace not found' });
 	});
 
 	test('returns 400 when no file entries are present', async () => {
 		const req = createUploadRequest({ includeNonFileField: true });
-		const response = await handleProjectUpload(
+		const response = await handleWorkspaceUpload(
 			req,
 			new URL(req.url),
-			createStore({ id: 'project-1', localPath: '/tmp/project-1' }),
+			createStore({ id: 'workspace-1', localPath: '/tmp/workspace-1' }),
 		);
 
 		expect(response?.status).toBe(400);
@@ -182,10 +185,10 @@ describe('handleProjectUpload', () => {
 		);
 
 		const req = createUploadRequest({ files });
-		const response = await handleProjectUpload(
+		const response = await handleWorkspaceUpload(
 			req,
 			new URL(req.url),
-			createStore({ id: 'project-1', localPath: '/tmp/project-1' }),
+			createStore({ id: 'workspace-1', localPath: '/tmp/workspace-1' }),
 		);
 
 		expect(response?.status).toBe(400);
@@ -195,10 +198,10 @@ describe('handleProjectUpload', () => {
 	test('returns 413 when a file exceeds 100 MB', async () => {
 		const largeBytes = new Uint8Array(100 * 1024 * 1024 + 1);
 		const req = createUploadRequest({ files: [new File([largeBytes], 'big.bin')] });
-		const response = await handleProjectUpload(
+		const response = await handleWorkspaceUpload(
 			req,
 			new URL(req.url),
-			createStore({ id: 'project-1', localPath: '/tmp/project-1' }),
+			createStore({ id: 'workspace-1', localPath: '/tmp/workspace-1' }),
 		);
 
 		expect(response?.status).toBe(413);
@@ -212,10 +215,10 @@ describe('handleProjectUpload', () => {
 				files: [new File(['hello upload'], 'hello.txt', { type: 'text/plain' })],
 			});
 
-			const response = await handleProjectUpload(
+			const response = await handleWorkspaceUpload(
 				req,
 				new URL(req.url),
-				createStore({ id: 'project-1', localPath }),
+				createStore({ id: 'workspace-1', localPath }),
 			);
 
 			expect(response?.status).toBe(200);
@@ -245,10 +248,10 @@ describe('handleProjectUpload', () => {
 			const req = createUploadRequest({
 				files: [new File(['first'], 'first.txt'), new File(['second'], tooLongFileName)],
 			});
-			const response = await handleProjectUpload(
+			const response = await handleWorkspaceUpload(
 				req,
 				new URL(req.url),
-				createStore({ id: 'project-1', localPath }),
+				createStore({ id: 'workspace-1', localPath }),
 			);
 
 			expect(response?.status).toBe(500);
@@ -262,7 +265,7 @@ describe('handleProjectUpload', () => {
 describe('handleAttachmentContent', () => {
 	test('returns null for non-matching paths', async () => {
 		const req = createAttachmentContentRequest({
-			url: 'http://localhost/api/projects/project-1/uploads/notes.md',
+			url: 'http://localhost/api/workspaces/workspace-1/uploads/notes.md',
 		});
 
 		const response = await handleAttachmentContent(req, new URL(req.url), createStore(null));
@@ -274,30 +277,30 @@ describe('handleAttachmentContent', () => {
 		const response = await handleAttachmentContent(
 			req,
 			new URL(req.url),
-			createStore({ id: 'project-1', localPath: '/tmp/project-1' }),
+			createStore({ id: 'workspace-1', localPath: '/tmp/workspace-1' }),
 		);
 
 		expect(response?.status).toBe(405);
 		expect(response?.headers.get('Allow')).toBe('GET');
 	});
 
-	test('returns 404 when project is missing', async () => {
+	test('returns 404 when workspace is missing', async () => {
 		const req = createAttachmentContentRequest({});
 		const response = await handleAttachmentContent(req, new URL(req.url), createStore(null));
 
 		expect(response?.status).toBe(404);
-		expect(await response?.json()).toEqual({ error: 'Project not found' });
+		expect(await response?.json()).toEqual({ error: 'Workspace not found' });
 	});
 
 	test('returns 400 for invalid attachment paths', async () => {
 		const req = createAttachmentContentRequest({
-			url: 'http://localhost/api/projects/project-1/uploads/..%2Fsecret.txt/content',
+			url: 'http://localhost/api/workspaces/workspace-1/uploads/..%2Fsecret.txt/content',
 		});
 
 		const response = await handleAttachmentContent(
 			req,
 			new URL(req.url),
-			createStore({ id: 'project-1', localPath: '/tmp/project-1' }),
+			createStore({ id: 'workspace-1', localPath: '/tmp/workspace-1' }),
 		);
 
 		expect(response?.status).toBe(400);
@@ -306,12 +309,12 @@ describe('handleAttachmentContent', () => {
 
 	test('returns 400 for malformed URL-encoded attachment paths', async () => {
 		const req = createAttachmentContentRequest({
-			url: 'http://localhost/api/projects/project-1/uploads/%E0%A4%A/content',
+			url: 'http://localhost/api/workspaces/workspace-1/uploads/%E0%A4%A/content',
 		});
 		const response = await handleAttachmentContent(
 			req,
 			new URL(req.url),
-			createStore({ id: 'project-1', localPath: '/tmp/project-1' }),
+			createStore({ id: 'workspace-1', localPath: '/tmp/workspace-1' }),
 		);
 		expect(response?.status).toBe(400);
 		expect(await response?.json()).toEqual({ error: 'Invalid attachment path' });
@@ -321,13 +324,13 @@ describe('handleAttachmentContent', () => {
 		const localPath = await mkdtemp(path.join(tmpdir(), 'miko-server-'));
 		try {
 			const req = createAttachmentContentRequest({
-				url: 'http://localhost/api/projects/project-1/uploads/missing.txt/content',
+				url: 'http://localhost/api/workspaces/workspace-1/uploads/missing.txt/content',
 			});
 
 			const response = await handleAttachmentContent(
 				req,
 				new URL(req.url),
-				createStore({ id: 'project-1', localPath }),
+				createStore({ id: 'workspace-1', localPath }),
 			);
 
 			expect(response?.status).toBe(404);
@@ -340,17 +343,17 @@ describe('handleAttachmentContent', () => {
 	test('returns 404 when attachment path points to a directory', async () => {
 		const localPath = await mkdtemp(path.join(tmpdir(), 'miko-server-'));
 		try {
-			const uploadDir = getProjectUploadDir(localPath);
+			const uploadDir = getWorkspaceUploadDir(localPath);
 			await mkdir(path.join(uploadDir, 'folder.txt'), { recursive: true });
 
 			const req = createAttachmentContentRequest({
-				url: 'http://localhost/api/projects/project-1/uploads/folder.txt/content',
+				url: 'http://localhost/api/workspaces/workspace-1/uploads/folder.txt/content',
 			});
 
 			const response = await handleAttachmentContent(
 				req,
 				new URL(req.url),
-				createStore({ id: 'project-1', localPath }),
+				createStore({ id: 'workspace-1', localPath }),
 			);
 
 			expect(response?.status).toBe(404);
@@ -363,7 +366,7 @@ describe('handleAttachmentContent', () => {
 	test('returns attachment content with inferred content type', async () => {
 		const localPath = await mkdtemp(path.join(tmpdir(), 'miko-server-'));
 		try {
-			const uploadDir = getProjectUploadDir(localPath);
+			const uploadDir = getWorkspaceUploadDir(localPath);
 			await mkdir(uploadDir, { recursive: true });
 			const filePath = path.join(uploadDir, 'notes.md');
 			await writeFile(filePath, '# hello');
@@ -372,7 +375,7 @@ describe('handleAttachmentContent', () => {
 			const response = await handleAttachmentContent(
 				req,
 				new URL(req.url),
-				createStore({ id: 'project-1', localPath }),
+				createStore({ id: 'workspace-1', localPath }),
 			);
 
 			expect(response?.status).toBe(200);
@@ -384,82 +387,82 @@ describe('handleAttachmentContent', () => {
 	});
 });
 
-describe('handleProjectFileContent', () => {
+describe('handleWorkspaceFileContent', () => {
 	test('returns null for non-matching paths', async () => {
-		const req = createProjectFileContentRequest({
-			url: 'http://localhost/api/projects/project-1/files/notes.md',
+		const req = createWorkspaceFileContentRequest({
+			url: 'http://localhost/api/workspaces/workspace-1/files/notes.md',
 		});
-		const response = await handleProjectFileContent(req, new URL(req.url), createStore(null));
+		const response = await handleWorkspaceFileContent(req, new URL(req.url), createStore(null));
 		expect(response).toBeNull();
 	});
 
 	test('returns 405 for non-GET methods', async () => {
-		const req = createProjectFileContentRequest({ method: 'POST' });
-		const response = await handleProjectFileContent(
+		const req = createWorkspaceFileContentRequest({ method: 'POST' });
+		const response = await handleWorkspaceFileContent(
 			req,
 			new URL(req.url),
-			createStore({ id: 'project-1', localPath: '/tmp/project-1' }),
+			createStore({ id: 'workspace-1', localPath: '/tmp/workspace-1' }),
 		);
 		expect(response?.status).toBe(405);
 		expect(response?.headers.get('Allow')).toBe('GET');
 	});
 
-	test('returns 404 when project is missing', async () => {
-		const req = createProjectFileContentRequest({});
-		const response = await handleProjectFileContent(req, new URL(req.url), createStore(null));
+	test('returns 404 when workspace is missing', async () => {
+		const req = createWorkspaceFileContentRequest({});
+		const response = await handleWorkspaceFileContent(req, new URL(req.url), createStore(null));
 		expect(response?.status).toBe(404);
-		expect(await response?.json()).toEqual({ error: 'Project not found' });
+		expect(await response?.json()).toEqual({ error: 'Workspace not found' });
 	});
 
-	test('returns 400 for invalid project file paths', async () => {
-		const req = createProjectFileContentRequest({
-			url: 'http://localhost/api/projects/project-1/files/..%2Fsecret.txt/content',
+	test('returns 400 for invalid workspace file paths', async () => {
+		const req = createWorkspaceFileContentRequest({
+			url: 'http://localhost/api/workspaces/workspace-1/files/..%2Fsecret.txt/content',
 		});
-		const response = await handleProjectFileContent(
+		const response = await handleWorkspaceFileContent(
 			req,
 			new URL(req.url),
-			createStore({ id: 'project-1', localPath: '/tmp/project-1' }),
+			createStore({ id: 'workspace-1', localPath: '/tmp/workspace-1' }),
 		);
 		expect(response?.status).toBe(400);
-		expect(await response?.json()).toEqual({ error: 'Invalid project file path' });
+		expect(await response?.json()).toEqual({ error: 'Invalid workspace file path' });
 	});
 
-	test('returns 400 for malformed URL-encoded project file paths', async () => {
-		const req = createProjectFileContentRequest({
-			url: 'http://localhost/api/projects/project-1/files/%E0%A4%A/content',
+	test('returns 400 for malformed URL-encoded workspace file paths', async () => {
+		const req = createWorkspaceFileContentRequest({
+			url: 'http://localhost/api/workspaces/workspace-1/files/%E0%A4%A/content',
 		});
-		const response = await handleProjectFileContent(
+		const response = await handleWorkspaceFileContent(
 			req,
 			new URL(req.url),
-			createStore({ id: 'project-1', localPath: '/tmp/project-1' }),
+			createStore({ id: 'workspace-1', localPath: '/tmp/workspace-1' }),
 		);
 		expect(response?.status).toBe(400);
-		expect(await response?.json()).toEqual({ error: 'Invalid project file path' });
+		expect(await response?.json()).toEqual({ error: 'Invalid workspace file path' });
 	});
 
-	test('returns 400 for absolute project file paths', async () => {
-		const req = createProjectFileContentRequest({
-			url: 'http://localhost/api/projects/project-1/files/%2Fetc%2Fpasswd/content',
+	test('returns 400 for absolute workspace file paths', async () => {
+		const req = createWorkspaceFileContentRequest({
+			url: 'http://localhost/api/workspaces/workspace-1/files/%2Fetc%2Fpasswd/content',
 		});
-		const response = await handleProjectFileContent(
+		const response = await handleWorkspaceFileContent(
 			req,
 			new URL(req.url),
-			createStore({ id: 'project-1', localPath: '/tmp/project-1' }),
+			createStore({ id: 'workspace-1', localPath: '/tmp/workspace-1' }),
 		);
 		expect(response?.status).toBe(400);
-		expect(await response?.json()).toEqual({ error: 'Invalid project file path' });
+		expect(await response?.json()).toEqual({ error: 'Invalid workspace file path' });
 	});
 
-	test('returns 404 when project file is missing', async () => {
+	test('returns 404 when workspace file is missing', async () => {
 		const localPath = await mkdtemp(path.join(tmpdir(), 'miko-server-'));
 		try {
-			const req = createProjectFileContentRequest({
-				url: 'http://localhost/api/projects/project-1/files/missing.txt/content',
+			const req = createWorkspaceFileContentRequest({
+				url: 'http://localhost/api/workspaces/workspace-1/files/missing.txt/content',
 			});
-			const response = await handleProjectFileContent(
+			const response = await handleWorkspaceFileContent(
 				req,
 				new URL(req.url),
-				createStore({ id: 'project-1', localPath }),
+				createStore({ id: 'workspace-1', localPath }),
 			);
 			expect(response?.status).toBe(404);
 			expect(await response?.json()).toEqual({ error: 'File not found' });
@@ -468,18 +471,18 @@ describe('handleProjectFileContent', () => {
 		}
 	});
 
-	test('returns 404 when project file path points to a directory', async () => {
+	test('returns 404 when workspace file path points to a directory', async () => {
 		const localPath = await mkdtemp(path.join(tmpdir(), 'miko-server-'));
 		try {
 			await mkdir(path.join(localPath, 'folder.txt'), { recursive: true });
 
-			const req = createProjectFileContentRequest({
-				url: 'http://localhost/api/projects/project-1/files/folder.txt/content',
+			const req = createWorkspaceFileContentRequest({
+				url: 'http://localhost/api/workspaces/workspace-1/files/folder.txt/content',
 			});
-			const response = await handleProjectFileContent(
+			const response = await handleWorkspaceFileContent(
 				req,
 				new URL(req.url),
-				createStore({ id: 'project-1', localPath }),
+				createStore({ id: 'workspace-1', localPath }),
 			);
 			expect(response?.status).toBe(404);
 			expect(await response?.json()).toEqual({ error: 'File not found' });
@@ -488,60 +491,60 @@ describe('handleProjectFileContent', () => {
 		}
 	});
 
-	test('returns project file content with inferred content type', async () => {
+	test('returns workspace file content with inferred content type', async () => {
 		const localPath = await mkdtemp(path.join(tmpdir(), 'miko-server-'));
 		try {
 			const filePath = path.join(localPath, 'notes.md');
-			await writeFile(filePath, '# project file');
+			await writeFile(filePath, '# workspace file');
 
-			const req = createProjectFileContentRequest({});
-			const response = await handleProjectFileContent(
+			const req = createWorkspaceFileContentRequest({});
+			const response = await handleWorkspaceFileContent(
 				req,
 				new URL(req.url),
-				createStore({ id: 'project-1', localPath }),
+				createStore({ id: 'workspace-1', localPath }),
 			);
 			expect(response?.status).toBe(200);
 			expect(response?.headers.get('Content-Type')).toBe('text/markdown; charset=utf-8');
-			expect(await response?.text()).toBe('# project file');
+			expect(await response?.text()).toBe('# workspace file');
 		} finally {
 			await rm(localPath, { recursive: true, force: true });
 		}
 	});
 });
 
-describe('handleProjectUploadDelete', () => {
+describe('handleWorkspaceUploadDelete', () => {
 	test('returns null for non-DELETE requests', async () => {
 		const req = createUploadDeleteRequest({ method: 'GET' });
-		const response = await handleProjectUploadDelete(req, new URL(req.url), createStore(null));
+		const response = await handleWorkspaceUploadDelete(req, new URL(req.url), createStore(null));
 		expect(response).toBeNull();
 	});
 
 	test('returns null for non-matching paths', async () => {
 		const req = createUploadDeleteRequest({
-			url: 'http://localhost/api/projects/project-1/uploads/notes.md/content',
+			url: 'http://localhost/api/workspaces/workspace-1/uploads/notes.md/content',
 		});
 
-		const response = await handleProjectUploadDelete(req, new URL(req.url), createStore(null));
+		const response = await handleWorkspaceUploadDelete(req, new URL(req.url), createStore(null));
 		expect(response).toBeNull();
 	});
 
-	test('returns 404 when project is missing', async () => {
+	test('returns 404 when workspace is missing', async () => {
 		const req = createUploadDeleteRequest({});
-		const response = await handleProjectUploadDelete(req, new URL(req.url), createStore(null));
+		const response = await handleWorkspaceUploadDelete(req, new URL(req.url), createStore(null));
 
 		expect(response?.status).toBe(404);
-		expect(await response?.json()).toEqual({ error: 'Project not found' });
+		expect(await response?.json()).toEqual({ error: 'Workspace not found' });
 	});
 
 	test('returns 400 for invalid attachment paths', async () => {
 		const req = createUploadDeleteRequest({
-			url: 'http://localhost/api/projects/project-1/uploads/..%2Fsecret.txt',
+			url: 'http://localhost/api/workspaces/workspace-1/uploads/..%2Fsecret.txt',
 		});
 
-		const response = await handleProjectUploadDelete(
+		const response = await handleWorkspaceUploadDelete(
 			req,
 			new URL(req.url),
-			createStore({ id: 'project-1', localPath: '/tmp/project-1' }),
+			createStore({ id: 'workspace-1', localPath: '/tmp/workspace-1' }),
 		);
 
 		expect(response?.status).toBe(400);
@@ -550,12 +553,12 @@ describe('handleProjectUploadDelete', () => {
 
 	test('returns 400 for malformed URL-encoded attachment paths', async () => {
 		const req = createUploadDeleteRequest({
-			url: 'http://localhost/api/projects/project-1/uploads/%E0%A4%A',
+			url: 'http://localhost/api/workspaces/workspace-1/uploads/%E0%A4%A',
 		});
-		const response = await handleProjectUploadDelete(
+		const response = await handleWorkspaceUploadDelete(
 			req,
 			new URL(req.url),
-			createStore({ id: 'project-1', localPath: '/tmp/project-1' }),
+			createStore({ id: 'workspace-1', localPath: '/tmp/workspace-1' }),
 		);
 		expect(response?.status).toBe(400);
 		expect(await response?.json()).toEqual({ error: 'Invalid attachment path' });
@@ -564,8 +567,8 @@ describe('handleProjectUploadDelete', () => {
 	test('deletes attachment and returns ok true', async () => {
 		const localPath = await mkdtemp(path.join(tmpdir(), 'miko-server-'));
 		try {
-			const attachment = await persistProjectUpload({
-				projectId: 'project-1',
+			const attachment = await persistWorkspaceUpload({
+				workspaceId: 'workspace-1',
 				localPath,
 				fileName: 'notes.md',
 				bytes: new TextEncoder().encode('delete me'),
@@ -574,13 +577,13 @@ describe('handleProjectUploadDelete', () => {
 
 			const storedName = path.basename(attachment.absolutePath);
 			const req = createUploadDeleteRequest({
-				url: `http://localhost/api/projects/project-1/uploads/${encodeURIComponent(storedName)}`,
+				url: `http://localhost/api/workspaces/workspace-1/uploads/${encodeURIComponent(storedName)}`,
 			});
 
-			const response = await handleProjectUploadDelete(
+			const response = await handleWorkspaceUploadDelete(
 				req,
 				new URL(req.url),
-				createStore({ id: 'project-1', localPath }),
+				createStore({ id: 'workspace-1', localPath }),
 			);
 
 			expect(response?.status).toBe(200);

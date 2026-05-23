@@ -8,6 +8,7 @@ import {
 import type { ClientCommand } from '../shared/protocol';
 import { normalizeToolCall } from '../shared/tools';
 import type {
+	AccountInfo,
 	AgentProvider,
 	ChatAttachment,
 	ContextWindowUsageSnapshot,
@@ -21,8 +22,8 @@ import { CodexAppServerManager } from './codex-app-server';
 import type { EventStore } from './event-store';
 import {
 	fallbackTitleFromMessage,
-	type GenerateChatTitleResult,
-	generateTitleForChatDetailed,
+	type GenerateSessionTitleResult,
+	generateTitleForSessionDetailed,
 } from './generate-title';
 import type { HarnessEvent, HarnessToolRequest, HarnessTurn } from './harness-types';
 import {
@@ -59,7 +60,7 @@ interface PendingToolRequest {
 }
 
 interface ActiveTurn {
-	chatId: string;
+	sessionId: string;
 	provider: AgentProvider;
 	turn: HarnessTurn;
 	model: string;
@@ -72,12 +73,13 @@ interface ActiveTurn {
 	hasFinalResult: boolean;
 	cancelRequested: boolean;
 	cancelRecorded: boolean;
+	settled: boolean;
 }
 
 interface ClaudeSessionHandle {
 	provider: 'claude';
 	stream: AsyncIterable<HarnessEvent>;
-	getAccountInfo?: () => Promise<any>;
+	getAccountInfo?: () => Promise<AccountInfo | null>;
 	interrupt: () => Promise<void>;
 	close: () => void;
 	sendPrompt: (content: string) => Promise<void>;
@@ -86,7 +88,7 @@ interface ClaudeSessionHandle {
 }
 
 interface ClaudeSessionState {
-	chatId: string;
+	sessionId: string;
 	session: ClaudeSessionHandle;
 	localPath: string;
 	model: string;
@@ -99,8 +101,12 @@ interface ClaudeSessionState {
 interface AgentCoordinatorArgs {
 	store: EventStore;
 	onStateChange: () => void;
+	onTurnSettled?: (event: {
+		sessionId: string;
+		outcome: 'success' | 'failed' | 'cancelled';
+	}) => void | Promise<void>;
 	codexManager?: CodexAppServerManager;
-	generateTitle?: (messageContent: string) => Promise<GenerateChatTitleResult>;
+	generateTitle?: (messageContent: string) => Promise<GenerateSessionTitleResult>;
 	startClaudeSession?: (args: {
 		localPath: string;
 		model: string;
@@ -259,42 +265,49 @@ export function maxClaudeContextWindowFromModelUsage(modelUsage: unknown): numbe
 	return maxContextWindow;
 }
 
-function getClaudeAssistantMessageUsageId(message: any): string | null {
-	if (typeof message?.message?.id === 'string' && message.message.id) {
-		return message.message.id;
-	}
-	if (typeof message?.uuid === 'string' && message.uuid) {
-		return message.uuid;
-	}
+function getClaudeAssistantMessageUsageId(message: unknown): string | null {
+	const record = asRecord(message);
+	const nestedMessage = asRecord(record?.message);
+	const nestedId = nestedMessage?.id;
+	if (typeof nestedId === 'string' && nestedId) return nestedId;
+
+	const uuid = record?.uuid;
+	if (typeof uuid === 'string' && uuid) return uuid;
+
 	return null;
 }
 
-export function normalizeClaudeStreamMessage(message: any): TranscriptEntry[] {
+export function normalizeClaudeStreamMessage(message: unknown): TranscriptEntry[] {
 	const debugRaw = JSON.stringify(message);
-	const messageId = typeof message.uuid === 'string' ? message.uuid : undefined;
+	const record = asRecord(message) ?? {};
+	const nestedMessage = asRecord(record.message);
+	const messageId = typeof record.uuid === 'string' ? record.uuid : undefined;
 
-	if (message.type === 'system' && message.subtype === 'init') {
+	if (record.type === 'system' && record.subtype === 'init') {
 		return [
 			timestamped({
 				kind: 'system_init',
 				messageId,
 				provider: 'claude',
-				model: typeof message.model === 'string' ? message.model : 'unknown',
-				tools: Array.isArray(message.tools) ? message.tools : [],
-				agents: Array.isArray(message.agents) ? message.agents : [],
-				slashCommands: Array.isArray(message.slash_commands)
-					? message.slash_commands.filter((entry: string) => !entry.startsWith('._'))
+				model: typeof record.model === 'string' ? record.model : 'unknown',
+				tools: Array.isArray(record.tools) ? record.tools : [],
+				agents: Array.isArray(record.agents) ? record.agents : [],
+				slashCommands: Array.isArray(record.slash_commands)
+					? record.slash_commands.filter(
+							(entry): entry is string => typeof entry === 'string' && !entry.startsWith('._'),
+						)
 					: [],
-				mcpServers: Array.isArray(message.mcp_servers) ? message.mcp_servers : [],
+				mcpServers: Array.isArray(record.mcp_servers) ? record.mcp_servers : [],
 				debugRaw,
 			}),
 		];
 	}
 
-	if (message.type === 'assistant' && Array.isArray(message.message?.content)) {
+	if (record.type === 'assistant' && Array.isArray(nestedMessage?.content)) {
 		const entries: TranscriptEntry[] = [];
-		for (const content of message.message.content) {
-			if (content.type === 'text' && typeof content.text === 'string') {
+		for (const rawContent of nestedMessage.content) {
+			const content = asRecord(rawContent);
+			if (content?.type === 'text' && typeof content.text === 'string') {
 				entries.push(
 					timestamped({
 						kind: 'assistant_text',
@@ -306,7 +319,7 @@ export function normalizeClaudeStreamMessage(message: any): TranscriptEntry[] {
 			}
 
 			if (
-				content.type === 'tool_use' &&
+				content?.type === 'tool_use' &&
 				typeof content.name === 'string' &&
 				typeof content.id === 'string'
 			) {
@@ -327,10 +340,11 @@ export function normalizeClaudeStreamMessage(message: any): TranscriptEntry[] {
 		return entries;
 	}
 
-	if (message.type === 'user' && Array.isArray(message.message?.content)) {
+	if (record.type === 'user' && Array.isArray(nestedMessage?.content)) {
 		const entries: TranscriptEntry[] = [];
-		for (const content of message.message.content) {
-			if (content.type === 'tool_result' && typeof content.tool_use_id === 'string') {
+		for (const rawContent of nestedMessage.content) {
+			const content = asRecord(rawContent);
+			if (content?.type === 'tool_result' && typeof content.tool_use_id === 'string') {
 				entries.push(
 					timestamped({
 						kind: 'tool_result',
@@ -346,8 +360,8 @@ export function normalizeClaudeStreamMessage(message: any): TranscriptEntry[] {
 		return entries;
 	}
 
-	if (message.type === 'result') {
-		if (message.subtype === 'cancelled') {
+	if (record.type === 'result') {
+		if (record.subtype === 'cancelled') {
 			return [timestamped({ kind: 'interrupted', messageId, debugRaw })];
 		}
 
@@ -355,44 +369,44 @@ export function normalizeClaudeStreamMessage(message: any): TranscriptEntry[] {
 			timestamped({
 				kind: 'result',
 				messageId,
-				subtype: message.is_error ? 'error' : 'success',
-				isError: Boolean(message.is_error),
-				durationMs: typeof message.duration_ms === 'number' ? message.duration_ms : 0,
+				subtype: record.is_error ? 'error' : 'success',
+				isError: Boolean(record.is_error),
+				durationMs: typeof record.duration_ms === 'number' ? record.duration_ms : 0,
 				result:
-					typeof message.result === 'string' ? message.result : stringFromUnknown(message.result),
-				costUsd: typeof message.total_cost_usd === 'number' ? message.total_cost_usd : undefined,
+					typeof record.result === 'string' ? record.result : stringFromUnknown(record.result),
+				costUsd: typeof record.total_cost_usd === 'number' ? record.total_cost_usd : undefined,
 				debugRaw,
 			}),
 		];
 	}
 
 	if (
-		message.type === 'system' &&
-		message.subtype === 'status' &&
-		typeof message.status === 'string'
+		record.type === 'system' &&
+		record.subtype === 'status' &&
+		typeof record.status === 'string'
 	) {
-		return [timestamped({ kind: 'status', messageId, status: message.status, debugRaw })];
+		return [timestamped({ kind: 'status', messageId, status: record.status, debugRaw })];
 	}
 
-	if (message.type === 'system' && message.subtype === 'compact_boundary') {
+	if (record.type === 'system' && record.subtype === 'compact_boundary') {
 		return [timestamped({ kind: 'compact_boundary', messageId, debugRaw })];
 	}
 
-	if (message.type === 'system' && message.subtype === 'context_cleared') {
+	if (record.type === 'system' && record.subtype === 'context_cleared') {
 		return [timestamped({ kind: 'context_cleared', messageId, debugRaw })];
 	}
 
 	if (
-		message.type === 'user' &&
-		message.message?.role === 'user' &&
-		typeof message.message.content === 'string' &&
-		message.message.content.startsWith('This session is being continued')
+		record.type === 'user' &&
+		nestedMessage?.role === 'user' &&
+		typeof nestedMessage.content === 'string' &&
+		nestedMessage.content.startsWith('This session is being continued')
 	) {
 		return [
 			timestamped({
 				kind: 'compact_summary',
 				messageId,
-				summary: message.message.content,
+				summary: nestedMessage.content,
 				debugRaw,
 			}),
 		];
@@ -406,15 +420,16 @@ export async function* createClaudeHarnessStream(q: Query): AsyncGenerator<Harne
 	let latestUsageSnapshot: ContextWindowUsageSnapshot | null = null;
 	let lastKnownContextWindow: number | undefined;
 
-	for await (const sdkMessage of q as AsyncIterable<any>) {
-		const sessionToken = typeof sdkMessage.session_id === 'string' ? sdkMessage.session_id : null;
+	for await (const sdkMessage of q as AsyncIterable<unknown>) {
+		const sdkRecord = asRecord(sdkMessage) ?? {};
+		const sessionToken = typeof sdkRecord.session_id === 'string' ? sdkRecord.session_id : null;
 		if (sessionToken) {
 			yield { type: 'session_token', sessionToken };
 		}
 
-		if (sdkMessage?.type === 'assistant') {
+		if (sdkRecord.type === 'assistant') {
 			const usageId = getClaudeAssistantMessageUsageId(sdkMessage);
-			const usageSnapshot = normalizeClaudeUsageSnapshot(sdkMessage.usage, lastKnownContextWindow);
+			const usageSnapshot = normalizeClaudeUsageSnapshot(sdkRecord.usage, lastKnownContextWindow);
 
 			if (usageId && usageSnapshot && !seenAssistantUsageIds.has(usageId)) {
 				seenAssistantUsageIds.add(usageId);
@@ -429,14 +444,14 @@ export async function* createClaudeHarnessStream(q: Query): AsyncGenerator<Harne
 			}
 		}
 
-		if (sdkMessage?.type === 'result') {
-			const resultContextWindow = maxClaudeContextWindowFromModelUsage(sdkMessage.modelUsage);
+		if (sdkRecord.type === 'result') {
+			const resultContextWindow = maxClaudeContextWindowFromModelUsage(sdkRecord.modelUsage);
 			if (resultContextWindow !== undefined) {
 				lastKnownContextWindow = resultContextWindow;
 			}
 
 			const accumulatedUsage = normalizeClaudeUsageSnapshot(
-				sdkMessage.usage,
+				sdkRecord.usage,
 				resultContextWindow ?? lastKnownContextWindow,
 			);
 
@@ -649,8 +664,9 @@ export async function startClaudeSession(
 export class AgentCoordinator {
 	private readonly store: EventStore;
 	private readonly onStateChange: () => void;
+	private readonly onTurnSettled: NonNullable<AgentCoordinatorArgs['onTurnSettled']> | null;
 	private readonly codexManager: CodexAppServerManager;
-	private readonly generateTitle: (messageContent: string) => Promise<GenerateChatTitleResult>;
+	private readonly generateTitle: (messageContent: string) => Promise<GenerateSessionTitleResult>;
 	private readonly startClaudeSessionFn: NonNullable<AgentCoordinatorArgs['startClaudeSession']>;
 	private reportBackgroundError: ((message: string) => void) | null = null;
 	readonly activeTurns = new Map<string, ActiveTurn>();
@@ -660,8 +676,9 @@ export class AgentCoordinator {
 	constructor(args: AgentCoordinatorArgs) {
 		this.store = args.store;
 		this.onStateChange = args.onStateChange;
+		this.onTurnSettled = args.onTurnSettled ?? null;
 		this.codexManager = args.codexManager ?? new CodexAppServerManager();
-		this.generateTitle = args.generateTitle ?? generateTitleForChatDetailed;
+		this.generateTitle = args.generateTitle ?? generateTitleForSessionDetailed;
 		this.startClaudeSessionFn = args.startClaudeSession ?? startClaudeSession;
 	}
 
@@ -669,45 +686,65 @@ export class AgentCoordinator {
 		this.reportBackgroundError = report;
 	}
 
+	private async notifyTurnSettled(sessionId: string, outcome: 'success' | 'failed' | 'cancelled') {
+		try {
+			await this.onTurnSettled?.({ sessionId, outcome });
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			this.reportBackgroundError?.(
+				`[turn-settled] session ${sessionId} failed post-turn orchestration: ${message}`,
+			);
+		}
+	}
+
+	private async notifyActiveTurnSettled(
+		active: ActiveTurn,
+		outcome: 'success' | 'failed' | 'cancelled',
+	) {
+		if (active.settled) return;
+		active.settled = true;
+		await this.notifyTurnSettled(active.sessionId, outcome);
+	}
+
 	getActiveStatuses() {
 		const statuses = new Map<string, MikoStatus>();
-		for (const [chatId, turn] of this.activeTurns.entries()) {
-			statuses.set(chatId, turn.status);
+		for (const [sessionId, turn] of this.activeTurns.entries()) {
+			statuses.set(sessionId, turn.status);
 		}
 		return statuses;
 	}
 
-	getPendingTool(chatId: string): PendingToolSnapshot | null {
-		const pending = this.activeTurns.get(chatId)?.pendingTool;
+	getPendingTool(sessionId: string): PendingToolSnapshot | null {
+		const pending = this.activeTurns.get(sessionId)?.pendingTool;
 		if (!pending) return null;
 		return { toolUseId: pending.toolUseId, toolKind: pending.tool.toolKind };
 	}
 
-	getDrainingChatIds(): Set<string> {
+	getDrainingSessionIds(): Set<string> {
 		return new Set(this.drainingStreams.keys());
 	}
 
-	async stopDraining(chatId: string) {
-		const draining = this.drainingStreams.get(chatId);
+	async stopDraining(sessionId: string) {
+		const draining = this.drainingStreams.get(sessionId);
 		if (!draining) return;
 
 		draining.turn.close();
-		this.drainingStreams.delete(chatId);
+		this.drainingStreams.delete(sessionId);
 		this.onStateChange();
 	}
 
-	async closeChat(chatId: string) {
-		await this.stopDraining(chatId);
-		const claudeSession = this.claudeSessions.get(chatId);
+	async closeSession(sessionId: string) {
+		await this.stopDraining(sessionId);
+		const claudeSession = this.claudeSessions.get(sessionId);
 		if (claudeSession) {
 			claudeSession.session.close();
-			this.claudeSessions.delete(chatId);
+			this.claudeSessions.delete(sessionId);
 		}
 		this.onStateChange();
 	}
 
 	private resolveProvider(
-		command: Extract<ClientCommand, { type: 'chat.send' }>,
+		command: Extract<ClientCommand, { type: 'session.send' }>,
 		currentProvider: AgentProvider | null,
 	) {
 		if (currentProvider) return currentProvider;
@@ -716,7 +753,7 @@ export class AgentCoordinator {
 
 	private getProviderSettings(
 		provider: AgentProvider,
-		command: Extract<ClientCommand, { type: 'chat.send' }>,
+		command: Extract<ClientCommand, { type: 'session.send' }>,
 	) {
 		const catalog = getServerProviderCatalog(provider);
 		if (provider === 'claude') {
@@ -740,8 +777,8 @@ export class AgentCoordinator {
 		};
 	}
 
-	private async startTurnForChat(args: {
-		chatId: string;
+	private async startTurnForSession(args: {
+		sessionId: string;
 		provider: AgentProvider;
 		content: string;
 		attachments: ChatAttachment[];
@@ -752,36 +789,36 @@ export class AgentCoordinator {
 		appendUserPrompt: boolean;
 	}) {
 		// Close any lingering draining stream before starting a new turn.
-		const draining = this.drainingStreams.get(args.chatId);
+		const draining = this.drainingStreams.get(args.sessionId);
 		if (draining) {
 			draining.turn.close();
-			this.drainingStreams.delete(args.chatId);
+			this.drainingStreams.delete(args.sessionId);
 		}
 
-		const chat = this.store.requireChat(args.chatId);
-		if (this.activeTurns.has(args.chatId)) {
-			throw new Error('Chat is already running');
+		const session = this.store.requireSession(args.sessionId);
+		if (this.activeTurns.has(args.sessionId)) {
+			throw new Error('Session is already running');
 		}
 
-		if (!chat.provider) {
-			await this.store.setChatProvider(args.chatId, args.provider);
+		if (!session.provider) {
+			await this.store.setSessionProvider(args.sessionId, args.provider);
 		}
 
-		await this.store.setPlanMode(args.chatId, args.planMode);
+		await this.store.setPlanMode(args.sessionId, args.planMode);
 
-		const existingMessages = this.store.getMessages(args.chatId);
+		const existingMessages = this.store.getMessages(args.sessionId);
 		const shouldGenerateTitle =
-			args.appendUserPrompt && chat.title === 'New Chat' && existingMessages.length === 0;
+			args.appendUserPrompt && session.title === 'New Session' && existingMessages.length === 0;
 
 		const optimisticTitle = shouldGenerateTitle ? fallbackTitleFromMessage(args.content) : null;
 
 		if (optimisticTitle) {
-			await this.store.renameChat(args.chatId, optimisticTitle);
+			await this.store.renameSession(args.sessionId, optimisticTitle);
 		}
 
-		const project = this.store.getProject(chat.projectId);
-		if (!project) {
-			throw new Error('Project not found');
+		const workspace = this.store.getWorkspace(session.workspaceId);
+		if (!workspace) {
+			throw new Error('Workspace not found');
 		}
 
 		if (args.appendUserPrompt) {
@@ -789,24 +826,24 @@ export class AgentCoordinator {
 				{ kind: 'user_prompt', content: args.content, attachments: args.attachments },
 				Date.now(),
 			);
-			await this.store.appendMessage(args.chatId, userPromptEntry);
+			await this.store.appendMessage(args.sessionId, userPromptEntry);
 		}
 
-		await this.store.recordTurnStarted(args.chatId);
+		await this.store.recordTurnStarted(args.sessionId);
 
 		if (shouldGenerateTitle) {
 			void this.generateTitleInBackground(
-				args.chatId,
+				args.sessionId,
 				args.content,
-				project.localPath,
-				optimisticTitle ?? 'New Chat',
+				workspace.localPath,
+				optimisticTitle ?? 'New Session',
 			);
 		}
 
 		const onToolRequest = async (request: HarnessToolRequest): Promise<unknown> => {
-			const active = this.activeTurns.get(args.chatId);
+			const active = this.activeTurns.get(args.sessionId);
 			if (!active) {
-				throw new Error('Chat turn ended unexpectedly');
+				throw new Error('Session turn ended unexpectedly');
 			}
 
 			active.status = 'waiting_for_user';
@@ -824,28 +861,28 @@ export class AgentCoordinator {
 		let turn: HarnessTurn;
 		if (args.provider === 'claude') {
 			turn = await this.startClaudeTurn({
-				chatId: args.chatId,
-				localPath: project.localPath,
+				sessionId: args.sessionId,
+				localPath: workspace.localPath,
 				model: args.model,
 				effort: args.effort,
 				planMode: args.planMode,
-				sessionToken: chat.sessionToken,
+				sessionToken: session.sessionToken,
 				onToolRequest,
 			});
 		} else {
 			await this.codexManager.startSession({
-				chatId: args.chatId,
-				cwd: project.localPath,
+				sessionId: args.sessionId,
+				cwd: workspace.localPath,
 				model: args.model,
 				serviceTier: args.serviceTier,
-				sessionToken: chat.sessionToken,
+				sessionToken: session.sessionToken,
 			});
 
 			turn = await this.codexManager.startTurn({
-				chatId: args.chatId,
+				sessionId: args.sessionId,
 				content: buildPromptText(args.content, args.attachments),
 				model: args.model,
-				effort: args.effort as any,
+				effort: args.effort as Parameters<CodexAppServerManager['startTurn']>[0]['effort'],
 				serviceTier: args.serviceTier,
 				planMode: args.planMode,
 				onToolRequest,
@@ -853,7 +890,7 @@ export class AgentCoordinator {
 		}
 
 		const active: ActiveTurn = {
-			chatId: args.chatId,
+			sessionId: args.sessionId,
 			provider: args.provider,
 			turn,
 			model: args.model,
@@ -866,9 +903,10 @@ export class AgentCoordinator {
 			hasFinalResult: false,
 			cancelRequested: false,
 			cancelRecorded: false,
+			settled: false,
 		};
 
-		this.activeTurns.set(args.chatId, active);
+		this.activeTurns.set(args.sessionId, active);
 		this.onStateChange();
 
 		if (turn.getAccountInfo) {
@@ -877,7 +915,7 @@ export class AgentCoordinator {
 				.then(async (accountInfo) => {
 					if (!accountInfo) return;
 					if (args.provider === 'claude') {
-						const session = this.claudeSessions.get(args.chatId);
+						const session = this.claudeSessions.get(args.sessionId);
 						if (session) {
 							if (session.accountInfoLoaded) return;
 							session.accountInfoLoaded = true;
@@ -886,7 +924,7 @@ export class AgentCoordinator {
 						}
 					}
 					await this.store.appendMessage(
-						args.chatId,
+						args.sessionId,
 						timestamped({ kind: 'account_info', accountInfo }),
 					);
 					this.onStateChange();
@@ -895,7 +933,7 @@ export class AgentCoordinator {
 		}
 
 		if (args.provider === 'claude') {
-			const session = this.claudeSessions.get(args.chatId);
+			const session = this.claudeSessions.get(args.sessionId);
 			if (!session) {
 				throw new Error('Claude session was not initialized');
 			}
@@ -907,7 +945,7 @@ export class AgentCoordinator {
 	}
 
 	private async startClaudeTurn(args: {
-		chatId: string;
+		sessionId: string;
 		localPath: string;
 		model: string;
 		effort?: string;
@@ -915,12 +953,12 @@ export class AgentCoordinator {
 		sessionToken: string | null;
 		onToolRequest: (request: HarnessToolRequest) => Promise<unknown>;
 	}): Promise<HarnessTurn> {
-		let session = this.claudeSessions.get(args.chatId);
+		let session = this.claudeSessions.get(args.sessionId);
 
 		if (!session || session.localPath !== args.localPath || session.effort !== args.effort) {
 			if (session) {
 				session.session.close();
-				this.claudeSessions.delete(args.chatId);
+				this.claudeSessions.delete(args.sessionId);
 			}
 
 			const started = await this.startClaudeSessionFn({
@@ -933,7 +971,7 @@ export class AgentCoordinator {
 			});
 
 			session = {
-				chatId: args.chatId,
+				sessionId: args.sessionId,
 				session: started,
 				localPath: args.localPath,
 				model: args.model,
@@ -943,7 +981,7 @@ export class AgentCoordinator {
 				accountInfoLoaded: false,
 			};
 
-			this.claudeSessions.set(args.chatId, session);
+			this.claudeSessions.set(args.sessionId, session);
 			void this.runClaudeSession(session);
 		} else {
 			if (session.model !== args.model) {
@@ -967,24 +1005,24 @@ export class AgentCoordinator {
 		};
 	}
 
-	async send(command: Extract<ClientCommand, { type: 'chat.send' }>) {
-		let chatId = command.chatId;
+	async send(command: Extract<ClientCommand, { type: 'session.send' }>) {
+		let sessionId = command.sessionId;
 
-		if (!chatId) {
-			if (!command.projectId) {
-				throw new Error('Missing projectId for new chat');
+		if (!sessionId) {
+			if (!command.workspaceId) {
+				throw new Error('Missing workspaceId for new session');
 			}
 
-			const created = await this.store.createChat(command.projectId);
-			chatId = created.id;
+			const created = await this.store.createSession(command.workspaceId);
+			sessionId = created.id;
 		}
 
-		const chat = this.store.requireChat(chatId);
-		const provider = this.resolveProvider(command, chat.provider);
+		const session = this.store.requireSession(sessionId);
+		const provider = this.resolveProvider(command, session.provider);
 		const settings = this.getProviderSettings(provider, command);
 
-		await this.startTurnForChat({
-			chatId,
+		await this.startTurnForSession({
+			sessionId,
 			provider,
 			content: command.content,
 			attachments: command.attachments ?? [],
@@ -995,7 +1033,7 @@ export class AgentCoordinator {
 			appendUserPrompt: true,
 		});
 
-		return { chatId };
+		return { sessionId };
 	}
 
 	private async runClaudeSession(session: ClaudeSessionState) {
@@ -1003,37 +1041,42 @@ export class AgentCoordinator {
 			for await (const event of session.session.stream) {
 				if (event.type === 'session_token' && event.sessionToken) {
 					session.sessionToken = event.sessionToken;
-					await this.store.setSessionToken(session.chatId, event.sessionToken);
+					await this.store.setSessionToken(session.sessionId, event.sessionToken);
 					this.onStateChange();
 					continue;
 				}
 
 				if (!event.entry) continue;
-				await this.store.appendMessage(session.chatId, event.entry);
+				await this.store.appendMessage(session.sessionId, event.entry);
 
-				const active = this.activeTurns.get(session.chatId);
+				const active = this.activeTurns.get(session.sessionId);
 				if (event.entry.kind === 'system_init' && active) {
 					active.status = 'running';
 				}
 
 				if (event.entry.kind === 'result' && active) {
 					active.hasFinalResult = true;
-					if (event.entry.isError) {
-						await this.store.recordTurnFailed(session.chatId, event.entry.result || 'Turn failed');
+					if (event.entry.isError && !active.cancelRequested) {
+						await this.store.recordTurnFailed(
+							session.sessionId,
+							event.entry.result || 'Turn failed',
+						);
+						await this.notifyActiveTurnSettled(active, 'failed');
 					} else if (!active.cancelRequested) {
-						await this.store.recordTurnFinished(session.chatId);
+						await this.store.recordTurnFinished(session.sessionId);
+						await this.notifyActiveTurnSettled(active, 'success');
 					}
-					this.activeTurns.delete(session.chatId);
+					this.activeTurns.delete(session.sessionId);
 				}
 
 				this.onStateChange();
 			}
 		} catch (error) {
-			const active = this.activeTurns.get(session.chatId);
+			const active = this.activeTurns.get(session.sessionId);
 			if (active && !active.cancelRequested) {
 				const message = error instanceof Error ? error.message : String(error);
 				await this.store.appendMessage(
-					session.chatId,
+					session.sessionId,
 					timestamped({
 						kind: 'result',
 						subtype: 'error',
@@ -1042,16 +1085,18 @@ export class AgentCoordinator {
 						result: message,
 					}),
 				);
-				await this.store.recordTurnFailed(session.chatId, message);
+				await this.store.recordTurnFailed(session.sessionId, message);
+				await this.notifyActiveTurnSettled(active, 'failed');
 			}
 		} finally {
-			this.claudeSessions.delete(session.chatId);
-			const active = this.activeTurns.get(session.chatId);
+			this.claudeSessions.delete(session.sessionId);
+			const active = this.activeTurns.get(session.sessionId);
 			if (active?.provider === 'claude') {
 				if (active.cancelRequested && !active.cancelRecorded) {
-					await this.store.recordTurnCancelled(session.chatId);
+					await this.store.recordTurnCancelled(session.sessionId);
+					await this.notifyActiveTurnSettled(active, 'cancelled');
 				}
-				this.activeTurns.delete(session.chatId);
+				this.activeTurns.delete(session.sessionId);
 			}
 			session.session.close();
 			this.onStateChange();
@@ -1059,30 +1104,30 @@ export class AgentCoordinator {
 	}
 
 	private async generateTitleInBackground(
-		chatId: string,
+		sessionId: string,
 		messageContent: string,
-		cwd: string,
+		_cwd: string,
 		expectedCurrentTitle: string,
 	) {
 		try {
 			const result = await this.generateTitle(messageContent);
 			if (result.failureMessage) {
 				this.reportBackgroundError?.(
-					`[title-generation] chat ${chatId} failed provider title generation: ${result.failureMessage}`,
+					`[title-generation] session ${sessionId} failed provider title generation: ${result.failureMessage}`,
 				);
 			}
 
 			if (!result.title || result.usedFallback) return;
 
-			const chat = this.store.requireChat(chatId);
-			if (chat.title !== expectedCurrentTitle) return;
+			const session = this.store.requireSession(sessionId);
+			if (session.title !== expectedCurrentTitle) return;
 
-			await this.store.renameChat(chatId, result.title);
+			await this.store.renameSession(sessionId, result.title);
 			this.onStateChange();
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
 			this.reportBackgroundError?.(
-				`[title-generation] chat ${chatId} failed background title generation: ${message}`,
+				`[title-generation] session ${sessionId} failed background title generation: ${message}`,
 			);
 		}
 	}
@@ -1095,13 +1140,13 @@ export class AgentCoordinator {
 				if (active.cancelRequested) break;
 
 				if (event.type === 'session_token' && event.sessionToken) {
-					await this.store.setSessionToken(active.chatId, event.sessionToken);
+					await this.store.setSessionToken(active.sessionId, event.sessionToken);
 					this.onStateChange();
 					continue;
 				}
 
 				if (!event.entry) continue;
-				await this.store.appendMessage(active.chatId, event.entry);
+				await this.store.appendMessage(active.sessionId, event.entry);
 
 				if (event.entry.kind === 'system_init') {
 					active.status = 'running';
@@ -1110,21 +1155,26 @@ export class AgentCoordinator {
 				if (event.entry.kind === 'result') {
 					active.hasFinalResult = true;
 
-					if (event.entry.isError) {
-						await this.store.recordTurnFailed(active.chatId, event.entry.result || 'Turn failed');
+					if (event.entry.isError && !active.cancelRequested) {
+						await this.store.recordTurnFailed(
+							active.sessionId,
+							event.entry.result || 'Turn failed',
+						);
+						await this.notifyActiveTurnSettled(active, 'failed');
 					} else if (!active.cancelRequested) {
-						await this.store.recordTurnFinished(active.chatId);
+						await this.store.recordTurnFinished(active.sessionId);
+						await this.notifyActiveTurnSettled(active, 'success');
 					}
 
 					// Remove from activeTurns as soon as the result arrives so the UI
 					// transitions to idle immediately. The stream may still be open
 					// (e.g. background tasks), but the user should be able to send
 					// new messages without having to hit stop first.
-					this.activeTurns.delete(active.chatId);
+					this.activeTurns.delete(active.sessionId);
 
 					// Track the still-open stream so the UI can show a draining
 					// indicator and the user can stop background tasks.
-					this.drainingStreams.set(active.chatId, { turn: active.turn });
+					this.drainingStreams.set(active.sessionId, { turn: active.turn });
 				}
 
 				this.onStateChange();
@@ -1133,7 +1183,7 @@ export class AgentCoordinator {
 			if (!active.cancelRequested) {
 				const message = error instanceof Error ? error.message : String(error);
 				await this.store.appendMessage(
-					active.chatId,
+					active.sessionId,
 					timestamped({
 						kind: 'result',
 						subtype: 'error',
@@ -1142,29 +1192,31 @@ export class AgentCoordinator {
 						result: message,
 					}),
 				);
-				await this.store.recordTurnFailed(active.chatId, message);
+				await this.store.recordTurnFailed(active.sessionId, message);
+				await this.notifyActiveTurnSettled(active, 'failed');
 			}
 		} finally {
 			if (active.cancelRequested && !active.cancelRecorded) {
-				await this.store.recordTurnCancelled(active.chatId);
+				await this.store.recordTurnCancelled(active.sessionId);
+				await this.notifyActiveTurnSettled(active, 'cancelled');
 			}
 
 			active.turn.close();
-			// Only remove if we're still the active turn for this chat.
+			// Only remove if we're still the active turn for this session.
 			// We may have already been removed by result handling or cancel(),
-			// and a new turn may have started for the same chatId.
-			if (this.activeTurns.get(active.chatId) === active) {
-				this.activeTurns.delete(active.chatId);
+			// and a new turn may have started for the same sessionId.
+			if (this.activeTurns.get(active.sessionId) === active) {
+				this.activeTurns.delete(active.sessionId);
 			}
 
 			// Stream has fully ended — no longer draining.
-			this.drainingStreams.delete(active.chatId);
+			this.drainingStreams.delete(active.sessionId);
 			this.onStateChange();
 
 			if (active.postToolFollowUp && !active.cancelRequested) {
 				try {
-					await this.startTurnForChat({
-						chatId: active.chatId,
+					await this.startTurnForSession({
+						sessionId: active.sessionId,
 						provider: active.provider,
 						content: active.postToolFollowUp.content,
 						attachments: [],
@@ -1177,7 +1229,7 @@ export class AgentCoordinator {
 				} catch (error) {
 					const message = error instanceof Error ? error.message : String(error);
 					await this.store.appendMessage(
-						active.chatId,
+						active.sessionId,
 						timestamped({
 							kind: 'result',
 							subtype: 'error',
@@ -1187,27 +1239,29 @@ export class AgentCoordinator {
 						}),
 					);
 
-					await this.store.recordTurnFailed(active.chatId, message);
+					await this.store.recordTurnFailed(active.sessionId, message);
+					await this.notifyActiveTurnSettled(active, 'failed');
 					this.onStateChange();
 				}
 			}
 		}
 	}
 
-	async cancel(chatId: string) {
-		// Also clean up any draining stream for this chat.
-		const draining = this.drainingStreams.get(chatId);
+	async cancel(sessionId: string) {
+		// Also clean up any draining stream for this session.
+		const draining = this.drainingStreams.get(sessionId);
 		if (draining) {
 			draining.turn.close();
-			this.drainingStreams.delete(chatId);
+			this.drainingStreams.delete(sessionId);
 		}
 
-		const active = this.activeTurns.get(chatId);
+		const active = this.activeTurns.get(sessionId);
 		if (!active) return;
 
 		// Guards against double-cancel
 		if (active.cancelRequested) return;
 		active.cancelRequested = true;
+		active.cancelRecorded = true;
 
 		const pendingTool = active.pendingTool;
 		active.pendingTool = null;
@@ -1215,7 +1269,7 @@ export class AgentCoordinator {
 		if (pendingTool) {
 			const result = discardedToolResult(pendingTool.tool);
 			await this.store.appendMessage(
-				chatId,
+				sessionId,
 				timestamped({
 					kind: 'tool_result',
 					toolId: pendingTool.toolUseId,
@@ -1225,15 +1279,15 @@ export class AgentCoordinator {
 			pendingTool.resolve(result);
 		}
 
-		await this.store.appendMessage(chatId, timestamped({ kind: 'interrupted' }));
-		await this.store.recordTurnCancelled(chatId);
+		await this.store.appendMessage(sessionId, timestamped({ kind: 'interrupted' }));
+		await this.store.recordTurnCancelled(sessionId);
+		await this.notifyActiveTurnSettled(active, 'cancelled');
 
-		active.cancelRecorded = true;
 		active.hasFinalResult = true;
 
 		// Remove from activeTurns immediately so the UI reflects the cancellation
 		// right away, rather than waiting for interrupt() which may hang.
-		this.activeTurns.delete(chatId);
+		this.activeTurns.delete(sessionId);
 		this.onStateChange();
 
 		// Now attempt to interrupt/close the underlying stream in the background.
@@ -1250,9 +1304,9 @@ export class AgentCoordinator {
 		active.turn.close();
 	}
 
-	async respondTool(command: Extract<ClientCommand, { type: 'chat.respondTool' }>) {
-		const active = this.activeTurns.get(command.chatId);
-		if (!active || !active.pendingTool) {
+	async respondTool(command: Extract<ClientCommand, { type: 'session.respondTool' }>) {
+		const active = this.activeTurns.get(command.sessionId);
+		if (!active?.pendingTool) {
 			throw new Error('No pending tool request');
 		}
 
@@ -1262,7 +1316,7 @@ export class AgentCoordinator {
 		}
 
 		await this.store.appendMessage(
-			command.chatId,
+			command.sessionId,
 			timestamped({
 				kind: 'tool_result',
 				toolId: command.toolUseId,
@@ -1281,8 +1335,8 @@ export class AgentCoordinator {
 			};
 
 			if (result.confirmed && result.clearContext) {
-				await this.store.setSessionToken(command.chatId, null);
-				await this.store.appendMessage(command.chatId, timestamped({ kind: 'context_cleared' }));
+				await this.store.setSessionToken(command.sessionId, null);
+				await this.store.appendMessage(command.sessionId, timestamped({ kind: 'context_cleared' }));
 			}
 
 			if (active.provider === 'codex') {

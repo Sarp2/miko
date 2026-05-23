@@ -1,134 +1,219 @@
 import type {
-	ChatRuntime,
-	ChatSnapshot,
-	LocalProjectsSnapshot,
+	DirectoryListSnapshot,
 	MikoStatus,
-	SidebarChatRow,
-	SidebarData,
-	SidebarProjectGroup,
+	SessionRuntime,
+	SessionSnapshot,
+	SidebarDirectoryGroup,
+	SidebarSnapshot,
+	SidebarWorkspaceRow,
+	WorkspaceGitHubSnapshot,
+	WorkspaceGitSnapshot,
+	WorkspaceHealthState,
+	WorkspaceSidebarIndicator,
+	WorkspaceSnapshot,
 } from 'src/shared/types';
-import type { ChatRecord, StoreState } from './event';
-import { resolveLocalPath } from './paths';
+import type { SessionRecord, StoreState, WorkspaceRecord } from './event';
 import { SERVER_PROVIDERS } from './provider-catalog';
 
-export function deriveStatus(chat: ChatRecord, activeStatus?: MikoStatus): MikoStatus {
+export function deriveStatus(session: SessionRecord, activeStatus?: MikoStatus): MikoStatus {
 	if (activeStatus) return activeStatus;
-	if (chat.lastTurnOutcome === 'failed') return 'failed';
+	if (session.lastTurnOutcome === 'failed') return 'failed';
 	return 'idle';
 }
 
-function getSidebarChatSortTimestamp(chat: ChatRecord) {
-	return chat.lastMessageAt ?? chat.createdAt;
+function getSessionActivityTimestamp(session: SessionRecord) {
+	return session.lastMessageAt ?? session.updatedAt;
 }
 
-export function deriveSidebarData(
-	state: StoreState,
-	activeStatuses: Map<string, MikoStatus>,
-): SidebarData {
-	const projects = [...state.projectsById.values()]
-		.filter((project) => !project.deletedAt)
+function getWorkspaceLastActivityAt(state: StoreState, workspace: WorkspaceRecord) {
+	return [...state.sessionsById.values()].reduce((latest, session) => {
+		if (session.workspaceId !== workspace.id || session.removedAt) return latest;
+		return Math.max(latest, getSessionActivityTimestamp(session));
+	}, workspace.updatedAt);
+}
+
+function getWorkspaceDisplayName(
+	workspace: WorkspaceRecord,
+	github: WorkspaceGitHubSnapshot | null | undefined,
+) {
+	return github?.status !== 'none' && github?.title
+		? github.title
+		: (workspace.pullRequest?.title ?? workspace.branchName);
+}
+
+function getWorkspaceSidebarIndicator(args: {
+	workspace: WorkspaceRecord;
+	hasActiveSession: boolean;
+	git?: WorkspaceGitSnapshot | null;
+	github?: WorkspaceGitHubSnapshot | null;
+}): WorkspaceSidebarIndicator {
+	const { workspace, hasActiveSession, git, github } = args;
+
+	if (workspace.setupState === 'creating') return 'workspace_creating';
+	if (workspace.setupState === 'failed') return 'workspace_failed';
+	if (hasActiveSession) return 'agent_active';
+	if (workspace.reviewState === 'done') return 'merged';
+	if (workspace.reviewState === 'closed') return 'closed';
+	if (github?.ciStatus === 'failing') return 'ci_failed';
+	if (git?.files.length || (git?.aheadCount ?? 0) > 0) return 'commit_and_push';
+	if (workspace.reviewState === 'in_review') return 'pr_opened';
+	if (git?.hasPushedCommits) return 'create_pr';
+	return 'none';
+}
+
+export function deriveSidebarSnapshot(args: {
+	state: StoreState;
+	activeStatuses: Map<string, MikoStatus>;
+	gitSnapshots?: Map<string, WorkspaceGitSnapshot>;
+	githubSnapshots?: Map<string, WorkspaceGitHubSnapshot>;
+}): SidebarSnapshot {
+	const directories = [...args.state.directoriesById.values()]
+		.filter((directory) => !directory.removedAt)
 		.sort((a, b) => b.updatedAt - a.updatedAt);
 
-	const projectGroups: SidebarProjectGroup[] = projects.map((project) => {
-		const chats: SidebarChatRow[] = [...state.chatsById.values()]
-			.filter((chat) => chat.projectId === project.id && !chat.deletedAt)
-			.sort((a, b) => getSidebarChatSortTimestamp(b) - getSidebarChatSortTimestamp(a))
-			.map((chat) => ({
-				_id: chat.id,
-				_creationTime: chat.createdAt,
-				chatId: chat.id,
-				title: chat.title,
-				status: deriveStatus(chat, activeStatuses.get(chat.id)),
-				unread: chat.unread,
-				localPath: project.localPath,
-				provider: chat.provider,
-				lastMessageAt: chat.lastMessageAt,
-				hasAutomation: false,
-			}));
+	const directoryGroups: SidebarDirectoryGroup[] = directories
+		.map((directory) => {
+			const workspaces: SidebarWorkspaceRow[] = [...args.state.workspacesById.values()]
+				.filter(
+					(workspace) =>
+						workspace.directoryId === directory.id &&
+						!workspace.removedAt &&
+						workspace.visibilityState === 'active',
+				)
+				.sort(
+					(a, b) =>
+						getWorkspaceLastActivityAt(args.state, b) - getWorkspaceLastActivityAt(args.state, a),
+				)
+				.map((workspace) => {
+					const hasActiveSession = [...args.state.sessionsById.values()].some(
+						(session) =>
+							session.workspaceId === workspace.id &&
+							!session.removedAt &&
+							args.activeStatuses.has(session.id),
+					);
 
-		return {
-			groupKey: project.id,
-			localPath: project.localPath,
-			chats,
-		};
-	});
+					const git = args.gitSnapshots?.get(workspace.id) ?? null;
+					const github = args.githubSnapshots?.get(workspace.id) ?? null;
 
-	return { projectGroups };
+					return {
+						_id: workspace.id,
+						_creationTime: workspace.createdAt,
+						workspaceId: workspace.id,
+						displayName: getWorkspaceDisplayName(workspace, github),
+						reviewState: workspace.reviewState,
+						visibilityState: workspace.visibilityState,
+						indicator: getWorkspaceSidebarIndicator({
+							workspace,
+							hasActiveSession,
+							git,
+							github,
+						}),
+						hasUnreadAgentResult: workspace.hasUnreadAgentResult,
+						hasActiveSession,
+						localPath: workspace.localPath,
+						branchName: workspace.branchName,
+						prNumber: workspace.pullRequest?.number,
+						lastActivityAt: getWorkspaceLastActivityAt(args.state, workspace),
+					};
+				});
+
+			return {
+				groupKey: directory.id,
+				directoryId: directory.id,
+				localPath: directory.localPath,
+				title: directory.title,
+				workspaces,
+			};
+		})
+		.filter((group) => group.workspaces.length > 0);
+
+	return { directoryGroups };
 }
 
-export function deriveLocalProjectsSnapshot(
+export function deriveDirectoryListSnapshot(
 	state: StoreState,
-	discoveredProjects: Array<{ localPath: string; title: string; modifiedAt: number }>,
 	machineName: string,
-): LocalProjectsSnapshot {
-	const projects = new Map<string, LocalProjectsSnapshot['projects'][number]>();
-
-	for (const project of discoveredProjects) {
-		const normalizedPath = resolveLocalPath(project.localPath);
-		projects.set(normalizedPath, {
-			localPath: normalizedPath,
-			title: project.title,
-			source: 'discovered',
-			lastOpenedAt: project.modifiedAt,
-			chatCount: 0,
-		});
-	}
-
-	for (const project of [...state.projectsById.values()].filter((entry) => !entry.deletedAt)) {
-		const normalizedPath = resolveLocalPath(project.localPath);
-		const chats = [...state.chatsById.values()].filter(
-			(chat) => chat.projectId === project.id && !chat.deletedAt,
-		);
-
-		const lastOpenedAt = chats.reduce(
-			(latest, chat) => Math.max(latest, getSidebarChatSortTimestamp(chat)),
-			project.updatedAt,
-		);
-
-		projects.set(normalizedPath, {
-			localPath: normalizedPath,
-			title: project.title,
-			source: 'saved',
-			lastOpenedAt,
-			chatCount: chats.length,
-		});
-	}
-
+): DirectoryListSnapshot {
 	return {
 		machine: {
 			id: 'local',
 			displayName: machineName,
 		},
-		projects: [...projects.values()].sort((a, b) => (b.lastOpenedAt ?? 0) - (a.lastOpenedAt ?? 0)),
+		directories: [...state.directoriesById.values()]
+			.filter((directory) => !directory.removedAt)
+			.sort((a, b) => b.updatedAt - a.updatedAt)
+			.map(({ removedAt: _removedAt, ...directory }) => directory),
+		workspaces: [...state.workspacesById.values()]
+			.filter((workspace) => {
+				if (workspace.removedAt) return false;
+				const directory = state.directoriesById.get(workspace.directoryId);
+				return Boolean(directory && !directory.removedAt);
+			})
+			.sort((a, b) => b.updatedAt - a.updatedAt)
+			.map(({ removedAt: _removedAt, ...workspace }) => workspace),
 	};
 }
 
-export function deriveChatSnapshot(
+export function deriveWorkspaceSnapshot(args: {
+	state: StoreState;
+	activeStatuses: Map<string, MikoStatus>;
+	workspaceId: string;
+	healthState?: WorkspaceHealthState;
+	git?: WorkspaceGitSnapshot | null;
+	github?: WorkspaceGitHubSnapshot | null;
+}): WorkspaceSnapshot | null {
+	const workspace = args.state.workspacesById.get(args.workspaceId);
+	if (!workspace || workspace.removedAt) return null;
+	const directory = args.state.directoriesById.get(workspace.directoryId);
+	if (!directory || directory.removedAt) return null;
+
+	const { removedAt: _removedAt, ...workspaceSummary } = workspace;
+	const sessions = [...args.state.sessionsById.values()]
+		.filter((session) => session.workspaceId === workspace.id && !session.removedAt)
+		.map(({ removedAt: _removedAt, ...session }) => session);
+
+	return {
+		workspace: workspaceSummary,
+		primaryLabel: getWorkspaceDisplayName(workspace, args.github),
+		healthState: args.healthState ?? 'healthy',
+		git: args.git ?? null,
+		github: args.github ?? null,
+		sessions,
+		hasActiveSession: sessions.some((session) => args.activeStatuses.has(session.id)),
+		hasUnreadAgentResult: workspace.hasUnreadAgentResult,
+	};
+}
+
+export function deriveSessionSnapshot(
 	state: StoreState,
 	activeStatuses: Map<string, MikoStatus>,
-	drainingChatIds: Set<string>,
-	chatId: string,
-	getMessages: (chatId: string) => Pick<ChatSnapshot, 'messages' | 'history'>,
-): ChatSnapshot | null {
-	const chat = state.chatsById.get(chatId);
-	if (!chat || chat.deletedAt) return null;
+	drainingSessionIds: Set<string>,
+	sessionId: string,
+	getMessages: (sessionId: string) => Pick<SessionSnapshot, 'messages' | 'history'>,
+): SessionSnapshot | null {
+	const session = state.sessionsById.get(sessionId);
+	if (!session || session.removedAt) return null;
 
-	const project = state.projectsById.get(chat.projectId);
-	if (!project || project.deletedAt) return null;
+	const workspace = state.workspacesById.get(session.workspaceId);
+	if (!workspace || workspace.removedAt) return null;
 
-	const runtime: ChatRuntime = {
-		chatId: chat.id,
-		projectId: project.id,
-		localPath: project.localPath,
-		title: chat.title,
-		status: deriveStatus(chat, activeStatuses.get(chat.id)),
-		isDraining: drainingChatIds.has(chat.id),
-		provider: chat.provider,
-		planMode: chat.planMode,
-		sessionToken: chat.sessionToken,
+	const directory = state.directoriesById.get(workspace.directoryId);
+	if (!directory || directory.removedAt) return null;
+
+	const runtime: SessionRuntime = {
+		sessionId: session.id,
+		workspaceId: workspace.id,
+		directoryId: directory.id,
+		localPath: workspace.localPath,
+		title: session.title,
+		status: deriveStatus(session, activeStatuses.get(session.id)),
+		isDraining: drainingSessionIds.has(session.id),
+		provider: session.provider,
+		planMode: session.planMode,
+		sessionToken: session.sessionToken,
 	};
 
-	const transcript = getMessages(chat.id);
+	const transcript = getMessages(session.id);
 
 	return {
 		runtime,

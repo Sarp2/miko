@@ -5,7 +5,7 @@ import path from 'node:path';
 export function resolveLocalPath(localPath: string) {
 	const trimmed = localPath.trim();
 	if (!trimmed) {
-		throw new Error('Project path is required');
+		throw new Error('Directory path is required');
 	}
 
 	if (trimmed === '~') {
@@ -19,16 +19,16 @@ export function resolveLocalPath(localPath: string) {
 	return path.resolve(trimmed);
 }
 
-export async function ensureProjectDirectory(localPath: string) {
+export async function ensureDirectoryPath(localPath: string) {
 	const resolvedPath = resolveLocalPath(localPath);
 	await mkdir(resolvedPath, { recursive: true });
 
 	const info = await stat(resolvedPath);
 	if (!info.isDirectory()) {
-		throw new Error('Project path must be a directory');
+		throw new Error('Directory path must be a directory');
 	}
 }
 
-export function getProjectUploadDir(localPath: string) {
+export function getWorkspaceUploadDir(localPath: string) {
 	return path.join(resolveLocalPath(localPath), '.miko', 'uploads');
 }

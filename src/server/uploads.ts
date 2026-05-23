@@ -3,7 +3,7 @@ import { mkdir, open, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { fileTypeFromBuffer } from 'file-type';
 import type { ChatAttachment } from '../shared/types';
-import { getProjectUploadDir } from './paths';
+import { getWorkspaceUploadDir } from './paths';
 
 const DEFAULT_BINARY_MIME_TYPE = 'application/octet-stream';
 const IMAGE_MIME_PREFIX = 'image/';
@@ -79,14 +79,14 @@ export function getUploadCandidateNames(originalName: string) {
 	};
 }
 
-export async function persistProjectUpload(args: {
-	projectId: string;
+export async function persistWorkspaceUpload(args: {
+	workspaceId: string;
 	localPath: string;
 	fileName: string;
 	bytes: Uint8Array;
 	fallbackMimeType?: string;
 }): Promise<ChatAttachment> {
-	const uploadDir = getProjectUploadDir(args.localPath);
+	const uploadDir = getWorkspaceUploadDir(args.localPath);
 	await mkdir(uploadDir, { recursive: true });
 
 	const detectedType = await fileTypeFromBuffer(args.bytes);
@@ -127,7 +127,7 @@ export async function persistProjectUpload(args: {
 		displayName: args.fileName,
 		absolutePath,
 		relativePath: `./.miko/uploads/${storedName}`,
-		contentUrl: `/api/projects/${args.projectId}/uploads/${encodeURIComponent(storedName)}/content`,
+		contentUrl: `/api/workspaces/${args.workspaceId}/uploads/${encodeURIComponent(storedName)}/content`,
 		mimeType,
 		size: args.bytes.byteLength,
 	};
@@ -147,11 +147,11 @@ export function inferAttachmentContentType(fileName: string, fallbackType?: stri
 	return fallbackType || DEFAULT_BINARY_MIME_TYPE;
 }
 
-export function inferProjectFileContentType(fileName: string, fallbackType?: string): string {
+export function inferWorkspaceFileContentType(fileName: string, fallbackType?: string): string {
 	return inferAttachmentContentType(fileName, fallbackType);
 }
 
-export async function deleteProjectUpload(args: {
+export async function deleteWorkspaceUpload(args: {
 	localPath: string;
 	storedName: string;
 }): Promise<boolean> {
@@ -166,7 +166,7 @@ export async function deleteProjectUpload(args: {
 		return false;
 	}
 
-	const absolutePath = path.join(getProjectUploadDir(args.localPath), storedName);
+	const absolutePath = path.join(getWorkspaceUploadDir(args.localPath), storedName);
 	try {
 		await rm(absolutePath, { force: true });
 		return true;

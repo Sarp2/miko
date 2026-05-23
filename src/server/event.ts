@@ -1,128 +1,183 @@
-import type { AgentProvider, ProjectSummary, TranscriptEntry } from 'src/shared/types';
+import type {
+	AgentProvider,
+	DirectorySummary,
+	SessionSummary,
+	TranscriptEntry,
+	WorkspacePullRequestSummary,
+	WorkspaceReviewState,
+	WorkspaceSummary,
+	WorkspaceVisibilityState,
+} from 'src/shared/types';
 
-export interface ProjectRecord extends ProjectSummary {
-	deletedAt?: number;
+export interface DirectoryRecord extends DirectorySummary {
+	removedAt?: number;
 }
 
-export interface ChatRecord {
-	id: string;
-	projectId: string;
-	title: string;
-	createdAt: number;
-	updatedAt: number;
-	deletedAt?: number;
-	unread: boolean;
-	provider: AgentProvider | null;
-	planMode: boolean;
-	sessionToken: string | null;
-	lastMessageAt?: number;
-	lastTurnOutcome: 'success' | 'failed' | 'cancelled' | null;
+export interface WorkspaceRecord extends WorkspaceSummary {
+	removedAt?: number;
+}
+
+export interface SessionRecord extends SessionSummary {
+	removedAt?: number;
 }
 
 export interface StoreState {
-	projectsById: Map<string, ProjectRecord>;
-	projectIdsByPath: Map<string, string>;
-	chatsById: Map<string, ChatRecord>;
+	directoriesById: Map<string, DirectoryRecord>;
+	workspacesById: Map<string, WorkspaceRecord>;
+	sessionsById: Map<string, SessionRecord>;
 }
 
 export interface SnapshotFile {
 	generatedAt: number;
-	projects: ProjectRecord[];
-	chats: ChatRecord[];
-	messages?: Array<{ chatId: string; entries: TranscriptEntry[] }>;
+	directories: DirectoryRecord[];
+	workspaces: WorkspaceRecord[];
+	sessions: SessionRecord[];
 }
 
-export type ProjectEvent =
+export type DirectoryEvent =
 	| {
-			type: 'project_opened';
+			type: 'directory_added';
 			timestamp: number;
-			projectId: string;
+			directoryId: string;
 			localPath: string;
 			title: string;
+			githubOwner: string;
+			githubRepo: string;
+			defaultBranchName: 'main';
 	  }
 	| {
-			type: 'project_removed';
+			type: 'directory_removed';
 			timestamp: number;
-			projectId: string;
+			directoryId: string;
 	  };
 
-export type ChatEvent =
+export type WorkspaceEvent =
 	| {
-			type: 'chat_created';
+			type: 'workspace_created';
 			timestamp: number;
-			chatId: string;
-			projectId: string;
+			workspaceId: string;
+			directoryId: string;
+			localPath: string;
+			branchName: string;
+	  }
+	| {
+			type: 'workspace_removed';
+			timestamp: number;
+			workspaceId: string;
+	  }
+	| {
+			type: 'workspace_setup_completed';
+			timestamp: number;
+			workspaceId: string;
+	  }
+	| {
+			type: 'workspace_setup_failed';
+			timestamp: number;
+			workspaceId: string;
+			error: string;
+	  }
+	| {
+			type: 'workspace_branch_name_changed';
+			timestamp: number;
+			workspaceId: string;
+			branchName: string;
+	  }
+	| {
+			type: 'workspace_review_state_changed';
+			timestamp: number;
+			workspaceId: string;
+			reviewState: WorkspaceReviewState;
+	  }
+	| {
+			type: 'workspace_visibility_changed';
+			timestamp: number;
+			workspaceId: string;
+			visibilityState: WorkspaceVisibilityState;
+	  }
+	| {
+			type: 'workspace_pr_observed';
+			timestamp: number;
+			workspaceId: string;
+			pullRequest: WorkspacePullRequestSummary;
+	  }
+	| {
+			type: 'workspace_unread_agent_result_set';
+			timestamp: number;
+			workspaceId: string;
+			hasUnreadAgentResult: boolean;
+	  };
+
+export type SessionEvent =
+	| {
+			type: 'session_created';
+			timestamp: number;
+			sessionId: string;
+			workspaceId: string;
 			title: string;
 	  }
 	| {
-			type: 'chat_renamed';
+			type: 'session_renamed';
 			timestamp: number;
-			chatId: string;
+			sessionId: string;
 			title: string;
 	  }
 	| {
-			type: 'chat_deleted';
+			type: 'session_removed';
 			timestamp: number;
-			chatId: string;
+			sessionId: string;
 	  }
 	| {
-			type: 'chat_provider_set';
+			type: 'session_provider_set';
 			timestamp: number;
-			chatId: string;
+			sessionId: string;
 			provider: AgentProvider;
 	  }
 	| {
-			type: 'chat_plan_mode_set';
+			type: 'session_plan_mode_set';
 			timestamp: number;
-			chatId: string;
+			sessionId: string;
 			planMode: boolean;
-	  }
-	| {
-			type: 'chat_read_state_set';
-			timestamp: number;
-			chatId: string;
-			unread: boolean;
 	  };
 
 export type TurnEvent =
 	| {
 			type: 'turn_started';
 			timestamp: number;
-			chatId: string;
+			sessionId: string;
 	  }
 	| {
 			type: 'turn_finished';
 			timestamp: number;
-			chatId: string;
+			sessionId: string;
 	  }
 	| {
 			type: 'turn_failed';
 			timestamp: number;
-			chatId: string;
+			sessionId: string;
 			error: string;
 	  }
 	| {
 			type: 'turn_cancelled';
 			timestamp: number;
-			chatId: string;
+			sessionId: string;
 	  }
 	| {
 			type: 'session_token_set';
 			timestamp: number;
-			chatId: string;
+			sessionId: string;
 			sessionToken: string | null;
 	  };
 
-export type StoreEvent = ProjectEvent | ChatEvent | TurnEvent;
+export type StoreEvent = DirectoryEvent | WorkspaceEvent | SessionEvent | TurnEvent;
 
 export function createEmptyState(): StoreState {
 	return {
-		projectsById: new Map(),
-		projectIdsByPath: new Map(),
-		chatsById: new Map(),
+		directoriesById: new Map(),
+		workspacesById: new Map(),
+		sessionsById: new Map(),
 	};
 }
 
 export function cloneTranscriptEntries(entries: TranscriptEntry[]): TranscriptEntry[] {
-	return entries.map((entry) => ({ ...entry }));
+	return structuredClone(entries);
 }

@@ -5,70 +5,44 @@ import type {
 	BranchActionFailure,
 	BranchActionSuccess,
 	BranchMetadata,
-	ChatBranchHistoryEntry,
-	ChatBranchHistorySnapshot,
-	ChatBranchListEntry,
-	ChatBranchListResult,
-	ChatCheckoutBranchResult,
-	ChatCreateBranchResult,
-	ChatDiffFile,
-	ChatDiffSnapshot,
-	ChatMergeBranchResult,
-	ChatMergePreviewResult,
-	ChatSyncResult,
-	DiffCommitMode,
-	DiffCommitResult,
 	GitHubRepoAvailabilityResult,
 	GithubPublishInfo,
 	UpstreamStatus,
+	WorkspaceBranchHistoryEntry,
+	WorkspaceBranchHistorySnapshot,
+	WorkspaceDiffFile,
+	WorkspaceGitSnapshot,
 } from '../shared/types';
-import { inferProjectFileContentType } from './uploads';
+import { inferWorkspaceFileContentType } from './uploads';
 
-interface StoredChatDiffState extends BranchMetadata, UpstreamStatus {
-	status: ChatDiffSnapshot['status'];
-	files: ChatDiffFile[];
-	branchHistory: ChatBranchHistorySnapshot;
+interface StoredWorkspaceGitState extends BranchMetadata, UpstreamStatus {
+	status: WorkspaceGitSnapshot['status'];
+	files: WorkspaceDiffFile[];
+	hasPushedCommits?: boolean;
+	branchPublishState?: WorkspaceGitSnapshot['branchPublishState'];
+	mainAheadCount?: number;
+	branchHistory: WorkspaceBranchHistorySnapshot;
 }
 
 interface DirtyPathEntry {
 	path: string;
 	previousPath?: string;
-	changeType: ChatDiffFile['changeType'];
+	changeType: WorkspaceDiffFile['changeType'];
 	isUntracked: boolean;
 }
 
-type SelectedBranch =
-	| { kind: 'local'; name: string }
-	| { kind: 'remote'; name: string; remoteRef: string }
-	| {
-			kind: 'pull_request';
-			name: string;
-			prNumber: number;
-			headRefName: string;
-			headRepoCloneUrl?: string;
-			isCrossRepository?: boolean;
-			remoteRef?: string;
-	  };
-
-interface GitHubPullRequestRecord {
-	number: number;
-	title: string;
-	head?: {
-		ref?: string;
-		label?: string;
-		repo?: {
-			clone_url?: string;
-			full_name?: string;
-		};
-	};
+export interface GitHubBackedRepoInspection {
+	ok: boolean;
+	repoRoot?: string;
+	branchName?: string;
+	defaultBranchName?: string;
+	githubOwner?: string;
+	githubRepo?: string;
+	originRepoSlug?: string;
+	message?: string;
 }
 
-interface FetchGitHubPullRequestsOptions {
-	ghApiImpl?: (path: string) => Promise<unknown | null>;
-	fetchImpl?: typeof fetch;
-}
-
-function createEmptyState(): StoredChatDiffState {
+function createEmptyState(): StoredWorkspaceGitState {
 	return {
 		status: 'unknown',
 		branchName: undefined,
@@ -80,6 +54,9 @@ function createEmptyState(): StoredChatDiffState {
 		behindCount: undefined,
 		lastFetchedAt: undefined,
 		files: [],
+		hasPushedCommits: undefined,
+		branchPublishState: 'unknown',
+		mainAheadCount: undefined,
 		branchHistory: { entries: [] },
 	};
 }
@@ -102,7 +79,10 @@ function upstreamStatusEqual(left: UpstreamStatus, right: UpstreamStatus) {
 	);
 }
 
-function branchHistoryEqual(left: ChatBranchHistorySnapshot, right: ChatBranchHistorySnapshot) {
+function branchHistoryEqual(
+	left: WorkspaceBranchHistorySnapshot,
+	right: WorkspaceBranchHistorySnapshot,
+) {
 	if (left.entries.length !== right.entries.length) return false;
 
 	return left.entries.every((entry, index) => {
@@ -121,7 +101,10 @@ function branchHistoryEqual(left: ChatBranchHistorySnapshot, right: ChatBranchHi
 	});
 }
 
-export function snapshotsEqual(left: StoredChatDiffState | undefined, right: StoredChatDiffState) {
+export function snapshotsEqual(
+	left: StoredWorkspaceGitState | undefined,
+	right: StoredWorkspaceGitState,
+) {
 	if (!left) {
 		return right.status === 'unknown' && right.files.length === 0;
 	}
@@ -129,6 +112,9 @@ export function snapshotsEqual(left: StoredChatDiffState | undefined, right: Sto
 	if (left.status !== right.status) return false;
 	if (!branchMetadataEqual(left, right)) return false;
 	if (!upstreamStatusEqual(left, right)) return false;
+	if (left.hasPushedCommits !== right.hasPushedCommits) return false;
+	if (left.branchPublishState !== right.branchPublishState) return false;
+	if (left.mainAheadCount !== right.mainAheadCount) return false;
 	if (!branchHistoryEqual(left.branchHistory, right.branchHistory)) return false;
 	if (left.files.length !== right.files.length) return false;
 
@@ -189,11 +175,7 @@ export async function runGit(args: string[], cwd: string) {
 		process.exited,
 	]);
 
-	return {
-		stdout,
-		stderr,
-		exitCode,
-	};
+	return { stdout, stderr, exitCode };
 }
 
 export async function runCommand(args: string[]) {
@@ -208,11 +190,7 @@ export async function runCommand(args: string[]) {
 		process.exited,
 	]);
 
-	return {
-		stdout,
-		stderr,
-		exitCode,
-	};
+	return { stdout, stderr, exitCode };
 }
 
 function formatGitFailure(result: Awaited<ReturnType<typeof runGit>>) {
@@ -243,108 +221,78 @@ function createBranchActionFailure(
 	};
 }
 
-function createMergeActionFailure(args: {
-	title: string;
-	detail: string;
-	fallback: string;
-	snapshotChanged: boolean;
-}): BranchActionFailure {
-	return {
-		ok: false,
-		title: args.title,
-		message: summarizeGitFailure(args.detail, args.fallback),
-		detail: args.detail,
-		snapshotChanged: args.snapshotChanged,
-	};
-}
+const SAFE_INITIAL_GITIGNORE_ENTRIES = [
+	'.env',
+	'.env.*',
+	'!.env.example',
+	'*.pem',
+	'*.key',
+	'*.p12',
+	'*.pfx',
+	'node_modules/',
+	'.DS_Store',
+	'.miko/',
+	'.miko-dev/',
+] as const;
 
-function createCommitFailure(mode: DiffCommitMode, detail: string): DiffCommitResult {
-	return {
-		ok: false,
-		mode,
-		phase: 'commit',
-		title: 'Commit failed',
-		message: summarizeGitFailure(detail, 'Git could not create the commit.'),
-		detail,
-	};
-}
+async function ensureSafeInitialGitignore(repoRoot: string) {
+	const gitignorePath = path.join(repoRoot, '.gitignore');
+	const currentContents = await readFile(gitignorePath, 'utf8').catch(() => null);
+	let nextContents = currentContents;
 
-export function createPushFailure(
-	mode: DiffCommitMode,
-	detail: string,
-	snapshotChanged: boolean,
-): DiffCommitResult {
-	const normalized = detail.toLowerCase();
-	let title = 'Push failed';
-	let message = summarizeGitFailure(detail, 'Git could not push the commit.');
-
-	if (normalized.includes('non-fast-forward') || normalized.includes('fetch first')) {
-		title = 'Branch is not up to date';
-		message = 'Your branch is behind its remote. Pull or rebase, then try pushing again.';
-	} else if (normalized.includes('does not appear to be a git repository')) {
-		title = 'No origin remote configured';
-		message = 'This repository does not have an origin remote configured.';
-	} else if (normalized.includes('has no upstream branch') || normalized.includes('set-upstream')) {
-		title = 'No upstream branch configured';
-		message = 'This branch does not have an upstream remote branch configured yet.';
-	} else if (
-		normalized.includes('permission denied') ||
-		normalized.includes('authentication failed') ||
-		normalized.includes('could not read from remote repository')
-	) {
-		title = 'Remote authentication failed';
-		message = 'Git could not authenticate with the remote repository.';
+	for (const entry of SAFE_INITIAL_GITIGNORE_ENTRIES) {
+		nextContents = appendGitIgnoreEntry(nextContents, entry);
 	}
 
-	return {
-		ok: false,
-		mode,
-		phase: 'push',
-		title,
-		message,
-		detail,
-		localCommitCreated: true,
-		snapshotChanged,
-	};
+	if (nextContents !== null && nextContents !== currentContents) {
+		await writeFile(gitignorePath, nextContents, 'utf8');
+	}
 }
 
-function createSyncPushFailure(detail: string, snapshotChanged: boolean): ChatSyncResult {
-	const normalized = detail.toLowerCase();
-	let title = 'Push failed';
-	let message = summarizeGitFailure(detail, 'Git could not push this branch.');
+async function ensureInitialCommit(repoRoot: string): Promise<BranchActionFailure | null> {
+	const repo = await resolveRepo(repoRoot);
+	if (repo?.baseCommit) return null;
 
-	if (normalized.includes('non-fast-forward') || normalized.includes('fetch first')) {
-		title = 'Branch is not up to date';
-		message = 'Your branch is behind its remote. Pull or rebase, then try pushing again.';
-	} else if (normalized.includes('has no upstream branch') || normalized.includes('set-upstream')) {
-		title = 'No upstream branch configured';
-		message = 'This branch does not have an upstream remote branch configured yet.';
-	} else if (
-		normalized.includes('permission denied') ||
-		normalized.includes('authentication failed') ||
-		normalized.includes('could not read from remote repository')
-	) {
-		title = 'Remote authentication failed';
-		message = 'Git could not authenticate with the remote repository.';
+	await ensureSafeInitialGitignore(repoRoot);
+
+	const addResult = await runGit(['add', '-A'], repoRoot);
+	if (addResult.exitCode !== 0) {
+		return createBranchActionFailure(
+			'Initial commit failed',
+			formatGitFailure(addResult),
+			'Git could not stage files for the initial commit.',
+		);
 	}
 
-	return {
-		ok: false,
-		action: 'push',
-		title,
-		message,
-		detail,
-		snapshotChanged,
-	};
+	const commitResult = await runGit(
+		[
+			'-c',
+			'user.name=Miko',
+			'-c',
+			'user.email=miko@example.com',
+			'commit',
+			'--allow-empty',
+			'-m',
+			'Initial commit',
+		],
+		repoRoot,
+	);
+	if (commitResult.exitCode !== 0) {
+		return createBranchActionFailure(
+			'Initial commit failed',
+			formatGitFailure(commitResult),
+			'Git could not create the initial commit.',
+		);
+	}
+
+	return null;
 }
 
 export async function resolveRepo(
-	projectPath: string,
+	workspacePath: string,
 ): Promise<{ repoRoot: string; baseCommit: string | null } | null> {
-	const topLevel = await runGit(['rev-parse', '--show-toplevel'], projectPath);
-	if (topLevel.exitCode !== 0) {
-		return null;
-	}
+	const topLevel = await runGit(['rev-parse', '--show-toplevel'], workspacePath);
+	if (topLevel.exitCode !== 0) return null;
 
 	const repoRoot = topLevel.stdout.trim();
 	const head = await runGit(['rev-parse', 'HEAD'], repoRoot);
@@ -380,12 +328,29 @@ export function extractGitHubRepoSlug(remoteUrl: string | null | undefined) {
 
 	for (const pattern of patterns) {
 		const match = remoteUrl.match(pattern);
-		if (match?.[1]) {
-			return match[1];
-		}
+		if (match?.[1]) return match[1];
 	}
 
 	return null;
+}
+
+function splitRepoSlug(repoSlug: string | null | undefined) {
+	const [owner, repo] = repoSlug?.split('/') ?? [];
+	return owner && repo ? { owner, repo } : null;
+}
+
+async function getLocalBranchNames(repoRoot: string) {
+	const result = await runGit(
+		['for-each-ref', '--format=%(refname:short)', 'refs/heads'],
+		repoRoot,
+	);
+
+	if (result.exitCode !== 0) return [];
+
+	return result.stdout
+		.split(/\r?\n/u)
+		.map((line) => line.trim())
+		.filter(Boolean);
 }
 
 export async function resolveDefaultBranchName(repoRoot: string) {
@@ -447,6 +412,60 @@ async function getLastFetchedAt(repoRoot: string) {
 	}
 }
 
+async function refExists(repoRoot: string, ref: string) {
+	const result = await runGit(['rev-parse', '--verify', '--quiet', ref], repoRoot);
+	return result.exitCode === 0;
+}
+
+export async function hasPushedCommits(args: {
+	repoRoot: string;
+	branchName?: string;
+	defaultBranchName?: string;
+}) {
+	if (!args.branchName) return false;
+
+	const remoteBranchRef = `refs/remotes/origin/${args.branchName}`;
+	if (!(await refExists(args.repoRoot, remoteBranchRef))) return false;
+
+	const baseBranch = args.defaultBranchName || 'main';
+	const remoteBaseRef = `refs/remotes/origin/${baseBranch}`;
+	if (!(await refExists(args.repoRoot, remoteBaseRef))) return false;
+
+	const result = await runGit(
+		['rev-list', '--count', `${remoteBaseRef}..${remoteBranchRef}`],
+		args.repoRoot,
+	);
+
+	if (result.exitCode !== 0) return false;
+
+	const count = Number.parseInt(result.stdout.trim(), 10);
+	return Number.isFinite(count) && count > 0;
+}
+
+async function getBranchPublishState(args: {
+	repoRoot: string;
+	branchName?: string;
+	hasUpstream: boolean;
+}): Promise<WorkspaceGitSnapshot['branchPublishState']> {
+	if (!args.branchName) return 'unknown';
+	if (args.hasUpstream) return 'published';
+
+	const remoteBranchRef = `refs/remotes/origin/${args.branchName}`;
+	return (await refExists(args.repoRoot, remoteBranchRef)) ? 'published' : 'local_only';
+}
+
+export async function getMainAheadCount(args: { repoRoot: string; defaultBranchName?: string }) {
+	const baseBranch = args.defaultBranchName || 'main';
+	const remoteBaseRef = `refs/remotes/origin/${baseBranch}`;
+	if (!(await refExists(args.repoRoot, remoteBaseRef))) return undefined;
+
+	const result = await runGit(['rev-list', '--count', `HEAD..${remoteBaseRef}`], args.repoRoot);
+	if (result.exitCode !== 0) return undefined;
+
+	const count = Number.parseInt(result.stdout.trim(), 10);
+	return Number.isFinite(count) ? count : undefined;
+}
+
 export function parseStatusLine(line: string): DirtyPathEntry | null {
 	if (!line.trim()) return null;
 
@@ -466,7 +485,7 @@ export function parseStatusLine(line: string): DirtyPathEntry | null {
 		};
 	}
 
-	let changeType: ChatDiffFile['changeType'] = 'modified';
+	let changeType: WorkspaceDiffFile['changeType'] = 'modified';
 	if (isUntracked || status.includes('A')) {
 		changeType = 'added';
 	} else if (status.includes('D')) {
@@ -484,7 +503,8 @@ export function parseStatusLine(line: string): DirtyPathEntry | null {
 
 export async function listDirtyPaths(repoRoot: string) {
 	// TODO: switch to `git status --porcelain=v1 -z` and parse NUL-delimited records
-	// so quoted paths, newlines, and rename entries are handled without ambiguity.
+	// before this powers broad external use. The current line parser is acceptable for
+	// normal code paths, but quoted paths/newlines can produce incorrect diff rows.
 	const status = await runGit(['status', '--porcelain=v1', '--untracked-files=all'], repoRoot);
 	if (status.exitCode !== 0) {
 		throw new Error(formatGitFailure(status) || 'Failed to list git changes');
@@ -524,9 +544,7 @@ export async function readPatchForEntry(
 	}
 
 	const diffArgs = ['diff', '--no-ext-diff', '--no-color', '--find-renames'];
-	if (baseCommit) {
-		diffArgs.push(baseCommit);
-	}
+	if (baseCommit) diffArgs.push(baseCommit);
 
 	diffArgs.push('--', targetPath);
 	if (entry.previousPath && entry.previousPath !== entry.path) {
@@ -568,9 +586,9 @@ export async function computeCurrentFiles(repoRoot: string, baseCommit: string |
 				additions,
 				deletions,
 				patchDigest: createHash('sha256').update(patch).digest('hex'),
-				mimeType: exists ? inferProjectFileContentType(entry.path) : undefined,
+				mimeType: exists ? inferWorkspaceFileContentType(entry.path) : undefined,
 				size,
-			} satisfies ChatDiffFile;
+			} satisfies WorkspaceDiffFile;
 		}),
 	);
 
@@ -581,7 +599,7 @@ export async function getBranchHistory(args: {
 	repoRoot: string;
 	ref: string;
 	limit: number;
-}): Promise<ChatBranchHistorySnapshot> {
+}): Promise<WorkspaceBranchHistorySnapshot> {
 	const remoteUrl = await getOriginRemoteUrl(args.repoRoot);
 	const repoSlug = extractGitHubRepoSlug(remoteUrl);
 	const result = await runGit(
@@ -590,151 +608,48 @@ export async function getBranchHistory(args: {
 			args.ref,
 			`--max-count=${args.limit}`,
 			'--date=iso-strict',
-			'--format=%H%x1f%s%x1f%b%x1f%an%x1f%aI%x1e',
+			'--decorate=full',
+			'--format=%H%x00%s%x00%b%x00%an%x00%aI%x00%D%x00',
 		],
 		args.repoRoot,
 	);
 
-	if (result.exitCode !== 0) {
-		return { entries: [] };
+	if (result.exitCode !== 0) return { entries: [] };
+
+	const fields = result.stdout.split('\0');
+	const entries: WorkspaceBranchHistoryEntry[] = [];
+	for (let index = 0; index + 5 < fields.length; index += 6) {
+		const [
+			rawSha = '',
+			summary = '',
+			description = '',
+			authorName = '',
+			authoredAt = '',
+			refs = '',
+		] = fields.slice(index, index + 6);
+		const sha = rawSha.trim();
+		if (!sha.trim()) continue;
+
+		const tags = refs
+			.split(',')
+			.map((ref) => ref.trim())
+			.flatMap((ref) => {
+				if (!ref.startsWith('tag: ')) return [];
+				return [ref.slice('tag: '.length).replace(/^refs\/tags\//u, '')];
+			})
+			.filter(Boolean);
+
+		entries.push({
+			sha,
+			summary,
+			description: description.trim(),
+			authorName: authorName || undefined,
+			authoredAt,
+			tags,
+			githubUrl: repoSlug ? `https://github.com/${repoSlug}/commit/${sha}` : undefined,
+		});
 	}
-
-	const entries = await Promise.all(
-		result.stdout
-			.split('\x1e')
-			.map((chunk) => chunk.trim())
-			.filter(Boolean)
-			.map(async (chunk) => {
-				const [sha = '', summary = '', description = '', authorName = '', authoredAt = ''] =
-					chunk.split('\x1f');
-
-				const tagsResult = await runGit(['tag', '--points-at', sha], args.repoRoot);
-				const tags =
-					tagsResult.exitCode === 0
-						? tagsResult.stdout
-								.split(/\r?\n/u)
-								.map((tag) => tag.trim())
-								.filter(Boolean)
-						: [];
-
-				return {
-					sha,
-					summary,
-					description: description.trim(),
-					authorName: authorName || undefined,
-					authoredAt,
-					tags,
-					githubUrl: repoSlug ? `https://github.com/${repoSlug}/commit/${sha}` : undefined,
-				} satisfies ChatBranchHistoryEntry;
-			}),
-	);
 	return { entries };
-}
-
-async function getLocalBranchNames(repoRoot: string) {
-	const result = await runGit(
-		['for-each-ref', '--format=%(refname:short)', 'refs/heads'],
-		repoRoot,
-	);
-
-	if (result.exitCode !== 0) return [];
-
-	return result.stdout
-		.split(/\r?\n/u)
-		.map((line) => line.trim())
-		.filter(Boolean);
-}
-
-async function getRemoteBranchNames(repoRoot: string) {
-	const result = await runGit(
-		['for-each-ref', '--format=%(refname:short)', 'refs/remotes'],
-		repoRoot,
-	);
-
-	if (result.exitCode !== 0) return [];
-
-	return result.stdout
-		.split(/\r?\n/u)
-		.map((line) => line.trim())
-		.filter((line) => line && !line.endsWith('/HEAD'));
-}
-
-async function getBranchUpdatedAtMap(repoRoot: string, refPrefix: string) {
-	const result = await runGit(
-		['for-each-ref', '--format=%(refname:short)%x1f%(committerdate:iso-strict)', refPrefix],
-		repoRoot,
-	);
-
-	const map = new Map<string, string>();
-	if (result.exitCode !== 0) return map;
-
-	for (const line of result.stdout.split(/\r?\n/u)) {
-		const [name = '', updatedAt = ''] = line.split('\x1f');
-		if (name.trim() && updatedAt.trim()) {
-			map.set(name.trim(), updatedAt.trim());
-		}
-	}
-	return map;
-}
-
-async function getRecentBranchNames(repoRoot: string) {
-	const updatedAtMap = await getBranchUpdatedAtMap(repoRoot, 'refs/heads');
-	return [...updatedAtMap.entries()]
-		.sort((left, right) => right[1].localeCompare(left[1]))
-		.map(([name]) => name)
-		.slice(0, 5);
-}
-
-export async function getMergeCommitCount(repoRoot: string, ref: string) {
-	const result = await runGit(['rev-list', '--count', `HEAD..${ref}`], repoRoot);
-	if (result.exitCode !== 0) {
-		throw new Error(formatGitFailure(result) || 'Could not compare branch history');
-	}
-
-	const count = Number.parseInt(result.stdout.trim(), 10);
-	return Number.isFinite(count) ? count : 0;
-}
-
-export async function predictMergeConflicts(repoRoot: string, ref: string) {
-	const mergeTree = await runGit(['merge-tree', 'HEAD', ref], repoRoot);
-	const hasConflicts =
-		mergeTree.stdout.includes('<<<<<<<') || mergeTree.stdout.includes('CONFLICT (');
-
-	if (mergeTree.exitCode !== 0 && !hasConflicts) {
-		return {
-			hasConflicts: false,
-			detail: undefined,
-		};
-	}
-
-	return {
-		hasConflicts,
-		detail: hasConflicts ? mergeTree.stdout.trim() : undefined,
-	};
-}
-
-async function resolveSelectedBranchRef(_repoRoot: string, branch: SelectedBranch) {
-	if (branch.kind === 'local') {
-		return {
-			ref: branch.name,
-			branchName: branch.name,
-			displayName: branch.name,
-		};
-	}
-
-	if (branch.kind === 'remote') {
-		return {
-			ref: branch.remoteRef,
-			branchName: branch.name,
-			displayName: branch.remoteRef,
-		};
-	}
-
-	return {
-		ref: branch.remoteRef ?? `origin/${branch.headRefName}`,
-		branchName: branch.name,
-		displayName: `PR #${branch.prNumber}`,
-	};
 }
 
 export async function discardRenamedPath(repoRoot: string, entry: DirtyPathEntry) {
@@ -777,22 +692,14 @@ interface GhAuthInfo {
 }
 
 async function getGhAuthInfo(): Promise<GhAuthInfo> {
-	if (!Bun.which('gh')) {
-		return { ghInstalled: false, authenticated: false };
-	}
+	if (!Bun.which('gh')) return { ghInstalled: false, authenticated: false };
 
 	const result = await runCommand(['gh', 'api', 'user']);
-	if (result.exitCode !== 0) {
-		return { ghInstalled: true, authenticated: false };
-	}
+	if (result.exitCode !== 0) return { ghInstalled: true, authenticated: false };
 
 	try {
 		const parsed = JSON.parse(result.stdout) as { login?: string };
-		return {
-			ghInstalled: true,
-			authenticated: true,
-			activeAccountLogin: parsed.login,
-		};
+		return { ghInstalled: true, authenticated: true, activeAccountLogin: parsed.login };
 	} catch {
 		return { ghInstalled: true, authenticated: true };
 	}
@@ -818,59 +725,24 @@ async function getGitHubOwners() {
 	return [...new Set(owners)];
 }
 
-async function ghApi(pathname: string): Promise<unknown | null> {
-	if (!Bun.which('gh')) return null;
-
-	const result = await runCommand(['gh', 'api', pathname]);
-	if (result.exitCode !== 0) {
-		return null;
-	}
-
-	try {
-		return JSON.parse(result.stdout);
-	} catch {
-		return null;
-	}
-}
-
-function normalizePullRequestsResponse(value: unknown): GitHubPullRequestRecord[] {
-	if (!Array.isArray(value)) return [];
-	return value.filter((entry) => entry && typeof entry === 'object') as GitHubPullRequestRecord[];
-}
-
-export async function fetchGitHubPullRequests(
-	repoSlug: string,
-	options: FetchGitHubPullRequestsOptions = {},
-) {
-	const ghPath = `repos/${repoSlug}/pulls?state=open&per_page=50`;
-	const ghResponse = await (options.ghApiImpl ?? ghApi)(ghPath);
-
-	if (Array.isArray(ghResponse)) {
-		return normalizePullRequestsResponse(ghResponse);
-	}
-
-	const fetchImpl = options.fetchImpl ?? fetch;
-	const response = await fetchImpl(`https://api.github.com/${ghPath}`, {
-		headers: {
-			Accept: 'application/vnd.github+json',
-		},
-	});
-
-	if (!response.ok) {
-		throw new Error(`GitHub pull request fetch failed with ${response.status}`);
-	}
-	return normalizePullRequestsResponse(await response.json());
-}
-
 export function appendGitIgnoreEntry(currentContents: string | null, entry: string) {
 	const normalizedEntry = normalizeRepoRelativePath(entry);
+	const normalizedEntryWithoutSlash = stripTrailingSlash(normalizedEntry);
 	const current = currentContents ?? '';
 	const currentLines = current
 		.split(/\r?\n/u)
 		.map((line) => line.trim())
 		.filter(Boolean);
 
-	if (currentLines.includes(normalizedEntry)) {
+	if (
+		currentLines.some((line) => {
+			if (line === normalizedEntry) return true;
+			if (line.startsWith('#') || line.startsWith('!')) return false;
+			if (stripTrailingSlash(line) === normalizedEntryWithoutSlash) return true;
+			if (line.startsWith('*.') && normalizedEntry.endsWith(line.slice(1))) return true;
+			return false;
+		})
+	) {
 		return current.endsWith('\n') ? current : `${current}\n`;
 	}
 
@@ -879,29 +751,34 @@ export function appendGitIgnoreEntry(currentContents: string | null, entry: stri
 }
 
 export class DiffStore {
-	private readonly states = new Map<string, StoredChatDiffState>();
+	private readonly states = new Map<string, StoredWorkspaceGitState>();
 
-	// biome-ignore lint/complexity/noUselessConstructor: <>
+	// biome-ignore lint/complexity/noUselessConstructor: constructor kept for server wiring compatibility.
 	constructor(_: string) {}
 
 	async initialize() {}
 
 	async initializeGit(args: {
-		projectId: string;
-		projectPath: string;
+		localPath: string;
 	}): Promise<BranchActionSuccess | BranchActionFailure> {
-		const existingRepo = await resolveRepo(args.projectPath);
+		const { localPath } = args;
+		const existingRepo = await resolveRepo(localPath);
 
 		if (existingRepo) {
-			const snapshotChanged = await this.refreshSnapshot(args.projectId, args.projectPath);
+			const initialCommitFailure = await ensureInitialCommit(existingRepo.repoRoot);
+			if (initialCommitFailure) return initialCommitFailure;
+
 			return {
 				ok: true,
 				branchName: await getBranchName(existingRepo.repoRoot),
-				snapshotChanged,
+				snapshotChanged: false,
 			};
 		}
 
-		const initResult = await runGit(['init'], args.projectPath);
+		let initResult = await runGit(['init', '-b', 'main'], localPath);
+		if (initResult.exitCode !== 0) {
+			initResult = await runGit(['init'], localPath);
+		}
 		if (initResult.exitCode !== 0) {
 			return createBranchActionFailure(
 				'Initialize git failed',
@@ -910,19 +787,23 @@ export class DiffStore {
 			);
 		}
 
-		const repo = await resolveRepo(args.projectPath);
-		const snapshotChanged = await this.refreshSnapshot(args.projectId, args.projectPath);
+		const repo = await resolveRepo(localPath);
+		if (repo) {
+			const initialCommitFailure = await ensureInitialCommit(repo.repoRoot);
+			if (initialCommitFailure) return initialCommitFailure;
+		}
 
 		return {
 			ok: true,
 			branchName: repo ? await getBranchName(repo.repoRoot) : undefined,
-			snapshotChanged,
+			snapshotChanged: false,
 		};
 	}
 
-	async getGitHubPublishInfo(args: { projectPath: string }): Promise<GithubPublishInfo> {
+	async getGitHubPublishInfo(args: { localPath: string }): Promise<GithubPublishInfo> {
+		const { localPath } = args;
 		const authInfo = await getGhAuthInfo();
-		const suggestedRepoName = sanitizeRepoName(path.basename(args.projectPath)) || 'my-repo';
+		const suggestedRepoName = sanitizeRepoName(path.basename(localPath)) || 'my-repo';
 
 		if (!authInfo.ghInstalled || !authInfo.authenticated) {
 			return {
@@ -948,46 +829,35 @@ export class DiffStore {
 		name: string;
 	}): Promise<GitHubRepoAvailabilityResult> {
 		const authInfo = await getGhAuthInfo();
-		if (!authInfo.ghInstalled) {
-			return { available: false, message: 'GitHub CLI is not installed.' };
-		}
-
-		if (!authInfo.authenticated) {
+		if (!authInfo.ghInstalled) return { available: false, message: 'GitHub CLI is not installed.' };
+		if (!authInfo.authenticated)
 			return { available: false, message: 'GitHub CLI is not authenticated.' };
-		}
 
 		const owner = args.owner.trim();
 		const name = sanitizeRepoName(args.name);
-
-		if (!owner || !name) {
+		if (!owner || !name)
 			return { available: false, message: 'Enter an owner and repository name.' };
-		}
 
 		const result = await runCommand(['gh', 'api', `repos/${owner}/${name}`]);
-		if (result.exitCode === 0) {
+		if (result.exitCode === 0)
 			return { available: false, message: `${owner}/${name} already exists.` };
-		}
 
 		const detail = `${result.stderr}\n${result.stdout}`.toLowerCase();
-		if (detail.includes('404')) {
+		if (detail.includes('404'))
 			return { available: true, message: `${owner}/${name} is available.` };
-		}
 
-		return {
-			available: false,
-			message: 'Could not verify repository availability.',
-		};
+		return { available: false, message: 'Could not verify repository availability.' };
 	}
 
 	async publishToGitHub(args: {
-		projectId: string;
-		projectPath: string;
+		localPath: string;
 		owner: string;
 		name: string;
 		visibility: 'public' | 'private';
 		description?: string;
 	}): Promise<BranchActionSuccess | BranchActionFailure> {
-		const repo = await resolveRepo(args.projectPath);
+		const { localPath } = args;
+		const repo = await resolveRepo(localPath);
 		if (!repo) {
 			return {
 				ok: false,
@@ -1002,11 +872,10 @@ export class DiffStore {
 			return {
 				ok: false,
 				title: 'GitHub CLI not installed',
-				message: 'Install GitHub CLI (`gh`) to publish from Miko.',
+				message: 'Install GitHub CLI (`gh`) to publish this repository.',
 				snapshotChanged: false,
 			};
 		}
-
 		if (!authInfo.authenticated) {
 			return {
 				ok: false,
@@ -1044,25 +913,33 @@ export class DiffStore {
 			`${owner}/${repoName}`,
 			args.visibility === 'private' ? '--private' : '--public',
 			'--source',
-			args.projectPath,
+			localPath,
 			'--remote',
 			'origin',
 		];
 
-		if (repo.baseCommit) {
-			createArgs.push('--push');
+		const initialCommitFailure = await ensureInitialCommit(repo.repoRoot);
+		if (initialCommitFailure) return initialCommitFailure;
+
+		const branchName = await getBranchName(repo.repoRoot);
+		if (branchName !== 'main' && branchName !== 'master') {
+			return {
+				ok: false,
+				title: 'Publish failed',
+				message: 'Switch to the main branch before publishing this repository.',
+				detail: `Current branch is ${branchName ?? 'unknown'}.`,
+				snapshotChanged: false,
+			};
 		}
 
-		if (args.description?.trim()) {
-			createArgs.push('--description', args.description.trim());
-		}
+		createArgs.push('--push');
+		if (args.description?.trim()) createArgs.push('--description', args.description.trim());
 
 		const createResult = await runCommand(createArgs);
 		if (createResult.exitCode !== 0) {
 			const detail = [createResult.stderr.trim(), createResult.stdout.trim()]
 				.filter(Boolean)
 				.join('\n');
-
 			return {
 				ok: false,
 				title: 'Publish failed',
@@ -1072,31 +949,11 @@ export class DiffStore {
 			};
 		}
 
-		const snapshotChanged = await this.refreshSnapshot(args.projectId, args.projectPath);
-		return {
-			ok: true,
-			branchName: await getBranchName(repo.repoRoot),
-			snapshotChanged,
-		};
+		return { ok: true, branchName: await getBranchName(repo.repoRoot), snapshotChanged: false };
 	}
 
-	async readPatch(args: { projectPath: string; path: string }) {
-		const relativePath = normalizeRepoRelativePath(args.path);
-		const repo = await resolveRepo(args.projectPath);
-		if (!repo) {
-			throw new Error('Project is not in a git repository');
-		}
-
-		const entry = await findDirtyPath(repo.repoRoot, relativePath);
-		if (!entry) {
-			throw new Error(`File is no longer changed: ${relativePath}`);
-		}
-
-		return { patch: await readPatchForEntry(repo.repoRoot, repo.baseCommit, entry) };
-	}
-
-	getProjectSnapshot(projectId: string): ChatDiffSnapshot {
-		const state = this.states.get(projectId) ?? createEmptyState();
+	getWorkspaceGitSnapshot(workspaceId: string): WorkspaceGitSnapshot {
+		const state = this.states.get(workspaceId) ?? createEmptyState();
 		return {
 			status: state.status,
 			branchName: state.branchName,
@@ -1108,6 +965,9 @@ export class DiffStore {
 			behindCount: state.behindCount,
 			lastFetchedAt: state.lastFetchedAt,
 			files: [...state.files],
+			hasPushedCommits: state.hasPushedCommits,
+			branchPublishState: state.branchPublishState,
+			mainAheadCount: state.mainAheadCount,
 			branchHistory: {
 				entries: state.branchHistory.entries.map((entry) => ({
 					...entry,
@@ -1117,8 +977,48 @@ export class DiffStore {
 		};
 	}
 
-	async refreshSnapshot(projectId: string, projectPath: string) {
-		const repo = await resolveRepo(projectPath);
+	async inspectGitHubBackedRepo(localPath: string): Promise<GitHubBackedRepoInspection> {
+		const repo = await resolveRepo(localPath);
+		if (!repo) {
+			return { ok: false, message: 'Directory must be a git repository.' };
+		}
+
+		const originRemoteUrl = await getOriginRemoteUrl(repo.repoRoot);
+		const originRepoSlug = extractGitHubRepoSlug(originRemoteUrl);
+		const split = splitRepoSlug(originRepoSlug);
+
+		if (!split) {
+			return {
+				ok: false,
+				repoRoot: repo.repoRoot,
+				message: 'Directory must have a GitHub origin remote.',
+			};
+		}
+
+		return {
+			ok: true,
+			repoRoot: repo.repoRoot,
+			branchName: await getBranchName(repo.repoRoot),
+			defaultBranchName: await resolveDefaultBranchName(repo.repoRoot),
+			githubOwner: split.owner,
+			githubRepo: split.repo,
+			originRepoSlug: `${split.owner}/${split.repo}`,
+		};
+	}
+
+	async readPatch(args: { workspacePath: string; path: string }) {
+		const relativePath = normalizeRepoRelativePath(args.path);
+		const repo = await resolveRepo(args.workspacePath);
+		if (!repo) throw new Error('Workspace is not in a git repository');
+
+		const entry = await findDirtyPath(repo.repoRoot, relativePath);
+		if (!entry) throw new Error(`File is no longer changed: ${relativePath}`);
+
+		return { patch: await readPatchForEntry(repo.repoRoot, repo.baseCommit, entry) };
+	}
+
+	async refreshWorkspaceGitSnapshot(workspaceId: string, workspacePath: string) {
+		const repo = await resolveRepo(workspacePath);
 		if (!repo) {
 			const nextState = {
 				status: 'no_repo',
@@ -1131,12 +1031,14 @@ export class DiffStore {
 				behindCount: undefined,
 				lastFetchedAt: undefined,
 				files: [],
+				hasPushedCommits: undefined,
+				branchPublishState: 'unknown',
+				mainAheadCount: undefined,
 				branchHistory: { entries: [] },
-			} satisfies StoredChatDiffState;
+			} satisfies StoredWorkspaceGitState;
 
-			const changed = !snapshotsEqual(this.states.get(projectId), nextState);
-			this.states.set(projectId, nextState);
-
+			const changed = !snapshotsEqual(this.states.get(workspaceId), nextState);
+			this.states.set(workspaceId, nextState);
 			return changed;
 		}
 
@@ -1151,17 +1053,23 @@ export class DiffStore {
 			]);
 
 		const originRepoSlug = extractGitHubRepoSlug(originRemoteUrl) ?? undefined;
-
 		const { aheadCount, behindCount } = hasUpstream
 			? await getUpstreamStatusCounts(repo.repoRoot)
 			: { aheadCount: undefined, behindCount: undefined };
+		const pushedCommits = await hasPushedCommits({
+			repoRoot: repo.repoRoot,
+			branchName,
+			defaultBranchName,
+		});
+		const branchPublishState = await getBranchPublishState({
+			repoRoot: repo.repoRoot,
+			branchName,
+			hasUpstream,
+		});
 
+		const mainAheadCount = await getMainAheadCount({ repoRoot: repo.repoRoot, defaultBranchName });
 		const branchHistory = repo.baseCommit
-			? await getBranchHistory({
-					repoRoot: repo.repoRoot,
-					ref: branchName ?? 'HEAD',
-					limit: 20,
-				})
+			? await getBranchHistory({ repoRoot: repo.repoRoot, ref: branchName ?? 'HEAD', limit: 20 })
 			: { entries: [] };
 
 		const nextState = {
@@ -1175,637 +1083,54 @@ export class DiffStore {
 			behindCount,
 			lastFetchedAt,
 			files,
+			hasPushedCommits: pushedCommits,
+			branchPublishState,
+			mainAheadCount,
 			branchHistory,
-		} satisfies StoredChatDiffState;
+		} satisfies StoredWorkspaceGitState;
 
-		const changed = !snapshotsEqual(this.states.get(projectId), nextState);
-		this.states.set(projectId, nextState);
-
+		const changed = !snapshotsEqual(this.states.get(workspaceId), nextState);
+		this.states.set(workspaceId, nextState);
 		return changed;
 	}
 
-	async listBranches(args: { projectPath: string }): Promise<ChatBranchListResult> {
-		const repo = await resolveRepo(args.projectPath);
+	async fetchWorkspaceGit(args: {
+		workspaceId: string;
+		workspacePath: string;
+	}): Promise<BranchActionSuccess | BranchActionFailure> {
+		const repo = await resolveRepo(args.workspacePath);
 		if (!repo) {
-			throw new Error('Project is not in a git repository');
+			throw new Error('Workspace is not in a git repository');
 		}
 
-		const [
-			currentBranchName,
-			defaultBranchName,
-			localBranchNames,
-			remoteBranchNames,
-			recentBranchNames,
-			localUpdatedAtMap,
-			remoteUpdatedAtMap,
-		] = await Promise.all([
-			getBranchName(repo.repoRoot),
-			resolveDefaultBranchName(repo.repoRoot),
-			getLocalBranchNames(repo.repoRoot),
-			getRemoteBranchNames(repo.repoRoot),
-			getRecentBranchNames(repo.repoRoot),
-			getBranchUpdatedAtMap(repo.repoRoot, 'refs/heads'),
-			getBranchUpdatedAtMap(repo.repoRoot, 'refs/remotes'),
-		]);
-
-		const local: ChatBranchListEntry[] = localBranchNames.map((name) => ({
-			id: `local:${name}`,
-			kind: 'local',
-			name,
-			displayName: name,
-			updatedAt: localUpdatedAtMap.get(name),
-			prTitle: '',
-		}));
-
-		const remote: ChatBranchListEntry[] = remoteBranchNames.map((remoteRef) => ({
-			id: `remote:${remoteRef}`,
-			kind: 'remote',
-			name: remoteRef.replace(/^[^/]+\//u, ''),
-			displayName: remoteRef,
-			updatedAt: remoteUpdatedAtMap.get(remoteRef),
-			prTitle: '',
-		}));
-
-		const localByName = new Map(local.map((entry) => [entry.name, entry]));
-		const remoteByName = new Map(remote.map((entry) => [entry.name, entry]));
-		const recent: ChatBranchListEntry[] = recentBranchNames
-			.map((name) => localByName.get(name) ?? remoteByName.get(name))
-			.filter((entry): entry is ChatBranchListEntry => Boolean(entry))
-			.map((entry) => ({ ...entry, id: `recent:${entry.id}` }));
-
-		const remoteUrl = await getOriginRemoteUrl(repo.repoRoot);
-		const repoSlug = extractGitHubRepoSlug(remoteUrl);
-
-		let pullRequests: ChatBranchListEntry[] = [];
-		let pullRequestsStatus: ChatBranchListResult['pullRequestsStatus'] = 'unavailable';
-		let pullRequestsError: string | undefined;
-
-		if (repoSlug) {
-			try {
-				pullRequests = (await fetchGitHubPullRequests(repoSlug)).flatMap<ChatBranchListEntry>(
-					(pr) => {
-						const headRefName = pr.head?.ref?.trim();
-						if (!headRefName) return [];
-
-						return {
-							id: `pr:${pr.number}`,
-							kind: 'pull_request',
-							name: headRefName,
-							displayName: `PR #${pr.number}`,
-							description: pr.title,
-							prNumber: pr.number,
-							prTitle: pr.title,
-							headRefName,
-							headLabel: pr.head?.label?.trim(),
-							headRepoCloneUrl: pr.head?.repo?.clone_url?.trim(),
-							isCrossRepository: Boolean(
-								pr.head?.repo?.full_name &&
-									pr.head.repo.full_name.toLowerCase() !== repoSlug.toLowerCase(),
-							),
-						} satisfies ChatBranchListEntry;
-					},
-				);
-				pullRequestsStatus = 'available';
-			} catch (error) {
-				pullRequestsStatus = 'error';
-				pullRequestsError = error instanceof Error ? error.message : String(error);
-			}
-		}
-
-		return {
-			currentBranchName,
-			defaultBranchName,
-			recent,
-			local,
-			remote,
-			pullRequests,
-			pullRequestsStatus,
-			pullRequestsError,
-		};
-	}
-
-	async previewMergeBranch(args: {
-		projectPath: string;
-		branch: SelectedBranch;
-	}): Promise<ChatMergePreviewResult> {
-		const repo = await resolveRepo(args.projectPath);
-		if (!repo) {
-			throw new Error('Project is not in a git repository');
-		}
-
-		const currentBranchName = await getBranchName(repo.repoRoot);
-		const resolvedBranch = await resolveSelectedBranchRef(repo.repoRoot, args.branch);
-
-		if (currentBranchName && resolvedBranch.branchName === currentBranchName) {
-			return {
-				currentBranchName,
-				targetBranchName: resolvedBranch.branchName,
-				targetDisplayName: resolvedBranch.displayName,
-				status: 'up_to_date',
-				commitCount: 0,
-				hasConflicts: false,
-				message: `${currentBranchName} is already up to date with ${resolvedBranch.displayName}.`,
-			};
-		}
-
-		try {
-			const commitCount = await getMergeCommitCount(repo.repoRoot, resolvedBranch.ref);
-			if (commitCount === 0) {
-				return {
-					currentBranchName,
-					targetBranchName: resolvedBranch.branchName,
-					targetDisplayName: resolvedBranch.displayName,
-					status: 'up_to_date',
-					commitCount,
-					hasConflicts: false,
-					message: `${currentBranchName ?? 'Current branch'} is already up to date with ${resolvedBranch.displayName}.`,
-				};
-			}
-
-			const conflictPrediction = await predictMergeConflicts(repo.repoRoot, resolvedBranch.ref);
-			if (conflictPrediction.hasConflicts) {
-				return {
-					currentBranchName,
-					targetBranchName: resolvedBranch.branchName,
-					targetDisplayName: resolvedBranch.displayName,
-					status: 'conflicts',
-					commitCount,
-					hasConflicts: true,
-					message: `${commitCount} ${commitCount === 1 ? 'commit' : 'commits'} from ${resolvedBranch.displayName} would merge into ${currentBranchName ?? 'the current branch'}, but conflicts are expected.`,
-					detail: conflictPrediction.detail,
-				};
-			}
-
-			return {
-				currentBranchName,
-				targetBranchName: resolvedBranch.branchName,
-				targetDisplayName: resolvedBranch.displayName,
-				status: 'mergeable',
-				commitCount,
-				hasConflicts: false,
-				message: `${commitCount} ${commitCount === 1 ? 'commit' : 'commits'} from ${resolvedBranch.displayName} will merge into ${currentBranchName ?? 'the current branch'}.`,
-			};
-		} catch (error) {
-			const detail = error instanceof Error ? error.message : String(error);
-			return {
-				currentBranchName,
-				targetBranchName: resolvedBranch.branchName,
-				targetDisplayName: resolvedBranch.displayName,
-				status: 'error',
-				commitCount: 0,
-				hasConflicts: false,
-				message: 'Could not preview this merge.',
-				detail,
-			};
-		}
-	}
-
-	async mergeBranch(args: {
-		projectId: string;
-		projectPath: string;
-		branch: SelectedBranch;
-	}): Promise<ChatMergeBranchResult> {
-		const repo = await resolveRepo(args.projectPath);
-		if (!repo) {
-			throw new Error('Project is not in a git repository');
-		}
-
-		const currentDirtyPaths = await listDirtyPaths(repo.repoRoot);
-		if (currentDirtyPaths.length > 0) {
-			return {
-				ok: false,
-				title: 'Merge blocked',
-				message: 'Commit, discard, or stash your local changes before merging.',
-				snapshotChanged: false,
-			};
-		}
-
-		const resolvedBranch = await resolveSelectedBranchRef(repo.repoRoot, args.branch);
-		const commitCount = await getMergeCommitCount(repo.repoRoot, resolvedBranch.ref);
-		if (commitCount === 0) {
-			return {
-				ok: false,
-				title: 'Already up to date',
-				message: `${resolvedBranch.displayName} is already merged into ${(await getBranchName(repo.repoRoot)) ?? 'the current branch'}.`,
-				snapshotChanged: false,
-			};
-		}
-
-		const mergeResult = await runGit(['merge', '--no-edit', resolvedBranch.ref], repo.repoRoot);
-		const detail = formatGitFailure(mergeResult);
-
-		if (mergeResult.exitCode !== 0) {
-			const snapshotChanged = await this.refreshSnapshot(args.projectId, args.projectPath);
-			const normalized = detail.toLowerCase();
-
-			return createMergeActionFailure({
-				title: normalized.includes('conflict') ? 'Merge conflicts need resolution' : 'Merge failed',
-				detail,
-				fallback: normalized.includes('conflict')
-					? 'Git reported merge conflicts while merging this branch.'
-					: 'Git could not merge this branch.',
-				snapshotChanged,
-			});
-		}
-
-		const snapshotChanged = await this.refreshSnapshot(args.projectId, args.projectPath);
-		return {
-			ok: true,
-			branchName: await getBranchName(repo.repoRoot),
-			snapshotChanged,
-		};
-	}
-
-	async checkoutBranch(args: {
-		projectId: string;
-		projectPath: string;
-		branch: SelectedBranch;
-		bringChanges?: boolean;
-	}): Promise<ChatCheckoutBranchResult> {
-		const repo = await resolveRepo(args.projectPath);
-		if (!repo) {
-			throw new Error('Project is not in a git repository');
-		}
-
-		const currentDirtyPaths = await listDirtyPaths(repo.repoRoot);
-		if (currentDirtyPaths.length > 0 && !args.bringChanges) {
-			return {
-				ok: false,
-				cancelled: true,
-				title: 'Branch switch cancelled',
-				message: 'Your current changes were kept on the current branch.',
-				snapshotChanged: false,
-			};
-		}
-
-		let switchResult: Awaited<ReturnType<typeof runGit>>;
-		if (args.branch.kind === 'local') {
-			switchResult = await runGit(['switch', args.branch.name], repo.repoRoot);
-		} else if (args.branch.kind === 'remote') {
-			const localBranchNames = await getLocalBranchNames(repo.repoRoot);
-			switchResult = localBranchNames.includes(args.branch.name)
-				? await runGit(['switch', args.branch.name], repo.repoRoot)
-				: await runGit(['switch', '--track', '--no-guess', args.branch.remoteRef], repo.repoRoot);
-		} else {
-			const localBranchNames = await getLocalBranchNames(repo.repoRoot);
-			let localBranchName = args.branch.name;
-
-			if (localBranchNames.includes(localBranchName) && args.branch.isCrossRepository) {
-				localBranchName = `${args.branch.name}-pr-${args.branch.prNumber}`;
-			}
-
-			if (localBranchNames.includes(localBranchName)) {
-				switchResult = await runGit(['switch', localBranchName], repo.repoRoot);
-			} else if (args.branch.isCrossRepository && args.branch.headRepoCloneUrl) {
-				const fetchResult = await runGit(
-					[
-						'fetch',
-						'--no-tags',
-						args.branch.headRepoCloneUrl,
-						`refs/heads/${args.branch.headRefName}:refs/heads/${localBranchName}`,
-					],
-					repo.repoRoot,
-				);
-				if (fetchResult.exitCode !== 0) {
-					return createBranchActionFailure(
-						'Checkout failed',
-						formatGitFailure(fetchResult),
-						'Git could not fetch the pull request branch.',
-					);
-				}
-				switchResult = await runGit(['switch', localBranchName], repo.repoRoot);
-			} else {
-				const remoteRef = args.branch.remoteRef ?? `origin/${args.branch.headRefName}`;
-				switchResult = await runGit(['switch', '--track', '--no-guess', remoteRef], repo.repoRoot);
-			}
-		}
-
-		if (switchResult.exitCode !== 0) {
+		const fetchResult = await runGit(['fetch', '--all', '--prune'], repo.repoRoot);
+		if (fetchResult.exitCode !== 0) {
 			return createBranchActionFailure(
-				'Checkout failed',
-				formatGitFailure(switchResult),
-				'Git could not switch branches.',
+				'Fetch failed',
+				formatGitFailure(fetchResult),
+				'Git could not fetch the latest remote changes.',
 			);
 		}
 
-		const snapshotChanged = await this.refreshSnapshot(args.projectId, args.projectPath);
-		return {
-			ok: true,
-			branchName: await getBranchName(repo.repoRoot),
-			snapshotChanged,
-		};
-	}
-
-	async createBranch(args: {
-		projectId: string;
-		projectPath: string;
-		name: string;
-		baseBranchName?: string;
-	}): Promise<ChatCreateBranchResult> {
-		const repo = await resolveRepo(args.projectPath);
-		if (!repo) {
-			throw new Error('Project is not in a git repository');
-		}
-
-		const branchName = args.name.trim();
-		if (!branchName) {
-			throw new Error('Branch name is required');
-		}
-
-		const refValidation = await runGit(['check-ref-format', '--branch', branchName], repo.repoRoot);
-		if (refValidation.exitCode !== 0) {
-			return createBranchActionFailure(
-				'Create branch failed',
-				formatGitFailure(refValidation),
-				'Branch name is not valid.',
-			);
-		}
-
-		const localBranchNames = await getLocalBranchNames(repo.repoRoot);
-		if (localBranchNames.includes(branchName)) {
-			return {
-				ok: false,
-				title: 'Create branch failed',
-				message: `A local branch named "${branchName}" already exists.`,
-				snapshotChanged: false,
-			};
-		}
-
-		const baseBranchName =
-			args.baseBranchName?.trim() ||
-			(await resolveDefaultBranchName(repo.repoRoot)) ||
-			(await getBranchName(repo.repoRoot));
-
-		if (!baseBranchName) {
-			throw new Error('Could not determine a base branch');
-		}
-
-		const switchResult = await runGit(['switch', '-c', branchName, baseBranchName], repo.repoRoot);
-		if (switchResult.exitCode !== 0) {
-			return createBranchActionFailure(
-				'Create branch failed',
-				formatGitFailure(switchResult),
-				'Git could not create the branch.',
-			);
-		}
-
-		const snapshotChanged = await this.refreshSnapshot(args.projectId, args.projectPath);
-		return {
-			ok: true,
-			branchName,
-			snapshotChanged,
-		};
-	}
-
-	async syncBranch(args: {
-		projectId: string;
-		projectPath: string;
-		action: 'fetch' | 'pull' | 'push' | 'publish';
-	}): Promise<ChatSyncResult> {
-		const repo = await resolveRepo(args.projectPath);
-		if (!repo) {
-			throw new Error('Project is not in a git repository');
-		}
-
-		const [hasUpstream, originRemoteUrl] = await Promise.all([
-			hasUpstreamBranch(repo.repoRoot),
-			getOriginRemoteUrl(repo.repoRoot),
-		]);
-		const hasOriginRemote = originRemoteUrl !== null;
-
-		if (args.action === 'publish') {
-			if (!hasOriginRemote) {
-				return {
-					ok: false,
-					action: args.action,
-					title: 'Publish branch failed',
-					message: 'This repository does not have an origin remote configured.',
-					snapshotChanged: false,
-				};
-			}
-
-			const publishResult = await runGit(['push', '-u', 'origin', 'HEAD'], repo.repoRoot);
-			if (publishResult.exitCode !== 0) {
-				const detail = formatGitFailure(publishResult);
-				return {
-					ok: false,
-					action: args.action,
-					title: 'Publish branch failed',
-					message: summarizeGitFailure(detail, 'Git could not publish this branch.'),
-					detail,
-					snapshotChanged: false,
-				};
-			}
-
-			const snapshotChanged = await this.refreshSnapshot(args.projectId, args.projectPath);
-			const { aheadCount, behindCount } = await getUpstreamStatusCounts(repo.repoRoot);
-
-			return {
-				ok: true,
-				action: args.action,
-				branchName: await getBranchName(repo.repoRoot),
-				aheadCount,
-				behindCount,
-				snapshotChanged,
-			};
-		}
-
-		if (args.action === 'push') {
-			if (!hasUpstream) {
-				return {
-					ok: false,
-					action: args.action,
-					title: 'Push failed',
-					message: 'This branch does not have an upstream remote branch configured yet.',
-					snapshotChanged: false,
-				};
-			}
-
-			const pushResult = await runGit(['push'], repo.repoRoot);
-			if (pushResult.exitCode !== 0) {
-				return createSyncPushFailure(formatGitFailure(pushResult), false);
-			}
-
-			const snapshotChanged = await this.refreshSnapshot(args.projectId, args.projectPath);
-			const { aheadCount, behindCount } = await getUpstreamStatusCounts(repo.repoRoot);
-			return {
-				ok: true,
-				action: args.action,
-				branchName: await getBranchName(repo.repoRoot),
-				aheadCount,
-				behindCount,
-				snapshotChanged,
-			};
-		}
-
-		if (args.action === 'pull' && !hasUpstream) {
-			return {
-				ok: false,
-				action: args.action,
-				title: 'Pull failed',
-				message: 'This branch does not have an upstream remote branch configured yet.',
-				snapshotChanged: false,
-			};
-		}
-
-		const syncResult =
-			args.action === 'pull'
-				? await runGit(['pull', '--ff-only'], repo.repoRoot)
-				: await runGit(['fetch', '--all', '--prune'], repo.repoRoot);
-
-		if (syncResult.exitCode !== 0) {
-			const detail = formatGitFailure(syncResult);
-			return {
-				ok: false,
-				action: args.action,
-				title: args.action === 'pull' ? 'Pull failed' : 'Fetch failed',
-				message: summarizeGitFailure(
-					detail,
-					args.action === 'pull'
-						? 'Git could not pull the latest changes.'
-						: 'Git could not fetch the latest changes.',
-				),
-				detail,
-				snapshotChanged: false,
-			};
-		}
-
-		const snapshotChanged = await this.refreshSnapshot(args.projectId, args.projectPath);
-		const nextHasUpstream = await hasUpstreamBranch(repo.repoRoot);
-
-		const { aheadCount, behindCount } = nextHasUpstream
-			? await getUpstreamStatusCounts(repo.repoRoot)
-			: { aheadCount: undefined, behindCount: undefined };
-
-		return {
-			ok: true,
-			action: args.action,
-			branchName: await getBranchName(repo.repoRoot),
-			aheadCount,
-			behindCount,
-			snapshotChanged,
-		};
-	}
-
-	async generateCommitMessage(_args: { projectPath: string; paths: string[] }) {
-		// TODO: implement commit message generation after generateCommitMessageDetailed is added to miko.
-		throw new Error('TODO: generate commit message support is not implemented yet.');
-	}
-
-	async commitFiles(args: {
-		projectId: string;
-		projectPath: string;
-		paths: string[];
-		summary: string;
-		description?: string;
-		mode: DiffCommitMode;
-	}) {
-		const summary = args.summary.trim();
-		const description = args.description?.trim();
-
-		if (!summary) {
-			throw new Error('Commit summary is required');
-		}
-
-		const normalizedPaths = [...new Set(args.paths.map(normalizeRepoRelativePath))];
-		if (normalizedPaths.length === 0) {
-			throw new Error('Select at least one file to commit');
-		}
-
-		const repo = await resolveRepo(args.projectPath);
-		if (!repo) {
-			throw new Error('Project is not in a git repository');
-		}
-
-		const [hasUpstream, originRemoteUrl] = await Promise.all([
-			hasUpstreamBranch(repo.repoRoot),
-			getOriginRemoteUrl(repo.repoRoot),
-		]);
-
-		const hasOriginRemote = originRemoteUrl !== null;
-
-		const currentDirtyPaths = new Set(
-			(await listDirtyPaths(repo.repoRoot)).map((entry) => entry.path),
+		const snapshotChanged = await this.refreshWorkspaceGitSnapshot(
+			args.workspaceId,
+			args.workspacePath,
 		);
 
-		const missingPaths = normalizedPaths.filter(
-			(relativePath) => !currentDirtyPaths.has(relativePath),
-		);
-
-		if (missingPaths.length > 0) {
-			throw new Error(`File is no longer changed: ${missingPaths[0]}`);
-		}
-
-		const addResult = await runGit(['add', '--', ...normalizedPaths], repo.repoRoot);
-		if (addResult.exitCode !== 0) {
-			throw new Error(addResult.stderr.trim() || 'Failed to stage selected files');
-		}
-
-		const commitArgs = ['commit', '--only', '-m', summary];
-		if (description) {
-			commitArgs.push('-m', description);
-		}
-
-		commitArgs.push('--', ...normalizedPaths);
-
-		const commitResult = await runGit(commitArgs, repo.repoRoot);
-		if (commitResult.exitCode !== 0) {
-			return createCommitFailure(args.mode, formatGitFailure(commitResult));
-		}
-
-		const snapshotChanged = await this.refreshSnapshot(args.projectId, args.projectPath);
-		const branchName = await getBranchName(repo.repoRoot);
-
-		if (args.mode === 'commit_only') {
-			return {
-				ok: true,
-				mode: args.mode,
-				branchName,
-				pushed: false,
-				snapshotChanged,
-			} satisfies DiffCommitResult;
-		}
-
-		if (!hasUpstream && !hasOriginRemote) {
-			return {
-				ok: true,
-				mode: args.mode,
-				branchName,
-				pushed: false,
-				snapshotChanged,
-			} satisfies DiffCommitResult;
-		}
-
-		const pushResult = hasUpstream
-			? await runGit(['push'], repo.repoRoot)
-			: await runGit(['push', '-u', 'origin', 'HEAD'], repo.repoRoot);
-
-		if (pushResult.exitCode !== 0) {
-			return createPushFailure(args.mode, formatGitFailure(pushResult), snapshotChanged);
-		}
-
-		const postPushSnapshotChanged = await this.refreshSnapshot(args.projectId, args.projectPath);
-
 		return {
 			ok: true,
-			mode: args.mode,
-			branchName,
-			pushed: true,
-			snapshotChanged: snapshotChanged || postPushSnapshotChanged,
-		} satisfies DiffCommitResult;
+			branchName: await getBranchName(repo.repoRoot),
+			snapshotChanged,
+		};
 	}
 
-	async discardFile(args: { projectId: string; projectPath: string; path: string }) {
+	async discardFile(args: { workspaceId: string; workspacePath: string; path: string }) {
 		const relativePath = normalizeRepoRelativePath(args.path);
-		const repo = await resolveRepo(args.projectPath);
-		if (!repo) {
-			throw new Error('Project is not in a git repository');
-		}
+		const repo = await resolveRepo(args.workspacePath);
+		if (!repo) throw new Error('Workspace is not in a git repository');
 
 		const entry = await findDirtyPath(repo.repoRoot, relativePath);
-		if (!entry) {
-			throw new Error(`File is no longer changed: ${relativePath}`);
-		}
+		if (!entry) throw new Error(`File is no longer changed: ${relativePath}`);
 
 		if (entry.isUntracked) {
 			await rm(path.join(repo.repoRoot, stripTrailingSlash(entry.path)), {
@@ -1818,7 +1143,6 @@ export class DiffStore {
 				repo.baseCommit !== null,
 				stripTrailingSlash(entry.path),
 			);
-
 			await rm(path.join(repo.repoRoot, stripTrailingSlash(entry.path)), {
 				recursive: true,
 				force: true,
@@ -1853,16 +1177,14 @@ export class DiffStore {
 		}
 
 		return {
-			snapshotChanged: await this.refreshSnapshot(args.projectId, args.projectPath),
+			snapshotChanged: await this.refreshWorkspaceGitSnapshot(args.workspaceId, args.workspacePath),
 		};
 	}
 
-	async ignoreFile(args: { projectId: string; projectPath: string; path: string }) {
+	async ignoreFile(args: { workspaceId: string; workspacePath: string; path: string }) {
 		const ignoreEntry = normalizeRepoRelativePath(args.path);
-		const repo = await resolveRepo(args.projectPath);
-		if (!repo) {
-			throw new Error('Project is not in a git repository');
-		}
+		const repo = await resolveRepo(args.workspacePath);
+		if (!repo) throw new Error('Workspace is not in a git repository');
 
 		const dirtyPaths = await listDirtyPaths(repo.repoRoot);
 		const exactEntry = dirtyPaths.find((candidate) => candidate.path === ignoreEntry);
@@ -1877,20 +1199,17 @@ export class DiffStore {
 				(candidate.path === ignoreEntry || candidate.path.startsWith(ignoreDescendantPrefix)),
 		);
 
-		if (!entry) {
-			throw new Error(`File is no longer changed: ${ignoreEntry}`);
-		}
+		if (!entry) throw new Error(`File is no longer changed: ${ignoreEntry}`);
 
 		const gitignorePath = path.join(repo.repoRoot, '.gitignore');
 		const currentContents = await readFile(gitignorePath, 'utf8').catch(() => null);
-
 		const nextContents = appendGitIgnoreEntry(currentContents, ignoreEntry);
 		if (nextContents !== currentContents) {
 			await writeFile(gitignorePath, nextContents, 'utf8');
 		}
 
 		return {
-			snapshotChanged: await this.refreshSnapshot(args.projectId, args.projectPath),
+			snapshotChanged: await this.refreshWorkspaceGitSnapshot(args.workspaceId, args.workspacePath),
 		};
 	}
 }

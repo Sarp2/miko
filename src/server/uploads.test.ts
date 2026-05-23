@@ -3,10 +3,10 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import {
-	deleteProjectUpload,
+	deleteWorkspaceUpload,
 	getUploadCandidateNames,
 	inferAttachmentContentType,
-	persistProjectUpload,
+	persistWorkspaceUpload,
 	sanitizeFileName,
 } from './uploads';
 
@@ -16,7 +16,7 @@ afterEach(async () => {
 	await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
 });
 
-async function createTempProjectDir() {
+async function createTempWorkspaceDir() {
 	const dir = await mkdtemp(path.join(tmpdir(), 'miko-uploads-'));
 	tempDirs.push(dir);
 	return dir;
@@ -53,13 +53,13 @@ describe('getUploadCandidateNames', () => {
 	});
 });
 
-describe('persistProjectUpload', () => {
-	test('writes the upload to the project upload directory and returns attachment metadata', async () => {
-		const localPath = await createTempProjectDir();
+describe('persistWorkspaceUpload', () => {
+	test('writes the upload to the workspace upload directory and returns attachment metadata', async () => {
+		const localPath = await createTempWorkspaceDir();
 		const bytes = new TextEncoder().encode('hello upload');
 
-		const attachment = await persistProjectUpload({
-			projectId: 'project-123',
+		const attachment = await persistWorkspaceUpload({
+			workspaceId: 'workspace-123',
 			localPath,
 			fileName: '../../my report.txt',
 			bytes,
@@ -69,7 +69,9 @@ describe('persistProjectUpload', () => {
 		expect(attachment.kind).toBe('file');
 		expect(attachment.displayName).toBe('../../my report.txt');
 		expect(attachment.relativePath).toBe('./.miko/uploads/my-report.txt');
-		expect(attachment.contentUrl).toBe('/api/projects/project-123/uploads/my-report.txt/content');
+		expect(attachment.contentUrl).toBe(
+			'/api/workspaces/workspace-123/uploads/my-report.txt/content',
+		);
 		expect(attachment.mimeType).toBe('text/plain; charset=utf-8');
 		expect(attachment.size).toBe(bytes.byteLength);
 		expect(path.basename(attachment.absolutePath)).toBe('my-report.txt');
@@ -79,17 +81,17 @@ describe('persistProjectUpload', () => {
 	});
 
 	test('adds a numeric suffix when the sanitized file name already exists', async () => {
-		const localPath = await createTempProjectDir();
-		const first = await persistProjectUpload({
-			projectId: 'project-123',
+		const localPath = await createTempWorkspaceDir();
+		const first = await persistWorkspaceUpload({
+			workspaceId: 'workspace-123',
 			localPath,
 			fileName: 'report.txt',
 			bytes: new TextEncoder().encode('first'),
 			fallbackMimeType: 'text/plain; charset=utf-8',
 		});
 
-		const second = await persistProjectUpload({
-			projectId: 'project-123',
+		const second = await persistWorkspaceUpload({
+			workspaceId: 'workspace-123',
 			localPath,
 			fileName: 'report.txt',
 			bytes: new TextEncoder().encode('second'),
@@ -99,7 +101,7 @@ describe('persistProjectUpload', () => {
 		expect(path.basename(first.absolutePath)).toBe('report.txt');
 		expect(path.basename(second.absolutePath)).toBe('report-1.txt');
 		expect(second.relativePath).toBe('./.miko/uploads/report-1.txt');
-		expect(second.contentUrl).toBe('/api/projects/project-123/uploads/report-1.txt/content');
+		expect(second.contentUrl).toBe('/api/workspaces/workspace-123/uploads/report-1.txt/content');
 
 		const storedText = await readFile(second.absolutePath, 'utf-8');
 		expect(storedText).toBe('second');
@@ -125,18 +127,18 @@ describe('inferAttachmentContentType', () => {
 	});
 });
 
-describe('deleteProjectUpload', () => {
+describe('deleteWorkspaceUpload', () => {
 	test('deletes a stored upload by file name', async () => {
-		const localPath = await createTempProjectDir();
-		const attachment = await persistProjectUpload({
-			projectId: 'project-123',
+		const localPath = await createTempWorkspaceDir();
+		const attachment = await persistWorkspaceUpload({
+			workspaceId: 'workspace-123',
 			localPath,
 			fileName: 'report.txt',
 			bytes: new TextEncoder().encode('delete me'),
 			fallbackMimeType: 'text/plain; charset=utf-8',
 		});
 
-		const deleted = await deleteProjectUpload({
+		const deleted = await deleteWorkspaceUpload({
 			localPath,
 			storedName: path.basename(attachment.absolutePath),
 		});
@@ -146,16 +148,16 @@ describe('deleteProjectUpload', () => {
 	});
 
 	test('returns false for invalid stored names that are not plain file names', async () => {
-		const localPath = await createTempProjectDir();
+		const localPath = await createTempWorkspaceDir();
 
-		await expect(deleteProjectUpload({ localPath, storedName: '' })).resolves.toBe(false);
-		await expect(deleteProjectUpload({ localPath, storedName: 'nested/file.txt' })).resolves.toBe(
+		await expect(deleteWorkspaceUpload({ localPath, storedName: '' })).resolves.toBe(false);
+		await expect(deleteWorkspaceUpload({ localPath, storedName: 'nested/file.txt' })).resolves.toBe(
 			false,
 		);
-		await expect(deleteProjectUpload({ localPath, storedName: 'nested\\file.txt' })).resolves.toBe(
-			false,
-		);
-		await expect(deleteProjectUpload({ localPath, storedName: '.' })).resolves.toBe(false);
-		await expect(deleteProjectUpload({ localPath, storedName: '..' })).resolves.toBe(false);
+		await expect(
+			deleteWorkspaceUpload({ localPath, storedName: 'nested\\file.txt' }),
+		).resolves.toBe(false);
+		await expect(deleteWorkspaceUpload({ localPath, storedName: '.' })).resolves.toBe(false);
+		await expect(deleteWorkspaceUpload({ localPath, storedName: '..' })).resolves.toBe(false);
 	});
 });
