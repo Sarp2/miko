@@ -5,19 +5,17 @@ import path from 'node:path';
 import {
 	appendGitIgnoreEntry,
 	computeCurrentFiles,
-	createPushFailure,
 	DiffStore,
 	discardRenamedPath,
 	extractGitHubRepoSlug,
-	fetchGitHubPullRequests,
 	findDirtyPath,
 	getBranchHistory,
-	getMergeCommitCount,
+	getMainAheadCount,
 	getUpstreamStatusCounts,
+	hasPushedCommits,
 	listDirtyPaths,
 	normalizeRepoRelativePath,
 	parseStatusLine,
-	predictMergeConflicts,
 	readPatchForEntry,
 	resolveDefaultBranchName,
 	resolveRepo,
@@ -39,6 +37,33 @@ async function createTempDir() {
 	const dir = await mkdtemp(path.join(tmpdir(), 'miko-diff-store-'));
 	tempDirs.push(dir);
 	return dir;
+}
+
+async function createRepo(args: { branch?: string; remote?: string } = {}) {
+	const repoRoot = await createTempDir();
+	await runGit(['init', '-b', args.branch ?? 'main'], repoRoot);
+	await runGit(['config', 'user.email', 'miko@example.com'], repoRoot);
+	await runGit(['config', 'user.name', 'Miko'], repoRoot);
+	if (args.remote) await runGit(['remote', 'add', 'origin', args.remote], repoRoot);
+	return repoRoot;
+}
+
+async function commitFile(
+	repoRoot: string,
+	relativePath: string,
+	contents: string,
+	message: string,
+) {
+	await mkdir(path.dirname(path.join(repoRoot, relativePath)), { recursive: true });
+	await Bun.write(path.join(repoRoot, relativePath), contents);
+	await runGit(['add', relativePath], repoRoot);
+	await runGit(['commit', '-m', message], repoRoot);
+}
+
+async function createRepoWithInitialCommit(args: { branch?: string; remote?: string } = {}) {
+	const repoRoot = await createRepo(args);
+	await commitFile(repoRoot, 'README.md', 'hello\n', 'Initial commit');
+	return repoRoot;
 }
 
 function createSnapshot(overrides: Partial<StoredSnapshot> = {}): StoredSnapshot {
@@ -64,6 +89,9 @@ function createSnapshot(overrides: Partial<StoredSnapshot> = {}): StoredSnapshot
 				size: 123,
 			},
 		],
+		hasPushedCommits: true,
+		branchPublishState: 'published',
+		mainAheadCount: 0,
 		branchHistory: {
 			entries: [
 				{
@@ -95,26 +123,30 @@ describe('snapshotsEqual', () => {
 				behindCount: undefined,
 				lastFetchedAt: undefined,
 				files: [],
+				hasPushedCommits: undefined,
+				branchPublishState: 'unknown',
+				mainAheadCount: undefined,
 				branchHistory: { entries: [] },
 			}),
 		).toBe(true);
 	});
 
-	test('returns false when the previous snapshot is undefined and the next snapshot is not the empty unknown state', () => {
+	test('returns false when the previous snapshot is undefined and the next snapshot is not empty', () => {
 		expect(snapshotsEqual(undefined, createSnapshot())).toBe(false);
 	});
 
-	test('returns false when branch metadata changes', () => {
+	test('returns false when branch, publish, main-ahead, or file metadata changes', () => {
 		const base = createSnapshot();
 
 		expect(snapshotsEqual(base, createSnapshot({ branchName: 'feature/profile' }))).toBe(false);
+		expect(snapshotsEqual(base, createSnapshot({ hasPushedCommits: false }))).toBe(false);
+		expect(snapshotsEqual(base, createSnapshot({ branchPublishState: 'local_only' }))).toBe(false);
+		expect(snapshotsEqual(base, createSnapshot({ mainAheadCount: 2 }))).toBe(false);
+		expect(snapshotsEqual(base, createSnapshot({ files: [] }))).toBe(false);
 	});
 
 	test('returns true for identical snapshots', () => {
-		const left = createSnapshot();
-		const right = createSnapshot();
-
-		expect(snapshotsEqual(left, right)).toBe(true);
+		expect(snapshotsEqual(createSnapshot(), createSnapshot())).toBe(true);
 	});
 });
 
@@ -164,23 +196,6 @@ describe('runCommand', () => {
 	});
 });
 
-describe('createPushFailure', () => {
-	test('maps non-fast-forward errors to a branch out of date message', () => {
-		expect(
-			createPushFailure('commit_and_push', 'remote rejected: non-fast-forward update', true),
-		).toEqual({
-			ok: false,
-			mode: 'commit_and_push',
-			phase: 'push',
-			title: 'Branch is not up to date',
-			message: 'Your branch is behind its remote. Pull or rebase, then try pushing again.',
-			detail: 'remote rejected: non-fast-forward update',
-			localCommitCreated: true,
-			snapshotChanged: true,
-		});
-	});
-});
-
 describe('resolveRepo', () => {
 	test('returns null outside a git repository', async () => {
 		const dir = await createTempDir();
@@ -200,15 +215,7 @@ describe('resolveRepo', () => {
 	});
 
 	test('returns the repo root and head commit for a repo with commits', async () => {
-		const repoRoot = await createTempDir();
-		await runGit(['init'], repoRoot);
-		await runGit(['config', 'user.email', 'miko@example.com'], repoRoot);
-		await runGit(['config', 'user.name', 'Miko'], repoRoot);
-
-		await Bun.write(path.join(repoRoot, 'README.md'), 'hello\n');
-		await runGit(['add', '.'], repoRoot);
-		await runGit(['commit', '-m', 'init'], repoRoot);
-
+		const repoRoot = await createRepoWithInitialCommit();
 		const resolvedRepoRoot = await realpath(repoRoot);
 		const head = await runGit(['rev-parse', 'HEAD'], repoRoot);
 
@@ -234,14 +241,7 @@ describe('extractGitHubRepoSlug', () => {
 
 describe('resolveDefaultBranchName', () => {
 	test('returns the remote default branch from origin/HEAD when available', async () => {
-		const repoRoot = await createTempDir();
-		await runGit(['init', '-b', 'main'], repoRoot);
-		await runGit(['config', 'user.email', 'miko@example.com'], repoRoot);
-		await runGit(['config', 'user.name', 'Miko'], repoRoot);
-
-		await Bun.write(path.join(repoRoot, 'README.md'), 'hello\n');
-		await runGit(['add', '.'], repoRoot);
-		await runGit(['commit', '-m', 'init'], repoRoot);
+		const repoRoot = await createRepoWithInitialCommit({ branch: 'main' });
 		await runGit(['update-ref', 'refs/remotes/origin/main', 'HEAD'], repoRoot);
 		await runGit(
 			['symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main'],
@@ -252,27 +252,13 @@ describe('resolveDefaultBranchName', () => {
 	});
 
 	test('falls back to the local main branch when origin/HEAD is unavailable', async () => {
-		const repoRoot = await createTempDir();
-		await runGit(['init', '-b', 'main'], repoRoot);
-		await runGit(['config', 'user.email', 'miko@example.com'], repoRoot);
-		await runGit(['config', 'user.name', 'Miko'], repoRoot);
-
-		await Bun.write(path.join(repoRoot, 'README.md'), 'hello\n');
-		await runGit(['add', '.'], repoRoot);
-		await runGit(['commit', '-m', 'init'], repoRoot);
+		const repoRoot = await createRepoWithInitialCommit({ branch: 'main' });
 
 		await expect(resolveDefaultBranchName(repoRoot)).resolves.toBe('main');
 	});
 
 	test('falls back to the local master branch when main does not exist', async () => {
-		const repoRoot = await createTempDir();
-		await runGit(['init', '-b', 'master'], repoRoot);
-		await runGit(['config', 'user.email', 'miko@example.com'], repoRoot);
-		await runGit(['config', 'user.name', 'Miko'], repoRoot);
-
-		await Bun.write(path.join(repoRoot, 'README.md'), 'hello\n');
-		await runGit(['add', '.'], repoRoot);
-		await runGit(['commit', '-m', 'init'], repoRoot);
+		const repoRoot = await createRepoWithInitialCommit({ branch: 'master' });
 
 		await expect(resolveDefaultBranchName(repoRoot)).resolves.toBe('master');
 	});
@@ -280,28 +266,55 @@ describe('resolveDefaultBranchName', () => {
 
 describe('getUpstreamStatusCounts', () => {
 	test('returns ahead and behind counts relative to the upstream branch', async () => {
-		const repoRoot = await createTempDir();
 		const remoteRoot = await createTempDir();
+		const repoRoot = await createRepoWithInitialCommit({ branch: 'main' });
 
-		await runGit(['init', '-b', 'main'], repoRoot);
 		await runGit(['init', '--bare'], remoteRoot);
-		await runGit(['config', 'user.email', 'miko@example.com'], repoRoot);
-		await runGit(['config', 'user.name', 'Miko'], repoRoot);
-
-		await Bun.write(path.join(repoRoot, 'README.md'), 'hello\n');
-		await runGit(['add', '.'], repoRoot);
-		await runGit(['commit', '-m', 'init'], repoRoot);
 		await runGit(['remote', 'add', 'origin', remoteRoot], repoRoot);
 		await runGit(['push', '-u', 'origin', 'main'], repoRoot);
-
-		await Bun.write(path.join(repoRoot, 'README.md'), 'hello\nmore\n');
-		await runGit(['add', '.'], repoRoot);
-		await runGit(['commit', '-m', 'ahead'], repoRoot);
+		await commitFile(repoRoot, 'README.md', 'hello\nmore\n', 'ahead');
 
 		await expect(getUpstreamStatusCounts(repoRoot)).resolves.toEqual({
 			aheadCount: 1,
 			behindCount: 0,
 		});
+	});
+});
+
+describe('hasPushedCommits', () => {
+	test('returns true when the remote workspace branch has commits past remote main', async () => {
+		const repoRoot = await createRepoWithInitialCommit({ branch: 'main' });
+		await runGit(['checkout', '-b', 'atlas'], repoRoot);
+		await commitFile(repoRoot, 'feature.txt', 'feature\n', 'feature');
+		await runGit(['update-ref', 'refs/remotes/origin/main', 'main'], repoRoot);
+		await runGit(['update-ref', 'refs/remotes/origin/atlas', 'atlas'], repoRoot);
+
+		await expect(
+			hasPushedCommits({ repoRoot, branchName: 'atlas', defaultBranchName: 'main' }),
+		).resolves.toBe(true);
+	});
+
+	test('returns false when the remote workspace branch does not exist', async () => {
+		const repoRoot = await createRepoWithInitialCommit({ branch: 'main' });
+		await runGit(['update-ref', 'refs/remotes/origin/main', 'main'], repoRoot);
+
+		await expect(
+			hasPushedCommits({ repoRoot, branchName: 'atlas', defaultBranchName: 'main' }),
+		).resolves.toBe(false);
+	});
+});
+
+describe('getMainAheadCount', () => {
+	test('counts commits on remote main that are not in the current workspace branch', async () => {
+		const repoRoot = await createRepoWithInitialCommit({ branch: 'main' });
+		await runGit(['update-ref', 'refs/remotes/origin/main', 'main'], repoRoot);
+		await runGit(['checkout', '-b', 'atlas'], repoRoot);
+		await runGit(['checkout', 'main'], repoRoot);
+		await commitFile(repoRoot, 'main.txt', 'main\n', 'main update');
+		await runGit(['update-ref', 'refs/remotes/origin/main', 'main'], repoRoot);
+		await runGit(['checkout', 'atlas'], repoRoot);
+
+		await expect(getMainAheadCount({ repoRoot, defaultBranchName: 'main' })).resolves.toBe(1);
 	});
 });
 
@@ -312,13 +325,11 @@ describe('parseStatusLine', () => {
 			changeType: 'modified',
 			isUntracked: false,
 		});
-
 		expect(parseStatusLine('?? scratch.log')).toEqual({
 			path: 'scratch.log',
 			changeType: 'added',
 			isUntracked: true,
 		});
-
 		expect(parseStatusLine('R  before.txt -> after.txt')).toEqual({
 			path: 'after.txt',
 			previousPath: 'before.txt',
@@ -330,21 +341,13 @@ describe('parseStatusLine', () => {
 
 describe('listDirtyPaths', () => {
 	test('returns normalized dirty path entries for modified and untracked files', async () => {
-		const repoRoot = await createTempDir();
-		await runGit(['init', '-b', 'main'], repoRoot);
-		await runGit(['config', 'user.email', 'miko@example.com'], repoRoot);
-		await runGit(['config', 'user.name', 'Miko'], repoRoot);
-
-		await Bun.write(path.join(repoRoot, 'src/app.ts'), 'base\n');
-		await runGit(['add', '.'], repoRoot);
-		await runGit(['commit', '-m', 'init'], repoRoot);
-
-		await Bun.write(path.join(repoRoot, 'src/app.ts'), 'changed\n');
+		const repoRoot = await createRepoWithInitialCommit();
+		await Bun.write(path.join(repoRoot, 'README.md'), 'changed\n');
 		await Bun.write(path.join(repoRoot, 'scratch.log'), 'tmp\n');
 
 		await expect(listDirtyPaths(repoRoot)).resolves.toEqual([
 			{
-				path: 'src/app.ts',
+				path: 'README.md',
 				changeType: 'modified',
 				isUntracked: false,
 				previousPath: undefined,
@@ -361,57 +364,37 @@ describe('listDirtyPaths', () => {
 
 describe('findDirtyPath', () => {
 	test('returns the dirty entry for a matching path and null for a clean path', async () => {
-		const repoRoot = await createTempDir();
-		await runGit(['init', '-b', 'main'], repoRoot);
-		await runGit(['config', 'user.email', 'miko@example.com'], repoRoot);
-		await runGit(['config', 'user.name', 'Miko'], repoRoot);
+		const repoRoot = await createRepoWithInitialCommit();
+		await Bun.write(path.join(repoRoot, 'README.md'), 'changed\n');
 
-		await Bun.write(path.join(repoRoot, 'src/app.ts'), 'base\n');
-		await runGit(['add', '.'], repoRoot);
-		await runGit(['commit', '-m', 'init'], repoRoot);
-
-		await Bun.write(path.join(repoRoot, 'src/app.ts'), 'changed\n');
-
-		await expect(findDirtyPath(repoRoot, 'src/app.ts')).resolves.toEqual({
-			path: 'src/app.ts',
+		await expect(findDirtyPath(repoRoot, 'README.md')).resolves.toEqual({
+			path: 'README.md',
 			changeType: 'modified',
 			isUntracked: false,
 			previousPath: undefined,
 		});
-		await expect(findDirtyPath(repoRoot, 'README.md')).resolves.toBeNull();
+		await expect(findDirtyPath(repoRoot, 'missing.md')).resolves.toBeNull();
 	});
 });
 
 describe('readPatchForEntry', () => {
 	test('returns a patch for a tracked modified file', async () => {
-		const repoRoot = await createTempDir();
-		await runGit(['init', '-b', 'main'], repoRoot);
-		await runGit(['config', 'user.email', 'miko@example.com'], repoRoot);
-		await runGit(['config', 'user.name', 'Miko'], repoRoot);
-
-		await Bun.write(path.join(repoRoot, 'src/app.ts'), 'console.log("old");\n');
-		await runGit(['add', '.'], repoRoot);
-		await runGit(['commit', '-m', 'init'], repoRoot);
+		const repoRoot = await createRepoWithInitialCommit();
 		const head = await runGit(['rev-parse', 'HEAD'], repoRoot);
-
-		await Bun.write(path.join(repoRoot, 'src/app.ts'), 'console.log("new");\n');
+		await Bun.write(path.join(repoRoot, 'README.md'), 'hello\nnew\n');
 
 		const patch = await readPatchForEntry(repoRoot, head.stdout.trim(), {
-			path: 'src/app.ts',
+			path: 'README.md',
 			changeType: 'modified',
 			isUntracked: false,
 		});
 
-		expect(patch).toContain('diff --git a/src/app.ts b/src/app.ts');
-		expect(patch).toContain('-console.log("old");');
-		expect(patch).toContain('+console.log("new");');
+		expect(patch).toContain('diff --git a/README.md b/README.md');
+		expect(patch).toContain('+new');
 	});
 
 	test('returns a patch for an untracked new file by diffing against /dev/null', async () => {
-		const repoRoot = await createTempDir();
-		await runGit(['init', '-b', 'main'], repoRoot);
-		await runGit(['config', 'user.email', 'miko@example.com'], repoRoot);
-		await runGit(['config', 'user.name', 'Miko'], repoRoot);
+		const repoRoot = await createRepo();
 		await Bun.write(path.join(repoRoot, 'notes.txt'), 'hello\nworld\n');
 
 		const patch = await readPatchForEntry(repoRoot, null, {
@@ -429,25 +412,24 @@ describe('readPatchForEntry', () => {
 
 describe('computeCurrentFiles', () => {
 	test('returns sorted diff files with derived patch metadata', async () => {
-		const repoRoot = await createTempDir();
-
-		await runGit(['init', '-b', 'main'], repoRoot);
-		await runGit(['config', 'user.email', 'miko@example.com'], repoRoot);
-		await runGit(['config', 'user.name', 'Miko'], repoRoot);
-
-		await mkdir(path.join(repoRoot, 'src'), { recursive: true });
-		await Bun.write(path.join(repoRoot, 'src/app.ts'), 'console.log("old");\n');
-		await runGit(['add', '.'], repoRoot);
-		await runGit(['commit', '-m', 'init'], repoRoot);
+		const repoRoot = await createRepoWithInitialCommit();
 		const head = await runGit(['rev-parse', 'HEAD'], repoRoot);
 
-		await Bun.write(path.join(repoRoot, 'src/app.ts'), 'console.log("new");\n');
+		await Bun.write(path.join(repoRoot, 'README.md'), 'changed\n');
 		await Bun.write(path.join(repoRoot, 'scratch.log'), 'tmp\n');
 
 		const files = await computeCurrentFiles(repoRoot, head.stdout.trim());
 
-		expect(files.map((file) => file.path)).toEqual(['scratch.log', 'src/app.ts']);
+		expect(files.map((file) => file.path)).toEqual(['README.md', 'scratch.log']);
 		expect(files[0]).toMatchObject({
+			path: 'README.md',
+			changeType: 'modified',
+			isUntracked: false,
+			additions: 1,
+			deletions: 1,
+			mimeType: 'text/markdown; charset=utf-8',
+		});
+		expect(files[1]).toMatchObject({
 			path: 'scratch.log',
 			changeType: 'added',
 			isUntracked: true,
@@ -456,17 +438,6 @@ describe('computeCurrentFiles', () => {
 			mimeType: 'application/octet-stream',
 			size: 4,
 		});
-
-		expect(files[1]).toMatchObject({
-			path: 'src/app.ts',
-			changeType: 'modified',
-			isUntracked: false,
-			additions: 1,
-			deletions: 1,
-			mimeType: 'text/plain; charset=utf-8',
-			size: 20,
-		});
-
 		expect(files[0]?.patchDigest).toHaveLength(64);
 		expect(files[1]?.patchDigest).toHaveLength(64);
 	});
@@ -474,22 +445,13 @@ describe('computeCurrentFiles', () => {
 
 describe('getBranchHistory', () => {
 	test('returns commit history entries with tags and GitHub commit URLs', async () => {
-		const repoRoot = await createTempDir();
-		await runGit(['init', '-b', 'main'], repoRoot);
-		await runGit(['config', 'user.email', 'miko@example.com'], repoRoot);
-		await runGit(['config', 'user.name', 'Miko'], repoRoot);
-
-		await Bun.write(path.join(repoRoot, 'README.md'), 'hello\n');
-		await runGit(['add', '.'], repoRoot);
-		await runGit(['commit', '-m', 'Initial commit'], repoRoot);
-		await runGit(['tag', 'v1.0.0'], repoRoot);
-		await runGit(['remote', 'add', 'origin', 'git@github.com:acme/repo.git'], repoRoot);
-
-		const history = await getBranchHistory({
-			repoRoot,
-			ref: 'main',
-			limit: 20,
+		const repoRoot = await createRepoWithInitialCommit({
+			branch: 'main',
+			remote: 'git@github.com:acme/repo.git',
 		});
+		await runGit(['tag', 'v1.0.0'], repoRoot);
+
+		const history = await getBranchHistory({ repoRoot, ref: 'main', limit: 20 });
 
 		expect(history.entries).toHaveLength(1);
 		expect(history.entries[0]).toMatchObject({
@@ -501,65 +463,10 @@ describe('getBranchHistory', () => {
 	});
 });
 
-describe('getMergeCommitCount', () => {
-	test('returns the number of commits that exist on the target ref but not on HEAD', async () => {
-		const repoRoot = await createTempDir();
-		await runGit(['init', '-b', 'main'], repoRoot);
-		await runGit(['config', 'user.email', 'miko@example.com'], repoRoot);
-		await runGit(['config', 'user.name', 'Miko'], repoRoot);
-
-		await Bun.write(path.join(repoRoot, 'README.md'), 'base\n');
-		await runGit(['add', '.'], repoRoot);
-		await runGit(['commit', '-m', 'init'], repoRoot);
-		await runGit(['switch', '-c', 'feature/login'], repoRoot);
-
-		await Bun.write(path.join(repoRoot, 'README.md'), 'base\nfeature\n');
-		await runGit(['add', '.'], repoRoot);
-		await runGit(['commit', '-m', 'feature commit'], repoRoot);
-		await runGit(['switch', 'main'], repoRoot);
-
-		await expect(getMergeCommitCount(repoRoot, 'feature/login')).resolves.toBe(1);
-	});
-});
-
-describe('predictMergeConflicts', () => {
-	test('returns hasConflicts true for a branch that would conflict with HEAD', async () => {
-		const repoRoot = await createTempDir();
-		await runGit(['init', '-b', 'main'], repoRoot);
-		await runGit(['config', 'user.email', 'miko@example.com'], repoRoot);
-		await runGit(['config', 'user.name', 'Miko'], repoRoot);
-
-		await Bun.write(path.join(repoRoot, 'README.md'), 'base\n');
-		await runGit(['add', '.'], repoRoot);
-		await runGit(['commit', '-m', 'init'], repoRoot);
-
-		await runGit(['switch', '-c', 'feature/conflict'], repoRoot);
-		await Bun.write(path.join(repoRoot, 'README.md'), 'feature branch\n');
-		await runGit(['add', '.'], repoRoot);
-		await runGit(['commit', '-m', 'feature change'], repoRoot);
-
-		await runGit(['switch', 'main'], repoRoot);
-		await Bun.write(path.join(repoRoot, 'README.md'), 'main branch\n');
-		await runGit(['add', '.'], repoRoot);
-		await runGit(['commit', '-m', 'main change'], repoRoot);
-
-		const result = await predictMergeConflicts(repoRoot, 'feature/conflict');
-
-		expect(result.hasConflicts).toBe(true);
-		expect(result.detail).toContain('CONFLICT');
-	});
-});
-
 describe('discardRenamedPath', () => {
 	test('restores the previous path and removes the renamed path', async () => {
-		const repoRoot = await createTempDir();
-		await runGit(['init', '-b', 'main'], repoRoot);
-		await runGit(['config', 'user.email', 'miko@example.com'], repoRoot);
-		await runGit(['config', 'user.name', 'Miko'], repoRoot);
-
-		await Bun.write(path.join(repoRoot, 'before.txt'), 'same\n');
-		await runGit(['add', '.'], repoRoot);
-		await runGit(['commit', '-m', 'init'], repoRoot);
+		const repoRoot = await createRepo();
+		await commitFile(repoRoot, 'before.txt', 'same\n', 'init');
 		await runGit(['mv', 'before.txt', 'after.txt'], repoRoot);
 
 		await discardRenamedPath(repoRoot, {
@@ -588,355 +495,234 @@ describe('appendGitIgnoreEntry', () => {
 		expect(appendGitIgnoreEntry('scratch.log\n', 'tmp/cache/')).toBe('scratch.log\ntmp/cache/\n');
 		expect(appendGitIgnoreEntry('scratch.log', 'scratch.log')).toBe('scratch.log\n');
 	});
+
+	test('does not append entries already covered by common existing patterns', () => {
+		expect(appendGitIgnoreEntry('*.log\n', 'scratch.log')).toBe('*.log\n');
+		expect(appendGitIgnoreEntry('scratch.log/\n', 'scratch.log')).toBe('scratch.log/\n');
+		expect(appendGitIgnoreEntry('!.env.example\n', '!.env.example')).toBe('!.env.example\n');
+	});
 });
 
 describe('DiffStore.initializeGit', () => {
-	test('initializes git in a project directory and refreshes the project snapshot', async () => {
-		const projectPath = await createTempDir();
-		const store = new DiffStore(projectPath);
+	test('initializes git with an initial commit in a directory', async () => {
+		const localPath = await createTempDir();
+		await Bun.write(path.join(localPath, 'README.md'), 'hello\n');
+		await Bun.write(path.join(localPath, '.env'), 'SECRET=1\n');
+		const store = new DiffStore(localPath);
 
-		const result = await store.initializeGit({
-			projectId: 'project-1',
-			projectPath,
-		});
+		const result = await store.initializeGit({ localPath });
+		const head = await runGit(['rev-parse', 'HEAD'], localPath);
+		const committedFiles = await runGit(['ls-tree', '-r', '--name-only', 'HEAD'], localPath);
 
-		expect(result).toMatchObject({
-			ok: true,
-			snapshotChanged: true,
-		});
+		expect(result).toMatchObject({ ok: true, branchName: 'main', snapshotChanged: false });
+		expect((await stat(path.join(localPath, '.git'))).isDirectory()).toBe(true);
+		expect(head.exitCode).toBe(0);
+		expect(committedFiles.stdout.split(/\r?\n/u).filter(Boolean).sort()).toEqual([
+			'.gitignore',
+			'README.md',
+		]);
+		expect(await Bun.file(path.join(localPath, '.gitignore')).text()).toContain('.env\n');
+	});
 
-		expect((await stat(path.join(projectPath, '.git'))).isDirectory()).toBe(true);
-		expect(store.getProjectSnapshot('project-1')).toMatchObject({
-			status: 'ready',
+	test('creates an initial commit for an existing unborn repo', async () => {
+		const localPath = await createTempDir();
+		await runGit(['init', '-b', 'main'], localPath);
+		const store = new DiffStore(localPath);
+
+		const result = await store.initializeGit({ localPath });
+		const head = await runGit(['rev-parse', 'HEAD'], localPath);
+
+		expect(result).toMatchObject({ ok: true, branchName: 'main' });
+		expect(head.exitCode).toBe(0);
+	});
+});
+
+describe('DiffStore.getWorkspaceGitSnapshot', () => {
+	test('returns the empty unknown state before a workspace has been refreshed', () => {
+		const store = new DiffStore('/tmp/miko');
+
+		expect(store.getWorkspaceGitSnapshot('workspace-1')).toMatchObject({
+			status: 'unknown',
 			files: [],
 			branchHistory: { entries: [] },
 		});
 	});
 });
 
-describe('DiffStore.readPatch', () => {
-	test('returns the patch for a changed file', async () => {
-		const repoRoot = await createTempDir();
-		await runGit(['init'], repoRoot);
-		await runGit(['config', 'user.email', 'miko@example.com'], repoRoot);
-		await runGit(['config', 'user.name', 'Miko'], repoRoot);
-
-		await Bun.write(path.join(repoRoot, 'notes.txt'), 'first line\n');
-		await runGit(['add', 'notes.txt'], repoRoot);
-		await runGit(['commit', '-m', 'initial commit'], repoRoot);
-		await Bun.write(path.join(repoRoot, 'notes.txt'), 'first line\nsecond line\n');
-
-		const store = new DiffStore(repoRoot);
-		const result = await store.readPatch({
-			projectPath: repoRoot,
-			path: './notes.txt',
+describe('DiffStore.inspectGitHubBackedRepo', () => {
+	test('returns GitHub owner and repo metadata for a GitHub-backed directory', async () => {
+		const repoRoot = await createRepoWithInitialCommit({
+			branch: 'main',
+			remote: 'git@github.com:sarp/miko.git',
 		});
+		const store = new DiffStore(repoRoot);
 
-		expect(result.patch).toContain('diff --git a/notes.txt b/notes.txt');
+		await expect(store.inspectGitHubBackedRepo(repoRoot)).resolves.toMatchObject({
+			ok: true,
+			branchName: 'main',
+			defaultBranchName: 'main',
+			githubOwner: 'sarp',
+			githubRepo: 'miko',
+			originRepoSlug: 'sarp/miko',
+		});
+	});
+
+	test('rejects directories without a GitHub origin remote', async () => {
+		const repoRoot = await createRepoWithInitialCommit();
+		const store = new DiffStore(repoRoot);
+
+		await expect(store.inspectGitHubBackedRepo(repoRoot)).resolves.toMatchObject({
+			ok: false,
+			message: 'Directory must have a GitHub origin remote.',
+		});
+	});
+});
+
+describe('DiffStore.readPatch', () => {
+	test('returns the patch for a changed file in a workspace', async () => {
+		const repoRoot = await createRepoWithInitialCommit();
+		await Bun.write(path.join(repoRoot, 'README.md'), 'hello\nsecond line\n');
+		const store = new DiffStore(repoRoot);
+
+		const result = await store.readPatch({ workspacePath: repoRoot, path: './README.md' });
+
+		expect(result.patch).toContain('diff --git a/README.md b/README.md');
 		expect(result.patch).toContain('+second line');
 	});
 });
 
-describe('DiffStore.refreshSnapshot', () => {
-	test('stores a ready snapshot with the current changed files', async () => {
-		const repoRoot = await createTempDir();
-		await runGit(['init'], repoRoot);
-		await runGit(['config', 'user.email', 'miko@example.com'], repoRoot);
-		await runGit(['config', 'user.name', 'Miko'], repoRoot);
-
-		await Bun.write(path.join(repoRoot, 'notes.txt'), 'first line\n');
-		await runGit(['add', 'notes.txt'], repoRoot);
-		await runGit(['commit', '-m', 'initial commit'], repoRoot);
-		await Bun.write(path.join(repoRoot, 'notes.txt'), 'first line\nsecond line\n');
-
+describe('DiffStore.refreshWorkspaceGitSnapshot', () => {
+	test('stores a ready workspace snapshot with diff, branch, publish, and main-ahead metadata', async () => {
+		const repoRoot = await createRepoWithInitialCommit({
+			branch: 'main',
+			remote: 'git@github.com:sarp/miko.git',
+		});
+		await runGit(['update-ref', 'refs/remotes/origin/main', 'main'], repoRoot);
+		await runGit(['checkout', '-b', 'atlas'], repoRoot);
+		await commitFile(repoRoot, 'feature.txt', 'feature\n', 'feature');
+		await runGit(['update-ref', 'refs/remotes/origin/atlas', 'atlas'], repoRoot);
+		await runGit(['checkout', 'main'], repoRoot);
+		await commitFile(repoRoot, 'main.txt', 'main\n', 'main update');
+		await runGit(['update-ref', 'refs/remotes/origin/main', 'main'], repoRoot);
+		await runGit(['checkout', 'atlas'], repoRoot);
+		await Bun.write(path.join(repoRoot, 'feature.txt'), 'feature\nchanged\n');
 		const store = new DiffStore(repoRoot);
-		const changed = await store.refreshSnapshot('project-1', repoRoot);
-		const snapshot = store.getProjectSnapshot('project-1');
+
+		const changed = await store.refreshWorkspaceGitSnapshot('workspace-1', repoRoot);
+		const snapshot = store.getWorkspaceGitSnapshot('workspace-1');
 
 		expect(changed).toBe(true);
-		expect(snapshot.status).toBe('ready');
+		expect(snapshot).toMatchObject({
+			status: 'ready',
+			branchName: 'atlas',
+			defaultBranchName: 'main',
+			hasOriginRemote: true,
+			originRepoSlug: 'sarp/miko',
+			hasUpstream: false,
+			hasPushedCommits: true,
+			branchPublishState: 'published',
+			mainAheadCount: 1,
+		});
 		expect(snapshot.files).toHaveLength(1);
-		expect(snapshot.files[0]).toMatchObject({
-			path: 'notes.txt',
-			changeType: 'modified',
-			isUntracked: false,
+		expect(snapshot.files[0]).toMatchObject({ path: 'feature.txt', changeType: 'modified' });
+		expect(snapshot.branchHistory?.entries[0]?.summary).toBe('feature');
+	});
+
+	test('stores no_repo when the workspace path is not a git repository', async () => {
+		const workspacePath = await createTempDir();
+		const store = new DiffStore(workspacePath);
+
+		const changed = await store.refreshWorkspaceGitSnapshot('workspace-1', workspacePath);
+
+		expect(changed).toBe(true);
+		expect(store.getWorkspaceGitSnapshot('workspace-1')).toMatchObject({
+			status: 'no_repo',
+			files: [],
+			branchPublishState: 'unknown',
 		});
 	});
-});
 
-describe('DiffStore.previewMergeBranch', () => {
-	test('returns mergeable when the target branch has one clean commit', async () => {
-		const repoRoot = await createTempDir();
-		await runGit(['init', '-b', 'main'], repoRoot);
-		await runGit(['config', 'user.email', 'miko@example.com'], repoRoot);
-		await runGit(['config', 'user.name', 'Miko'], repoRoot);
-
-		await Bun.write(path.join(repoRoot, 'base.txt'), 'base\n');
-		await runGit(['add', 'base.txt'], repoRoot);
-		await runGit(['commit', '-m', 'base commit'], repoRoot);
-		await runGit(['checkout', '-b', 'feature/login'], repoRoot);
-
-		await Bun.write(path.join(repoRoot, 'feature.txt'), 'feature\n');
-		await runGit(['add', 'feature.txt'], repoRoot);
-		await runGit(['commit', '-m', 'feature commit'], repoRoot);
-		await runGit(['checkout', 'main'], repoRoot);
-
+	test('resolves a relative FETCH_HEAD path from the target repo root', async () => {
+		const repoRoot = await createRepo();
+		await Bun.write(path.join(repoRoot, '.git', 'FETCH_HEAD'), 'fetch data\n');
+		const expectedFetchedAt = (
+			await stat(path.join(repoRoot, '.git', 'FETCH_HEAD'))
+		).mtime.toISOString();
 		const store = new DiffStore(repoRoot);
-		const result = await store.previewMergeBranch({
-			projectPath: repoRoot,
-			branch: { kind: 'local', name: 'feature/login' },
-		});
 
-		expect(result).toMatchObject({
-			status: 'mergeable',
-			commitCount: 1,
-			hasConflicts: false,
-			targetBranchName: 'feature/login',
-		});
+		await store.refreshWorkspaceGitSnapshot('workspace-1', repoRoot);
+
+		expect(store.getWorkspaceGitSnapshot('workspace-1').lastFetchedAt).toBe(expectedFetchedAt);
+	});
+
+	test('resolves an absolute FETCH_HEAD path from a linked worktree git dir', async () => {
+		const repoRoot = await createRepoWithInitialCommit({ branch: 'main' });
+		const worktreePath = path.join(await createTempDir(), 'atlas');
+		await runGit(['worktree', 'add', '-b', 'atlas', worktreePath, 'main'], repoRoot);
+
+		const fetchHeadPath = (
+			await runGit(['rev-parse', '--git-path', 'FETCH_HEAD'], worktreePath)
+		).stdout.trim();
+		expect(path.isAbsolute(fetchHeadPath)).toBe(true);
+		await Bun.write(fetchHeadPath, 'fetch data\n');
+		const expectedFetchedAt = (await stat(fetchHeadPath)).mtime.toISOString();
+		const store = new DiffStore(worktreePath);
+
+		await store.refreshWorkspaceGitSnapshot('workspace-1', worktreePath);
+
+		expect(store.getWorkspaceGitSnapshot('workspace-1').lastFetchedAt).toBe(expectedFetchedAt);
 	});
 });
 
-describe('DiffStore.mergeBranch', () => {
-	test('merges a clean target branch into the current branch', async () => {
-		const repoRoot = await createTempDir();
-		await runGit(['init', '-b', 'main'], repoRoot);
-		await runGit(['config', 'user.email', 'miko@example.com'], repoRoot);
-		await runGit(['config', 'user.name', 'Miko'], repoRoot);
-
-		await Bun.write(path.join(repoRoot, 'base.txt'), 'base\n');
-		await runGit(['add', 'base.txt'], repoRoot);
-		await runGit(['commit', '-m', 'base commit'], repoRoot);
-		await runGit(['checkout', '-b', 'feature/login'], repoRoot);
-
-		await Bun.write(path.join(repoRoot, 'feature.txt'), 'feature\n');
-		await runGit(['add', 'feature.txt'], repoRoot);
-		await runGit(['commit', '-m', 'feature commit'], repoRoot);
-		await runGit(['checkout', 'main'], repoRoot);
-
-		const store = new DiffStore(repoRoot);
-		const result = await store.mergeBranch({
-			projectId: 'project-1',
-			projectPath: repoRoot,
-			branch: { kind: 'local', name: 'feature/login' },
-		});
-
-		expect(result).toMatchObject({
-			ok: true,
-			branchName: 'main',
-		});
-		expect(await Bun.file(path.join(repoRoot, 'feature.txt')).text()).toBe('feature\n');
-	});
-});
-
-describe('DiffStore.checkoutBranch', () => {
-	test('switches to a local branch', async () => {
-		const repoRoot = await createTempDir();
-		await runGit(['init', '-b', 'main'], repoRoot);
-		await runGit(['config', 'user.email', 'miko@example.com'], repoRoot);
-		await runGit(['config', 'user.name', 'Miko'], repoRoot);
-
-		await Bun.write(path.join(repoRoot, 'base.txt'), 'base\n');
-		await runGit(['add', 'base.txt'], repoRoot);
-		await runGit(['commit', '-m', 'base commit'], repoRoot);
-		await runGit(['checkout', '-b', 'feature/login'], repoRoot);
-		await runGit(['checkout', 'main'], repoRoot);
-
-		const store = new DiffStore(repoRoot);
-		const result = await store.checkoutBranch({
-			projectId: 'project-1',
-			projectPath: repoRoot,
-			branch: { kind: 'local', name: 'feature/login' },
-		});
-
-		expect(result).toMatchObject({
-			ok: true,
-			branchName: 'feature/login',
-		});
-	});
-});
-
-describe('DiffStore.createBranch', () => {
-	test('creates and switches to a new branch from the current branch', async () => {
-		const repoRoot = await createTempDir();
-		await runGit(['init'], repoRoot);
-		await runGit(['config', 'user.email', 'miko@example.com'], repoRoot);
-		await runGit(['config', 'user.name', 'Miko'], repoRoot);
-
-		await Bun.write(path.join(repoRoot, 'base.txt'), 'base\n');
-		await runGit(['add', 'base.txt'], repoRoot);
-		await runGit(['commit', '-m', 'base commit'], repoRoot);
-
-		const store = new DiffStore(repoRoot);
-		const result = await store.createBranch({
-			projectId: 'project-1',
-			projectPath: repoRoot,
-			name: 'feature/login',
-		});
-
-		expect(result).toMatchObject({
-			ok: true,
-			branchName: 'feature/login',
-		});
-
-		expect((await runGit(['branch', '--show-current'], repoRoot)).stdout.trim()).toBe(
-			'feature/login',
-		);
-	});
-});
-
-describe('DiffStore.syncBranch', () => {
-	test('fetches from a local origin remote', async () => {
+describe('DiffStore.fetchWorkspaceGit', () => {
+	test('fetches all remotes and refreshes the workspace snapshot', async () => {
 		const remoteRoot = await createTempDir();
-		const repoRoot = await createTempDir();
-
+		const repoRoot = await createRepoWithInitialCommit({ branch: 'main' });
 		await runGit(['init', '--bare'], remoteRoot);
-		await runGit(['init', '-b', 'main'], repoRoot);
-		await runGit(['config', 'user.email', 'miko@example.com'], repoRoot);
-		await runGit(['config', 'user.name', 'Miko'], repoRoot);
-
-		await Bun.write(path.join(repoRoot, 'base.txt'), 'base\n');
-		await runGit(['add', 'base.txt'], repoRoot);
-		await runGit(['commit', '-m', 'base commit'], repoRoot);
 		await runGit(['remote', 'add', 'origin', remoteRoot], repoRoot);
-
+		await runGit(['push', '-u', 'origin', 'main'], repoRoot);
 		const store = new DiffStore(repoRoot);
-		const result = await store.syncBranch({
-			projectId: 'project-1',
-			projectPath: repoRoot,
-			action: 'fetch',
+
+		const result = await store.fetchWorkspaceGit({
+			workspaceId: 'workspace-1',
+			workspacePath: repoRoot,
 		});
 
-		expect(result).toMatchObject({
-			ok: true,
-			action: 'fetch',
+		expect(result).toMatchObject({ ok: true, branchName: 'main' });
+		expect(store.getWorkspaceGitSnapshot('workspace-1')).toMatchObject({
+			status: 'ready',
 			branchName: 'main',
+			hasOriginRemote: true,
 		});
-	});
-});
-
-describe('DiffStore.commitFiles', () => {
-	test('commits only the selected changed file in commit-only mode', async () => {
-		const repoRoot = await createTempDir();
-		await runGit(['init'], repoRoot);
-		await runGit(['config', 'user.email', 'miko@example.com'], repoRoot);
-		await runGit(['config', 'user.name', 'Miko'], repoRoot);
-
-		await Bun.write(path.join(repoRoot, 'selected.txt'), 'before\n');
-		await Bun.write(path.join(repoRoot, 'other.txt'), 'before\n');
-
-		await runGit(['add', 'selected.txt', 'other.txt'], repoRoot);
-		await runGit(['commit', '-m', 'base commit'], repoRoot);
-
-		await Bun.write(path.join(repoRoot, 'selected.txt'), 'after\n');
-		await Bun.write(path.join(repoRoot, 'other.txt'), 'after\n');
-
-		const store = new DiffStore(repoRoot);
-		const result = await store.commitFiles({
-			projectId: 'project-1',
-			projectPath: repoRoot,
-			paths: ['selected.txt'],
-			summary: 'Update selected file',
-			mode: 'commit_only',
-		});
-
-		expect(result).toMatchObject({
-			ok: true,
-			mode: 'commit_only',
-			pushed: false,
-		});
-
-		expect((await runGit(['show', 'HEAD:selected.txt'], repoRoot)).stdout).toBe('after\n');
-		expect((await runGit(['show', 'HEAD:other.txt'], repoRoot)).stdout).toBe('before\n');
-		expect((await listDirtyPaths(repoRoot)).map((entry) => entry.path)).toEqual(['other.txt']);
 	});
 });
 
 describe('DiffStore.discardFile', () => {
 	test('restores a modified tracked file to the last commit', async () => {
-		const repoRoot = await createTempDir();
-		await runGit(['init'], repoRoot);
-		await runGit(['config', 'user.email', 'miko@example.com'], repoRoot);
-		await runGit(['config', 'user.name', 'Miko'], repoRoot);
-
-		await Bun.write(path.join(repoRoot, 'notes.txt'), 'before\n');
-		await runGit(['add', 'notes.txt'], repoRoot);
-		await runGit(['commit', '-m', 'base commit'], repoRoot);
-		await Bun.write(path.join(repoRoot, 'notes.txt'), 'after\n');
-
+		const repoRoot = await createRepoWithInitialCommit();
+		await Bun.write(path.join(repoRoot, 'README.md'), 'after\n');
 		const store = new DiffStore(repoRoot);
+
 		const result = await store.discardFile({
-			projectId: 'project-1',
-			projectPath: repoRoot,
-			path: 'notes.txt',
+			workspaceId: 'workspace-1',
+			workspacePath: repoRoot,
+			path: 'README.md',
 		});
 
 		expect(result.snapshotChanged).toBe(true);
-		expect(await Bun.file(path.join(repoRoot, 'notes.txt')).text()).toBe('before\n');
+		expect(await Bun.file(path.join(repoRoot, 'README.md')).text()).toBe('hello\n');
 		expect(await listDirtyPaths(repoRoot)).toEqual([]);
 	});
-});
 
-describe('DiffStore.ignoreFile', () => {
-	test('adds an untracked file to gitignore and removes it from dirty paths', async () => {
-		const repoRoot = await createTempDir();
-		await runGit(['init'], repoRoot);
-		await runGit(['config', 'user.email', 'miko@example.com'], repoRoot);
-		await runGit(['config', 'user.name', 'Miko'], repoRoot);
-
-		await Bun.write(path.join(repoRoot, 'base.txt'), 'base\n');
-		await runGit(['add', 'base.txt'], repoRoot);
-		await runGit(['commit', '-m', 'base commit'], repoRoot);
-		await Bun.write(path.join(repoRoot, 'debug.log'), 'debug\n');
-
-		const store = new DiffStore(repoRoot);
-		const result = await store.ignoreFile({
-			projectId: 'project-1',
-			projectPath: repoRoot,
-			path: 'debug.log',
-		});
-
-		expect(result.snapshotChanged).toBe(true);
-		expect(await Bun.file(path.join(repoRoot, '.gitignore')).text()).toBe('debug.log\n');
-		expect((await listDirtyPaths(repoRoot)).map((entry) => entry.path)).toEqual(['.gitignore']);
-	});
-
-	test('does not match sibling paths that share the ignore prefix', async () => {
-		const repoRoot = await createTempDir();
-		await runGit(['init'], repoRoot);
-		await runGit(['config', 'user.email', 'miko@example.com'], repoRoot);
-		await runGit(['config', 'user.name', 'Miko'], repoRoot);
-
-		await Bun.write(path.join(repoRoot, 'base.txt'), 'base\n');
-		await runGit(['add', 'base.txt'], repoRoot);
-		await runGit(['commit', '-m', 'base commit'], repoRoot);
-		await mkdir(path.join(repoRoot, 'foobar'));
-		await Bun.write(path.join(repoRoot, 'foobar', 'baz.txt'), 'baz\n');
-
-		const store = new DiffStore(repoRoot);
-		await expect(
-			store.ignoreFile({
-				projectId: 'project-1',
-				projectPath: repoRoot,
-				path: 'foo',
-			}),
-		).rejects.toThrow('File is no longer changed: foo');
-
-		expect(await Bun.file(path.join(repoRoot, '.gitignore')).exists()).toBe(false);
-		expect((await listDirtyPaths(repoRoot)).map((entry) => entry.path)).toEqual(['foobar/baz.txt']);
-	});
-});
-
-describe('DiffStore.discardFile in an unborn repo', () => {
 	test('fully discards a staged added file before the first commit', async () => {
-		const repoRoot = await createTempDir();
-		await runGit(['init'], repoRoot);
+		const repoRoot = await createRepo();
 		await Bun.write(path.join(repoRoot, 'new-file.txt'), 'new\n');
 		await runGit(['add', 'new-file.txt'], repoRoot);
-
 		const store = new DiffStore(repoRoot);
+
 		const result = await store.discardFile({
-			projectId: 'project-1',
-			projectPath: repoRoot,
+			workspaceId: 'workspace-1',
+			workspacePath: repoRoot,
 			path: 'new-file.txt',
 		});
 
@@ -946,36 +732,38 @@ describe('DiffStore.discardFile in an unborn repo', () => {
 	});
 });
 
-describe('fetchGitHubPullRequests', () => {
-	test('returns an empty gh api array without falling back to fetch', async () => {
-		let fetchCalled = false;
-		const fetchImpl: typeof fetch = ((...args: Parameters<typeof fetch>) => {
-			fetchCalled = true;
-			return fetch(...args);
-		}) as typeof fetch;
+describe('DiffStore.ignoreFile', () => {
+	test('adds an untracked file to gitignore and removes it from dirty paths', async () => {
+		const repoRoot = await createRepoWithInitialCommit();
+		await Bun.write(path.join(repoRoot, 'debug.log'), 'debug\n');
+		const store = new DiffStore(repoRoot);
 
-		const result = await fetchGitHubPullRequests('sarp/miko', {
-			ghApiImpl: async () => [],
-			fetchImpl,
+		const result = await store.ignoreFile({
+			workspaceId: 'workspace-1',
+			workspacePath: repoRoot,
+			path: 'debug.log',
 		});
 
-		expect(result).toEqual([]);
-		expect(fetchCalled).toBe(false);
+		expect(result.snapshotChanged).toBe(true);
+		expect(await Bun.file(path.join(repoRoot, '.gitignore')).text()).toBe('debug.log\n');
+		expect((await listDirtyPaths(repoRoot)).map((entry) => entry.path)).toEqual(['.gitignore']);
 	});
-});
 
-describe('DiffStore.refreshSnapshot lastFetchedAt', () => {
-	test('resolves a relative FETCH_HEAD path from the target repo root', async () => {
-		const repoRoot = await createTempDir();
-		await runGit(['init'], repoRoot);
-		await Bun.write(path.join(repoRoot, '.git', 'FETCH_HEAD'), 'fetch data\n');
-		const expectedFetchedAt = (
-			await stat(path.join(repoRoot, '.git', 'FETCH_HEAD'))
-		).mtime.toISOString();
-
+	test('does not match sibling paths that share the ignore prefix', async () => {
+		const repoRoot = await createRepoWithInitialCommit();
+		await mkdir(path.join(repoRoot, 'foobar'));
+		await Bun.write(path.join(repoRoot, 'foobar', 'baz.txt'), 'baz\n');
 		const store = new DiffStore(repoRoot);
-		await store.refreshSnapshot('project-1', repoRoot);
 
-		expect(store.getProjectSnapshot('project-1').lastFetchedAt).toBe(expectedFetchedAt);
+		await expect(
+			store.ignoreFile({
+				workspaceId: 'workspace-1',
+				workspacePath: repoRoot,
+				path: 'foo',
+			}),
+		).rejects.toThrow('File is no longer changed: foo');
+
+		expect(await Bun.file(path.join(repoRoot, '.gitignore')).exists()).toBe(false);
+		expect((await listDirtyPaths(repoRoot)).map((entry) => entry.path)).toEqual(['foobar/baz.txt']);
 	});
 });

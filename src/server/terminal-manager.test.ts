@@ -49,7 +49,7 @@ function createTerminalSession(overrides: Partial<FakeTerminalSession> = {}) {
 	return {
 		terminalId: 'terminal-1',
 		title: 'zsh',
-		cwd: '/tmp/project',
+		cwd: '/tmp/workspace',
 		shell: '/bin/zsh',
 		cols: 80,
 		rows: 24,
@@ -382,7 +382,7 @@ describe('TerminalManager.createTerminal', () => {
 		try {
 			expect(() =>
 				manager.createTerminal({
-					projectPath: '/tmp/project',
+					workspacePath: '/tmp/workspace',
 					terminalId: 'terminal-1',
 					cols: 80,
 					rows: 24,
@@ -424,7 +424,7 @@ describe('TerminalManager.createTerminal', () => {
 
 		try {
 			const snapshot = manager.createTerminal({
-				projectPath: '/tmp/project',
+				workspacePath: '/tmp/workspace',
 				terminalId: 'terminal-1',
 				cols: 100.4,
 				rows: 30.5,
@@ -480,7 +480,7 @@ describe('TerminalManager.createTerminal', () => {
 
 		try {
 			const snapshot = manager.createTerminal({
-				projectPath: '/tmp/project',
+				workspacePath: '/tmp/workspace',
 				terminalId: 'terminal-1',
 				cols: 100.4,
 				rows: 30.5,
@@ -489,7 +489,7 @@ describe('TerminalManager.createTerminal', () => {
 
 			expect(snapshot).toMatchObject({
 				terminalId: 'terminal-1',
-				cwd: '/tmp/project',
+				cwd: '/tmp/workspace',
 				cols: 100,
 				rows: 31,
 				scrollback: 5_000,
@@ -674,7 +674,7 @@ describe('TerminalManager.closeByCwd', () => {
 		let otherTerminalClosed = false;
 
 		const matchingSession = createTerminalSession({
-			cwd: '/tmp/project',
+			cwd: '/tmp/workspace',
 			terminal: {
 				close: () => {
 					matchingTerminalClosed = true;
@@ -684,7 +684,7 @@ describe('TerminalManager.closeByCwd', () => {
 
 		const otherSession = createTerminalSession({
 			terminalId: 'terminal-2',
-			cwd: '/tmp/other-project',
+			cwd: '/tmp/other-workspace',
 			process: { pid: 5678 } as Bun.Subprocess,
 			terminal: {
 				close: () => {
@@ -698,7 +698,7 @@ describe('TerminalManager.closeByCwd', () => {
 		sessions.set('terminal-2', otherSession);
 
 		try {
-			manager.closeByCwd('/tmp/project');
+			manager.closeByCwd('/tmp/workspace');
 			expect(sessions.has('terminal-1')).toBe(false);
 			expect(sessions.has('terminal-2')).toBe(true);
 

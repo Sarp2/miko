@@ -13,7 +13,7 @@ function normalizeGeneratedTitle(value: unknown): string | null {
 	if (typeof value !== 'string') return null;
 	const normalized = value.replace(/\s+/g, ' ').trim().slice(0, 80);
 
-	if (!normalized || normalized === 'New Chat') return null;
+	if (!normalized || normalized === 'New Session') return null;
 	return normalized;
 }
 
@@ -25,7 +25,7 @@ export function fallbackTitleFromMessage(messageContent: string): string | null 
 	return `${normalized.slice(0, 35)}...`;
 }
 
-export interface GenerateChatTitleResult {
+export interface GenerateSessionTitleResult {
 	title: string | null;
 	usedFallback: boolean;
 	failureMessage: string | null;
@@ -36,21 +36,21 @@ function summarizeFailures(failures: Array<{ provider: 'claude' | 'codex'; reaso
 	return failures.map((failure) => failure.reason).join('; ');
 }
 
-export async function generateTitleForChat(
+export async function generateTitleForSession(
 	messageContent: string,
 	adapter = new QuickResponseAdapter(),
 ): Promise<string | null> {
-	const result = await generateTitleForChatDetailed(messageContent, adapter);
+	const result = await generateTitleForSessionDetailed(messageContent, adapter);
 	return result.title;
 }
 
-export async function generateTitleForChatDetailed(
+export async function generateTitleForSessionDetailed(
 	messageContent: string,
 	adapter = new QuickResponseAdapter(),
-): Promise<GenerateChatTitleResult> {
+): Promise<GenerateSessionTitleResult> {
 	const result = await adapter.generateStructuredWithDiagnostics<string>({
-		task: 'conversation title generation',
-		prompt: `Generate a short, descriptive title (under 30 chars) for a conversation that starts with this message.\n\n${messageContent.slice(0, 12_000)}`,
+		task: 'session title generation',
+		prompt: `Generate a short, descriptive title (under 30 chars) for a session that starts with this message.\n\n${messageContent.slice(0, 12_000)}`,
 		schema: TITLE_SCHEMA,
 		parse: (value) => {
 			const output = value && typeof value === 'object' ? (value as { title?: unknown }) : {};

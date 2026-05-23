@@ -1,15 +1,19 @@
 import type {
 	AgentProvider,
+	BranchActionFailure,
+	BranchActionSuccess,
 	ChatAttachment,
-	ChatDiffSnapshot,
-	ChatHistoryPage,
-	ChatSnapshot,
-	DiffCommitMode,
+	DirectoryListSnapshot,
+	GitHubRepoAvailabilityResult,
+	GithubPublishInfo,
 	KeybindingsSnapshot,
-	LocalProjectsSnapshot,
 	ModelOptions,
-	SidebarData,
+	SessionHistoryPage,
+	SessionSnapshot,
+	SidebarSnapshot,
 	UpdateSnapshot,
+	WorkspaceSnapshot,
+	WorkspaceVisibilityState,
 } from './types';
 
 export type EditorPreset = 'cursor' | 'vscode' | 'windsurf' | 'custom';
@@ -21,11 +25,11 @@ export interface EditorOpenSettings {
 
 export type SubscriptionTopic =
 	| { type: 'sidebar' }
-	| { type: 'local-projects' }
+	| { type: 'directories' }
 	| { type: 'update' }
 	| { type: 'keybindings' }
-	| { type: 'chat'; chatId: string; recentLimit?: number }
-	| { type: 'project-git'; projectId: string }
+	| { type: 'workspace'; workspaceId: string }
+	| { type: 'session'; sessionId: string; recentLimit?: number }
 	| { type: 'terminal'; terminalId: string };
 
 export interface TerminalSnapshot {
@@ -46,11 +50,51 @@ export type TerminalEvent =
 	| { type: 'terminal.output'; terminalId: string; data: string }
 	| { type: 'terminal.exit'; terminalId: string; exitCode: number; signal?: number };
 
+export type DirectoryOnboardingResult = BranchActionSuccess | BranchActionFailure;
+
 export type ClientCommand =
-	| { type: 'project.open'; localPath: string }
-	| { type: 'project.create'; localPath: string; title: string }
-	| { type: 'project.remove'; projectId: string }
-	| { type: 'project.readDiffPatch'; projectId: string; path: string }
+	| {
+			type: 'directory.add';
+			localPath: string;
+			title?: string;
+			githubOwner: string;
+			githubRepo: string;
+	  }
+	| { type: 'directory.remove'; directoryId: string }
+	| { type: 'directory.initializeGit'; localPath: string }
+	| { type: 'directory.getGithubPublishInfo'; localPath: string }
+	| { type: 'directory.checkGithubRepoAvailability'; owner: string; name: string }
+	| {
+			type: 'directory.publishToGithub';
+			localPath: string;
+			owner: string;
+			name: string;
+			visibility: 'public' | 'private';
+			description?: string;
+	  }
+	| { type: 'workspace.create'; directoryId: string }
+	| { type: 'workspace.remove'; workspaceId: string }
+	| {
+			type: 'workspace.setVisibility';
+			workspaceId: string;
+			visibilityState: WorkspaceVisibilityState;
+	  }
+	| { type: 'workspace.renameBranch'; workspaceId: string; branchName: string }
+	| { type: 'workspace.markRead'; workspaceId: string }
+	| { type: 'workspace.refreshGit'; workspaceId: string }
+	| { type: 'workspace.refreshPrStage'; workspaceId: string }
+	| { type: 'workspace.readDiffPatch'; workspaceId: string; path: string }
+	| { type: 'workspace.commitAndPush'; workspaceId: string; sessionId: string }
+	| { type: 'workspace.pullLatestMain'; workspaceId: string; sessionId: string }
+	| { type: 'workspace.createPr'; workspaceId: string; sessionId: string }
+	| { type: 'workspace.fixCi'; workspaceId: string; sessionId: string }
+	| {
+			type: 'workspace.addressReviewComments';
+			workspaceId: string;
+			sessionId: string;
+			commentIds: string[];
+	  }
+	| { type: 'workspace.mergePr'; workspaceId: string }
 	| { type: 'system.ping' }
 	| { type: 'update.check'; force?: boolean }
 	| { type: 'update.install' }
@@ -64,14 +108,13 @@ export type ClientCommand =
 			column?: number;
 			editor?: EditorOpenSettings;
 	  }
-	| { type: 'chat.create'; projectId: string }
-	| { type: 'chat.rename'; chatId: string; title: string }
-	| { type: 'chat.delete'; chatId: string }
-	| { type: 'chat.markRead'; chatId: string }
+	| { type: 'session.create'; workspaceId: string }
+	| { type: 'session.rename'; sessionId: string; title: string }
+	| { type: 'session.remove'; sessionId: string }
 	| {
-			type: 'chat.send';
-			chatId?: string;
-			projectId?: string;
+			type: 'session.send';
+			sessionId?: string;
+			workspaceId?: string;
 			provider?: AgentProvider;
 			content: string;
 			attachments?: ChatAttachment[];
@@ -80,92 +123,13 @@ export type ClientCommand =
 			effort?: string;
 			planMode?: boolean;
 	  }
-	| { type: 'chat.refreshDiffs'; chatId: string }
-	| { type: 'chat.initGit'; chatId: string }
-	| { type: 'chat.getGithubPublishInfo'; chatId: string }
-	| { type: 'chat.checkGithubRepoAvailability'; chatId: string; owner: string; name: string }
-	| {
-			type: 'chat.publishToGithub';
-			chatId: string;
-			owner: string;
-			name: string;
-			visibility: 'public' | 'private';
-			description?: string;
-	  }
-	| { type: 'chat.listBranches'; chatId: string }
-	| {
-			type: 'chat.previewMergeBranch';
-			chatId: string;
-			branch:
-				| { kind: 'local'; name: string }
-				| { kind: 'remote'; name: string; remoteRef: string }
-				| {
-						kind: 'pull_request';
-						name: string;
-						prNumber: number;
-						headRefName: string;
-						headRepoCloneUrl?: string;
-						isCrossRepository?: boolean;
-						remoteRef?: string;
-				  };
-	  }
-	| {
-			type: 'chat.mergeBranch';
-			chatId: string;
-			branch:
-				| { kind: 'local'; name: string }
-				| { kind: 'remote'; name: string; remoteRef: string }
-				| {
-						kind: 'pull_request';
-						name: string;
-						prNumber: number;
-						headRefName: string;
-						headRepoCloneUrl?: string;
-						isCrossRepository?: boolean;
-						remoteRef?: string;
-				  };
-	  }
-	| {
-			type: 'chat.syncBranch';
-			chatId: string;
-			action: 'fetch' | 'pull' | 'push' | 'publish';
-	  }
-	| {
-			type: 'chat.checkoutBranch';
-			chatId: string;
-			branch:
-				| { kind: 'local'; name: string }
-				| { kind: 'remote'; name: string; remoteRef: string }
-				| {
-						kind: 'pull_request';
-						name: string;
-						prNumber: number;
-						headRefName: string;
-						headRepoCloneUrl?: string;
-						isCrossRepository?: boolean;
-						remoteRef?: string;
-				  };
-			bringChanges?: boolean;
-	  }
-	| { type: 'chat.createBranch'; chatId: string; name: string; baseBranchName?: string }
-	| { type: 'chat.generateCommitMessage'; chatId: string; paths: string[] }
-	| {
-			type: 'chat.commitDiffs';
-			chatId: string;
-			paths: string[];
-			summary: string;
-			description?: string;
-			mode: DiffCommitMode;
-	  }
-	| { type: 'chat.discardDiffFile'; chatId: string; path: string }
-	| { type: 'chat.ignoreDiffFile'; chatId: string; path: string }
-	| { type: 'chat.cancel'; chatId: string }
-	| { type: 'chat.stopDraining'; chatId: string }
-	| { type: 'chat.loadHistory'; chatId: string; beforeCursor: string; limit: number }
-	| { type: 'chat.respondTool'; chatId: string; toolUseId: string; result: unknown }
+	| { type: 'session.cancel'; sessionId: string }
+	| { type: 'session.stopDraining'; sessionId: string }
+	| { type: 'session.loadHistory'; sessionId: string; beforeCursor: string; limit: number }
+	| { type: 'session.respondTool'; sessionId: string; toolUseId: string; result: unknown }
 	| {
 			type: 'terminal.create';
-			projectId: string;
+			workspaceId: string;
 			terminalId: string;
 			cols: number;
 			rows: number;
@@ -176,27 +140,50 @@ export type ClientCommand =
 	| { type: 'terminal.close'; terminalId: string };
 
 export type ClientEnvelope =
-	| { v: 1; type: 'subscribe'; id: string; topic: SubscriptionTopic }
-	| { v: 1; type: 'unsubscribe'; id: string }
-	| { v: 1; type: 'command'; id: string; command: ClientCommand };
+	| { type: 'subscribe'; id: string; topic: SubscriptionTopic }
+	| { type: 'unsubscribe'; id: string }
+	| { type: 'command'; id: string; command: ClientCommand };
 
 export type ServerSnapshot =
-	| { type: 'sidebar'; data: SidebarData }
-	| { type: 'local-projects'; data: LocalProjectsSnapshot }
+	| { type: 'sidebar'; data: SidebarSnapshot }
+	| { type: 'directories'; data: DirectoryListSnapshot }
 	| { type: 'update'; data: UpdateSnapshot }
 	| { type: 'keybindings'; data: KeybindingsSnapshot }
-	| { type: 'chat'; data: ChatSnapshot | null }
-	| { type: 'project-git'; data: ChatDiffSnapshot | null }
+	| { type: 'workspace'; data: WorkspaceSnapshot | null }
+	| { type: 'session'; data: SessionSnapshot | null }
 	| { type: 'terminal'; data: TerminalSnapshot | null };
 
 export type ServerEnvelope =
 	| { type: 'snapshot'; id: string; snapshot: ServerSnapshot }
 	| { type: 'event'; id: string; event: TerminalEvent }
-	| { type: 'ack'; id: string; result?: unknown | ChatHistoryPage }
+	| {
+			type: 'ack';
+			id: string;
+			result?:
+				| unknown
+				| SessionHistoryPage
+				| DirectoryOnboardingResult
+				| GithubPublishInfo
+				| GitHubRepoAvailabilityResult;
+	  }
 	| { type: 'error'; id?: string; message: string };
 
 export function isClientEnvelope(value: unknown): value is ClientEnvelope {
 	if (!value || typeof value !== 'object') return false;
 	const candidate = value as Partial<ClientEnvelope>;
-	return candidate.v === 1 && typeof candidate.type === 'string';
+	if (typeof candidate.id !== 'string') return false;
+
+	if (candidate.type === 'subscribe') {
+		return Boolean(candidate.topic && typeof candidate.topic === 'object');
+	}
+
+	if (candidate.type === 'unsubscribe') {
+		return true;
+	}
+
+	if (candidate.type === 'command') {
+		return Boolean(candidate.command && typeof candidate.command === 'object');
+	}
+
+	return false;
 }

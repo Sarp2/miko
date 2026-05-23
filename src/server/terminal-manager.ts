@@ -15,7 +15,7 @@ const FOCUS_OUT_SEQUENCE = '\x1b[O';
 const MODE_SEQUENCE_TAIL_LENGTH = 16;
 
 interface CreateTerminalArgs {
-	projectPath: string;
+	workspacePath: string;
 	terminalId: string;
 	cols: number;
 	rows: number;
@@ -200,7 +200,7 @@ export class TerminalManager {
 		const session: TerminalSession = {
 			terminalId: args.terminalId,
 			title,
-			cwd: args.projectPath,
+			cwd: args.workspacePath,
 			shell,
 			cols,
 			rows,
@@ -231,7 +231,7 @@ export class TerminalManager {
 
 		try {
 			session.process = Bun.spawn([shell, ...resolveShellArgs(shell)], {
-				cwd: args.projectPath,
+				cwd: args.workspacePath,
 				env: createTerminalEnv(),
 				terminal: session.terminal,
 			});

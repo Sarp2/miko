@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { Query } from '@anthropic-ai/claude-agent-sdk';
-import type { ChatAttachment } from '../shared/types';
+import type { ChatAttachment, TranscriptEntry } from '../shared/types';
 import {
 	AgentCoordinator,
 	buildPromptText,
@@ -8,6 +8,8 @@ import {
 	normalizeClaudeStreamMessage,
 	startClaudeSession,
 } from './agent';
+import type { CodexAppServerManager } from './codex-app-server';
+import type { EventStore } from './event-store';
 import type { HarnessEvent } from './harness-types';
 
 function makeAttachment(overrides: Partial<ChatAttachment> = {}): ChatAttachment {
@@ -74,21 +76,40 @@ function createQueryStub(messages: unknown[] = []) {
 	return { queryFn, calls, state };
 }
 
+type ActiveTurnFixture = Parameters<AgentCoordinator['activeTurns']['set']>[1];
+type DrainingStreamFixture = Parameters<AgentCoordinator['drainingStreams']['set']>[1];
+type ClaudeSessionFixture = Parameters<AgentCoordinator['claudeSessions']['set']>[1];
+type SendCommandFixture = Parameters<AgentCoordinator['send']>[0];
+type RespondToolCommandFixture = Parameters<AgentCoordinator['respondTool']>[0];
+type StartTurnForSessionArgsFixture = {
+	sessionId: string;
+	provider: 'claude' | 'codex';
+	content: string;
+	attachments: ChatAttachment[];
+	modelOptions: Record<string, unknown>;
+	planMode?: boolean;
+	appendUserPrompt?: boolean;
+};
+
+function activeTurnFixture(overrides: Record<string, unknown>): ActiveTurnFixture {
+	return overrides as unknown as ActiveTurnFixture;
+}
+
 function createCoordinator(
 	options:
 		| {
 				onStateChange?: () => void;
-				store?: any;
+				store?: unknown;
 		  }
 		| (() => void) = {},
 ) {
 	const normalized =
-		typeof options === 'function' ? { onStateChange: options, store: {} as any } : options;
-	const { onStateChange = () => {}, store = {} as any } = normalized;
+		typeof options === 'function' ? { onStateChange: options, store: {} as unknown } : options;
+	const { onStateChange = () => {}, store = {} } = normalized;
 	return new AgentCoordinator({
-		store,
+		store: store as EventStore,
 		onStateChange,
-		codexManager: {} as any,
+		codexManager: {} as CodexAppServerManager,
 	});
 }
 
@@ -370,37 +391,40 @@ describe('AgentCoordinator.getActiveStatuses', () => {
 		expect(Array.from(coordinator.getActiveStatuses().entries())).toEqual([]);
 	});
 
-	test('returns statuses for all active chat turns', () => {
+	test('returns statuses for all active session turns', () => {
 		const coordinator = createCoordinator();
-		coordinator.activeTurns.set('chat-1', { status: 'running' } as any);
-		coordinator.activeTurns.set('chat-2', { status: 'waiting_for_user' } as any);
+		coordinator.activeTurns.set('session-1', activeTurnFixture({ status: 'running' }));
+		coordinator.activeTurns.set('session-2', activeTurnFixture({ status: 'waiting_for_user' }));
 
 		expect(Array.from(coordinator.getActiveStatuses().entries())).toEqual([
-			['chat-1', 'running'],
-			['chat-2', 'waiting_for_user'],
+			['session-1', 'running'],
+			['session-2', 'waiting_for_user'],
 		]);
 	});
 });
 
 describe('AgentCoordinator.getPendingTool', () => {
-	test('returns null when chat has no active turn', () => {
+	test('returns null when session has no active turn', () => {
 		const coordinator = createCoordinator();
-		expect(coordinator.getPendingTool('chat-1')).toBeNull();
+		expect(coordinator.getPendingTool('session-1')).toBeNull();
 	});
 
 	test('returns toolUseId and toolKind from pending tool snapshot', () => {
 		const coordinator = createCoordinator();
-		coordinator.activeTurns.set('chat-1', {
-			pendingTool: {
-				toolUseId: 'tool-123',
-				tool: {
-					toolKind: 'ask_user_question',
+		coordinator.activeTurns.set(
+			'session-1',
+			activeTurnFixture({
+				pendingTool: {
+					toolUseId: 'tool-123',
+					tool: {
+						toolKind: 'ask_user_question',
+					},
+					resolve: () => {},
 				},
-				resolve: () => {},
-			},
-		} as any);
+			}),
+		);
 
-		expect(coordinator.getPendingTool('chat-1')).toEqual({
+		expect(coordinator.getPendingTool('session-1')).toEqual({
 			toolUseId: 'tool-123',
 			toolKind: 'ask_user_question',
 		});
@@ -408,13 +432,13 @@ describe('AgentCoordinator.getPendingTool', () => {
 });
 
 describe('AgentCoordinator.stopDraining', () => {
-	test('is a no-op when chat has no draining stream', async () => {
+	test('is a no-op when session has no draining stream', async () => {
 		let stateChanges = 0;
 		const coordinator = createCoordinator(() => {
 			stateChanges += 1;
 		});
 
-		await coordinator.stopDraining('chat-1');
+		await coordinator.stopDraining('session-1');
 
 		expect(stateChanges).toBe(0);
 	});
@@ -426,30 +450,30 @@ describe('AgentCoordinator.stopDraining', () => {
 			stateChanges += 1;
 		});
 
-		coordinator.drainingStreams.set('chat-1', {
+		coordinator.drainingStreams.set('session-1', {
 			turn: {
 				close: () => {
 					closed += 1;
 				},
-			} as any,
+			} as DrainingStreamFixture['turn'],
 		});
 
-		await coordinator.stopDraining('chat-1');
+		await coordinator.stopDraining('session-1');
 
 		expect(closed).toBe(1);
-		expect(coordinator.drainingStreams.has('chat-1')).toBe(false);
+		expect(coordinator.drainingStreams.has('session-1')).toBe(false);
 		expect(stateChanges).toBe(1);
 	});
 });
 
-describe('AgentCoordinator.closeChat', () => {
+describe('AgentCoordinator.closeSession', () => {
 	test('still notifies state change when there is nothing to close', async () => {
 		let stateChanges = 0;
 		const coordinator = createCoordinator(() => {
 			stateChanges += 1;
 		});
 
-		await coordinator.closeChat('chat-1');
+		await coordinator.closeSession('session-1');
 
 		expect(stateChanges).toBe(1);
 	});
@@ -462,70 +486,74 @@ describe('AgentCoordinator.closeChat', () => {
 			stateChanges += 1;
 		});
 
-		coordinator.drainingStreams.set('chat-1', {
+		coordinator.drainingStreams.set('session-1', {
 			turn: {
 				close: () => {
 					drainingClosed += 1;
 				},
-			} as any,
+			} as DrainingStreamFixture['turn'],
 		});
 
-		coordinator.claudeSessions.set('chat-1', {
-			chatId: 'chat-1',
+		coordinator.claudeSessions.set('session-1', {
+			sessionId: 'session-1',
 			session: {
 				close: () => {
 					sessionClosed += 1;
 				},
 			},
-		} as any);
+		} as ClaudeSessionFixture);
 
-		await coordinator.closeChat('chat-1');
+		await coordinator.closeSession('session-1');
 
 		expect(drainingClosed).toBe(1);
 		expect(sessionClosed).toBe(1);
 
-		expect(coordinator.drainingStreams.has('chat-1')).toBe(false);
-		expect(coordinator.claudeSessions.has('chat-1')).toBe(false);
+		expect(coordinator.drainingStreams.has('session-1')).toBe(false);
+		expect(coordinator.claudeSessions.has('session-1')).toBe(false);
 		expect(stateChanges).toBe(2);
 	});
 });
 
 describe('AgentCoordinator.send', () => {
-	test('throws when creating a new chat without projectId', async () => {
+	test('throws when creating a new session without workspaceId', async () => {
 		const coordinator = createCoordinator();
 
 		await expect(
 			coordinator.send({
-				type: 'chat.send',
+				type: 'session.send',
 				content: 'hello',
 				modelOptions: {},
-			} as any),
-		).rejects.toThrow('Missing projectId for new chat');
+			} as unknown as SendCommandFixture),
+		).rejects.toThrow('Missing workspaceId for new session');
 	});
 
-	test('creates a chat when chatId is missing and forwards payload to startTurnForChat', async () => {
+	test('creates a session when sessionId is missing and forwards payload to startTurnForSession', async () => {
 		const store = {
-			createChat: async (_projectId: string) => ({ id: 'chat-1' }),
-			requireChat: (_chatId: string) => ({ provider: null }),
+			createSession: async (_workspaceId: string) => ({ id: 'session-1' }),
+			requireSession: (_sessionId: string) => ({ provider: null }),
 		};
 
 		const coordinator = createCoordinator({ store });
-		let startArgs: any = null;
+		let startArgs: StartTurnForSessionArgsFixture | null = null;
 
-		(coordinator as any).startTurnForChat = async (args: any) => {
+		(
+			coordinator as unknown as {
+				startTurnForSession: (args: StartTurnForSessionArgsFixture) => Promise<void>;
+			}
+		).startTurnForSession = async (args) => {
 			startArgs = args;
 		};
 
 		const result = await coordinator.send({
-			type: 'chat.send',
-			projectId: 'project-1',
+			type: 'session.send',
+			workspaceId: 'workspace-1',
 			content: 'ship it',
 			modelOptions: {},
-		} as any);
+		} as unknown as SendCommandFixture);
 
-		expect(result).toEqual({ chatId: 'chat-1' });
+		expect(result).toEqual({ sessionId: 'session-1' });
 		expect(startArgs).toMatchObject({
-			chatId: 'chat-1',
+			sessionId: 'session-1',
 			provider: 'claude',
 			content: 'ship it',
 			attachments: [],
@@ -536,9 +564,9 @@ describe('AgentCoordinator.send', () => {
 
 describe('AgentCoordinator.respondTool', () => {
 	test('records tool_result, clears pending tool, sets running, and resolves pending promise', async () => {
-		const appended: any[] = [];
+		const appended: TranscriptEntry[] = [];
 		const store = {
-			appendMessage: async (_chatId: string, entry: any) => {
+			appendMessage: async (_sessionId: string, entry: TranscriptEntry) => {
 				appended.push(entry);
 			},
 		};
@@ -552,24 +580,27 @@ describe('AgentCoordinator.respondTool', () => {
 			},
 		});
 
-		coordinator.activeTurns.set('chat-1', {
-			status: 'waiting_for_user',
-			provider: 'claude',
-			pendingTool: {
-				toolUseId: 'tool-1',
-				tool: { toolKind: 'ask_user_question' },
-				resolve: (value: unknown) => {
-					resolvedValue = value;
+		coordinator.activeTurns.set(
+			'session-1',
+			activeTurnFixture({
+				status: 'waiting_for_user',
+				provider: 'claude',
+				pendingTool: {
+					toolUseId: 'tool-1',
+					tool: { toolKind: 'ask_user_question' },
+					resolve: (value: unknown) => {
+						resolvedValue = value;
+					},
 				},
-			},
-		} as any);
+			}),
+		);
 
 		await coordinator.respondTool({
-			type: 'chat.respondTool',
-			chatId: 'chat-1',
+			type: 'session.respondTool',
+			sessionId: 'session-1',
 			toolUseId: 'tool-1',
 			result: { answers: { q1: 'yes' } },
-		} as any);
+		} as unknown as RespondToolCommandFixture);
 
 		expect(appended).toHaveLength(1);
 		expect(appended[0]).toMatchObject({
@@ -578,53 +609,56 @@ describe('AgentCoordinator.respondTool', () => {
 			content: { answers: { q1: 'yes' } },
 		});
 
-		expect(coordinator.activeTurns.get('chat-1')?.pendingTool).toBeNull();
-		expect(coordinator.activeTurns.get('chat-1')?.status).toBe('running');
+		expect(coordinator.activeTurns.get('session-1')?.pendingTool).toBeNull();
+		expect(coordinator.activeTurns.get('session-1')?.status).toBe('running');
 
 		expect(resolvedValue).toEqual({ answers: { q1: 'yes' } });
 		expect(stateChanges).toBe(1);
 	});
 
 	test('for codex exit_plan_mode confirmed+clearContext, clears session and prepares follow-up', async () => {
-		const appended: any[] = [];
-		const clearedTokens: Array<{ chatId: string; token: string | null }> = [];
+		const appended: TranscriptEntry[] = [];
+		const clearedTokens: Array<{ sessionId: string; token: string | null }> = [];
 
 		const store = {
-			appendMessage: async (_chatId: string, entry: any) => {
+			appendMessage: async (_sessionId: string, entry: TranscriptEntry) => {
 				appended.push(entry);
 			},
-			setSessionToken: async (chatId: string, token: string | null) => {
-				clearedTokens.push({ chatId, token });
+			setSessionToken: async (sessionId: string, token: string | null) => {
+				clearedTokens.push({ sessionId, token });
 			},
 		};
 
 		const coordinator = createCoordinator({ store });
 
-		coordinator.activeTurns.set('chat-2', {
-			status: 'waiting_for_user',
-			provider: 'codex',
-			pendingTool: {
-				toolUseId: 'tool-2',
-				tool: { toolKind: 'exit_plan_mode' },
-				resolve: () => {},
-			},
-		} as any);
+		coordinator.activeTurns.set(
+			'session-2',
+			activeTurnFixture({
+				status: 'waiting_for_user',
+				provider: 'codex',
+				pendingTool: {
+					toolUseId: 'tool-2',
+					tool: { toolKind: 'exit_plan_mode' },
+					resolve: () => {},
+				},
+			}),
+		);
 
 		await coordinator.respondTool({
-			type: 'chat.respondTool',
-			chatId: 'chat-2',
+			type: 'session.respondTool',
+			sessionId: 'session-2',
 			toolUseId: 'tool-2',
 			result: {
 				confirmed: true,
 				clearContext: true,
 				message: 'Ship with small refactor',
 			},
-		} as any);
+		} as unknown as RespondToolCommandFixture);
 
-		expect(clearedTokens).toEqual([{ chatId: 'chat-2', token: null }]);
+		expect(clearedTokens).toEqual([{ sessionId: 'session-2', token: null }]);
 		expect(appended.some((entry) => entry.kind === 'context_cleared')).toBe(true);
 
-		expect(coordinator.activeTurns.get('chat-2')?.postToolFollowUp).toEqual({
+		expect(coordinator.activeTurns.get('session-2')?.postToolFollowUp).toEqual({
 			content: 'Proceed with the approved plan. Additional guidance: Ship with small refactor',
 			planMode: false,
 		});
@@ -633,11 +667,11 @@ describe('AgentCoordinator.respondTool', () => {
 
 describe('AgentCoordinator.cancel', () => {
 	test('cancels a Claude turn and resolves pending ask_user_question tool', async () => {
-		const appended: any[] = [];
+		const appended: TranscriptEntry[] = [];
 		let cancelledCount = 0;
 
 		const store = {
-			appendMessage: async (_chatId: string, entry: any) => {
+			appendMessage: async (_sessionId: string, entry: TranscriptEntry) => {
 				appended.push(entry);
 			},
 			recordTurnCancelled: async () => {
@@ -657,37 +691,40 @@ describe('AgentCoordinator.cancel', () => {
 			},
 		});
 
-		coordinator.activeTurns.set('chat-1', {
-			chatId: 'chat-1',
-			provider: 'claude',
-			pendingTool: {
-				toolUseId: 'tool-1',
-				tool: { toolKind: 'ask_user_question' },
-				resolve: (value: unknown) => {
-					pendingResolved = value;
+		coordinator.activeTurns.set(
+			'session-1',
+			activeTurnFixture({
+				sessionId: 'session-1',
+				provider: 'claude',
+				pendingTool: {
+					toolUseId: 'tool-1',
+					tool: { toolKind: 'ask_user_question' },
+					resolve: (value: unknown) => {
+						pendingResolved = value;
+					},
 				},
-			},
-			cancelRequested: false,
-			cancelRecorded: false,
-			hasFinalResult: false,
-			turn: {
-				interrupt: async () => {
-					interruptCalls += 1;
+				cancelRequested: false,
+				cancelRecorded: false,
+				hasFinalResult: false,
+				turn: {
+					interrupt: async () => {
+						interruptCalls += 1;
+					},
+					close: () => {
+						closeCalls += 1;
+					},
 				},
-				close: () => {
-					closeCalls += 1;
-				},
-			},
-		} as any);
+			}),
+		);
 
-		await coordinator.cancel('chat-1');
+		await coordinator.cancel('session-1');
 
 		expect(cancelledCount).toBe(1);
 		expect(interruptCalls).toBe(1);
 		expect(closeCalls).toBe(1);
 		expect(stateChanges).toBe(1);
 
-		expect(coordinator.activeTurns.has('chat-1')).toBe(false);
+		expect(coordinator.activeTurns.has('session-1')).toBe(false);
 		expect(pendingResolved).toEqual({ discarded: true, answers: {} });
 
 		expect(appended.map((entry) => entry.kind)).toEqual(['tool_result', 'interrupted']);
@@ -706,26 +743,29 @@ describe('AgentCoordinator.cancel', () => {
 		let resolvedValue: unknown = null;
 		const coordinator = createCoordinator({ store });
 
-		coordinator.activeTurns.set('chat-2', {
-			chatId: 'chat-2',
-			provider: 'codex',
-			pendingTool: {
-				toolUseId: 'tool-2',
-				tool: { toolKind: 'exit_plan_mode' },
-				resolve: (value: unknown) => {
-					resolvedValue = value;
+		coordinator.activeTurns.set(
+			'session-2',
+			activeTurnFixture({
+				sessionId: 'session-2',
+				provider: 'codex',
+				pendingTool: {
+					toolUseId: 'tool-2',
+					tool: { toolKind: 'exit_plan_mode' },
+					resolve: (value: unknown) => {
+						resolvedValue = value;
+					},
 				},
-			},
-			cancelRequested: false,
-			cancelRecorded: false,
-			hasFinalResult: false,
-			turn: {
-				interrupt: async () => {},
-				close: () => {},
-			},
-		} as any);
+				cancelRequested: false,
+				cancelRecorded: false,
+				hasFinalResult: false,
+				turn: {
+					interrupt: async () => {},
+					close: () => {},
+				},
+			}),
+		);
 
-		await coordinator.cancel('chat-2');
+		await coordinator.cancel('session-2');
 
 		expect(resolvedValue).toEqual({ discarded: true });
 	});

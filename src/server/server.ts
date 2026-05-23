@@ -3,26 +3,27 @@ import path from 'node:path';
 import { APP_NAME, getRuntimeProfile } from '../shared/branding';
 import type { ChatAttachment } from '../shared/types';
 import { AgentCoordinator } from './agent';
+import { cleanupStaleInstructionAttachments } from './agent-instruction-attachments';
 import type { UpdateInstallAttemptResult } from './cli-runtime';
 import { DiffStore } from './diff-store';
-import { type DiscoveredProject, discoverProjects } from './discovery';
 import { EventStore } from './event-store';
 import { KeybindingsManager } from './keybindings';
 import { getMachineDisplayName } from './machine-name';
-import { getProjectUploadDir } from './paths';
+import { getWorkspaceUploadDir } from './paths';
+import { PrManager } from './pr-manager';
 import { TerminalManager } from './terminal-manager';
 import { UpdateManager } from './update-manager';
 import {
-	deleteProjectUpload,
+	deleteWorkspaceUpload,
 	inferAttachmentContentType,
-	inferProjectFileContentType,
-	persistProjectUpload,
+	inferWorkspaceFileContentType,
+	persistWorkspaceUpload,
 } from './uploads';
+import { WorkspaceManager } from './workspace-manager';
 import { type ClientState, createWsRouter } from './ws-router';
 
 const MAX_UPLOAD_FILES = 50;
 const MAX_UPLOAD_SIZE_BYTES = 100 * 1024 * 1024;
-const STALE_EMPTY_CHAT_PRUNE_INTERVAL_MS = 60 * 1000;
 
 function safeDecodePathSegment(segment: string): string | null {
 	try {
@@ -33,19 +34,19 @@ function safeDecodePathSegment(segment: string): string | null {
 }
 
 export async function persistUploadedFiles(args: {
-	projectId: string;
+	workspaceId: string;
 	localPath: string;
 	files: File[];
-	persistUpload?: typeof persistProjectUpload;
+	persistUpload?: typeof persistWorkspaceUpload;
 }): Promise<ChatAttachment[]> {
-	const persistUpload = args.persistUpload ?? persistProjectUpload;
+	const persistUpload = args.persistUpload ?? persistWorkspaceUpload;
 	const attachments: ChatAttachment[] = [];
 
 	try {
 		for (const file of args.files) {
 			const bytes = new Uint8Array(await file.arrayBuffer());
 			const attachment = await persistUpload({
-				projectId: args.projectId,
+				workspaceId: args.workspaceId,
 				localPath: args.localPath,
 				fileName: file.name,
 				bytes,
@@ -56,7 +57,7 @@ export async function persistUploadedFiles(args: {
 	} catch (error) {
 		await Promise.allSettled(
 			attachments.map((attachment) =>
-				deleteProjectUpload({
+				deleteWorkspaceUpload({
 					localPath: args.localPath,
 					storedName: path.basename(attachment.absolutePath),
 				}),
@@ -87,18 +88,16 @@ export async function startServer(options: StartServerOptions = {}) {
 
 	const store = new EventStore();
 	const diffStore = new DiffStore(store.dataDir);
+	const prManager = new PrManager(store);
+	const workspaceManager = new WorkspaceManager(store, {
+		diffStore,
+		prManager,
+	});
+
 	const machineDisplayName = getMachineDisplayName();
 
 	await store.initialize();
 	await diffStore.initialize();
-	let discoveredProjects: DiscoveredProject[] = [];
-
-	async function refreshDiscovery() {
-		discoveredProjects = discoverProjects();
-		return discoveredProjects;
-	}
-
-	await refreshDiscovery();
 
 	let server: ReturnType<typeof Bun.serve<ClientState>>;
 	let router: ReturnType<typeof createWsRouter>;
@@ -115,28 +114,62 @@ export async function startServer(options: StartServerOptions = {}) {
 			})
 		: null;
 
+	async function refreshWorkspacePrStage(workspaceId: string, options?: { force?: boolean }) {
+		return workspaceManager.refreshWorkspacePrStage(workspaceId, options);
+	}
+
+	async function refreshActiveWorkspaceGitSnapshotsOnStartup() {
+		for (const workspace of store.listWorkspaces()) {
+			if (workspace.visibilityState !== 'active') continue;
+			if (workspace.setupState !== 'ready') continue;
+			if (workspace.reviewState === 'done' || workspace.reviewState === 'closed') continue;
+			await diffStore.refreshWorkspaceGitSnapshot(workspace.id, workspace.localPath);
+		}
+	}
+
+	async function refreshActiveWorkspacePrStagesOnStartup() {
+		for (const workspace of store.listWorkspaces()) {
+			if (workspace.visibilityState !== 'active') continue;
+			if (workspace.reviewState === 'done' || workspace.reviewState === 'closed') continue;
+			await refreshWorkspacePrStage(workspace.id, { force: true });
+		}
+	}
+
+	function cleanupStaleInstructionAttachmentsInBackground() {
+		void cleanupStaleInstructionAttachments([...store.state.workspacesById.values()]).catch(
+			(error) => {
+				console.warn('[miko] failed to cleanup instruction attachments', error);
+			},
+		);
+	}
+
 	const agent = new AgentCoordinator({
 		store,
 		onStateChange: () => {
 			void router.broadcastSnapshots();
+		},
+		onTurnSettled: async ({ sessionId }) => {
+			const result = await workspaceManager.handleWorkspaceTurnSettled({ sessionId });
+			if (result.changed) await router.broadcastSnapshots();
 		},
 	});
 
 	router = createWsRouter({
 		store,
 		diffStore,
+		workspaceManager,
+		prManager,
 		agent,
 		terminals,
 		keybindings,
-		refreshDiscovery,
-		getDiscoveredProjects: () => discoveredProjects,
 		machineDisplayName,
 		updateManager,
+		refreshWorkspacePrStage,
 	});
 
-	const staleEmptyChatPruneInterval = setInterval(() => {
-		void router.broadcastSnapshots();
-	}, STALE_EMPTY_CHAT_PRUNE_INTERVAL_MS);
+	await refreshActiveWorkspaceGitSnapshotsOnStartup();
+	await refreshActiveWorkspacePrStagesOnStartup();
+	cleanupStaleInstructionAttachmentsInBackground();
 
 	const distDir = path.join(import.meta.dir, '..', '..', 'dist', 'client');
 
@@ -166,12 +199,12 @@ export async function startServer(options: StartServerOptions = {}) {
 						return Response.json({ ok: true, port: actualPort });
 					}
 
-					const uploadResponse = await handleProjectUpload(req, url, store);
+					const uploadResponse = await handleWorkspaceUpload(req, url, store);
 					if (uploadResponse) {
 						return uploadResponse;
 					}
 
-					const deleteUploadResponse = await handleProjectUploadDelete(req, url, store);
+					const deleteUploadResponse = await handleWorkspaceUploadDelete(req, url, store);
 					if (deleteUploadResponse) {
 						return deleteUploadResponse;
 					}
@@ -181,9 +214,9 @@ export async function startServer(options: StartServerOptions = {}) {
 						return attachmentContentResponse;
 					}
 
-					const projectFileContentResponse = await handleProjectFileContent(req, url, store);
-					if (projectFileContentResponse) {
-						return projectFileContentResponse;
+					const workspaceFileContentResponse = await handleWorkspaceFileContent(req, url, store);
+					if (workspaceFileContentResponse) {
+						return workspaceFileContentResponse;
 					}
 
 					return serveStatic(distDir, url.pathname);
@@ -217,9 +250,8 @@ export async function startServer(options: StartServerOptions = {}) {
 	}
 
 	const shutdown = async () => {
-		clearInterval(staleEmptyChatPruneInterval);
-		for (const chatId of [...agent.activeTurns.keys()]) {
-			await agent.cancel(chatId);
+		for (const sessionId of [...agent.activeTurns.keys()]) {
+			await agent.cancel(sessionId);
 		}
 
 		router.dispose();
@@ -233,24 +265,26 @@ export async function startServer(options: StartServerOptions = {}) {
 		port: actualPort,
 		store,
 		diffStore,
+		workspaceManager,
+		prManager,
 		updateManager,
 		stop: shutdown,
 	};
 }
 
-export async function handleProjectUpload(req: Request, url: URL, store: EventStore) {
+export async function handleWorkspaceUpload(req: Request, url: URL, store: EventStore) {
 	if (req.method !== 'POST') {
 		return null;
 	}
 
-	const match = url.pathname.match(/^\/api\/projects\/([^/]+)\/uploads$/);
+	const match = url.pathname.match(/^\/api\/workspaces\/([^/]+)\/uploads$/);
 	if (!match) {
 		return null;
 	}
 
-	const project = store.getProject(match[1]);
-	if (!project) {
-		return Response.json({ error: 'Project not found' }, { status: 404 });
+	const workspace = store.getWorkspace(match[1]);
+	if (!workspace) {
+		return Response.json({ error: 'Workspace not found' }, { status: 404 });
 	}
 
 	const formData = await req.formData();
@@ -280,8 +314,8 @@ export async function handleProjectUpload(req: Request, url: URL, store: EventSt
 
 	try {
 		const attachments = await persistUploadedFiles({
-			projectId: project.id,
-			localPath: project.localPath,
+			workspaceId: workspace.id,
+			localPath: workspace.localPath,
 			files,
 		});
 		return Response.json({ attachments });
@@ -292,7 +326,7 @@ export async function handleProjectUpload(req: Request, url: URL, store: EventSt
 }
 
 export async function handleAttachmentContent(req: Request, url: URL, store: EventStore) {
-	const match = url.pathname.match(/^\/api\/projects\/([^/]+)\/uploads\/([^/]+)\/content$/);
+	const match = url.pathname.match(/^\/api\/workspaces\/([^/]+)\/uploads\/([^/]+)\/content$/);
 	if (!match) {
 		return null;
 	}
@@ -306,9 +340,9 @@ export async function handleAttachmentContent(req: Request, url: URL, store: Eve
 		});
 	}
 
-	const project = store.getProject(match[1]);
-	if (!project) {
-		return Response.json({ error: 'Project not found' }, { status: 404 });
+	const workspace = store.getWorkspace(match[1]);
+	if (!workspace) {
+		return Response.json({ error: 'Workspace not found' }, { status: 404 });
 	}
 
 	const storedName = safeDecodePathSegment(match[2]);
@@ -322,7 +356,7 @@ export async function handleAttachmentContent(req: Request, url: URL, store: Eve
 		return Response.json({ error: 'Invalid attachment path' }, { status: 400 });
 	}
 
-	const filePath = path.join(getProjectUploadDir(project.localPath), storedName);
+	const filePath = path.join(getWorkspaceUploadDir(workspace.localPath), storedName);
 	const file = Bun.file(filePath);
 
 	try {
@@ -341,8 +375,8 @@ export async function handleAttachmentContent(req: Request, url: URL, store: Eve
 	});
 }
 
-export async function handleProjectFileContent(req: Request, url: URL, store: EventStore) {
-	const match = url.pathname.match(/^\/api\/projects\/([^/]+)\/files\/([^/]+)\/content$/);
+export async function handleWorkspaceFileContent(req: Request, url: URL, store: EventStore) {
+	const match = url.pathname.match(/^\/api\/workspaces\/([^/]+)\/files\/([^/]+)\/content$/);
 	if (!match) {
 		return null;
 	}
@@ -356,14 +390,14 @@ export async function handleProjectFileContent(req: Request, url: URL, store: Ev
 		});
 	}
 
-	const project = store.getProject(match[1]);
-	if (!project) {
-		return Response.json({ error: 'Project not found' }, { status: 404 });
+	const workspace = store.getWorkspace(match[1]);
+	if (!workspace) {
+		return Response.json({ error: 'Workspace not found' }, { status: 404 });
 	}
 
 	const decodedPathSegment = safeDecodePathSegment(match[2]);
 	if (!decodedPathSegment) {
-		return Response.json({ error: 'Invalid project file path' }, { status: 400 });
+		return Response.json({ error: 'Invalid workspace file path' }, { status: 400 });
 	}
 
 	const relativePath = path.posix.normalize(decodedPathSegment.replaceAll('\\', '/'));
@@ -374,14 +408,14 @@ export async function handleProjectFileContent(req: Request, url: URL, store: Ev
 		relativePath.includes('/../') ||
 		path.posix.isAbsolute(relativePath)
 	) {
-		return Response.json({ error: 'Invalid project file path' }, { status: 400 });
+		return Response.json({ error: 'Invalid workspace file path' }, { status: 400 });
 	}
 
-	const filePath = path.resolve(project.localPath, relativePath);
-	const projectRoot = path.resolve(project.localPath);
+	const filePath = path.resolve(workspace.localPath, relativePath);
+	const workspaceRoot = path.resolve(workspace.localPath);
 
-	if (filePath !== projectRoot && !filePath.startsWith(`${projectRoot}${path.sep}`)) {
-		return Response.json({ error: 'Invalid project file path' }, { status: 400 });
+	if (filePath !== workspaceRoot && !filePath.startsWith(`${workspaceRoot}${path.sep}`)) {
+		return Response.json({ error: 'Invalid workspace file path' }, { status: 400 });
 	}
 
 	const file = Bun.file(filePath);
@@ -396,24 +430,24 @@ export async function handleProjectFileContent(req: Request, url: URL, store: Ev
 
 	return new Response(file, {
 		headers: {
-			'Content-Type': inferProjectFileContentType(relativePath, file.type),
+			'Content-Type': inferWorkspaceFileContentType(relativePath, file.type),
 		},
 	});
 }
 
-export async function handleProjectUploadDelete(req: Request, url: URL, store: EventStore) {
+export async function handleWorkspaceUploadDelete(req: Request, url: URL, store: EventStore) {
 	if (req.method !== 'DELETE') {
 		return null;
 	}
 
-	const match = url.pathname.match(/^\/api\/projects\/([^/]+)\/uploads\/([^/]+)$/);
+	const match = url.pathname.match(/^\/api\/workspaces\/([^/]+)\/uploads\/([^/]+)$/);
 	if (!match) {
 		return null;
 	}
 
-	const project = store.getProject(match[1]);
-	if (!project) {
-		return Response.json({ error: 'Project not found' }, { status: 404 });
+	const workspace = store.getWorkspace(match[1]);
+	if (!workspace) {
+		return Response.json({ error: 'Workspace not found' }, { status: 404 });
 	}
 
 	const storedName = safeDecodePathSegment(match[2]);
@@ -427,8 +461,8 @@ export async function handleProjectUploadDelete(req: Request, url: URL, store: E
 		return Response.json({ error: 'Invalid attachment path' }, { status: 400 });
 	}
 
-	const deleted = await deleteProjectUpload({
-		localPath: project.localPath,
+	const deleted = await deleteWorkspaceUpload({
+		localPath: workspace.localPath,
 		storedName,
 	});
 
