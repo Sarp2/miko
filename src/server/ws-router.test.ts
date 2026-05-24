@@ -90,6 +90,8 @@ async function createSeededStore() {
 
 async function createRouter(overrides: Record<string, unknown> = {}) {
 	let gitSnapshot = unknownGitSnapshot();
+	let scratchpadContent = '';
+	let scratchpadUpdatedAt: number | null = null;
 	const seeded = await createSeededStore();
 
 	const diffStore = {
@@ -141,6 +143,18 @@ async function createRouter(overrides: Record<string, unknown> = {}) {
 		diffStore,
 		workspaceManager,
 		prManager,
+		scratchpadManager: {
+			getSnapshot: async (workspaceId: string) => ({
+				workspaceId,
+				content: scratchpadContent,
+				updatedAt: scratchpadUpdatedAt,
+			}),
+			updateScratchpad: async (workspaceId: string, content: string) => {
+				scratchpadContent = content;
+				scratchpadUpdatedAt = 123;
+				return { workspaceId, content, updatedAt: scratchpadUpdatedAt };
+			},
+		} as never,
 		agent: {
 			getActiveStatuses: () => new Map(),
 			getDrainingSessionIds: () => new Set(),
@@ -251,6 +265,60 @@ describe('createWsRouter.createEnvelope', () => {
 			type: 'snapshot',
 			id: 'sub-1',
 			snapshot: { type: 'directories' },
+		});
+	});
+
+	test('creates a scratchpad snapshot', async () => {
+		const ws = new FakeWebSocket();
+		const { router, workspaceId } = await createRouter({
+			scratchpadManager: {
+				getSnapshot: async (id: string) => ({
+					workspaceId: id,
+					content: '# Scratchpad',
+					updatedAt: 123,
+				}),
+			},
+		});
+
+		await router.handleMessage(
+			ws as never,
+			JSON.stringify({
+				type: 'subscribe',
+				id: 'scratchpad-sub',
+				topic: { type: 'scratchpad', workspaceId },
+			}),
+		);
+
+		expect(ws.sent[0]).toEqual({
+			type: 'snapshot',
+			id: 'scratchpad-sub',
+			snapshot: {
+				type: 'scratchpad',
+				data: { workspaceId, content: '# Scratchpad', updatedAt: 123 },
+			},
+		});
+	});
+
+	test('creates a scratchpad snapshot for a stale workspace subscription', async () => {
+		const ws = new FakeWebSocket();
+		const { router } = await createRouter();
+
+		await router.handleMessage(
+			ws as never,
+			JSON.stringify({
+				type: 'subscribe',
+				id: 'scratchpad-sub',
+				topic: { type: 'scratchpad', workspaceId: 'removed-workspace' },
+			}),
+		);
+
+		expect(ws.sent[0]).toEqual({
+			type: 'snapshot',
+			id: 'scratchpad-sub',
+			snapshot: {
+				type: 'scratchpad',
+				data: { workspaceId: 'removed-workspace', content: '', updatedAt: null },
+			},
 		});
 	});
 });
@@ -457,6 +525,42 @@ describe('createWsRouter.handleCommand', () => {
 				result: {
 					refreshed: true,
 					snapshot: { status: 'none', owner: 'sarp', repo: 'miko', comments: [], checks: [] },
+				},
+			},
+		]);
+	});
+
+	test('updates scratchpad and pushes subscribed snapshots', async () => {
+		const { router, workspaceId } = await createRouter();
+		const ws = new FakeWebSocket();
+		router.handleOpen(ws as never);
+		ws.data.subscriptions.set('scratchpad-sub', { type: 'scratchpad', workspaceId });
+
+		await router.handleMessage(
+			ws as never,
+			JSON.stringify({
+				type: 'command',
+				id: 'scratchpad-1',
+				command: {
+					type: 'workspace.updateScratchpad',
+					workspaceId,
+					content: '# Updated notes',
+				},
+			}),
+		);
+
+		expect(ws.sent).toEqual([
+			{
+				type: 'ack',
+				id: 'scratchpad-1',
+				result: { workspaceId, content: '# Updated notes', updatedAt: 123 },
+			},
+			{
+				type: 'snapshot',
+				id: 'scratchpad-sub',
+				snapshot: {
+					type: 'scratchpad',
+					data: { workspaceId, content: '# Updated notes', updatedAt: 123 },
 				},
 			},
 		]);

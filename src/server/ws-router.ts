@@ -30,6 +30,7 @@ import {
 	deriveSidebarSnapshot,
 	deriveWorkspaceSnapshot,
 } from './read-models';
+import type { ScratchpadManager } from './scratchpad-manager';
 import type { TerminalManager } from './terminal-manager';
 import type { UpdateManager } from './update-manager';
 import type { WorkspaceManager, WorkspaceTurnIntent } from './workspace-manager';
@@ -59,6 +60,7 @@ interface CreateWsRouterArgs {
 	>;
 	workspaceManager: WorkspaceManager;
 	prManager: PrManager;
+	scratchpadManager: ScratchpadManager;
 	agent: AgentCoordinator;
 	terminals: TerminalManager;
 	keybindings: KeybindingsManager;
@@ -100,6 +102,7 @@ export function createWsRouter({
 	diffStore,
 	workspaceManager,
 	prManager,
+	scratchpadManager,
 	agent,
 	terminals,
 	keybindings,
@@ -208,6 +211,17 @@ export function createWsRouter({
 			};
 		}
 
+		if (topic.type === 'scratchpad') {
+			return {
+				type: 'snapshot',
+				id,
+				snapshot: {
+					type: 'scratchpad',
+					data: await scratchpadManager.getSnapshot(topic.workspaceId),
+				},
+			};
+		}
+
 		if (topic.type === 'keybindings') {
 			return {
 				type: 'snapshot',
@@ -276,6 +290,23 @@ export function createWsRouter({
 			const snapshotSignatures = ensureSnapshotSignatures(ws);
 			for (const [id, topic] of ws.data.subscriptions.entries()) {
 				if (topic.type !== topicType) continue;
+				const envelope = await createEnvelope(id, topic);
+				if (envelope.type !== 'snapshot') continue;
+
+				const signature = JSON.stringify(envelope.snapshot);
+				if (snapshotSignatures.get(id) === signature) continue;
+
+				snapshotSignatures.set(id, signature);
+				send(ws, envelope);
+			}
+		}
+	}
+
+	async function pushScratchpadSnapshot(workspaceId: string) {
+		for (const ws of sockets) {
+			const snapshotSignatures = ensureSnapshotSignatures(ws);
+			for (const [id, topic] of ws.data.subscriptions.entries()) {
+				if (topic.type !== 'scratchpad' || topic.workspaceId !== workspaceId) continue;
 				const envelope = await createEnvelope(id, topic);
 				if (envelope.type !== 'snapshot') continue;
 
@@ -602,6 +633,16 @@ export function createWsRouter({
 					const result = await prManager.mergeWorkspacePullRequest(command.workspaceId);
 					send(ws, { type: 'ack', id, result });
 					break;
+				}
+				case 'workspace.updateScratchpad': {
+					requireWorkspace(command.workspaceId);
+					const snapshot = await scratchpadManager.updateScratchpad(
+						command.workspaceId,
+						command.content,
+					);
+					send(ws, { type: 'ack', id, result: snapshot });
+					await pushScratchpadSnapshot(command.workspaceId);
+					return;
 				}
 				case 'session.create': {
 					const session = await store.createSession(command.workspaceId);

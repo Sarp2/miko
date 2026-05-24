@@ -11,6 +11,7 @@ import { KeybindingsManager } from './keybindings';
 import { getMachineDisplayName } from './machine-name';
 import { getWorkspaceUploadDir } from './paths';
 import { PrManager } from './pr-manager';
+import { ScratchpadManager } from './scratchpad-manager';
 import { TerminalManager } from './terminal-manager';
 import { UpdateManager } from './update-manager';
 import {
@@ -89,6 +90,7 @@ export async function startServer(options: StartServerOptions = {}) {
 	const store = new EventStore();
 	const diffStore = new DiffStore(store.dataDir);
 	const prManager = new PrManager(store);
+	const scratchpadManager = new ScratchpadManager(store.dataDir);
 	const workspaceManager = new WorkspaceManager(store, {
 		diffStore,
 		prManager,
@@ -159,6 +161,7 @@ export async function startServer(options: StartServerOptions = {}) {
 		diffStore,
 		workspaceManager,
 		prManager,
+		scratchpadManager,
 		agent,
 		terminals,
 		keybindings,
