@@ -1,0 +1,23 @@
+src/server/scratchpad-manager.ts
+  s_82e93de1bb8ac8::t_43d045f961645e 6-7,40-42
+src/server/scratchpad-manager.test.ts
+  s_82e93de1bb8ac8::t_28789564ee549d 58-66
+src/server/ws-router.test.ts
+  s_82e93de1bb8ac8::t_82815af8e74e2f 301-323
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "d877ea8719ae6673249d5e32f9193bdcb53fc5c9",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
