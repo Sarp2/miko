@@ -8,6 +8,7 @@ import type {
 	GithubPublishInfo,
 	KeybindingsSnapshot,
 	ModelOptions,
+	ScratchpadSnapshot,
 	SessionHistoryPage,
 	SessionSnapshot,
 	SidebarSnapshot,
@@ -30,6 +31,7 @@ export type SubscriptionTopic =
 	| { type: 'keybindings' }
 	| { type: 'workspace'; workspaceId: string }
 	| { type: 'session'; sessionId: string; recentLimit?: number }
+	| { type: 'scratchpad'; workspaceId: string }
 	| { type: 'terminal'; terminalId: string };
 
 export interface TerminalSnapshot {
@@ -95,6 +97,7 @@ export type ClientCommand =
 			commentIds: string[];
 	  }
 	| { type: 'workspace.mergePr'; workspaceId: string }
+	| { type: 'workspace.updateScratchpad'; workspaceId: string; content: string }
 	| { type: 'system.ping' }
 	| { type: 'update.check'; force?: boolean }
 	| { type: 'update.install' }
@@ -151,6 +154,7 @@ export type ServerSnapshot =
 	| { type: 'keybindings'; data: KeybindingsSnapshot }
 	| { type: 'workspace'; data: WorkspaceSnapshot | null }
 	| { type: 'session'; data: SessionSnapshot | null }
+	| { type: 'scratchpad'; data: ScratchpadSnapshot }
 	| { type: 'terminal'; data: TerminalSnapshot | null };
 
 export type ServerEnvelope =

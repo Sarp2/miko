@@ -683,6 +683,12 @@ export interface PullRequestCheckSnapshot {
 	canFetchLogs: boolean;
 }
 
+export interface ScratchpadSnapshot {
+	workspaceId: string;
+	content: string;
+	updatedAt: number | null;
+}
+
 export interface WorkspaceSnapshot {
 	workspace: WorkspaceSummary;
 	primaryLabel: string;
