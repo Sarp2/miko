@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, spyOn, test } from 'bun:test';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import {
@@ -23,7 +23,7 @@ describe('openExternal', () => {
 		const dir = await mkdtemp(path.join(tmpdir(), 'miko-external-open-'));
 		const filePath = path.join(dir, 'x.ts');
 
-		await writeFile(filePath, '');
+		await Bun.write(filePath, '');
 		spyOn(processUtils, 'hasCommand').mockReturnValue(true);
 		const spawn = spyOn(processUtils, 'spawnDetached').mockImplementation(() => {});
 

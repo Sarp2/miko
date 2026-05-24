@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { ChatAttachment } from '../shared/types';
@@ -369,7 +369,7 @@ describe('handleAttachmentContent', () => {
 			const uploadDir = getWorkspaceUploadDir(localPath);
 			await mkdir(uploadDir, { recursive: true });
 			const filePath = path.join(uploadDir, 'notes.md');
-			await writeFile(filePath, '# hello');
+			await Bun.write(filePath, '# hello');
 
 			const req = createAttachmentContentRequest({});
 			const response = await handleAttachmentContent(
@@ -495,7 +495,7 @@ describe('handleWorkspaceFileContent', () => {
 		const localPath = await mkdtemp(path.join(tmpdir(), 'miko-server-'));
 		try {
 			const filePath = path.join(localPath, 'notes.md');
-			await writeFile(filePath, '# workspace file');
+			await Bun.write(filePath, '# workspace file');
 
 			const req = createWorkspaceFileContentRequest({});
 			const response = await handleWorkspaceFileContent(
@@ -599,7 +599,7 @@ describe('serveStatic', () => {
 	test('serves an existing file from dist', async () => {
 		const distDir = await mkdtemp(path.join(tmpdir(), 'miko-static-'));
 		try {
-			await writeFile(path.join(distDir, 'app.js'), 'console.log("ok")');
+			await Bun.write(path.join(distDir, 'app.js'), 'console.log("ok")');
 			const response = await serveStatic(distDir, '/app.js');
 
 			expect(response.status).toBe(200);

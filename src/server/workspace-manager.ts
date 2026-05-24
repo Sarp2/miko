@@ -1,4 +1,4 @@
-import { mkdir, readFile, realpath, stat, writeFile } from 'node:fs/promises';
+import { mkdir, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import type { WorkspaceGitHubSnapshot, WorkspaceHealthState } from 'src/shared/types';
 import { type DiffStore, extractGitHubRepoSlug, runGit } from './diff-store';
@@ -202,13 +202,15 @@ export class WorkspaceManager {
 			: path.join(directoryPath, gitPath.stdout.trim());
 
 		const entry = `/${branchName}/`;
-		const current = await readFile(excludePath, 'utf-8').catch(() => '');
+		const current = await Bun.file(excludePath)
+			.text()
+			.catch(() => '');
 
 		const lines = current.split(/\r?\n/u).map((line) => line.trim());
 		if (lines.includes(entry)) return false;
 
 		const prefix = current.length === 0 || current.endsWith('\n') ? current : `${current}\n`;
-		await writeFile(excludePath, `${prefix}${entry}\n`, 'utf-8');
+		await Bun.write(excludePath, `${prefix}${entry}\n`);
 		return true;
 	}
 
@@ -221,14 +223,16 @@ export class WorkspaceManager {
 			: path.join(directoryPath, gitPath.stdout.trim());
 
 		const entry = `/${branchName}/`;
-		const current = await readFile(excludePath, 'utf-8').catch(() => '');
+		const current = await Bun.file(excludePath)
+			.text()
+			.catch(() => '');
 		if (!current) return;
 
 		const next = current
 			.split(/\r?\n/u)
 			.filter((line) => line.trim() !== entry)
 			.join('\n');
-		await writeFile(excludePath, next ? `${next}\n` : '', 'utf-8');
+		await Bun.write(excludePath, next ? `${next}\n` : '');
 	}
 
 	private async resolveBaseRef(directoryPath: string) {

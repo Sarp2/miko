@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, spyOn, test } from 'bun:test';
 import { existsSync } from 'node:fs';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { TranscriptEntry } from 'src/shared/types';
@@ -99,10 +99,9 @@ describe('EventStore.initialize', () => {
 			defaultBranchName: 'main',
 		};
 
-		await writeFile(
+		await Bun.write(
 			join(dataDir, 'directories.jsonl'),
 			`${JSON.stringify(directoryEvent)}\n{not json`,
-			'utf-8',
 		);
 
 		try {
@@ -114,7 +113,7 @@ describe('EventStore.initialize', () => {
 				localPath: '/tmp/miko',
 				title: 'Miko',
 			});
-			expect(await readFile(join(dataDir, 'directories.jsonl'), 'utf-8')).toContain(
+			expect(await Bun.file(join(dataDir, 'directories.jsonl')).text()).toContain(
 				'directory_added',
 			);
 		} finally {
@@ -126,7 +125,7 @@ describe('EventStore.initialize', () => {
 		const dataDir = await createTempDataDir();
 		const warn = spyOn(console, 'warn').mockImplementation(() => {});
 		await mkdir(join(dataDir, 'transcripts'), { recursive: true });
-		await writeFile(join(dataDir, 'transcripts', 'orphan.jsonl'), '{"kind":"user_prompt"}\n');
+		await Bun.write(join(dataDir, 'transcripts', 'orphan.jsonl'), '{"kind":"user_prompt"}\n');
 		const firstEvent = {
 			type: 'directory_added',
 			timestamp: 100,
@@ -148,10 +147,9 @@ describe('EventStore.initialize', () => {
 			defaultBranchName: 'main',
 		};
 
-		await writeFile(
+		await Bun.write(
 			join(dataDir, 'directories.jsonl'),
 			`${JSON.stringify(firstEvent)}\n{not json\n${JSON.stringify(secondEvent)}\n`,
-			'utf-8',
 		);
 
 		try {
@@ -159,12 +157,12 @@ describe('EventStore.initialize', () => {
 			await store.initialize();
 
 			expect(store.listDirectories()).toEqual([]);
-			expect(await readFile(join(dataDir, 'snapshot.json'), 'utf-8')).toBe('');
-			expect(await readFile(join(dataDir, 'directories.jsonl'), 'utf-8')).toBe('');
-			expect(await readFile(join(dataDir, 'workspaces.jsonl'), 'utf-8')).toBe('');
-			expect(await readFile(join(dataDir, 'sessions.jsonl'), 'utf-8')).toBe('');
-			expect(await readFile(join(dataDir, 'turns.jsonl'), 'utf-8')).toBe('');
-			expect(await readFile(join(dataDir, 'transcripts', 'orphan.jsonl'), 'utf-8')).toBe(
+			expect(await Bun.file(join(dataDir, 'snapshot.json')).text()).toBe('');
+			expect(await Bun.file(join(dataDir, 'directories.jsonl')).text()).toBe('');
+			expect(await Bun.file(join(dataDir, 'workspaces.jsonl')).text()).toBe('');
+			expect(await Bun.file(join(dataDir, 'sessions.jsonl')).text()).toBe('');
+			expect(await Bun.file(join(dataDir, 'turns.jsonl')).text()).toBe('');
+			expect(await Bun.file(join(dataDir, 'transcripts', 'orphan.jsonl')).text()).toBe(
 				'{"kind":"user_prompt"}\n',
 			);
 		} finally {
@@ -192,7 +190,7 @@ describe('EventStore.addDirectory', () => {
 		).rejects.toThrow();
 
 		await rm(paths.directoriesLogPath, { recursive: true, force: true });
-		await writeFile(paths.directoriesLogPath, '');
+		await Bun.write(paths.directoriesLogPath, '');
 
 		const directory = await store.addDirectory({
 			localPath: '/tmp/miko',
@@ -437,7 +435,7 @@ describe('EventStore.appendMessage', () => {
 		expect(store.getMessages(session.id)).toEqual([userEntry, assistantEntry]);
 
 		const transcriptPath = join(dataDir, 'transcripts', `${session.id}.jsonl`);
-		const transcriptText = await readFile(transcriptPath, 'utf-8');
+		const transcriptText = await Bun.file(transcriptPath).text();
 		expect(transcriptText).toContain('"kind":"user_prompt"');
 		expect(transcriptText).toContain('"kind":"assistant_text"');
 
@@ -522,7 +520,7 @@ describe('EventStore.appendMessage', () => {
 		const userEntry = entry('user_prompt', 100, { content: 'hello' });
 		await store.appendMessage(session.id, userEntry);
 		const transcriptPath = join(dataDir, 'transcripts', `${session.id}.jsonl`);
-		await writeFile(transcriptPath, `${await readFile(transcriptPath, 'utf-8')}{not json`);
+		await Bun.write(transcriptPath, `${await Bun.file(transcriptPath).text()}{not json`);
 
 		try {
 			const reloaded = new EventStore(dataDir);
@@ -690,14 +688,16 @@ describe('EventStore.compact', () => {
 		await store.recordTurnFinished(session.id);
 		await store.compact();
 
-		expect(await readFile(join(dataDir, 'directories.jsonl'), 'utf-8')).toBe('');
-		expect(await readFile(join(dataDir, 'workspaces.jsonl'), 'utf-8')).toBe('');
-		expect(await readFile(join(dataDir, 'sessions.jsonl'), 'utf-8')).toBe('');
-		expect(await readFile(join(dataDir, 'turns.jsonl'), 'utf-8')).toBe('');
+		expect(await Bun.file(join(dataDir, 'directories.jsonl')).text()).toBe('');
+		expect(await Bun.file(join(dataDir, 'workspaces.jsonl')).text()).toBe('');
+		expect(await Bun.file(join(dataDir, 'sessions.jsonl')).text()).toBe('');
+		expect(await Bun.file(join(dataDir, 'turns.jsonl')).text()).toBe('');
 
 		const snapshot = JSON.parse(
-			await readFile(join(dataDir, 'snapshot.json'), 'utf-8'),
-		) as SnapshotFile & { messages?: unknown };
+			await Bun.file(join(dataDir, 'snapshot.json')).text(),
+		) as SnapshotFile & {
+			messages?: unknown;
+		};
 		expect(snapshot.directories.map((candidate) => candidate.id)).toEqual([directory.id]);
 		expect(snapshot.workspaces.map((candidate) => candidate.id)).toEqual([workspace.id]);
 		expect(snapshot.sessions.map((candidate) => candidate.id)).toEqual([session.id]);

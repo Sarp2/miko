@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, readFile, rm, stat } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { WorkspaceGitHubSnapshot } from 'src/shared/types';
@@ -365,9 +365,7 @@ describe('WorkspaceManager.createWorkspace', () => {
 			setupState: 'ready',
 		});
 		expect(session).toMatchObject({ workspaceId: workspace.id });
-		expect(await readFile(path.join(sourcePath, '.git/info/exclude'), 'utf-8')).toContain(
-			'/atlas/',
-		);
+		expect(await Bun.file(path.join(sourcePath, '.git/info/exclude')).text()).toContain('/atlas/');
 		expect((await runGit(['branch', '--show-current'], workspace.localPath)).stdout.trim()).toBe(
 			'atlas',
 		);
@@ -414,7 +412,7 @@ describe('WorkspaceManager.createWorkspace', () => {
 
 		expect(result.session).toBeNull();
 		expect(result.workspace.setupState).toBe('failed');
-		expect(await readFile(path.join(sourcePath, '.git/info/exclude'), 'utf-8')).not.toContain(
+		expect(await Bun.file(path.join(sourcePath, '.git/info/exclude')).text()).not.toContain(
 			'/atlas/',
 		);
 	});
@@ -446,9 +444,7 @@ describe('WorkspaceManager.renameWorkspaceBranch', () => {
 		expect((await runGit(['branch', '--show-current'], workspace.localPath)).stdout.trim()).toBe(
 			'feature-login',
 		);
-		expect(await readFile(path.join(sourcePath, '.git/info/exclude'), 'utf-8')).toContain(
-			'/atlas/',
-		);
+		expect(await Bun.file(path.join(sourcePath, '.git/info/exclude')).text()).toContain('/atlas/');
 		expect(refreshCalls.at(-1)).toEqual({
 			workspaceId: workspace.id,
 			localPath: workspace.localPath,
