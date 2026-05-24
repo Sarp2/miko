@@ -1,0 +1,47 @@
+src/server/process-utils.test.ts
+  s_d7a23026a84cd9::t_6d76bb9fe4758f 2,18
+src/server/diff-store.ts
+  s_d7a23026a84cd9::t_e6602854eee5f5 240-242,1207-1209
+  s_d7a23026a84cd9::t_563c200ee31aad 2,250,1212
+src/server/workspace-manager.test.ts
+  s_d7a23026a84cd9::t_d4ffc62267376e 2,415
+  s_d7a23026a84cd9::t_e6602854eee5f5 368,447
+src/server/keybindings.test.ts
+  s_d7a23026a84cd9::t_3f5047f2c34df0 3,60,133,181,195
+  s_d7a23026a84cd9::t_d4c13e278f2534 48,80,160
+src/server/agent-instruction-attachments.test.ts
+  s_d7a23026a84cd9::t_34676f63d299ac 2,133,163,204,246,249,251-255
+  s_d7a23026a84cd9::t_e6602854eee5f5 256-260
+src/server/event-store.test.ts
+  s_d7a23026a84cd9::t_69651671d4dc90 3,102,128,150,193,523
+  s_d7a23026a84cd9::t_e6602854eee5f5 697-698
+  s_d7a23026a84cd9::t_6c2bcae31b15ff 116,160-165,438,691-694,699-700
+src/server/uploads.test.ts
+  s_d7a23026a84cd9::t_550d10489cc7b6 2,79,106,147
+src/server/workspace-manager.ts
+  s_d7a23026a84cd9::t_caac86cb2ccee1 1,213,235
+  s_d7a23026a84cd9::t_e6602854eee5f5 205-207,226-228
+src/server/keybindings.ts
+  s_d7a23026a84cd9::t_66f513b023f9e7 2,32,64
+  s_d7a23026a84cd9::t_fd3b4dfc2c1d1f 102
+src/server/external-open.test.ts
+  s_d7a23026a84cd9::t_eddea0b493810b 2,26
+src/server/server.test.ts
+  s_d7a23026a84cd9::t_4400c07a981082 2,372,498,602
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "8e39c46f81c0b3996cba73d2def12edc2361df60",
+  "prompts": {},
+  "sessions": {
+    "s_d7a23026a84cd9": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e59b4-cea8-7d70-82c9-5e517bd3b88e",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
