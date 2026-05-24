@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { canOpenMacApp, hasCommand, spawnDetached } from './process-utils';
@@ -15,7 +15,7 @@ describe('spawnDetached', () => {
 				if (existsSync(marker)) break;
 				await new Promise((r) => setTimeout(r, 25));
 			}
-			expect(readFileSync(marker, 'utf8')).toBe('hello');
+			expect(await Bun.file(marker).text()).toBe('hello');
 		} finally {
 			rmSync(dir, { recursive: true, force: true });
 		}

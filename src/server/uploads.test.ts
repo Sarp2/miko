@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import {
@@ -76,7 +76,7 @@ describe('persistWorkspaceUpload', () => {
 		expect(attachment.size).toBe(bytes.byteLength);
 		expect(path.basename(attachment.absolutePath)).toBe('my-report.txt');
 
-		const storedText = await readFile(attachment.absolutePath, 'utf-8');
+		const storedText = await Bun.file(attachment.absolutePath).text();
 		expect(storedText).toBe('hello upload');
 	});
 
@@ -103,7 +103,7 @@ describe('persistWorkspaceUpload', () => {
 		expect(second.relativePath).toBe('./.miko/uploads/report-1.txt');
 		expect(second.contentUrl).toBe('/api/workspaces/workspace-123/uploads/report-1.txt/content');
 
-		const storedText = await readFile(second.absolutePath, 'utf-8');
+		const storedText = await Bun.file(second.absolutePath).text();
 		expect(storedText).toBe('second');
 	});
 });
@@ -144,7 +144,7 @@ describe('deleteWorkspaceUpload', () => {
 		});
 
 		expect(deleted).toBe(true);
-		await expect(readFile(attachment.absolutePath, 'utf-8')).rejects.toThrow();
+		await expect(Bun.file(attachment.absolutePath).text()).rejects.toThrow();
 	});
 
 	test('returns false for invalid stored names that are not plain file names', async () => {

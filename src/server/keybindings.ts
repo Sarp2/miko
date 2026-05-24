@@ -1,5 +1,5 @@
 import { type FSWatcher, watch } from 'node:fs';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { getKeybindingsFilePath, LOG_PREFIX } from '../shared/branding';
@@ -29,7 +29,7 @@ export class KeybindingsManager {
 		const file = Bun.file(this.filePath);
 
 		if (!(await file.exists())) {
-			await writeFile(this.filePath, `${JSON.stringify(DEFAULT_KEYBINDINGS, null, 2)}\n`, 'utf8');
+			await Bun.write(this.filePath, `${JSON.stringify(DEFAULT_KEYBINDINGS, null, 2)}\n`);
 		}
 
 		await this.reload();
@@ -61,7 +61,7 @@ export class KeybindingsManager {
 	async write(bindings: Partial<Record<KeybindingAction, string[]>>) {
 		const nextSnapshot = normalizeKeybindings(bindings, this.filePath);
 		await mkdir(path.dirname(this.filePath), { recursive: true });
-		await writeFile(this.filePath, `${JSON.stringify(nextSnapshot.bindings, null, 2)}\n`, 'utf8');
+		await Bun.write(this.filePath, `${JSON.stringify(nextSnapshot.bindings, null, 2)}\n`);
 
 		this.setSnapshot(nextSnapshot);
 		return nextSnapshot;
@@ -99,7 +99,7 @@ export class KeybindingsManager {
 
 export async function readKeybindingsSnapshot(filePath: string) {
 	try {
-		const text = await readFile(filePath, 'utf8');
+		const text = await Bun.file(filePath).text();
 		if (!text.trim()) {
 			return createDefaultSnapshot(filePath, 'Keybindings file was empty. Using defaults.');
 		}

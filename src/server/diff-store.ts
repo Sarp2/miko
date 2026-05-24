@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import type {
 	BranchActionFailure,
@@ -237,7 +237,9 @@ const SAFE_INITIAL_GITIGNORE_ENTRIES = [
 
 async function ensureSafeInitialGitignore(repoRoot: string) {
 	const gitignorePath = path.join(repoRoot, '.gitignore');
-	const currentContents = await readFile(gitignorePath, 'utf8').catch(() => null);
+	const currentContents = await Bun.file(gitignorePath)
+		.text()
+		.catch(() => null);
 	let nextContents = currentContents;
 
 	for (const entry of SAFE_INITIAL_GITIGNORE_ENTRIES) {
@@ -245,7 +247,7 @@ async function ensureSafeInitialGitignore(repoRoot: string) {
 	}
 
 	if (nextContents !== null && nextContents !== currentContents) {
-		await writeFile(gitignorePath, nextContents, 'utf8');
+		await Bun.write(gitignorePath, nextContents);
 	}
 }
 
@@ -1202,10 +1204,12 @@ export class DiffStore {
 		if (!entry) throw new Error(`File is no longer changed: ${ignoreEntry}`);
 
 		const gitignorePath = path.join(repo.repoRoot, '.gitignore');
-		const currentContents = await readFile(gitignorePath, 'utf8').catch(() => null);
+		const currentContents = await Bun.file(gitignorePath)
+			.text()
+			.catch(() => null);
 		const nextContents = appendGitIgnoreEntry(currentContents, ignoreEntry);
 		if (nextContents !== currentContents) {
-			await writeFile(gitignorePath, nextContents, 'utf8');
+			await Bun.write(gitignorePath, nextContents);
 		}
 
 		return {

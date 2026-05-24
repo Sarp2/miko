@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { readFile, rm } from 'node:fs/promises';
+import { rm } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { getDataDir } from 'src/shared/branding';
@@ -130,7 +130,7 @@ describe('writeCreatePrInstructionsAttachment', () => {
 			contentUrl: `file://${filePath}`,
 		});
 		expect(attachment.size).toBeGreaterThan(0);
-		expect(await readFile(filePath, 'utf-8')).toContain('The user requested a pull request');
+		expect(await Bun.file(filePath).text()).toContain('The user requested a pull request');
 	});
 });
 
@@ -160,7 +160,7 @@ describe('writeFailingCiLogsAttachment', () => {
 			mimeType: 'text/plain',
 			absolutePath: filePath,
 		});
-		const body = await readFile(filePath, 'utf-8');
+		const body = await Bun.file(filePath).text();
 		expect(body).toContain('Run ID: 101');
 		expect(body).toContain('Workflow: CI');
 		expect(body).toContain('expected true to be false');
@@ -201,7 +201,7 @@ describe('writeSelectedReviewCommentsAttachment', () => {
 			mimeType: 'text/plain',
 			absolutePath: filePath,
 		});
-		const body = await readFile(filePath, 'utf-8');
+		const body = await Bun.file(filePath).text();
 		expect(body).toContain('The user selected these PR review comments to address.');
 		expect(body).toContain('PR: #12 Add workspace model');
 		expect(body).toContain('Branch: atlas');
@@ -243,15 +243,21 @@ describe('cleanupStaleInstructionAttachments', () => {
 		]);
 
 		expect(result).toEqual({ deletedCount: 4 });
-		await expect(readFile(instructionPath('create-pr-active-workspace.md'), 'utf-8')).resolves.toBe(
+		await expect(Bun.file(instructionPath('create-pr-active-workspace.md')).text()).resolves.toBe(
 			'create-pr-active-workspace.md',
 		);
-		await expect(readFile(instructionPath('notes.txt'), 'utf-8')).resolves.toBe('notes.txt');
-		await expect(readFile(instructionPath('failing-ci-archived-workspace.txt'))).rejects.toThrow();
+		await expect(Bun.file(instructionPath('notes.txt')).text()).resolves.toBe('notes.txt');
 		await expect(
-			readFile(instructionPath('selected-review-comments-done-workspace.txt')),
+			Bun.file(instructionPath('failing-ci-archived-workspace.txt')).text(),
 		).rejects.toThrow();
-		await expect(readFile(instructionPath('create-pr-removed-workspace.md'))).rejects.toThrow();
-		await expect(readFile(instructionPath('failing-ci-unknown-workspace.txt'))).rejects.toThrow();
+		await expect(
+			Bun.file(instructionPath('selected-review-comments-done-workspace.txt')).text(),
+		).rejects.toThrow();
+		await expect(
+			Bun.file(instructionPath('create-pr-removed-workspace.md')).text(),
+		).rejects.toThrow();
+		await expect(
+			Bun.file(instructionPath('failing-ci-unknown-workspace.txt')).text(),
+		).rejects.toThrow();
 	});
 });

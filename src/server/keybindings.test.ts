@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { existsSync } from 'node:fs';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 import { DEFAULT_KEYBINDINGS } from 'src/shared/types';
@@ -45,7 +45,7 @@ describe('KeybindingsManager.initialize', () => {
 		expect(existsSync(path.dirname(filePath))).toBe(true);
 		expect(existsSync(filePath)).toBe(true);
 
-		expect(JSON.parse(await readFile(filePath, 'utf8'))).toEqual(DEFAULT_KEYBINDINGS);
+		expect(JSON.parse(await Bun.file(filePath).text())).toEqual(DEFAULT_KEYBINDINGS);
 		expect(manager.getSnapshot()).toEqual({
 			bindings: DEFAULT_KEYBINDINGS,
 			warning: null,
@@ -57,13 +57,12 @@ describe('KeybindingsManager.initialize', () => {
 		const tempDir = await createTempDir();
 		const filePath = path.join(tempDir, 'keybindings.json');
 
-		await writeFile(
+		await Bun.write(
 			filePath,
 			JSON.stringify({
 				...DEFAULT_KEYBINDINGS,
 				toggleEmbeddedTerminal: ['Cmd+Shift+J', '  CTRL+J  '],
 			}),
-			'utf8',
 		);
 
 		const manager = createManager(filePath);
@@ -78,7 +77,7 @@ describe('KeybindingsManager.initialize', () => {
 			filePathDisplay: filePath,
 		});
 
-		expect(JSON.parse(await readFile(filePath, 'utf8'))).toEqual({
+		expect(JSON.parse(await Bun.file(filePath).text())).toEqual({
 			...DEFAULT_KEYBINDINGS,
 			toggleEmbeddedTerminal: ['Cmd+Shift+J', '  CTRL+J  '],
 		});
@@ -131,13 +130,12 @@ describe('KeybindingsManager.reload', () => {
 		const manager = createManager(filePath);
 		await manager.initialize();
 
-		await writeFile(
+		await Bun.write(
 			filePath,
 			JSON.stringify({
 				...DEFAULT_KEYBINDINGS,
 				toggleEmbeddedTerminal: ['cmd+k'],
 			}),
-			'utf8',
 		);
 		await manager.reload();
 
@@ -159,7 +157,7 @@ describe('KeybindingsManager.write', () => {
 
 		expect(snapshot.bindings.toggleEmbeddedTerminal).toEqual(['cmd+k', 'ctrl+k']);
 		expect(manager.getSnapshot()).toEqual(snapshot);
-		expect(JSON.parse(await readFile(filePath, 'utf8'))).toEqual(snapshot.bindings);
+		expect(JSON.parse(await Bun.file(filePath).text())).toEqual(snapshot.bindings);
 	});
 });
 
@@ -180,7 +178,7 @@ describe('readKeybindingsSnapshot', () => {
 	test('returns defaults when keybindings file is empty', async () => {
 		const tempDir = await createTempDir();
 		const filePath = path.join(tempDir, 'keybindings.json');
-		await writeFile(filePath, '  \n', 'utf8');
+		await Bun.write(filePath, '  \n');
 
 		const snapshot = await readKeybindingsSnapshot(filePath);
 
@@ -194,7 +192,7 @@ describe('readKeybindingsSnapshot', () => {
 	test('returns defaults when keybindings file has invalid JSON', async () => {
 		const tempDir = await createTempDir();
 		const filePath = path.join(tempDir, 'keybindings.json');
-		await writeFile(filePath, JSON.stringify(DEFAULT_KEYBINDINGS).replace('{', ''), 'utf8');
+		await Bun.write(filePath, JSON.stringify(DEFAULT_KEYBINDINGS).replace('{', ''));
 
 		const snapshot = await readKeybindingsSnapshot(filePath);
 
