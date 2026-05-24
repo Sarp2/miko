@@ -212,7 +212,6 @@ export function createWsRouter({
 		}
 
 		if (topic.type === 'scratchpad') {
-			requireWorkspace(topic.workspaceId);
 			return {
 				type: 'snapshot',
 				id,

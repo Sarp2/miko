@@ -298,6 +298,29 @@ describe('createWsRouter.createEnvelope', () => {
 			},
 		});
 	});
+
+	test('creates a scratchpad snapshot for a stale workspace subscription', async () => {
+		const ws = new FakeWebSocket();
+		const { router } = await createRouter();
+
+		await router.handleMessage(
+			ws as never,
+			JSON.stringify({
+				type: 'subscribe',
+				id: 'scratchpad-sub',
+				topic: { type: 'scratchpad', workspaceId: 'removed-workspace' },
+			}),
+		);
+
+		expect(ws.sent[0]).toEqual({
+			type: 'snapshot',
+			id: 'scratchpad-sub',
+			snapshot: {
+				type: 'scratchpad',
+				data: { workspaceId: 'removed-workspace', content: '', updatedAt: null },
+			},
+		});
+	});
 });
 
 describe('createWsRouter.broadcastSnapshots', () => {

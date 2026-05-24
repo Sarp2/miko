@@ -3,6 +3,8 @@ import { mkdir, rename } from 'node:fs/promises';
 import path from 'node:path';
 import type { ScratchpadSnapshot } from '../shared/types';
 
+const SAFE_WORKSPACE_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
+
 export class ScratchpadManager {
 	private readonly scratchpadsDir: string;
 
@@ -35,6 +37,9 @@ export class ScratchpadManager {
 	}
 
 	private getScratchpadPath(workspaceId: string) {
+		if (!SAFE_WORKSPACE_ID_PATTERN.test(workspaceId)) {
+			throw new Error('Invalid workspace id');
+		}
 		return path.join(this.scratchpadsDir, `${workspaceId}.md`);
 	}
 }

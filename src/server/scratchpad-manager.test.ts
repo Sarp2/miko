@@ -55,4 +55,13 @@ describe('ScratchpadManager.updateScratchpad', () => {
 		await expect(manager.getSnapshot('workspace-1')).resolves.toMatchObject({ content: 'one' });
 		await expect(manager.getSnapshot('workspace-2')).resolves.toMatchObject({ content: 'two' });
 	});
+
+	test('rejects unsafe workspace ids before resolving file paths', async () => {
+		const manager = new ScratchpadManager(await createTempDir());
+
+		await expect(manager.getSnapshot('../workspace-1')).rejects.toThrow('Invalid workspace id');
+		await expect(manager.updateScratchpad('../workspace-1', 'notes')).rejects.toThrow(
+			'Invalid workspace id',
+		);
+	});
 });
