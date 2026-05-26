@@ -193,19 +193,25 @@ describe('useUiStore.closeMiddleTab', () => {
 		expect(useUiStore.getState().getMiddleTabs('workspace-1')).toHaveLength(1);
 	});
 
-	test('closes a regular tab and moves active tab to the nearest remaining tab', () => {
+	test('closes a regular tab and moves active tab to the adjacent remaining tab', () => {
 		useUiStore.getState().openMiddleTab('workspace-1', { type: 'chat', sessionId: 'session-1' });
+		useUiStore.getState().openMiddleTab('workspace-1', {
+			type: 'file',
+			path: 'src/server/foo.ts',
+			title: 'foo.ts',
+			source: 'workspace_file',
+		});
 		useUiStore.getState().openMiddleTab('workspace-1', { type: 'chat', sessionId: 'session-2' });
 
-		useUiStore.getState().closeMiddleTab('workspace-1', 'chat:session-2');
+		useUiStore.getState().closeMiddleTab('workspace-1', 'file:workspace_file:src/server/foo.ts');
 
 		expect(
 			useUiStore
 				.getState()
 				.getMiddleTabs('workspace-1')
 				.map((tab) => tab.id),
-		).toEqual(['scratchpad:workspace-1', 'chat:session-1']);
-		expect(useUiStore.getState().activeTabIdByWorkspaceId['workspace-1']).toBe('chat:session-1');
+		).toEqual(['scratchpad:workspace-1', 'chat:session-1', 'chat:session-2']);
+		expect(useUiStore.getState().activeTabIdByWorkspaceId['workspace-1']).toBe('chat:session-2');
 	});
 });
 

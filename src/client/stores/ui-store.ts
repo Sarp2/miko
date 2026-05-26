@@ -277,12 +277,13 @@ export const useUiStore = create<UiStoreState>()(
 						state.middleTabsByWorkspaceId[workspaceId] ?? [],
 					);
 
+					const closedIndex = tabs.findIndex((tab) => tab.id === tabId);
 					const nextTabs = tabs.filter((tab) => tab.id !== tabId);
 					const activeTabId = state.activeTabIdByWorkspaceId[workspaceId];
 
 					const nextActiveTabId =
 						activeTabId === tabId
-							? (nextTabs.find((tab) => tab.closable)?.id ?? nextTabs[0]?.id)
+							? (nextTabs[closedIndex]?.id ?? nextTabs[closedIndex - 1]?.id ?? nextTabs[0]?.id)
 							: activeTabId;
 
 					return {
