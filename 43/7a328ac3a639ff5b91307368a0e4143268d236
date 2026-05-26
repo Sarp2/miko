@@ -1,0 +1,23 @@
+src/client/stores/terminal-store.test.ts
+  s_82e93de1bb8ac8::t_96b8ea186551c2 1-113,115-268
+  s_82e93de1bb8ac8::t_88b8b87245d9f3 114
+src/client/stores/terminal-store.ts
+  s_82e93de1bb8ac8::t_8e035bbb96d0e0 1-87,89-117
+  s_82e93de1bb8ac8::t_7acba6f9073347 88
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "437a328ac3a639ff5b91307368a0e4143268d236",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
