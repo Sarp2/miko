@@ -198,3 +198,52 @@ describe('useWorkspaceStore.renameBranch', () => {
 		await expect(resultPromise).resolves.toEqual({ workspaceId: 'workspace-1' });
 	});
 });
+
+describe('useWorkspaceStore.createPr', () => {
+	test('forwards create PR instruction through the websocket command flow', async () => {
+		useWsStore.getState().connect();
+		const socket = FakeWebSocket.instances[0];
+		socket.open();
+
+		const resultPromise = useWorkspaceStore.getState().createPr('workspace-1', 'session-1');
+		const sent = JSON.parse(socket.sent[0]);
+
+		expect(sent).toMatchObject({
+			type: 'command',
+			command: {
+				type: 'workspace.createPr',
+				workspaceId: 'workspace-1',
+				sessionId: 'session-1',
+			},
+		});
+
+		socket.receive({ type: 'ack', id: sent.id, result: { sessionId: 'session-1' } });
+		await expect(resultPromise).resolves.toEqual({ sessionId: 'session-1' });
+	});
+});
+
+describe('useWorkspaceStore.addressReviewComments', () => {
+	test('forwards selected review comments through the websocket command flow', async () => {
+		useWsStore.getState().connect();
+		const socket = FakeWebSocket.instances[0];
+		socket.open();
+
+		const resultPromise = useWorkspaceStore
+			.getState()
+			.addressReviewComments('workspace-1', 'session-1', ['comment-1', 'comment-2']);
+		const sent = JSON.parse(socket.sent[0]);
+
+		expect(sent).toMatchObject({
+			type: 'command',
+			command: {
+				type: 'workspace.addressReviewComments',
+				workspaceId: 'workspace-1',
+				sessionId: 'session-1',
+				commentIds: ['comment-1', 'comment-2'],
+			},
+		});
+
+		socket.receive({ type: 'ack', id: sent.id, result: { sessionId: 'session-1' } });
+		await expect(resultPromise).resolves.toEqual({ sessionId: 'session-1' });
+	});
+});
