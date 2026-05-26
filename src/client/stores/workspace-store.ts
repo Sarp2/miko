@@ -16,6 +16,15 @@ interface WorkspaceStoreState {
 	refreshGit: (workspaceId: string) => Promise<unknown>;
 	refreshPrStage: (workspaceId: string) => Promise<unknown>;
 	renameBranch: (workspaceId: string, branchName: string) => Promise<unknown>;
+	commitAndPush: (workspaceId: string, sessionId: string) => Promise<unknown>;
+	pullLatestMain: (workspaceId: string, sessionId: string) => Promise<unknown>;
+	createPr: (workspaceId: string, sessionId: string) => Promise<unknown>;
+	fixCi: (workspaceId: string, sessionId: string) => Promise<unknown>;
+	addressReviewComments: (
+		workspaceId: string,
+		sessionId: string,
+		commentIds: string[],
+	) => Promise<unknown>;
 	mergePr: (workspaceId: string) => Promise<unknown>;
 }
 
@@ -97,6 +106,32 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
 		return useWsStore
 			.getState()
 			.command({ type: 'workspace.renameBranch', workspaceId, branchName });
+	},
+
+	commitAndPush: (workspaceId, sessionId) => {
+		return useWsStore
+			.getState()
+			.command({ type: 'workspace.commitAndPush', workspaceId, sessionId });
+	},
+
+	pullLatestMain: (workspaceId, sessionId) => {
+		return useWsStore
+			.getState()
+			.command({ type: 'workspace.pullLatestMain', workspaceId, sessionId });
+	},
+
+	createPr: (workspaceId, sessionId) => {
+		return useWsStore.getState().command({ type: 'workspace.createPr', workspaceId, sessionId });
+	},
+
+	fixCi: (workspaceId, sessionId) => {
+		return useWsStore.getState().command({ type: 'workspace.fixCi', workspaceId, sessionId });
+	},
+
+	addressReviewComments: (workspaceId, sessionId, commentIds) => {
+		return useWsStore
+			.getState()
+			.command({ type: 'workspace.addressReviewComments', workspaceId, sessionId, commentIds });
 	},
 
 	mergePr: (workspaceId) => {
