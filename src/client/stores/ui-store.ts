@@ -75,7 +75,7 @@ interface UiStoreState extends PersistedUiState {
 	removeWorkspaceUi: (workspaceId: string) => void;
 }
 
-const DEFAULT_LEFT_SIDEBAR_WIDTH = 280;
+const DEFAULT_LEFT_SIDEBAR_WIDTH = 292;
 const DEFAULT_TERMINAL_HEIGHT = 260;
 
 const memoryStorage = new Map<string, string>();
@@ -185,7 +185,7 @@ export const useUiStore = create<UiStoreState>()(
 			},
 
 			setLeftSidebarWidth: (width) => {
-				set({ leftSidebarWidth: clampPanelSize(width, 220, 520) });
+				set({ leftSidebarWidth: width <= 0 ? 0 : clampPanelSize(width, 256, 420) });
 			},
 
 			setDirectoryExpanded: (directoryId, expanded) => {
