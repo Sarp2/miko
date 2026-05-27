@@ -1,14 +1,16 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
+import path from 'node:path';
+import tailwindcss from '@tailwindcss/vite';
+import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vite';
 
-import { DEFAULT_DEV_CLIENT_PORT, getDefaultDevServerPort } from "./src/shared/dev-ports";
+import { DEFAULT_DEV_CLIENT_PORT, getDefaultDevServerPort } from './src/shared/dev-ports';
 
 function getAllowedHosts() {
-	const defaults = ["localhost", "127.0.0.1", "0.0.0.0"];
+	const defaults = ['localhost', '127.0.0.1', '0.0.0.0'];
 	const configured = process.env.MIKO_ALLOWED_HOSTS;
 
 	if (!configured) return defaults;
-	if (configured === "true") return true;
+	if (configured === 'true') return true;
 
 	try {
 		const parsed = JSON.parse(configured);
@@ -34,7 +36,12 @@ const backendTargetHost = getBackendTargetHost();
 const backendPort = getBackendPort();
 
 export default defineConfig({
-	plugins: [react()],
+	plugins: [react(), tailwindcss()],
+	resolve: {
+		alias: {
+			'@': path.resolve(__dirname, './src'),
+		},
+	},
 	server: {
 		host: '0.0.0.0',
 		port: DEFAULT_DEV_CLIENT_PORT,
@@ -49,12 +56,12 @@ export default defineConfig({
 			},
 			'/health': {
 				target: `http://${backendTargetHost}:${backendPort}`,
-			}
+			},
 		},
 		allowedHosts: getAllowedHosts(),
 	},
 	build: {
-		outDir: "dist/client",
+		outDir: 'dist/client',
 		emptyOutDir: true,
-	}
+	},
 });
