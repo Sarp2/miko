@@ -60,10 +60,10 @@ describe('useUiStore.setLeftSidebarCollapsed', () => {
 describe('useUiStore.setLeftSidebarWidth', () => {
 	test('clamps the left sidebar width to a safe range', () => {
 		useUiStore.getState().setLeftSidebarWidth(100);
-		expect(useUiStore.getState().leftSidebarWidth).toBe(220);
+		expect(useUiStore.getState().leftSidebarWidth).toBe(256);
 
 		useUiStore.getState().setLeftSidebarWidth(900);
-		expect(useUiStore.getState().leftSidebarWidth).toBe(520);
+		expect(useUiStore.getState().leftSidebarWidth).toBe(420);
 
 		useUiStore.getState().setLeftSidebarWidth(333.6);
 		expect(useUiStore.getState().leftSidebarWidth).toBe(334);
