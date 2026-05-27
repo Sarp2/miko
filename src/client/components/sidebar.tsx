@@ -503,7 +503,7 @@ export function Sidebar({
 			}
 
 			function onPointerCancel() {
-				cleanup();
+				finishResize();
 			}
 
 			resizeCleanupRef.current = cleanup;
