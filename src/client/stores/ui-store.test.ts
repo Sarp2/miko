@@ -67,6 +67,9 @@ describe('useUiStore.setLeftSidebarWidth', () => {
 
 		useUiStore.getState().setLeftSidebarWidth(333.6);
 		expect(useUiStore.getState().leftSidebarWidth).toBe(334);
+
+		useUiStore.getState().setLeftSidebarWidth(0);
+		expect(useUiStore.getState().leftSidebarWidth).toBe(0);
 	});
 });
 

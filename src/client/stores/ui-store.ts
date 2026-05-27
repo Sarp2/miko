@@ -185,7 +185,7 @@ export const useUiStore = create<UiStoreState>()(
 			},
 
 			setLeftSidebarWidth: (width) => {
-				set({ leftSidebarWidth: clampPanelSize(width, 256, 420) });
+				set({ leftSidebarWidth: width <= 0 ? 0 : clampPanelSize(width, 256, 420) });
 			},
 
 			setDirectoryExpanded: (directoryId, expanded) => {

@@ -385,6 +385,7 @@ export function Sidebar({
 	const [internalWidth, setInternalWidth] = React.useState(width ?? DEFAULT_WIDTH);
 	const [lastOpenWidth, setLastOpenWidth] = React.useState(width ?? DEFAULT_WIDTH);
 	const [isResizing, setIsResizing] = React.useState(false);
+	const resizeCleanupRef = React.useRef<(() => void) | null>(null);
 	const [internalExpandedIds, setInternalExpandedIds] = React.useState<string[]>(() =>
 		directoryGroups.map((directory) => directory.directoryId),
 	);
@@ -439,32 +440,42 @@ export function Sidebar({
 		setCollapsed(!isCollapsed);
 	}, [isCollapsed, setCollapsed]);
 
+	React.useEffect(() => {
+		return () => {
+			resizeCleanupRef.current?.();
+		};
+	}, []);
+
 	const onResizePointerDown = React.useCallback(
 		(event: React.PointerEvent<HTMLDivElement>) => {
 			if (isCollapsed || !rootRef.current) return;
 
 			event.preventDefault();
+			resizeCleanupRef.current?.();
+
 			const left = rootRef.current.getBoundingClientRect().left;
 			let nextWidth = internalWidth;
 			let nextRawWidth = internalWidth;
+			let didFinish = false;
 
 			setIsResizing(true);
 			document.body.style.cursor = 'col-resize';
 			document.body.style.userSelect = 'none';
 
-			const onPointerMove = (moveEvent: PointerEvent) => {
-				const rawWidth = moveEvent.clientX - left;
-				nextRawWidth = rawWidth;
-				nextWidth = Math.max(0, Math.min(MAX_WIDTH, rawWidth));
-				setInternalWidth(nextWidth);
-			};
-
-			const onPointerUp = () => {
+			const cleanup = () => {
 				document.removeEventListener('pointermove', onPointerMove);
 				document.removeEventListener('pointerup', onPointerUp);
+				document.removeEventListener('pointercancel', onPointerCancel);
 				document.body.style.cursor = '';
 				document.body.style.userSelect = '';
+				resizeCleanupRef.current = null;
 				setIsResizing(false);
+			};
+
+			const finishResize = () => {
+				if (didFinish) return;
+				didFinish = true;
+				cleanup();
 
 				if (nextRawWidth <= CLOSE_THRESHOLD) {
 					setCollapsed(true);
@@ -480,8 +491,25 @@ export function Sidebar({
 				setCollapsed(false);
 			};
 
+			function onPointerMove(moveEvent: PointerEvent) {
+				const rawWidth = moveEvent.clientX - left;
+				nextRawWidth = rawWidth;
+				nextWidth = Math.max(0, Math.min(MAX_WIDTH, rawWidth));
+				setInternalWidth(nextWidth);
+			}
+
+			function onPointerUp() {
+				finishResize();
+			}
+
+			function onPointerCancel() {
+				cleanup();
+			}
+
+			resizeCleanupRef.current = cleanup;
 			document.addEventListener('pointermove', onPointerMove);
 			document.addEventListener('pointerup', onPointerUp);
+			document.addEventListener('pointercancel', onPointerCancel);
 		},
 		[isCollapsed, setCollapsed, internalWidth, onWidthChange],
 	);
