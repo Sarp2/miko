@@ -9,11 +9,16 @@ interface CreateWorkspaceResult {
 	sessionId: string | null;
 }
 
+interface AddDirectoryResult {
+	directoryId: string;
+}
+
 interface SidebarStoreState {
 	snapshot: SidebarSnapshot | null;
 	isSubscribed: boolean;
 	connectSidebar: () => void;
 	disconnectSidebar: () => void;
+	addDirectory: (localPath: string) => Promise<AddDirectoryResult>;
 	createWorkspace: (directoryId: string) => Promise<CreateWorkspaceResult>;
 	setWorkspaceVisibility: (
 		workspaceId: string,
@@ -54,6 +59,10 @@ export const useSidebarStore = create<SidebarStoreState>((set) => ({
 	disconnectSidebar: () => {
 		useWsStore.getState().unsubscribeTopic(SIDEBAR_SUBSCRIPTION_ID);
 		set({ isSubscribed: false, snapshot: null });
+	},
+
+	addDirectory: (localPath) => {
+		return useWsStore.getState().command<AddDirectoryResult>({ type: 'directory.add', localPath });
 	},
 
 	createWorkspace: (directoryId) => {

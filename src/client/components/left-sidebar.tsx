@@ -1,8 +1,32 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import type { SidebarDirectoryGroup } from '../../shared/types';
 import { useSidebarStore } from '../stores/sidebar-store';
-import { useUiStore } from '../stores/ui-store';
+import { type SidebarSortField, useUiStore } from '../stores/ui-store';
+import { AddDirectoryDialog } from './add-directory-dialog';
 import { Sidebar } from './sidebar';
+
+function sortTimestamp<T extends { createdAt: number; updatedAt: number }>(
+	item: T,
+	sort: SidebarSortField,
+) {
+	return sort === 'created' ? item.createdAt : item.updatedAt;
+}
+
+function sortSidebarGroups(
+	directoryGroups: SidebarDirectoryGroup[],
+	directorySort: SidebarSortField,
+	workspaceSort: SidebarSortField,
+) {
+	return directoryGroups
+		.map((directory) => ({
+			...directory,
+			workspaces: [...directory.workspaces].sort(
+				(a, b) => sortTimestamp(b, workspaceSort) - sortTimestamp(a, workspaceSort),
+			),
+		}))
+		.sort((a, b) => sortTimestamp(b, directorySort) - sortTimestamp(a, directorySort));
+}
 
 function useActiveWorkspaceId() {
 	const { workspaceId } = useParams();
@@ -17,12 +41,20 @@ export function LeftSidebar() {
 	const leftSidebarCollapsed = useUiStore((state) => state.leftSidebarCollapsed);
 	const leftSidebarWidth = useUiStore((state) => state.leftSidebarWidth);
 	const expandedDirectoryIds = useUiStore((state) => state.expandedDirectoryIds);
+	const sidebarDirectorySort = useUiStore((state) => state.sidebarDirectorySort);
+	const sidebarWorkspaceSort = useUiStore((state) => state.sidebarWorkspaceSort);
+	const setSidebarDirectorySort = useUiStore((state) => state.setSidebarDirectorySort);
+	const setSidebarWorkspaceSort = useUiStore((state) => state.setSidebarWorkspaceSort);
 	const setLeftSidebarCollapsed = useUiStore((state) => state.setLeftSidebarCollapsed);
 	const setLeftSidebarWidth = useUiStore((state) => state.setLeftSidebarWidth);
 	const setDirectoryExpanded = useUiStore((state) => state.setDirectoryExpanded);
 
 	const [workspaceCreateError, setWorkspaceCreateError] = useState<string | null>(null);
-	const directoryGroups = useMemo(() => snapshot?.directoryGroups ?? [], [snapshot]);
+	const [addDirectoryOpen, setAddDirectoryOpen] = useState(false);
+	const directoryGroups = useMemo(
+		() => sortSidebarGroups(snapshot?.directoryGroups ?? [], sidebarDirectorySort, sidebarWorkspaceSort),
+		[snapshot, sidebarDirectorySort, sidebarWorkspaceSort],
+	);
 
 	return (
 		<>
@@ -35,20 +67,29 @@ export function LeftSidebar() {
 				onCollapsedChange={setLeftSidebarCollapsed}
 				onWidthChange={setLeftSidebarWidth}
 				onDirectoryExpandedChange={setDirectoryExpanded}
+				directorySort={sidebarDirectorySort}
+				workspaceSort={sidebarWorkspaceSort}
+				onDirectorySortChange={setSidebarDirectorySort}
+				onWorkspaceSortChange={setSidebarWorkspaceSort}
 				onWorkspaceSelect={(workspaceId) => navigate(`/workspaces/${workspaceId}`)}
 				onCreateWorkspace={async (directoryId) => {
 					setWorkspaceCreateError(null);
 					const result = await createWorkspace(directoryId);
-					navigate(`/workspaces/${result.workspaceId}`);
+					setDirectoryExpanded(directoryId, true);
+					const nextPath = result.sessionId
+						? `/workspaces/${result.workspaceId}/sessions/${result.sessionId}`
+						: `/workspaces/${result.workspaceId}`;
+					navigate(nextPath);
 				}}
 				onCreateWorkspaceError={(error) => {
 					const message = error instanceof Error ? error.message : 'Failed to create workspace';
 					setWorkspaceCreateError(message);
 				}}
-				onAddDirectory={() => navigate('/')}
+				onAddDirectory={() => setAddDirectoryOpen(true)}
 				onOpenArchive={() => navigate('/archive')}
 				onOpenSettings={() => navigate('/settings')}
 			/>
+			<AddDirectoryDialog open={addDirectoryOpen} onOpenChange={setAddDirectoryOpen} />
 			{workspaceCreateError && (
 				<div className="fixed bottom-3 left-3 z-50 max-w-[360px] rounded-lg border border-destructive/30 bg-surface-1 px-3 py-2 text-[12px] leading-5 text-destructive shadow-lg">
 					{workspaceCreateError}

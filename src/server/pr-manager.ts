@@ -21,6 +21,7 @@ interface GitHubPullRequestSearchItem {
 	isDraft?: boolean;
 	headRefName?: string;
 	baseRefName?: string;
+	createdAt?: string;
 }
 
 interface GitHubCommentAuthor {
@@ -60,6 +61,7 @@ interface GitHubPullRequestView {
 	isDraft?: boolean;
 	headRefName?: string;
 	baseRefName?: string;
+	createdAt?: string;
 	comments?: GitHubPullRequestComment[];
 	reviews?: Array<{
 		id?: string;
@@ -87,6 +89,13 @@ function normalizePrStatus(state: string | undefined): WorkspaceGitHubSnapshot['
 	if (normalized === 'MERGED') return 'merged';
 	if (normalized === 'CLOSED') return 'closed';
 	return 'unknown';
+}
+
+
+function parseGitHubTimestamp(value: string | undefined) {
+	if (!value) return undefined;
+	const timestamp = Date.parse(value);
+	return Number.isFinite(timestamp) ? timestamp : undefined;
 }
 
 function normalizeCheckStatus(check: GitHubPullRequestCheck): PullRequestCheckSnapshot['status'] {
@@ -194,6 +203,7 @@ function createKnownPrSnapshot(
 		owner,
 		repo,
 		prNumber: pullRequest.number,
+		createdAt: pullRequest.createdAt,
 		title: pullRequest.title,
 		url: pullRequest.url,
 		headRefName: pullRequest.headRefName,
@@ -237,7 +247,7 @@ export class PrManager {
 			'--limit',
 			'20',
 			'--json',
-			'number,title,url,state,headRefName,baseRefName,isDraft',
+			'number,title,url,state,headRefName,baseRefName,isDraft,createdAt',
 		]);
 
 		if (result.exitCode !== 0) {
@@ -264,7 +274,7 @@ export class PrManager {
 			'--repo',
 			`${owner}/${repo}`,
 			'--json',
-			'number,title,body,url,state,mergeStateStatus,isDraft,headRefName,baseRefName,comments,reviews,statusCheckRollup',
+			'number,title,body,url,state,mergeStateStatus,isDraft,headRefName,baseRefName,createdAt,comments,reviews,statusCheckRollup',
 		]);
 
 		if (result.exitCode !== 0) {
@@ -308,6 +318,7 @@ export class PrManager {
 		const source = detailed ?? pr;
 		const status = normalizePrStatus(source.state);
 		const checks = detailed ? mapChecks(detailed) : [];
+		const createdAt = parseGitHubTimestamp(source.createdAt);
 
 		const snapshot: WorkspaceGitHubSnapshot = {
 			status,
@@ -323,6 +334,7 @@ export class PrManager {
 			unresolvedCommentCount: undefined,
 			comments: detailed ? mapComments(detailed) : [],
 			checks,
+			createdAt,
 			lastRefreshedAt: Date.now(),
 		};
 
@@ -336,6 +348,7 @@ export class PrManager {
 				headRefName: source.headRefName,
 				baseRefName: source.baseRefName,
 				ciStatus: snapshot.ciStatus,
+				createdAt,
 				lastObservedAt: snapshot.lastRefreshedAt ?? Date.now(),
 			});
 		}

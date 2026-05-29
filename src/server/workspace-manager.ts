@@ -174,8 +174,8 @@ export class WorkspaceManager {
 		const localBranches = await getExistingLocalBranches(directoryPath);
 		const worktreePaths = await getExistingWorktreePaths(directoryPath);
 
-		for (const codeName of WORKSPACE_CODE_NAMES) {
-			for (let suffix = 1; suffix <= MAX_WORKSPACE_NAME_SUFFIX; suffix++) {
+		for (let suffix = 1; suffix <= MAX_WORKSPACE_NAME_SUFFIX; suffix++) {
+			for (const codeName of WORKSPACE_CODE_NAMES) {
 				const branchName = suffix === 1 ? codeName : `${codeName}-${suffix}`;
 				const localPath = this.getWorktreePath(directoryPath, branchName);
 				const resolvedPath = path.resolve(localPath);

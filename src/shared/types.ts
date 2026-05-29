@@ -233,6 +233,7 @@ export interface WorkspacePullRequestSummary {
 	headRefName?: string;
 	baseRefName?: string;
 	ciStatus?: 'unknown' | 'pending' | 'passing' | 'failing';
+	createdAt?: number;
 	lastObservedAt: number;
 }
 
@@ -280,6 +281,8 @@ export interface SidebarWorkspaceRow {
 	_id: string;
 	_creationTime: number;
 	workspaceId: string;
+	createdAt: number;
+	updatedAt: number;
 	displayName: string;
 	reviewState: WorkspaceReviewState;
 	visibilityState: WorkspaceVisibilityState;
@@ -289,6 +292,9 @@ export interface SidebarWorkspaceRow {
 	localPath: string;
 	branchName: string;
 	prNumber?: number;
+	prUrl?: string;
+	prCreatedAt?: number;
+	diffStats: { additions: number; deletions: number };
 	lastActivityAt?: number;
 }
 
@@ -297,6 +303,9 @@ export interface SidebarDirectoryGroup {
 	directoryId: string;
 	localPath: string;
 	title: string;
+	createdAt: number;
+	updatedAt: number;
+	avatarUrl?: string;
 	workspaces: SidebarWorkspaceRow[];
 }
 
@@ -653,6 +662,7 @@ export interface WorkspaceGitHubSnapshot {
 	unresolvedCommentCount?: number;
 	comments: PullRequestCommentSnapshot[];
 	checks: PullRequestCheckSnapshot[];
+	createdAt?: number;
 	lastRefreshedAt?: number;
 }
 

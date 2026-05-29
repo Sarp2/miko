@@ -32,6 +32,17 @@ function getWorkspaceLastActivityAt(state: StoreState, workspace: WorkspaceRecor
 	}, workspace.updatedAt);
 }
 
+
+function getWorkspaceDiffStats(git: WorkspaceGitSnapshot | null | undefined) {
+	return (git?.files ?? []).reduce(
+		(stats, file) => ({
+			additions: stats.additions + file.additions,
+			deletions: stats.deletions + file.deletions,
+		}),
+		{ additions: 0, deletions: 0 },
+	);
+}
+
 function getWorkspaceDisplayName(
 	workspace: WorkspaceRecord,
 	github: WorkspaceGitHubSnapshot | null | undefined,
@@ -71,61 +82,67 @@ export function deriveSidebarSnapshot(args: {
 		.filter((directory) => !directory.removedAt)
 		.sort((a, b) => b.updatedAt - a.updatedAt);
 
-	const directoryGroups: SidebarDirectoryGroup[] = directories
-		.map((directory) => {
-			const workspaces: SidebarWorkspaceRow[] = [...args.state.workspacesById.values()]
-				.filter(
-					(workspace) =>
-						workspace.directoryId === directory.id &&
-						!workspace.removedAt &&
-						workspace.visibilityState === 'active',
-				)
-				.sort(
-					(a, b) =>
-						getWorkspaceLastActivityAt(args.state, b) - getWorkspaceLastActivityAt(args.state, a),
-				)
-				.map((workspace) => {
-					const hasActiveSession = [...args.state.sessionsById.values()].some(
-						(session) =>
-							session.workspaceId === workspace.id &&
-							!session.removedAt &&
-							args.activeStatuses.has(session.id),
-					);
+	const directoryGroups: SidebarDirectoryGroup[] = directories.map((directory) => {
+		const workspaces: SidebarWorkspaceRow[] = [...args.state.workspacesById.values()]
+			.filter(
+				(workspace) =>
+					workspace.directoryId === directory.id &&
+					!workspace.removedAt &&
+					workspace.visibilityState === 'active',
+			)
+			.sort(
+				(a, b) =>
+					getWorkspaceLastActivityAt(args.state, b) - getWorkspaceLastActivityAt(args.state, a),
+			)
+			.map((workspace) => {
+				const hasActiveSession = [...args.state.sessionsById.values()].some(
+					(session) =>
+						session.workspaceId === workspace.id &&
+						!session.removedAt &&
+						args.activeStatuses.has(session.id),
+				);
 
-					const git = args.gitSnapshots?.get(workspace.id) ?? null;
-					const github = args.githubSnapshots?.get(workspace.id) ?? null;
+				const git = args.gitSnapshots?.get(workspace.id) ?? null;
+				const github = args.githubSnapshots?.get(workspace.id) ?? null;
 
-					return {
-						_id: workspace.id,
-						_creationTime: workspace.createdAt,
-						workspaceId: workspace.id,
-						displayName: getWorkspaceDisplayName(workspace, github),
-						reviewState: workspace.reviewState,
-						visibilityState: workspace.visibilityState,
-						indicator: getWorkspaceSidebarIndicator({
-							workspace,
-							hasActiveSession,
-							git,
-							github,
-						}),
-						hasUnreadAgentResult: workspace.hasUnreadAgentResult,
+				return {
+					_id: workspace.id,
+					_creationTime: workspace.createdAt,
+					workspaceId: workspace.id,
+					createdAt: workspace.createdAt,
+					updatedAt: workspace.updatedAt,
+					displayName: getWorkspaceDisplayName(workspace, github),
+					reviewState: workspace.reviewState,
+					visibilityState: workspace.visibilityState,
+					indicator: getWorkspaceSidebarIndicator({
+						workspace,
 						hasActiveSession,
-						localPath: workspace.localPath,
-						branchName: workspace.branchName,
-						prNumber: workspace.pullRequest?.number,
-						lastActivityAt: getWorkspaceLastActivityAt(args.state, workspace),
-					};
-				});
+						git,
+						github,
+					}),
+					hasUnreadAgentResult: workspace.hasUnreadAgentResult,
+					hasActiveSession,
+					localPath: workspace.localPath,
+					branchName: workspace.branchName,
+					prNumber: workspace.pullRequest?.number,
+					prUrl: workspace.pullRequest?.url,
+					prCreatedAt: workspace.pullRequest?.createdAt,
+					diffStats: getWorkspaceDiffStats(git),
+					lastActivityAt: getWorkspaceLastActivityAt(args.state, workspace),
+				};
+			});
 
-			return {
-				groupKey: directory.id,
-				directoryId: directory.id,
-				localPath: directory.localPath,
-				title: directory.title,
-				workspaces,
-			};
-		})
-		.filter((group) => group.workspaces.length > 0);
+		return {
+			groupKey: directory.id,
+			directoryId: directory.id,
+			localPath: directory.localPath,
+			title: directory.title,
+			createdAt: directory.createdAt,
+			updatedAt: directory.updatedAt,
+			avatarUrl: `https://github.com/${directory.githubOwner}.png`,
+			workspaces,
+		};
+	});
 
 	return { directoryGroups };
 }

@@ -22,7 +22,7 @@ import type { DiffStore } from './diff-store';
 import type { EventStore } from './event-store';
 import { openExternal } from './external-open';
 import type { KeybindingsManager } from './keybindings';
-import { ensureDirectoryPath } from './paths';
+import { requireExistingDirectoryPath } from './paths';
 import type { PrManager } from './pr-manager';
 import {
 	deriveDirectoryListSnapshot,
@@ -460,8 +460,24 @@ export function createWsRouter({
 					return;
 				}
 				case 'directory.add': {
-					await ensureDirectoryPath(command.localPath);
-					const directory = await store.addDirectory(command);
+					const localPath = await requireExistingDirectoryPath(command.localPath);
+					const inspection = await diffStore.inspectGitHubBackedRepo(localPath);
+					if (!inspection.ok) {
+						throw new Error(
+							inspection.message ?? 'Directory must be a GitHub-backed git repository.',
+						);
+					}
+
+					if (!inspection.githubOwner || !inspection.githubRepo) {
+						throw new Error('Directory must have a GitHub origin remote.');
+					}
+
+					const directory = await store.addDirectory({
+						...command,
+						localPath,
+						githubOwner: inspection.githubOwner,
+						githubRepo: inspection.githubRepo,
+					});
 					send(ws, { type: 'ack', id, result: { directoryId: directory.id } });
 					break;
 				}

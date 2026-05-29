@@ -101,6 +101,8 @@ describe('useSidebarStore.connectSidebar', () => {
 							directoryId: 'directory-1',
 							localPath: '/repo/miko',
 							title: 'Miko',
+							createdAt: 1,
+							updatedAt: 1,
 							workspaces: [],
 						},
 					],
@@ -110,6 +112,25 @@ describe('useSidebarStore.connectSidebar', () => {
 
 		expect(useSidebarStore.getState().snapshot?.directoryGroups).toHaveLength(1);
 		expect(useSidebarStore.getState().snapshot?.directoryGroups[0]?.title).toBe('Miko');
+	});
+});
+
+describe('useSidebarStore.addDirectory', () => {
+	test('forwards directory add through the websocket command flow', async () => {
+		useWsStore.getState().connect();
+		const socket = FakeWebSocket.instances[0];
+		socket.open();
+
+		const resultPromise = useSidebarStore.getState().addDirectory('/Users/sarp/code/miko');
+		const sent = JSON.parse(socket.sent[0]);
+
+		expect(sent).toMatchObject({
+			type: 'command',
+			command: { type: 'directory.add', localPath: '/Users/sarp/code/miko' },
+		});
+
+		socket.receive({ type: 'ack', id: sent.id, result: { directoryId: 'directory-1' } });
+		await expect(resultPromise).resolves.toEqual({ directoryId: 'directory-1' });
 	});
 });
 

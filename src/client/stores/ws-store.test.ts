@@ -98,7 +98,10 @@ describe('useWsStore.subscribe', () => {
 		socket.receive({
 			type: 'snapshot',
 			id: 'sidebar',
-			snapshot: { type: 'sidebar', data: { directoryGroups: [] } },
+			snapshot: {
+				type: 'sidebar',
+				data: { directoryGroups: [] },
+			},
 		});
 
 		expect(useWsStore.getState().snapshotsBySubscriptionId.get('sidebar')).toEqual({

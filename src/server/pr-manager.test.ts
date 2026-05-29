@@ -82,6 +82,7 @@ function openPrView() {
 		state: 'OPEN',
 		headRefName: 'atlas',
 		baseRefName: 'main',
+		createdAt: '2026-01-01T00:00:00Z',
 		comments: [
 			{
 				id: 'issue-comment-1',
@@ -138,6 +139,7 @@ describe('PrManager.refreshWorkspacePrState', () => {
 							state: 'OPEN',
 							headRefName: 'atlas',
 							baseRefName: 'main',
+							createdAt: '2026-01-01T00:00:00Z',
 						},
 					]);
 				}
@@ -160,7 +162,7 @@ describe('PrManager.refreshWorkspacePrState', () => {
 			'--limit',
 			'20',
 			'--json',
-			'number,title,url,state,headRefName,baseRefName,isDraft',
+			'number,title,url,state,headRefName,baseRefName,isDraft,createdAt',
 		]);
 		expect(snapshot).toMatchObject({
 			status: 'open',
@@ -170,6 +172,7 @@ describe('PrManager.refreshWorkspacePrState', () => {
 			title: 'Add workspace model',
 			body: 'PR body',
 			ciStatus: 'failing',
+			createdAt: Date.parse('2026-01-01T00:00:00Z'),
 		});
 		expect(snapshot.comments).toHaveLength(2);
 		expect(snapshot.comments[0]).toMatchObject({

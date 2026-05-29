@@ -4,6 +4,7 @@ import { createJSONStorage, persist, type StateStorage } from 'zustand/middlewar
 export const UI_STORAGE_KEY = 'miko:v1';
 
 export type RightSidebarTab = 'all_files' | 'changes' | 'checks';
+export type SidebarSortField = 'updated' | 'created';
 export type WorkspaceFileSource =
 	| 'scratchpad'
 	| 'workspace_file'
@@ -45,6 +46,8 @@ interface PersistedUiState {
 	leftSidebarCollapsed: boolean;
 	leftSidebarWidth: number;
 	expandedDirectoryIds: string[];
+	sidebarDirectorySort: SidebarSortField;
+	sidebarWorkspaceSort: SidebarSortField;
 	rightSidebarTabByWorkspaceId: Record<string, RightSidebarTab>;
 	middleTabsByWorkspaceId: Record<string, MiddleTabDescriptor[]>;
 	activeTabIdByWorkspaceId: Record<string, string>;
@@ -59,6 +62,8 @@ interface UiStoreState extends PersistedUiState {
 	setLeftSidebarCollapsed: (collapsed: boolean) => void;
 	setLeftSidebarWidth: (width: number) => void;
 	setDirectoryExpanded: (directoryId: string, expanded: boolean) => void;
+	setSidebarDirectorySort: (sort: SidebarSortField) => void;
+	setSidebarWorkspaceSort: (sort: SidebarSortField) => void;
 	toggleDirectoryExpanded: (directoryId: string) => void;
 	getMiddleTabs: (workspaceId: string) => MiddleTabDescriptor[];
 	ensureScratchpadTab: (workspaceId: string) => void;
@@ -160,6 +165,8 @@ export const useUiStore = create<UiStoreState>()(
 			leftSidebarCollapsed: false,
 			leftSidebarWidth: DEFAULT_LEFT_SIDEBAR_WIDTH,
 			expandedDirectoryIds: [],
+			sidebarDirectorySort: 'updated',
+			sidebarWorkspaceSort: 'updated',
 			rightSidebarTabByWorkspaceId: {},
 			middleTabsByWorkspaceId: {},
 			activeTabIdByWorkspaceId: {},
@@ -195,6 +202,14 @@ export const useUiStore = create<UiStoreState>()(
 					else ids.delete(directoryId);
 					return { expandedDirectoryIds: [...ids] };
 				});
+			},
+
+			setSidebarDirectorySort: (sort) => {
+				set({ sidebarDirectorySort: sort });
+			},
+
+			setSidebarWorkspaceSort: (sort) => {
+				set({ sidebarWorkspaceSort: sort });
 			},
 
 			toggleDirectoryExpanded: (directoryId) => {
@@ -412,6 +427,8 @@ export const useUiStore = create<UiStoreState>()(
 				leftSidebarCollapsed: state.leftSidebarCollapsed,
 				leftSidebarWidth: state.leftSidebarWidth,
 				expandedDirectoryIds: state.expandedDirectoryIds,
+				sidebarDirectorySort: state.sidebarDirectorySort,
+				sidebarWorkspaceSort: state.sidebarWorkspaceSort,
 				rightSidebarTabByWorkspaceId: state.rightSidebarTabByWorkspaceId,
 				middleTabsByWorkspaceId: state.middleTabsByWorkspaceId,
 				activeTabIdByWorkspaceId: state.activeTabIdByWorkspaceId,
