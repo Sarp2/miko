@@ -360,7 +360,13 @@ function WorkspaceActionPill({ workspace }: { workspace: SidebarWorkspaceRow }) 
 				!isArchive && !isMerge && !isCreatePr && !isFix && 'border-hairline bg-surface-2 text-ink',
 			)}
 		>
-			{isArchive ? <Archive className="size-3" /> : <GitMerge className="size-3" />}
+			{isArchive ? (
+				<Archive className="size-3" />
+			) : isMerge ? (
+				<GitMerge className="size-3" />
+			) : isCreatePr ? (
+				<GitPullRequest className="size-3" />
+			) : null}
 			{label}
 		</span>
 	);

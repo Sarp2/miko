@@ -3,18 +3,21 @@ import { AddDirectoryDialog } from '../components/add-directory-dialog';
 
 const actions = [
 	{
+		id: 'add-directory',
 		label: 'Add directory',
 		description: 'Use a local GitHub repository',
 		icon: Folder,
 		disabled: false,
 	},
 	{
+		id: 'clone-url',
 		label: 'Clone from URL',
 		description: 'Coming soon',
 		icon: Globe,
 		disabled: true,
 	},
 	{
+		id: 'quick-start',
 		label: 'Quick start',
 		description: 'Coming soon',
 		icon: Sparkle,
@@ -48,11 +51,11 @@ export function HomeRoute() {
 							</button>
 						);
 
-						if (action.label === 'Add directory') {
-							return <AddDirectoryDialog key={action.label}>{tile}</AddDirectoryDialog>;
+						if (action.id === 'add-directory') {
+							return <AddDirectoryDialog key={action.id}>{tile}</AddDirectoryDialog>;
 						}
 
-						return <div key={action.label}>{tile}</div>;
+						return <div key={action.id}>{tile}</div>;
 					})}
 				</div>
 
