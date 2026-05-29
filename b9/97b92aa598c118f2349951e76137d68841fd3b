@@ -1,0 +1,26 @@
+src/client/components/left-sidebar.tsx
+  s_82e93de1bb8ac8::t_cdcd5b77dafc86 33-34
+  s_82e93de1bb8ac8::t_e7055b397bcd2a 16-23
+src/server/ws-router.test.ts
+  s_82e93de1bb8ac8::t_340e49da0441ae 539
+  s_82e93de1bb8ac8::t_d94dc598a44c20 2,545
+  s_82e93de1bb8ac8::t_01aeadf79a8033 493-496,498,514-520,594-638
+src/server/ws-router.ts
+  s_82e93de1bb8ac8::t_e7055b397bcd2a 475-478,481
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "b997b92aa598c118f2349951e76137d68841fd3b",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
