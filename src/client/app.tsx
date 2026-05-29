@@ -1,11 +1,11 @@
 import { useEffect } from 'react';
 import { Route, Routes } from 'react-router-dom';
-import { AppShell } from './routes/AppShell';
-import { ArchiveRoute } from './routes/ArchiveRoute';
-import { HomeRoute } from './routes/HomeRoute';
-import { NotFoundRoute } from './routes/NotFoundRoute';
-import { SettingsRoute } from './routes/SettingsRoute';
-import { WorkspaceRoute } from './routes/WorkspaceRoute';
+import { AppShell } from './routes/app-shell';
+import { ArchiveRoute } from './routes/archive-route';
+import { HomeRoute } from './routes/home-route';
+import { NotFoundRoute } from './routes/not-found-route';
+import { SettingsRoute } from './routes/settings-route';
+import { WorkspaceRoute } from './routes/workspace-route';
 import { useWsStore } from './stores/ws-store';
 
 export function App() {
