@@ -1,0 +1,21 @@
+src/client/routes/home-route.tsx
+  s_82e93de1bb8ac8::t_ab448c0fb3fb70 6,13,20,54-55,58
+src/client/components/sidebar.tsx
+  s_82e93de1bb8ac8::t_ab448c0fb3fb70 363-369
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "8cdccde54a350d920f5d67409b978c28de5a0209",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
