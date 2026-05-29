@@ -13,6 +13,14 @@ function sortTimestamp<T extends { createdAt: number; updatedAt: number }>(
 	return sort === 'created' ? item.createdAt : item.updatedAt;
 }
 
+function sortWorkspaceTimestamp(
+	workspace: SidebarDirectoryGroup['workspaces'][number],
+	sort: SidebarSortField,
+) {
+	if (sort === 'created') return workspace.createdAt;
+	return workspace.lastActivityAt ?? workspace.updatedAt;
+}
+
 function sortSidebarGroups(
 	directoryGroups: SidebarDirectoryGroup[],
 	directorySort: SidebarSortField,
@@ -22,7 +30,8 @@ function sortSidebarGroups(
 		.map((directory) => ({
 			...directory,
 			workspaces: [...directory.workspaces].sort(
-				(a, b) => sortTimestamp(b, workspaceSort) - sortTimestamp(a, workspaceSort),
+				(a, b) =>
+					sortWorkspaceTimestamp(b, workspaceSort) - sortWorkspaceTimestamp(a, workspaceSort),
 			),
 		}))
 		.sort((a, b) => sortTimestamp(b, directorySort) - sortTimestamp(a, directorySort));

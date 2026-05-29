@@ -472,9 +472,13 @@ export function createWsRouter({
 						throw new Error('Directory must have a GitHub origin remote.');
 					}
 
+					if (inspection.defaultBranchName !== 'main') {
+						throw new Error('Directory must have a main branch before it can be added.');
+					}
+
 					const directory = await store.addDirectory({
 						...command,
-						localPath,
+						localPath: inspection.repoRoot ?? localPath,
 						githubOwner: inspection.githubOwner,
 						githubRepo: inspection.githubRepo,
 					});
