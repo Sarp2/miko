@@ -96,6 +96,7 @@ function openPullRequestSnapshot(): WorkspaceGitHubSnapshot {
 		prNumber: 12,
 		title: 'Add workspace model',
 		ciStatus: 'passing',
+		createdAt: 20,
 		comments: [],
 		checks: [],
 	};
@@ -139,6 +140,7 @@ describe('deriveSidebarSnapshot', () => {
 			groupKey: 'directory-1',
 			directoryId: 'directory-1',
 			title: 'Miko',
+			avatarUrl: 'https://github.com/sarp.png',
 		});
 		expect(sidebar.directoryGroups[0]?.workspaces[0]).toMatchObject({
 			workspaceId: 'workspace-1',
@@ -149,7 +151,7 @@ describe('deriveSidebarSnapshot', () => {
 		});
 	});
 
-	test('hides archived workspaces from the sidebar', () => {
+	test('keeps directories visible when they have no active workspaces', () => {
 		const state = addDirectoryWorkspaceAndSession();
 		const workspace = state.workspacesById.get('workspace-1');
 		expect(workspace).toBeDefined();
@@ -158,7 +160,41 @@ describe('deriveSidebarSnapshot', () => {
 
 		const sidebar = deriveSidebarSnapshot({ state, activeStatuses: new Map() });
 
-		expect(sidebar.directoryGroups).toEqual([]);
+		expect(sidebar.directoryGroups).toHaveLength(1);
+		expect(sidebar.directoryGroups[0]).toMatchObject({
+			directoryId: 'directory-1',
+			title: 'Miko',
+			workspaces: [],
+		});
+	});
+
+	test('includes newly added directories before their first workspace exists', () => {
+		const state = createEmptyState();
+		state.directoriesById.set('directory-1', {
+			id: 'directory-1',
+			localPath: '/repo/miko',
+			title: 'Miko',
+			githubOwner: 'sarp',
+			githubRepo: 'miko',
+			defaultBranchName: 'main',
+			createdAt: 1,
+			updatedAt: 1,
+		});
+
+		const sidebar = deriveSidebarSnapshot({ state, activeStatuses: new Map() });
+
+		expect(sidebar.directoryGroups).toEqual([
+			{
+				groupKey: 'directory-1',
+				directoryId: 'directory-1',
+				localPath: '/repo/miko',
+				title: 'Miko',
+				createdAt: 1,
+				updatedAt: 1,
+				avatarUrl: 'https://github.com/sarp.png',
+				workspaces: [],
+			},
+		]);
 	});
 
 	test('uses git and GitHub state to derive labels and indicators', () => {
@@ -171,6 +207,8 @@ describe('deriveSidebarSnapshot', () => {
 			number: 12,
 			status: 'open',
 			title: 'Stored PR title',
+			url: 'https://github.com/sarp/miko/pull/12',
+			createdAt: 20,
 			lastObservedAt: 10,
 		};
 		const github = openPullRequestSnapshot();
@@ -186,6 +224,9 @@ describe('deriveSidebarSnapshot', () => {
 			displayName: 'Add workspace model',
 			indicator: 'commit_and_push',
 			prNumber: 12,
+			prUrl: 'https://github.com/sarp/miko/pull/12',
+			prCreatedAt: 20,
+			diffStats: { additions: 2, deletions: 1 },
 		});
 	});
 

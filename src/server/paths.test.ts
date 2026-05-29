@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test';
-import { homedir } from 'node:os';
+import { mkdtemp, writeFile } from 'node:fs/promises';
+import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
-import { getWorkspaceUploadDir, resolveLocalPath } from './paths';
+import { getWorkspaceUploadDir, requireExistingDirectoryPath, resolveLocalPath } from './paths';
 
 describe('resolveLocalPath', () => {
 	test('throws error on empty string', () => {
@@ -30,5 +31,31 @@ describe('getWorkspaceUploadDir', () => {
 	test('appends paths correctly', () => {
 		const result = getWorkspaceUploadDir('/Users/test/workspace');
 		expect(result).toBe('/Users/test/workspace/.miko/uploads');
+	});
+});
+
+describe('requireExistingDirectoryPath', () => {
+	test('returns the resolved path for an existing directory', async () => {
+		const dir = await mkdtemp(path.join(tmpdir(), 'miko-paths-'));
+
+		await expect(requireExistingDirectoryPath(dir)).resolves.toBe(dir);
+	});
+
+	test('does not create missing directories', async () => {
+		const missing = path.join(tmpdir(), `miko-missing-${Date.now()}`);
+
+		await expect(requireExistingDirectoryPath(missing)).rejects.toThrow(
+			`Directory not found: ${missing}`,
+		);
+	});
+
+	test('rejects existing files', async () => {
+		const dir = await mkdtemp(path.join(tmpdir(), 'miko-paths-file-'));
+		const filePath = path.join(dir, 'repo.txt');
+		await writeFile(filePath, 'not a directory');
+
+		await expect(requireExistingDirectoryPath(filePath)).rejects.toThrow(
+			'Directory path must be a directory',
+		);
 	});
 });

@@ -59,8 +59,6 @@ export type ClientCommand =
 			type: 'directory.add';
 			localPath: string;
 			title?: string;
-			githubOwner: string;
-			githubRepo: string;
 	  }
 	| { type: 'directory.remove'; directoryId: string }
 	| { type: 'directory.initializeGit'; localPath: string }

@@ -73,6 +73,19 @@ describe('useUiStore.setLeftSidebarWidth', () => {
 	});
 });
 
+describe('useUiStore.sidebar sorting', () => {
+	test('stores directory and workspace sort preferences', () => {
+		expect(useUiStore.getState().sidebarDirectorySort).toBe('updated');
+		expect(useUiStore.getState().sidebarWorkspaceSort).toBe('updated');
+
+		useUiStore.getState().setSidebarDirectorySort('created');
+		useUiStore.getState().setSidebarWorkspaceSort('created');
+
+		expect(useUiStore.getState().sidebarDirectorySort).toBe('created');
+		expect(useUiStore.getState().sidebarWorkspaceSort).toBe('created');
+	});
+});
+
 describe('useUiStore.setDirectoryExpanded', () => {
 	test('stores expanded directory ids without duplicates', () => {
 		useUiStore.getState().setDirectoryExpanded('directory-1', true);

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { WorkspaceGitHubSnapshot, WorkspaceGitSnapshot } from 'src/shared/types';
@@ -110,7 +110,7 @@ async function createRouter(overrides: Record<string, unknown> = {}) {
 		}),
 		checkGitHubRepoAvailability: async () => ({ available: true, message: 'available' }),
 		publishToGitHub: async () => ({ ok: true, snapshotChanged: false }),
-		inspectGitHubBackedRepo: async () => ({ ok: true }),
+		inspectGitHubBackedRepo: async () => ({ ok: true, githubOwner: 'sarp', githubRepo: 'miko' }),
 		discardFile: async () => ({ snapshotChanged: true }),
 		ignoreFile: async () => ({ snapshotChanged: true }),
 		readPatch: async () => ({ patch: 'diff' }),
@@ -489,6 +489,157 @@ describe('createWsRouter.sendWorkspaceInstruction', () => {
 });
 
 describe('createWsRouter.handleCommand', () => {
+	test('adds a GitHub-backed directory by inspecting the selected path', async () => {
+		const repoRoot = await mkdtemp(path.join(tmpdir(), 'miko-directory-add-'));
+		const localPath = path.join(repoRoot, 'src');
+		await mkdir(localPath, { recursive: true });
+		tempDirs.push(repoRoot);
+		let inspectedPath: string | undefined;
+		const { router, store } = await createRouter({
+			diffStore: {
+				getWorkspaceGitSnapshot: () => unknownGitSnapshot(),
+				refreshWorkspaceGitSnapshot: async () => true,
+				fetchWorkspaceGit: async () => ({ ok: true, branchName: 'atlas', snapshotChanged: true }),
+				initializeGit: async () => ({ ok: true, snapshotChanged: false }),
+				getGitHubPublishInfo: async () => ({
+					ghInstalled: true,
+					authenticated: true,
+					owners: ['sarp'],
+					suggestedRepoName: 'miko',
+				}),
+				checkGitHubRepoAvailability: async () => ({ available: true, message: 'available' }),
+				publishToGitHub: async () => ({ ok: true, snapshotChanged: false }),
+				inspectGitHubBackedRepo: async (pathToInspect: string) => {
+					inspectedPath = pathToInspect;
+					return {
+						ok: true,
+						repoRoot,
+						defaultBranchName: 'main',
+						githubOwner: 'sarp',
+						githubRepo: 'miko',
+					};
+				},
+				discardFile: async () => ({ snapshotChanged: true }),
+				ignoreFile: async () => ({ snapshotChanged: true }),
+				readPatch: async () => ({ patch: 'diff' }),
+			},
+		});
+		const ws = new FakeWebSocket();
+
+		await router.handleMessage(
+			ws as never,
+			JSON.stringify({
+				type: 'command',
+				id: 'directory-add-1',
+				command: { type: 'directory.add', localPath },
+			}),
+		);
+
+		expect(inspectedPath).toBe(localPath);
+		const directoryId = (ws.sent[0] as { result: { directoryId: string } }).result.directoryId;
+		expect(ws.sent[0]).toMatchObject({
+			type: 'ack',
+			id: 'directory-add-1',
+			result: { directoryId: expect.any(String) },
+		});
+		expect(store.state.directoriesById.get(directoryId)?.localPath).toBe(repoRoot);
+	});
+
+	test('returns a clear error when selected directory is not GitHub-backed', async () => {
+		const localPath = await mkdtemp(path.join(tmpdir(), 'miko-directory-add-invalid-'));
+		tempDirs.push(localPath);
+		const { router } = await createRouter({
+			diffStore: {
+				getWorkspaceGitSnapshot: () => unknownGitSnapshot(),
+				refreshWorkspaceGitSnapshot: async () => true,
+				fetchWorkspaceGit: async () => ({ ok: true, branchName: 'atlas', snapshotChanged: true }),
+				initializeGit: async () => ({ ok: true, snapshotChanged: false }),
+				getGitHubPublishInfo: async () => ({
+					ghInstalled: true,
+					authenticated: true,
+					owners: ['sarp'],
+					suggestedRepoName: 'miko',
+				}),
+				checkGitHubRepoAvailability: async () => ({ available: true, message: 'available' }),
+				publishToGitHub: async () => ({ ok: true, snapshotChanged: false }),
+				inspectGitHubBackedRepo: async () => ({
+					ok: false,
+					message: 'Directory must have a GitHub origin remote.',
+				}),
+				discardFile: async () => ({ snapshotChanged: true }),
+				ignoreFile: async () => ({ snapshotChanged: true }),
+				readPatch: async () => ({ patch: 'diff' }),
+			},
+		});
+		const ws = new FakeWebSocket();
+
+		await router.handleMessage(
+			ws as never,
+			JSON.stringify({
+				type: 'command',
+				id: 'directory-add-1',
+				command: { type: 'directory.add', localPath },
+			}),
+		);
+
+		expect(ws.sent).toEqual([
+			{
+				type: 'error',
+				id: 'directory-add-1',
+				message: 'Directory must have a GitHub origin remote.',
+			},
+		]);
+	});
+
+	test('rejects GitHub-backed directories without a main branch', async () => {
+		const localPath = await mkdtemp(path.join(tmpdir(), 'miko-directory-add-master-'));
+		tempDirs.push(localPath);
+		const { router } = await createRouter({
+			diffStore: {
+				getWorkspaceGitSnapshot: () => unknownGitSnapshot(),
+				refreshWorkspaceGitSnapshot: async () => true,
+				fetchWorkspaceGit: async () => ({ ok: true, branchName: 'atlas', snapshotChanged: true }),
+				initializeGit: async () => ({ ok: true, snapshotChanged: false }),
+				getGitHubPublishInfo: async () => ({
+					ghInstalled: true,
+					authenticated: true,
+					owners: ['sarp'],
+					suggestedRepoName: 'miko',
+				}),
+				checkGitHubRepoAvailability: async () => ({ available: true, message: 'available' }),
+				publishToGitHub: async () => ({ ok: true, snapshotChanged: false }),
+				inspectGitHubBackedRepo: async () => ({
+					ok: true,
+					repoRoot: localPath,
+					defaultBranchName: 'master',
+					githubOwner: 'sarp',
+					githubRepo: 'miko',
+				}),
+				discardFile: async () => ({ snapshotChanged: true }),
+				ignoreFile: async () => ({ snapshotChanged: true }),
+				readPatch: async () => ({ patch: 'diff' }),
+			},
+		});
+		const ws = new FakeWebSocket();
+
+		await router.handleMessage(
+			ws as never,
+			JSON.stringify({
+				type: 'command',
+				id: 'directory-add-1',
+				command: { type: 'directory.add', localPath },
+			}),
+		);
+
+		expect(ws.sent).toEqual([
+			{
+				type: 'error',
+				id: 'directory-add-1',
+				message: 'Directory must have a main branch before it can be added.',
+			},
+		]);
+	});
+
 	test('reads workspace diff patches', async () => {
 		const { router, workspaceId } = await createRouter();
 		const ws = new FakeWebSocket();

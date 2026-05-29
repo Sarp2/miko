@@ -19,6 +19,22 @@ export function resolveLocalPath(localPath: string) {
 	return path.resolve(trimmed);
 }
 
+export async function requireExistingDirectoryPath(localPath: string) {
+	const resolvedPath = resolveLocalPath(localPath);
+	let info: Awaited<ReturnType<typeof stat>>;
+	try {
+		info = await stat(resolvedPath);
+	} catch {
+		throw new Error(`Directory not found: ${resolvedPath}`);
+	}
+
+	if (!info.isDirectory()) {
+		throw new Error('Directory path must be a directory');
+	}
+
+	return resolvedPath;
+}
+
 export async function ensureDirectoryPath(localPath: string) {
 	const resolvedPath = resolveLocalPath(localPath);
 	await mkdir(resolvedPath, { recursive: true });

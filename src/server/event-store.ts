@@ -617,7 +617,8 @@ export class EventStore {
 			workspace.pullRequest.url === pullRequest.url &&
 			workspace.pullRequest.headRefName === pullRequest.headRefName &&
 			workspace.pullRequest.baseRefName === pullRequest.baseRefName &&
-			workspace.pullRequest.ciStatus === pullRequest.ciStatus
+			workspace.pullRequest.ciStatus === pullRequest.ciStatus &&
+			workspace.pullRequest.createdAt === pullRequest.createdAt
 		) {
 			return;
 		}

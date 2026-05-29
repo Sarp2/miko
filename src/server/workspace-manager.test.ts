@@ -375,6 +375,23 @@ describe('WorkspaceManager.createWorkspace', () => {
 		expect(refreshCalls).toEqual([{ workspaceId: workspace.id, localPath: workspace.localPath }]);
 	});
 
+	test('uses each codename before adding numeric suffixes', async () => {
+		const setup = await createGitHubBackedDirectory();
+		const manager = new WorkspaceManager(setup.store, {
+			diffStore: {
+				refreshWorkspaceGitSnapshot: async () => true,
+			},
+		});
+
+		const first = await manager.createWorkspace(setup.directory.id);
+		const second = await manager.createWorkspace(setup.directory.id);
+		const third = await manager.createWorkspace(setup.directory.id);
+
+		expect(first.workspace.branchName).toBe('atlas');
+		expect(second.workspace.branchName).toBe('orion');
+		expect(third.workspace.branchName).toBe('vega');
+	});
+
 	test('keeps a created workspace ready when the non-critical git snapshot refresh fails', async () => {
 		const setup = await createGitHubBackedDirectory();
 		const manager = new WorkspaceManager(setup.store, {

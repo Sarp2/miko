@@ -2,13 +2,18 @@ import {
 	Archive,
 	CaretDown,
 	CaretRight,
+	CaretUpDown,
+	Check,
 	FolderSimplePlus,
 	Gear,
+	GitMerge,
 	GitPullRequest,
 	Plus,
 	SidebarSimple,
 	SlidersHorizontal,
 } from '@phosphor-icons/react';
+import * as Popover from '@radix-ui/react-popover';
+import * as Select from '@radix-ui/react-select';
 import * as React from 'react';
 import type {
 	SidebarDirectoryGroup,
@@ -16,6 +21,7 @@ import type {
 	WorkspaceSidebarIndicator,
 } from '../../shared/types';
 import { cn } from '../lib/utils';
+import type { SidebarSortField } from '../stores/ui-store';
 import { Button } from './ui/button';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from './ui/hover-card';
 import { ScrollArea } from './ui/scroll-area';
@@ -31,9 +37,12 @@ export interface SidebarProps {
 	onCollapsedChange?: (collapsed: boolean) => void;
 	onWidthChange?: (width: number) => void;
 	onDirectoryExpandedChange?: (directoryId: string, expanded: boolean) => void;
+	directorySort?: SidebarSortField;
+	workspaceSort?: SidebarSortField;
+	onDirectorySortChange?: (sort: SidebarSortField) => void;
+	onWorkspaceSortChange?: (sort: SidebarSortField) => void;
 	onWorkspaceSelect?: (workspaceId: string) => void;
 	onCreateWorkspace?: (directoryId: string) => void;
-	onFilterClick?: () => void;
 	onCreateWorkspaceError?: (error: unknown) => void;
 	onAddDirectory?: () => void;
 	onOpenArchive?: () => void;
@@ -45,6 +54,108 @@ const DEFAULT_WIDTH = 292;
 const MIN_WIDTH = 256;
 const MAX_WIDTH = 420;
 const CLOSE_THRESHOLD = 148;
+
+const SORT_OPTIONS: Array<{ value: SidebarSortField; label: string }> = [
+	{ value: 'updated', label: 'Updated' },
+	{ value: 'created', label: 'Created' },
+];
+
+function SidebarSortSelect({
+	value,
+	onValueChange,
+}: {
+	value: SidebarSortField;
+	onValueChange?: (value: SidebarSortField) => void;
+}) {
+	return (
+		<Select.Root value={value} onValueChange={(next) => onValueChange?.(next as SidebarSortField)}>
+			<Select.Trigger
+				className={cn(
+					'flex h-7 w-[94px] items-center justify-between rounded-[8px] border border-hairline bg-canvas px-2.5 text-left text-[12px] leading-4 text-ink outline-none transition-colors',
+					'hover:border-hairline-strong focus-visible:ring-1 focus-visible:ring-primary',
+				)}
+			>
+				<Select.Value />
+				<Select.Icon asChild>
+					<CaretUpDown className="size-3 text-ink-subtle" />
+				</Select.Icon>
+			</Select.Trigger>
+			<Select.Portal>
+				<Select.Content
+					position="popper"
+					sideOffset={4}
+					className="overflow-hidden rounded-[8px] border border-hairline bg-surface-1 p-0.5 shadow-none"
+				>
+					<Select.Viewport>
+						{SORT_OPTIONS.map((option) => (
+							<Select.Item
+								key={option.value}
+								value={option.value}
+								className="flex h-6 min-w-[92px] cursor-default select-none items-center justify-between rounded-[6px] px-2 text-[11px] leading-4 text-ink outline-none data-[highlighted]:bg-surface-2"
+							>
+								<Select.ItemText>{option.label}</Select.ItemText>
+								<Select.ItemIndicator>
+									<Check className="size-3 text-ink-muted" />
+								</Select.ItemIndicator>
+							</Select.Item>
+						))}
+					</Select.Viewport>
+				</Select.Content>
+			</Select.Portal>
+		</Select.Root>
+	);
+}
+
+function SidebarFilterPopover({
+	directorySort,
+	workspaceSort,
+	onDirectorySortChange,
+	onWorkspaceSortChange,
+}: {
+	directorySort: SidebarSortField;
+	workspaceSort: SidebarSortField;
+	onDirectorySortChange?: (sort: SidebarSortField) => void;
+	onWorkspaceSortChange?: (sort: SidebarSortField) => void;
+}) {
+	return (
+		<Popover.Root>
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<Popover.Trigger asChild>
+						<Button
+							type="button"
+							variant="ghost"
+							size="icon-sm"
+							className="size-7 text-ink-subtle hover:text-ink"
+							aria-label="Filter workspaces"
+						>
+							<SlidersHorizontal className="size-3" />
+						</Button>
+					</Popover.Trigger>
+				</TooltipTrigger>
+				<TooltipContent>Filter</TooltipContent>
+			</Tooltip>
+			<Popover.Portal>
+				<Popover.Content
+					align="end"
+					sideOffset={8}
+					className="w-[194px] rounded-[10px] border border-hairline bg-surface-1 p-2 shadow-none outline-none"
+				>
+					<div className="flex flex-col gap-px">
+						<div className="flex items-center justify-between gap-2">
+							<span className="text-[11px] leading-4 text-ink-muted">Directories</span>
+							<SidebarSortSelect value={directorySort} onValueChange={onDirectorySortChange} />
+						</div>
+						<div className="flex items-center justify-between gap-2">
+							<span className="text-[11px] leading-4 text-ink-muted">Workspaces</span>
+							<SidebarSortSelect value={workspaceSort} onValueChange={onWorkspaceSortChange} />
+						</div>
+					</div>
+				</Popover.Content>
+			</Popover.Portal>
+		</Popover.Root>
+	);
+}
 
 function indicatorLabel(indicator: WorkspaceSidebarIndicator) {
 	if (indicator === 'workspace_creating') return 'creating';
@@ -193,6 +304,74 @@ function WorkspaceIndicatorIcon({
 	);
 }
 
+function formatRelativeTime(timestamp: number | undefined) {
+	if (!timestamp) return '';
+	const diffMs = Math.max(0, Date.now() - timestamp);
+	const minute = 60_000;
+	const hour = 60 * minute;
+	const day = 24 * hour;
+
+	if (diffMs < minute) return 'now';
+	if (diffMs < hour) return `${Math.floor(diffMs / minute)}m ago`;
+	if (diffMs < day) return `${Math.floor(diffMs / hour)}h ago`;
+	return `${Math.floor(diffMs / day)}d ago`;
+}
+
+function workspaceTimeAt(workspace: SidebarWorkspaceRow) {
+	return workspace.reviewState === 'in_progress'
+		? workspace.lastActivityAt
+		: (workspace.prCreatedAt ?? workspace.lastActivityAt);
+}
+
+function workspaceSubtitle(workspace: SidebarWorkspaceRow) {
+	if (workspace.prNumber) return `Created PR #${workspace.prNumber}`;
+	if (workspace.indicator === 'commit_and_push') return 'Local changes are ready to commit.';
+	if (workspace.indicator === 'create_pr') return 'Branch has pushed commits.';
+	if (workspace.indicator === 'agent_active') return 'Agent is working in this workspace.';
+	return workspace.localPath;
+}
+
+function workspaceActionLabel(workspace: SidebarWorkspaceRow) {
+	if (workspace.reviewState === 'done' || workspace.reviewState === 'closed') return 'Archive';
+	if (workspace.indicator === 'ci_failed') return 'Fix CI';
+	if (workspace.reviewState === 'in_review') return 'Merge';
+	if (workspace.indicator === 'create_pr') return 'Create PR';
+	if (workspace.indicator === 'commit_and_push') return 'Commit';
+	return null;
+}
+
+function WorkspaceActionPill({ workspace }: { workspace: SidebarWorkspaceRow }) {
+	const label = workspaceActionLabel(workspace);
+	if (!label) return null;
+
+	const isArchive = label === 'Archive';
+	const isMerge = label === 'Merge';
+	const isCreatePr = label === 'Create PR';
+	const isFix = label === 'Fix CI';
+
+	return (
+		<span
+			className={cn(
+				'inline-flex h-6 items-center gap-1 rounded-md border px-1.5 text-[11px] font-medium leading-4',
+				isArchive && 'border-transparent bg-primary text-primary-foreground',
+				isMerge && 'border-transparent bg-success text-white',
+				isCreatePr && 'border-hairline bg-surface-2 text-ink',
+				isFix && 'border-transparent bg-destructive text-white',
+				!isArchive && !isMerge && !isCreatePr && !isFix && 'border-hairline bg-surface-2 text-ink',
+			)}
+		>
+			{isArchive ? (
+				<Archive className="size-3" />
+			) : isMerge ? (
+				<GitMerge className="size-3" />
+			) : isCreatePr ? (
+				<GitPullRequest className="size-3" />
+			) : null}
+			{label}
+		</span>
+	);
+}
+
 function WorkspaceHoverMeta({
 	workspace,
 	children,
@@ -204,6 +383,10 @@ function WorkspaceHoverMeta({
 		workspace.localPath || workspace.branchName || workspace.prNumber || workspace.lastActivityAt;
 	if (!hasDetails) return children;
 
+	const hasDiffStats = workspace.diffStats.additions > 0 || workspace.diffStats.deletions > 0;
+	const relativeTime = formatRelativeTime(workspaceTimeAt(workspace));
+	const subtitle = workspaceSubtitle(workspace);
+
 	return (
 		<HoverCard openDelay={140} closeDelay={80}>
 			<HoverCardTrigger asChild>{children}</HoverCardTrigger>
@@ -211,41 +394,48 @@ function WorkspaceHoverMeta({
 				side="right"
 				align="start"
 				sideOffset={8}
-				className="w-[300px] rounded-lg border-hairline bg-surface-1 p-0 shadow-none"
+				className="w-[286px] rounded-lg border-hairline bg-surface-1 p-0 shadow-none"
 			>
-				<div className="flex flex-col gap-2.5 px-3.5 py-3">
-					<div className="flex items-center justify-between gap-2">
-						<div className="flex min-w-0 items-center gap-1.5">
-							<span className="truncate font-mono text-[11px] leading-4 text-ink-muted">
-								{workspace.branchName}
-							</span>
-							{workspace.prNumber && (
-								<span className="flex items-center gap-1 font-mono text-[11px] leading-4 text-success">
-									<GitPullRequest className="size-3" />#{workspace.prNumber}
+				<div className="flex flex-col gap-2 px-3 py-2.5">
+					<div className="flex items-start justify-between gap-2">
+						<div className="flex min-w-0 items-center gap-1.5 font-mono text-[11px] leading-4 text-ink-muted">
+							<span className="truncate">{workspace.branchName}</span>
+							{hasDiffStats && (
+								<span className="flex shrink-0 items-center gap-1 tabular-nums">
+									<span className="text-success">+{workspace.diffStats.additions}</span>
+									<span className="text-destructive">-{workspace.diffStats.deletions}</span>
 								</span>
 							)}
 						</div>
-						<WorkspaceIndicatorIcon indicator={workspace.indicator} className="size-4 shrink-0" />
+						<WorkspaceIndicatorIcon indicator={workspace.indicator} className="size-3.5 shrink-0" />
 					</div>
 
 					<div className="min-w-0">
 						<p
-							className="truncate text-[13px] font-medium leading-5 text-ink"
+							className="truncate text-[12px] font-medium leading-4 text-ink"
 							title={workspace.displayName}
 						>
 							{workspace.displayName}
 						</p>
-						<p className="mt-1 truncate font-mono text-[11px] leading-4 text-ink-subtle">
-							{workspace.localPath}
+						<p className="mt-0.5 truncate text-[11px] leading-4 text-ink-subtle" title={subtitle}>
+							{subtitle}
 						</p>
 					</div>
 
-					<div className="flex flex-wrap items-center gap-2 font-mono text-[11px] leading-4">
-						<span className={indicatorTextClass(workspace.indicator)}>
-							{indicatorLabel(workspace.indicator)}
-						</span>
-						<span className="text-ink-subtle">{workspace.reviewState}</span>
-						<span className="text-ink-tertiary">{workspace.branchName}</span>
+					<div className="flex min-w-0 items-center justify-between gap-1.5">
+						<div className="flex min-w-0 items-center gap-1.5">
+							<WorkspaceActionPill workspace={workspace} />
+							{workspace.prNumber && (
+								<span className="flex min-w-0 items-center gap-1 font-mono text-[11px] leading-4 text-ink-subtle">
+									<GitPullRequest className="size-3" />#{workspace.prNumber}
+								</span>
+							)}
+						</div>
+						{relativeTime && (
+							<span className="shrink-0 text-[11px] leading-4 text-ink-subtle tabular-nums">
+								{relativeTime}
+							</span>
+						)}
 					</div>
 				</div>
 			</HoverCardContent>
@@ -315,8 +505,17 @@ function DirectoryGroup({
 					{isExpanded ? <CaretDown className="size-3" /> : <CaretRight className="size-3" />}
 				</button>
 
-				<div className="flex size-5 items-center justify-center rounded-md bg-surface-4 text-[11px] font-medium leading-none text-ink">
-					{avatar || 'D'}
+				<div className="flex size-5 items-center justify-center overflow-hidden rounded-md bg-surface-4 text-[11px] font-medium leading-none text-ink">
+					{directory.avatarUrl ? (
+						<img
+							src={directory.avatarUrl}
+							alt=""
+							className="size-full object-cover"
+							loading="lazy"
+						/>
+					) : (
+						avatar || 'D'
+					)}
 				</div>
 
 				<button
@@ -337,7 +536,7 @@ function DirectoryGroup({
 							aria-label={`New workspace in ${directory.title}`}
 							onClick={onCreateWorkspace}
 						>
-							<Plus className="size-3.5" />
+							<Plus className="size-3" />
 						</Button>
 					</TooltipTrigger>
 					<TooltipContent>New workspace</TooltipContent>
@@ -369,9 +568,12 @@ export function Sidebar({
 	onCollapsedChange,
 	onWidthChange,
 	onDirectoryExpandedChange,
+	directorySort = 'updated',
+	workspaceSort = 'updated',
+	onDirectorySortChange,
+	onWorkspaceSortChange,
 	onWorkspaceSelect,
 	onCreateWorkspace,
-	onFilterClick,
 	onCreateWorkspaceError,
 	onAddDirectory,
 	onOpenArchive,
@@ -570,21 +772,12 @@ export function Sidebar({
 						</div>
 
 						<div className="flex items-center gap-0.5">
-							<Tooltip>
-								<TooltipTrigger asChild>
-									<Button
-										type="button"
-										variant="ghost"
-										size="icon-sm"
-										className="size-7 text-ink-subtle hover:text-ink"
-										aria-label="Filter workspaces"
-										onClick={onFilterClick}
-									>
-										<SlidersHorizontal className="size-3.5" />
-									</Button>
-								</TooltipTrigger>
-								<TooltipContent>Filter</TooltipContent>
-							</Tooltip>
+							<SidebarFilterPopover
+								directorySort={directorySort}
+								workspaceSort={workspaceSort}
+								onDirectorySortChange={onDirectorySortChange}
+								onWorkspaceSortChange={onWorkspaceSortChange}
+							/>
 							<Tooltip>
 								<TooltipTrigger asChild>
 									<Button
@@ -595,7 +788,7 @@ export function Sidebar({
 										aria-label="Add directory"
 										onClick={onAddDirectory}
 									>
-										<FolderSimplePlus className="size-3.5" />
+										<FolderSimplePlus className="size-3" />
 									</Button>
 								</TooltipTrigger>
 								<TooltipContent>Add directory</TooltipContent>
