@@ -52,7 +52,12 @@ export function LeftSidebar() {
 	const [workspaceCreateError, setWorkspaceCreateError] = useState<string | null>(null);
 	const [addDirectoryOpen, setAddDirectoryOpen] = useState(false);
 	const directoryGroups = useMemo(
-		() => sortSidebarGroups(snapshot?.directoryGroups ?? [], sidebarDirectorySort, sidebarWorkspaceSort),
+		() =>
+			sortSidebarGroups(
+				snapshot?.directoryGroups ?? [],
+				sidebarDirectorySort,
+				sidebarWorkspaceSort,
+			),
 		[snapshot, sidebarDirectorySort, sidebarWorkspaceSort],
 	);
 

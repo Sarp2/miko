@@ -32,7 +32,6 @@ function getWorkspaceLastActivityAt(state: StoreState, workspace: WorkspaceRecor
 	}, workspace.updatedAt);
 }
 
-
 function getWorkspaceDiffStats(git: WorkspaceGitSnapshot | null | undefined) {
 	return (git?.files ?? []).reduce(
 		(stats, file) => ({

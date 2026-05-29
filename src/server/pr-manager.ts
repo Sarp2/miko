@@ -91,7 +91,6 @@ function normalizePrStatus(state: string | undefined): WorkspaceGitHubSnapshot['
 	return 'unknown';
 }
 
-
 function parseGitHubTimestamp(value: string | undefined) {
 	if (!value) return undefined;
 	const timestamp = Date.parse(value);

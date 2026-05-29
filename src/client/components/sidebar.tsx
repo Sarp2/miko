@@ -20,8 +20,8 @@ import type {
 	SidebarWorkspaceRow,
 	WorkspaceSidebarIndicator,
 } from '../../shared/types';
-import type { SidebarSortField } from '../stores/ui-store';
 import { cn } from '../lib/utils';
+import type { SidebarSortField } from '../stores/ui-store';
 import { Button } from './ui/button';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from './ui/hover-card';
 import { ScrollArea } from './ui/scroll-area';

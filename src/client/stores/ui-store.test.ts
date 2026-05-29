@@ -73,7 +73,6 @@ describe('useUiStore.setLeftSidebarWidth', () => {
 	});
 });
 
-
 describe('useUiStore.sidebar sorting', () => {
 	test('stores directory and workspace sort preferences', () => {
 		expect(useUiStore.getState().sidebarDirectorySort).toBe('updated');

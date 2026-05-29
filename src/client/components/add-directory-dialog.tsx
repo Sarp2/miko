@@ -38,7 +38,11 @@ export function AddDirectoryDialog({
 	const [error, setError] = useState<string | null>(null);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const trimmedPath = localPath.trim();
-	const examplePaths = ['~/Projects/miko', '/Users/your-name/code/my-app', '/home/your-name/code/my-app'];
+	const examplePaths = [
+		'~/Projects/miko',
+		'/Users/your-name/code/my-app',
+		'/home/your-name/code/my-app',
+	];
 
 	useEffect(() => {
 		if (open) return;
@@ -96,9 +100,7 @@ export function AddDirectoryDialog({
 					</div>
 
 					<div className="flex flex-col gap-1.5 border-t border-hairline pt-3">
-						<p className="text-[11px] leading-4 text-ink-subtle">
-							Example paths on this computer:
-						</p>
+						<p className="text-[11px] leading-4 text-ink-subtle">Example paths on this computer:</p>
 						{examplePaths.map((examplePath) => (
 							<code key={examplePath} className="font-mono text-[11px] leading-4 text-ink-muted">
 								{examplePath}
