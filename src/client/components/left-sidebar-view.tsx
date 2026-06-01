@@ -771,25 +771,6 @@ export function Sidebar({
 					</Tooltip>
 				</div>
 
-				{isCollapsed && (
-					<div className="fixed top-2 left-2 z-30 hidden md:block">
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<SidebarPrimitiveTrigger
-									type="button"
-									variant="ghost"
-									size="icon-sm"
-									className="size-8 text-ink-subtle hover:bg-transparent hover:text-ink"
-									aria-label="Open sidebar"
-								>
-									<SidebarSimple className="size-4" />
-								</SidebarPrimitiveTrigger>
-							</TooltipTrigger>
-							<TooltipContent side="right">Open sidebar</TooltipContent>
-						</Tooltip>
-					</div>
-				)}
-
 				<SidebarPrimitive
 					ref={rootRef}
 					side="left"
