@@ -604,6 +604,7 @@ export function Sidebar({
 	const [internalExpandedIds, setInternalExpandedIds] = React.useState<string[]>(() =>
 		directoryGroups.map((directory) => directory.directoryId),
 	);
+	const { isMobile, setOpenMobile } = useSidebarPrimitive();
 
 	const isCollapsed = isCollapsedControlled ? collapsed : internalCollapsed;
 	const currentExpandedIds = isExpansionControlled ? expandedDirectoryIds : internalExpandedIds;
@@ -651,9 +652,14 @@ export function Sidebar({
 		[isExpansionControlled, onDirectoryExpandedChange],
 	);
 
-	const toggleCollapsed = React.useCallback(() => {
-		setCollapsed(!isCollapsed);
-	}, [isCollapsed, setCollapsed]);
+	const closeSidebar = React.useCallback(() => {
+		if (isMobile) {
+			setOpenMobile(false);
+			return;
+		}
+
+		setCollapsed(true);
+	}, [isMobile, setCollapsed, setOpenMobile]);
 
 	React.useEffect(() => {
 		return () => {
@@ -807,7 +813,7 @@ export function Sidebar({
 											size="icon-sm"
 											className="size-7 text-ink-subtle hover:bg-transparent hover:text-ink"
 											aria-label="Close sidebar"
-											onClick={toggleCollapsed}
+											onClick={closeSidebar}
 										>
 											<SidebarSimple className="size-4" />
 										</Button>
