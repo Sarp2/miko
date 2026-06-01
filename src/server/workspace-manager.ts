@@ -1,5 +1,7 @@
 import { mkdir, realpath, stat } from 'node:fs/promises';
+import { homedir } from 'node:os';
 import path from 'node:path';
+import { getWorktreesDir } from 'src/shared/branding';
 import type { WorkspaceGitHubSnapshot, WorkspaceHealthState } from 'src/shared/types';
 import { type DiffStore, extractGitHubRepoSlug, runGit } from './diff-store';
 import type { SessionRecord, WorkspaceRecord } from './event';
@@ -53,6 +55,7 @@ export interface WorkspaceCreateResult {
 interface WorkspaceManagerDeps {
 	diffStore?: Pick<DiffStore, 'refreshWorkspaceGitSnapshot'>;
 	prManager?: Pick<PrManager, 'getWorkspaceGitHubSnapshot' | 'refreshWorkspacePrState'>;
+	worktreesRoot?: string;
 }
 
 async function pathExists(localPath: string) {
@@ -145,6 +148,7 @@ async function getOriginRemoteUrl(repoPath: string) {
 export class WorkspaceManager {
 	private readonly diffStore: WorkspaceManagerDeps['diffStore'];
 	private readonly prManager: WorkspaceManagerDeps['prManager'];
+	private readonly worktreesRoot: string;
 	private readonly pendingTurnIntentBySessionId = new Map<string, WorkspaceTurnIntent>();
 	private readonly lastPrRefreshAtByWorkspaceId = new Map<string, number>();
 
@@ -154,10 +158,11 @@ export class WorkspaceManager {
 	) {
 		this.diffStore = deps.diffStore;
 		this.prManager = deps.prManager;
+		this.worktreesRoot = deps.worktreesRoot ?? getWorktreesDir(homedir());
 	}
 
-	private getWorktreePath(directoryPath: string, branchName: string) {
-		return path.join(directoryPath, branchName);
+	private getWorktreePath(directoryId: string, branchName: string) {
+		return path.join(this.worktreesRoot, directoryId, branchName);
 	}
 
 	private async generateWorkspaceIdentity(directoryId: string, directoryPath: string) {
@@ -177,7 +182,7 @@ export class WorkspaceManager {
 		for (let suffix = 1; suffix <= MAX_WORKSPACE_NAME_SUFFIX; suffix++) {
 			for (const codeName of WORKSPACE_CODE_NAMES) {
 				const branchName = suffix === 1 ? codeName : `${codeName}-${suffix}`;
-				const localPath = this.getWorktreePath(directoryPath, branchName);
+				const localPath = this.getWorktreePath(directoryId, branchName);
 				const resolvedPath = path.resolve(localPath);
 
 				if (metadataBranches.has(branchName) || localBranches.has(branchName)) continue;
@@ -191,48 +196,6 @@ export class WorkspaceManager {
 		}
 
 		throw new Error('Could not generate a unique workspace branch and worktree path');
-	}
-
-	private async excludeWorktreePathFromSource(directoryPath: string, branchName: string) {
-		const gitPath = await runGit(['rev-parse', '--git-path', 'info/exclude'], directoryPath);
-		if (gitPath.exitCode !== 0) return false;
-
-		const excludePath = path.isAbsolute(gitPath.stdout.trim())
-			? gitPath.stdout.trim()
-			: path.join(directoryPath, gitPath.stdout.trim());
-
-		const entry = `/${branchName}/`;
-		const current = await Bun.file(excludePath)
-			.text()
-			.catch(() => '');
-
-		const lines = current.split(/\r?\n/u).map((line) => line.trim());
-		if (lines.includes(entry)) return false;
-
-		const prefix = current.length === 0 || current.endsWith('\n') ? current : `${current}\n`;
-		await Bun.write(excludePath, `${prefix}${entry}\n`);
-		return true;
-	}
-
-	private async removeWorktreePathFromSourceExclude(directoryPath: string, branchName: string) {
-		const gitPath = await runGit(['rev-parse', '--git-path', 'info/exclude'], directoryPath);
-		if (gitPath.exitCode !== 0) return;
-
-		const excludePath = path.isAbsolute(gitPath.stdout.trim())
-			? gitPath.stdout.trim()
-			: path.join(directoryPath, gitPath.stdout.trim());
-
-		const entry = `/${branchName}/`;
-		const current = await Bun.file(excludePath)
-			.text()
-			.catch(() => '');
-		if (!current) return;
-
-		const next = current
-			.split(/\r?\n/u)
-			.filter((line) => line.trim() !== entry)
-			.join('\n');
-		await Bun.write(excludePath, next ? `${next}\n` : '');
 	}
 
 	private async resolveBaseRef(directoryPath: string) {
@@ -386,14 +349,8 @@ export class WorkspaceManager {
 			branchName: identity.branchName,
 		});
 
-		let excludeEntryWritten = false;
-
 		try {
 			await mkdir(path.dirname(identity.localPath), { recursive: true });
-			excludeEntryWritten = await this.excludeWorktreePathFromSource(
-				directory.localPath,
-				identity.branchName,
-			);
 			const baseRef = await this.resolveBaseRef(directory.localPath);
 			const result = await runGit(
 				['worktree', 'add', '-b', identity.branchName, '--no-track', identity.localPath, baseRef],
@@ -416,12 +373,6 @@ export class WorkspaceManager {
 				});
 			return { workspace: this.eventStore.requireWorkspace(workspace.id), session };
 		} catch (error) {
-			if (excludeEntryWritten) {
-				await this.removeWorktreePathFromSourceExclude(
-					directory.localPath,
-					identity.branchName,
-				).catch(() => {});
-			}
 			const message = error instanceof Error ? error.message : String(error);
 			await this.eventStore.markWorkspaceSetupFailed(workspace.id, message);
 			return { workspace: this.eventStore.requireWorkspace(workspace.id), session: null };

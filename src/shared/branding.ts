@@ -48,6 +48,14 @@ export function getDataDirDisplay(env: RuntimeEnv = getRuntimeEnv()) {
 	return `${getDataRootDirDisplay(env)}/data`;
 }
 
+export function getWorktreesDir(homeDir: string, env: RuntimeEnv = getRuntimeEnv()) {
+	return `${getDataRootDir(homeDir, env)}/worktrees`;
+}
+
+export function getWorktreesDirDisplay(env: RuntimeEnv = getRuntimeEnv()) {
+	return `${getDataRootDirDisplay(env)}/worktrees`;
+}
+
 export function getKeybindingsFilePath(homeDir: string, env: RuntimeEnv = getRuntimeEnv()) {
 	return `${getDataRootDir(homeDir, env)}/keybindings.json`;
 }
