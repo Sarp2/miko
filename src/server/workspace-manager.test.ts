@@ -30,6 +30,16 @@ async function createEventStore() {
 	return store;
 }
 
+async function createWorkspaceManager(
+	store: EventStore,
+	deps: ConstructorParameters<typeof WorkspaceManager>[1] = {},
+) {
+	return new WorkspaceManager(store, {
+		...deps,
+		worktreesRoot: deps.worktreesRoot ?? path.join(await createTempDir(), 'worktrees'),
+	});
+}
+
 async function createGitHubBackedDirectory() {
 	const root = await createTempDir();
 	const sourcePath = path.join(root, 'miko');
@@ -81,7 +91,7 @@ async function createGitDirectoryWithoutMain() {
 async function createReadyWorkspace() {
 	const setup = await createGitHubBackedDirectory();
 	const refreshCalls: Array<{ workspaceId: string; localPath: string }> = [];
-	const manager = new WorkspaceManager(setup.store, {
+	const manager = await createWorkspaceManager(setup.store, {
 		diffStore: {
 			refreshWorkspaceGitSnapshot: async (workspaceId, localPath) => {
 				refreshCalls.push({ workspaceId, localPath });
@@ -356,28 +366,28 @@ describe('WorkspaceManager.getWorkspaceHealthState', () => {
 
 describe('WorkspaceManager.createWorkspace', () => {
 	test('creates a git worktree, marks setup ready, and creates the first session', async () => {
-		const { workspace, session, sourcePath, refreshCalls } = await createReadyWorkspace();
+		const { workspace, session, sourcePath, directory, refreshCalls } =
+			await createReadyWorkspace();
 
-		await expect(stat(workspace.localPath)).resolves.toMatchObject({});
+		const workspacePath = workspace.localPath;
+		await expect(stat(workspacePath)).resolves.toMatchObject({});
 		expect(workspace).toMatchObject({
 			branchName: 'atlas',
-			localPath: path.join(sourcePath, 'atlas'),
+			localPath: expect.stringContaining(path.join('worktrees', directory.id, 'atlas')),
 			setupState: 'ready',
 		});
 		expect(session).toMatchObject({ workspaceId: workspace.id });
-		expect(await Bun.file(path.join(sourcePath, '.git/info/exclude')).text()).toContain('/atlas/');
-		expect((await runGit(['branch', '--show-current'], workspace.localPath)).stdout.trim()).toBe(
-			'atlas',
-		);
+		expect(workspacePath.startsWith(sourcePath)).toBe(false);
+		expect((await runGit(['branch', '--show-current'], workspacePath)).stdout.trim()).toBe('atlas');
 		expect(
-			(await runGit(['rev-parse', '--abbrev-ref', '@{upstream}'], workspace.localPath)).exitCode,
+			(await runGit(['rev-parse', '--abbrev-ref', '@{upstream}'], workspacePath)).exitCode,
 		).not.toBe(0);
-		expect(refreshCalls).toEqual([{ workspaceId: workspace.id, localPath: workspace.localPath }]);
+		expect(refreshCalls).toEqual([{ workspaceId: workspace.id, localPath: workspacePath }]);
 	});
 
 	test('uses each codename before adding numeric suffixes', async () => {
 		const setup = await createGitHubBackedDirectory();
-		const manager = new WorkspaceManager(setup.store, {
+		const manager = await createWorkspaceManager(setup.store, {
 			diffStore: {
 				refreshWorkspaceGitSnapshot: async () => true,
 			},
@@ -394,7 +404,7 @@ describe('WorkspaceManager.createWorkspace', () => {
 
 	test('keeps a created workspace ready when the non-critical git snapshot refresh fails', async () => {
 		const setup = await createGitHubBackedDirectory();
-		const manager = new WorkspaceManager(setup.store, {
+		const manager = await createWorkspaceManager(setup.store, {
 			diffStore: {
 				refreshWorkspaceGitSnapshot: async () => {
 					throw new Error('refresh failed');
@@ -411,7 +421,7 @@ describe('WorkspaceManager.createWorkspace', () => {
 
 	test('marks setup failed and does not create a session when git worktree creation fails', async () => {
 		const { store, directory } = await createGitDirectoryWithoutMain();
-		const manager = new WorkspaceManager(store);
+		const manager = await createWorkspaceManager(store);
 
 		const result = await manager.createWorkspace(directory.id);
 
@@ -419,19 +429,6 @@ describe('WorkspaceManager.createWorkspace', () => {
 		expect(result.workspace).toMatchObject({ setupState: 'failed' });
 		expect(result.workspace.setupError).toContain('Directory must have a main branch');
 		expect(store.listSessionsByWorkspace(result.workspace.id)).toEqual([]);
-	});
-
-	test('removes the source exclude entry when worktree setup fails after writing it', async () => {
-		const { store, directory, sourcePath } = await createGitDirectoryWithoutMain();
-		const manager = new WorkspaceManager(store);
-
-		const result = await manager.createWorkspace(directory.id);
-
-		expect(result.session).toBeNull();
-		expect(result.workspace.setupState).toBe('failed');
-		expect(await Bun.file(path.join(sourcePath, '.git/info/exclude')).text()).not.toContain(
-			'/atlas/',
-		);
 	});
 
 	test('fails loudly when git cannot list existing branches', async () => {
@@ -443,7 +440,7 @@ describe('WorkspaceManager.createWorkspace', () => {
 			githubOwner: 'sarp',
 			githubRepo: 'miko',
 		});
-		const manager = new WorkspaceManager(store);
+		const manager = await createWorkspaceManager(store);
 
 		await expect(manager.createWorkspace(directory.id)).rejects.toThrow(
 			'Git could not list local branches',
@@ -453,7 +450,7 @@ describe('WorkspaceManager.createWorkspace', () => {
 
 describe('WorkspaceManager.renameWorkspaceBranch', () => {
 	test('renames a local-only workspace branch', async () => {
-		const { manager, workspace, sourcePath, refreshCalls } = await createReadyWorkspace();
+		const { manager, workspace, refreshCalls } = await createReadyWorkspace();
 
 		const renamed = await manager.renameWorkspaceBranch(workspace.id, 'Feature Login!!');
 
@@ -461,7 +458,6 @@ describe('WorkspaceManager.renameWorkspaceBranch', () => {
 		expect((await runGit(['branch', '--show-current'], workspace.localPath)).stdout.trim()).toBe(
 			'feature-login',
 		);
-		expect(await Bun.file(path.join(sourcePath, '.git/info/exclude')).text()).toContain('/atlas/');
 		expect(refreshCalls.at(-1)).toEqual({
 			workspaceId: workspace.id,
 			localPath: workspace.localPath,

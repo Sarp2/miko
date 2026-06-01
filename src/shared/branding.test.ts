@@ -6,6 +6,8 @@ import {
 	getKeybindingsFilePath,
 	getKeybindingsFilePathDisplay,
 	getRuntimeProfile,
+	getWorktreesDir,
+	getWorktreesDirDisplay,
 } from 'src/shared/branding';
 
 describe('runtime profile helpers', () => {
@@ -16,6 +18,8 @@ describe('runtime profile helpers', () => {
 		expect(getDataDirDisplay({})).toBe('~/.miko/data');
 		expect(getKeybindingsFilePath('/tmp/home', {})).toBe('/tmp/home/.miko/keybindings.json');
 		expect(getKeybindingsFilePathDisplay({})).toBe('~/.miko/keybindings.json');
+		expect(getWorktreesDir('/tmp/home', {})).toBe('/tmp/home/.miko/worktrees');
+		expect(getWorktreesDirDisplay({})).toBe('~/.miko/worktrees');
 	});
 
 	test('switches to dev paths for the dev profile', () => {
@@ -27,5 +31,7 @@ describe('runtime profile helpers', () => {
 		expect(getDataDirDisplay(env)).toBe('~/.miko-dev/data');
 		expect(getKeybindingsFilePath('/tmp/home', env)).toBe('/tmp/home/.miko-dev/keybindings.json');
 		expect(getKeybindingsFilePathDisplay(env)).toBe('~/.miko-dev/keybindings.json');
+		expect(getWorktreesDir('/tmp/home', env)).toBe('/tmp/home/.miko-dev/worktrees');
+		expect(getWorktreesDirDisplay(env)).toBe('~/.miko-dev/worktrees');
 	});
 });
