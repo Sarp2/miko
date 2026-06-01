@@ -39,7 +39,7 @@ export function HomeRoute() {
 							<button
 								type="button"
 								disabled={action.disabled}
-								className="group flex h-[148px] flex-col items-start justify-between rounded-xl border border-hairline bg-surface-1 px-3.5 py-3 text-left shadow-[0_18px_60px_rgba(0,0,0,0.22)] transition-colors enabled:hover:border-hairline-tertiary enabled:hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-45"
+								className="group flex h-[148px] w-full flex-col items-start justify-between rounded-xl border border-hairline bg-surface-1 px-3.5 py-3 text-left shadow-[0_18px_60px_rgba(0,0,0,0.22)] transition-colors enabled:hover:border-hairline-tertiary enabled:hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-45"
 							>
 								<Icon className="size-4 text-ink-muted transition-colors group-enabled:group-hover:text-ink" />
 								<div className="min-w-0">

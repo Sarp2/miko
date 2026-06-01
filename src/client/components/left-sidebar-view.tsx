@@ -25,7 +25,15 @@ import type { SidebarSortField } from '../stores/ui-store';
 import { Button } from './ui/button';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from './ui/hover-card';
 import { ScrollArea } from './ui/scroll-area';
-import { Separator } from './ui/separator';
+import {
+	Sidebar as SidebarPrimitive,
+	SidebarContent as SidebarPrimitiveContent,
+	SidebarFooter as SidebarPrimitiveFooter,
+	SidebarHeader as SidebarPrimitiveHeader,
+	SidebarProvider as SidebarPrimitiveProvider,
+	SidebarSeparator as SidebarPrimitiveSeparator,
+	SidebarTrigger as SidebarPrimitiveTrigger,
+} from './ui/sidebar';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 
 export interface SidebarProps {
@@ -580,7 +588,7 @@ export function Sidebar({
 	onOpenSettings,
 	className,
 }: SidebarProps) {
-	const rootRef = React.useRef<HTMLElement | null>(null);
+	const rootRef = React.useRef<HTMLDivElement | null>(null);
 	const isCollapsedControlled = collapsed !== undefined;
 	const isExpansionControlled = expandedDirectoryIds !== undefined;
 	const [internalCollapsed, setInternalCollapsed] = React.useState(false);
@@ -723,61 +731,147 @@ export function Sidebar({
 			: internalWidth;
 
 	return (
-		<aside
-			ref={rootRef}
-			className={cn(
-				'relative flex h-full shrink-0 flex-col bg-surface-1',
-				isCollapsed ? 'overflow-visible border-r-0' : 'overflow-hidden border-r border-hairline',
-				!isResizing && 'transition-[width] duration-150 ease-out',
-				className,
-			)}
-			style={{ width: isCollapsed ? 0 : openWidth }}
-			aria-label="Workspace sidebar"
+		<SidebarPrimitiveProvider
+			open={!isCollapsed}
+			onOpenChange={(open) => setCollapsed(!open)}
+			className="contents"
+			style={
+				{
+					'--sidebar-width': `${openWidth}px`,
+					'--sidebar-width-icon': '0px',
+				} as React.CSSProperties
+			}
 		>
-			{isCollapsed ? (
-				<Tooltip>
-					<TooltipTrigger asChild>
-						<Button
-							type="button"
-							variant="ghost"
-							size="icon-sm"
-							className="absolute top-2 left-2 z-10 size-8 text-ink-subtle hover:bg-transparent hover:text-ink"
-							aria-label="Open sidebar"
-							onClick={() => setCollapsed(false)}
-						>
-							<SidebarSimple className="size-4" />
-						</Button>
-					</TooltipTrigger>
-					<TooltipContent side="right">Open sidebar</TooltipContent>
-				</Tooltip>
-			) : (
-				<>
-					<div className="flex h-11 shrink-0 items-center justify-between px-2.5">
-						<div className="flex min-w-0 items-center">
-							<Tooltip>
-								<TooltipTrigger asChild>
-									<Button
-										type="button"
-										variant="ghost"
-										size="icon-sm"
-										className="size-7 text-ink-subtle hover:bg-transparent hover:text-ink"
-										aria-label="Close sidebar"
-										onClick={toggleCollapsed}
-									>
-										<SidebarSimple className="size-4" />
-									</Button>
-								</TooltipTrigger>
-								<TooltipContent>Close sidebar</TooltipContent>
-							</Tooltip>
-						</div>
+			<div className="contents">
+				<div className={cn('fixed top-2 left-2 z-30 md:hidden', isCollapsed && 'md:block')}>
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<SidebarPrimitiveTrigger
+								type="button"
+								variant="ghost"
+								size="icon-sm"
+								className="size-8 text-ink-subtle hover:bg-transparent hover:text-ink"
+								aria-label="Open sidebar"
+							>
+								<SidebarSimple className="size-4" />
+							</SidebarPrimitiveTrigger>
+						</TooltipTrigger>
+						<TooltipContent side="right">Open sidebar</TooltipContent>
+					</Tooltip>
+				</div>
 
-						<div className="flex items-center gap-0.5">
-							<SidebarFilterPopover
-								directorySort={directorySort}
-								workspaceSort={workspaceSort}
-								onDirectorySortChange={onDirectorySortChange}
-								onWorkspaceSortChange={onWorkspaceSortChange}
-							/>
+				{isCollapsed && (
+					<div className="fixed top-2 left-2 z-30 hidden md:block">
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<SidebarPrimitiveTrigger
+									type="button"
+									variant="ghost"
+									size="icon-sm"
+									className="size-8 text-ink-subtle hover:bg-transparent hover:text-ink"
+									aria-label="Open sidebar"
+								>
+									<SidebarSimple className="size-4" />
+								</SidebarPrimitiveTrigger>
+							</TooltipTrigger>
+							<TooltipContent side="right">Open sidebar</TooltipContent>
+						</Tooltip>
+					</div>
+				)}
+
+				<SidebarPrimitive
+					ref={rootRef}
+					side="left"
+					collapsible="offcanvas"
+					position="inline"
+					className={cn(
+						'bg-surface-1 p-0 text-ink',
+						!isResizing && 'transition-[width] duration-150 ease-out',
+						className,
+					)}
+					aria-label="Workspace sidebar"
+				>
+					<div className="relative flex size-full flex-col bg-surface-1">
+						<SidebarPrimitiveHeader className="flex h-11 shrink-0 flex-row items-center justify-between gap-0 p-0 px-2.5">
+							<div className="flex min-w-0 items-center">
+								<Tooltip>
+									<TooltipTrigger asChild>
+										<Button
+											type="button"
+											variant="ghost"
+											size="icon-sm"
+											className="size-7 text-ink-subtle hover:bg-transparent hover:text-ink"
+											aria-label="Close sidebar"
+											onClick={toggleCollapsed}
+										>
+											<SidebarSimple className="size-4" />
+										</Button>
+									</TooltipTrigger>
+									<TooltipContent>Close sidebar</TooltipContent>
+								</Tooltip>
+							</div>
+
+							<div className="flex items-center gap-0.5">
+								<SidebarFilterPopover
+									directorySort={directorySort}
+									workspaceSort={workspaceSort}
+									onDirectorySortChange={onDirectorySortChange}
+									onWorkspaceSortChange={onWorkspaceSortChange}
+								/>
+								<Tooltip>
+									<TooltipTrigger asChild>
+										<Button
+											type="button"
+											variant="ghost"
+											size="icon-sm"
+											className="size-7 text-ink-subtle hover:text-ink"
+											aria-label="Add directory"
+											onClick={onAddDirectory}
+										>
+											<FolderSimplePlus className="size-3" />
+										</Button>
+									</TooltipTrigger>
+									<TooltipContent>Add directory</TooltipContent>
+								</Tooltip>
+							</div>
+						</SidebarPrimitiveHeader>
+
+						<SidebarPrimitiveSeparator className="mx-0 bg-hairline" />
+
+						<SidebarPrimitiveContent className="flex min-h-0 flex-1 flex-col gap-0 overflow-hidden px-2 py-2">
+							<div className="mb-1 flex items-center justify-between px-2">
+								<span className="text-[11px] font-medium leading-4 text-ink-subtle">Projects</span>
+							</div>
+
+							<ScrollArea className="min-h-0 flex-1">
+								<div className="flex flex-col gap-2 pr-1">
+									{directoryGroups.map((directory) => {
+										const isExpanded = currentExpandedIds.includes(directory.directoryId);
+										return (
+											<DirectoryGroup
+												key={directory.directoryId}
+												directory={directory}
+												isExpanded={isExpanded}
+												activeWorkspaceId={activeWorkspaceId}
+												onToggle={() => setExpanded(directory.directoryId, !isExpanded)}
+												onWorkspaceSelect={onWorkspaceSelect}
+												onCreateWorkspace={async () => {
+													try {
+														await onCreateWorkspace?.(directory.directoryId);
+													} catch (error) {
+														onCreateWorkspaceError?.(error);
+													}
+												}}
+											/>
+										);
+									})}
+								</div>
+							</ScrollArea>
+						</SidebarPrimitiveContent>
+
+						<SidebarPrimitiveSeparator className="mx-0 bg-hairline" />
+
+						<SidebarPrimitiveFooter className="flex h-10 shrink-0 flex-row items-center justify-between gap-0 p-0 px-3">
 							<Tooltip>
 								<TooltipTrigger asChild>
 									<Button
@@ -785,100 +879,47 @@ export function Sidebar({
 										variant="ghost"
 										size="icon-sm"
 										className="size-7 text-ink-subtle hover:text-ink"
-										aria-label="Add directory"
-										onClick={onAddDirectory}
+										aria-label="Archive"
+										onClick={onOpenArchive}
 									>
-										<FolderSimplePlus className="size-3" />
+										<Archive className="size-4" />
 									</Button>
 								</TooltipTrigger>
-								<TooltipContent>Add directory</TooltipContent>
+								<TooltipContent>Archive</TooltipContent>
 							</Tooltip>
-						</div>
+
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Button
+										type="button"
+										variant="ghost"
+										size="icon-sm"
+										className="size-7 text-ink-subtle hover:text-ink"
+										aria-label="Settings"
+										onClick={onOpenSettings}
+									>
+										<Gear className="size-4" />
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent>Settings</TooltipContent>
+							</Tooltip>
+						</SidebarPrimitiveFooter>
+
+						{/* biome-ignore lint/a11y/useFocusableInteractive: Matches the source sidebar-v2 drag rail; keyboard collapse remains available through the close button. */}
+						{/* biome-ignore lint/a11y/useSemanticElements: This is a pointer drag rail, not a document separator. */}
+						<div
+							role="separator"
+							aria-orientation="vertical"
+							aria-label="Resize sidebar"
+							aria-valuemin={MIN_WIDTH}
+							aria-valuemax={MAX_WIDTH}
+							aria-valuenow={Math.round(openWidth)}
+							className="absolute top-0 right-0 h-full w-1 cursor-col-resize touch-none bg-transparent hover:bg-primary/30"
+							onPointerDown={onResizePointerDown}
+						/>
 					</div>
-
-					<Separator className="bg-hairline" />
-
-					<div className="flex min-h-0 flex-1 flex-col px-2 py-2">
-						<div className="mb-1 flex items-center justify-between px-2">
-							<span className="text-[11px] font-medium leading-4 text-ink-subtle">Projects</span>
-						</div>
-
-						<ScrollArea className="min-h-0 flex-1">
-							<div className="flex flex-col gap-2 pr-1">
-								{directoryGroups.map((directory) => {
-									const isExpanded = currentExpandedIds.includes(directory.directoryId);
-									return (
-										<DirectoryGroup
-											key={directory.directoryId}
-											directory={directory}
-											isExpanded={isExpanded}
-											activeWorkspaceId={activeWorkspaceId}
-											onToggle={() => setExpanded(directory.directoryId, !isExpanded)}
-											onWorkspaceSelect={onWorkspaceSelect}
-											onCreateWorkspace={async () => {
-												try {
-													await onCreateWorkspace?.(directory.directoryId);
-												} catch (error) {
-													onCreateWorkspaceError?.(error);
-												}
-											}}
-										/>
-									);
-								})}
-							</div>
-						</ScrollArea>
-					</div>
-
-					<Separator className="bg-hairline" />
-
-					<div className="flex h-10 shrink-0 items-center justify-between px-3">
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<Button
-									type="button"
-									variant="ghost"
-									size="icon-sm"
-									className="size-7 text-ink-subtle hover:text-ink"
-									aria-label="Archive"
-									onClick={onOpenArchive}
-								>
-									<Archive className="size-4" />
-								</Button>
-							</TooltipTrigger>
-							<TooltipContent>Archive</TooltipContent>
-						</Tooltip>
-
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<Button
-									type="button"
-									variant="ghost"
-									size="icon-sm"
-									className="size-7 text-ink-subtle hover:text-ink"
-									aria-label="Settings"
-									onClick={onOpenSettings}
-								>
-									<Gear className="size-4" />
-								</Button>
-							</TooltipTrigger>
-							<TooltipContent>Settings</TooltipContent>
-						</Tooltip>
-					</div>
-
-					{/* biome-ignore lint/a11y/useFocusableInteractive: Matches the source sidebar-v2 drag rail; keyboard collapse remains available through the close button. */}
-					{/* biome-ignore lint/a11y/useSemanticElements: This is a pointer drag rail, not a document separator. */}
-					<div
-						role="separator"
-						aria-orientation="vertical"
-						aria-label="Resize sidebar"
-						aria-valuemin={MIN_WIDTH}
-						aria-valuemax={MAX_WIDTH}
-						aria-valuenow={Math.round(openWidth)}
-						className="absolute top-0 right-0 h-full w-1 cursor-col-resize touch-none bg-transparent hover:bg-primary/30"
-						onPointerDown={onResizePointerDown}
-					/>
-				</>
-			)}
-		</aside>
+				</SidebarPrimitive>
+			</div>
+		</SidebarPrimitiveProvider>
 	);
 }
