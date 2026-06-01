@@ -604,7 +604,6 @@ export function Sidebar({
 	const [internalExpandedIds, setInternalExpandedIds] = React.useState<string[]>(() =>
 		directoryGroups.map((directory) => directory.directoryId),
 	);
-	const { isMobile, setOpenMobile } = useSidebarPrimitive();
 
 	const isCollapsed = isCollapsedControlled ? collapsed : internalCollapsed;
 	const currentExpandedIds = isExpansionControlled ? expandedDirectoryIds : internalExpandedIds;
@@ -651,15 +650,6 @@ export function Sidebar({
 		},
 		[isExpansionControlled, onDirectoryExpandedChange],
 	);
-
-	const closeSidebar = React.useCallback(() => {
-		if (isMobile) {
-			setOpenMobile(false);
-			return;
-		}
-
-		setCollapsed(true);
-	}, [isMobile, setCollapsed, setOpenMobile]);
 
 	React.useEffect(() => {
 		return () => {
@@ -788,16 +778,15 @@ export function Sidebar({
 							<div className="flex min-w-0 items-center">
 								<Tooltip>
 									<TooltipTrigger asChild>
-										<Button
+										<SidebarPrimitiveTrigger
 											type="button"
 											variant="ghost"
 											size="icon-sm"
 											className="size-7 text-ink-subtle hover:bg-transparent hover:text-ink"
 											aria-label="Close sidebar"
-											onClick={closeSidebar}
 										>
 											<SidebarSimple className="size-4" />
-										</Button>
+										</SidebarPrimitiveTrigger>
 									</TooltipTrigger>
 									<TooltipContent>Close sidebar</TooltipContent>
 								</Tooltip>
