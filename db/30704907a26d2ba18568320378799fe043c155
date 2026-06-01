@@ -1,0 +1,27 @@
+src/shared/branding.test.ts
+  s_82e93de1bb8ac8::t_309c46257d1511 9-10,21-22,34-35
+src/shared/branding.ts
+  s_82e93de1bb8ac8::t_309c46257d1511 51-58
+src/server/workspace-manager.test.ts
+  s_82e93de1bb8ac8::t_56db087634aab0 33-42,94,369-370,376,390,407,424,443,453
+  s_82e93de1bb8ac8::t_8a502634124c55 381,383
+  s_82e93de1bb8ac8::t_cea5956551363d 372-373,380,385
+src/server/workspace-manager.ts
+  s_82e93de1bb8ac8::t_e4ac6ee0a0bf31 2,4,58,151,161,164-165,185
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "db30704907a26d2ba18568320378799fe043c155",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
