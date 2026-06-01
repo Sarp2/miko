@@ -1,0 +1,28 @@
+src/server/server.ts
+  s_3e97875e7ef331::t_58b3b1e554e19c 71-73
+  s_3e97875e7ef331::t_265534e9647d4b 313-315
+  s_3e97875e7ef331::t_146bad4ac32814 38-70,74-102
+  s_3e97875e7ef331::t_25686d822c9ac7 189-199
+  s_3e97875e7ef331::t_6f2ed7213f198e 9
+src/server/server.test.ts
+  s_3e97875e7ef331::t_58b3b1e554e19c 649,668
+  s_3e97875e7ef331::t_12fb14f34264a9 600-624,626-648,650-667,669-692
+  s_3e97875e7ef331::t_da970181c24337 625
+  s_3e97875e7ef331::t_ec7d423fd70fa8 6,14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "877b5203b4e18b6096ca6c24d2d9981b98f79b96",
+  "prompts": {},
+  "sessions": {
+    "s_3e97875e7ef331": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e2d669be-f9d6-40c2-a078-1be419a3256d",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
