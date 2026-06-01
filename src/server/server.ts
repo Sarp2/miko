@@ -6,6 +6,7 @@ import { AgentCoordinator } from './agent';
 import { cleanupStaleInstructionAttachments } from './agent-instruction-attachments';
 import type { UpdateInstallAttemptResult } from './cli-runtime';
 import { DiffStore } from './diff-store';
+import type { WorkspaceRecord } from './event';
 import { EventStore } from './event-store';
 import { KeybindingsManager } from './keybindings';
 import { getMachineDisplayName } from './machine-name';
@@ -31,6 +32,71 @@ function safeDecodePathSegment(segment: string): string | null {
 		return decodeURIComponent(segment);
 	} catch {
 		return null;
+	}
+}
+
+export function shouldRefreshWorkspaceGitOnStartup(workspace: WorkspaceRecord): boolean {
+	return (
+		workspace.visibilityState === 'active' &&
+		workspace.setupState === 'ready' &&
+		workspace.reviewState !== 'done' &&
+		workspace.reviewState !== 'closed'
+	);
+}
+
+export function shouldRefreshWorkspacePrOnStartup(workspace: WorkspaceRecord): boolean {
+	return (
+		workspace.visibilityState === 'active' &&
+		workspace.reviewState !== 'done' &&
+		workspace.reviewState !== 'closed'
+	);
+}
+
+export interface StartupWorkspaceRefreshDeps {
+	listWorkspaces: () => WorkspaceRecord[];
+	refreshWorkspaceGitSnapshot: (workspaceId: string, localPath: string) => Promise<boolean>;
+	refreshWorkspacePrStage: (
+		workspaceId: string,
+		options?: { force?: boolean },
+	) => Promise<{ refreshed: boolean }>;
+	broadcastSnapshots: () => Promise<void>;
+	logger?: Pick<Console, 'warn'>;
+}
+
+/**
+ * Refreshes git/PR state for active workspaces after startup. Intended to run in the background
+ * once the server is reachable so the sidebar can render cached state immediately. Each workspace
+ * is isolated in its own try/catch so one bad workspace cannot stop refresh for the rest.
+ */
+export async function refreshStartupWorkspaceState(
+	deps: StartupWorkspaceRefreshDeps,
+): Promise<void> {
+	const logger = deps.logger ?? console;
+
+	for (const workspace of deps.listWorkspaces()) {
+		if (!shouldRefreshWorkspaceGitOnStartup(workspace)) continue;
+		try {
+			const changed = await deps.refreshWorkspaceGitSnapshot(workspace.id, workspace.localPath);
+			if (changed) await deps.broadcastSnapshots();
+		} catch (error) {
+			logger.warn('[miko] failed to refresh startup workspace git state', {
+				workspaceId: workspace.id,
+				error,
+			});
+		}
+	}
+
+	for (const workspace of deps.listWorkspaces()) {
+		if (!shouldRefreshWorkspacePrOnStartup(workspace)) continue;
+		try {
+			const result = await deps.refreshWorkspacePrStage(workspace.id, { force: true });
+			if (result.refreshed) await deps.broadcastSnapshots();
+		} catch (error) {
+			logger.warn('[miko] failed to refresh startup workspace PR state', {
+				workspaceId: workspace.id,
+				error,
+			});
+		}
 	}
 }
 
@@ -120,21 +186,17 @@ export async function startServer(options: StartServerOptions = {}) {
 		return workspaceManager.refreshWorkspacePrStage(workspaceId, options);
 	}
 
-	async function refreshActiveWorkspaceGitSnapshotsOnStartup() {
-		for (const workspace of store.listWorkspaces()) {
-			if (workspace.visibilityState !== 'active') continue;
-			if (workspace.setupState !== 'ready') continue;
-			if (workspace.reviewState === 'done' || workspace.reviewState === 'closed') continue;
-			await diffStore.refreshWorkspaceGitSnapshot(workspace.id, workspace.localPath);
-		}
-	}
-
-	async function refreshActiveWorkspacePrStagesOnStartup() {
-		for (const workspace of store.listWorkspaces()) {
-			if (workspace.visibilityState !== 'active') continue;
-			if (workspace.reviewState === 'done' || workspace.reviewState === 'closed') continue;
-			await refreshWorkspacePrStage(workspace.id, { force: true });
-		}
+	function refreshStartupWorkspaceStateInBackground() {
+		void refreshStartupWorkspaceState({
+			listWorkspaces: () => store.listWorkspaces(),
+			refreshWorkspaceGitSnapshot: (workspaceId, localPath) =>
+				diffStore.refreshWorkspaceGitSnapshot(workspaceId, localPath),
+			refreshWorkspacePrStage: (workspaceId, prOptions) =>
+				refreshWorkspacePrStage(workspaceId, prOptions),
+			broadcastSnapshots: () => router.broadcastSnapshots(),
+		}).catch((error) => {
+			console.warn('[miko] failed to refresh startup workspace state', error);
+		});
 	}
 
 	function cleanupStaleInstructionAttachmentsInBackground() {
@@ -169,10 +231,6 @@ export async function startServer(options: StartServerOptions = {}) {
 		updateManager,
 		refreshWorkspacePrStage,
 	});
-
-	await refreshActiveWorkspaceGitSnapshotsOnStartup();
-	await refreshActiveWorkspacePrStagesOnStartup();
-	cleanupStaleInstructionAttachmentsInBackground();
 
 	const distDir = path.join(import.meta.dir, '..', '..', 'dist', 'client');
 
@@ -251,6 +309,9 @@ export async function startServer(options: StartServerOptions = {}) {
 			actualPort++;
 		}
 	}
+
+	cleanupStaleInstructionAttachmentsInBackground();
+	refreshStartupWorkspaceStateInBackground();
 
 	const shutdown = async () => {
 		for (const sessionId of [...agent.activeTurns.keys()]) {

@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { ChatAttachment } from '../shared/types';
+import type { WorkspaceRecord } from './event';
 import { getWorkspaceUploadDir } from './paths';
 import {
 	handleAttachmentContent,
@@ -10,6 +11,7 @@ import {
 	handleWorkspaceUpload,
 	handleWorkspaceUploadDelete,
 	persistUploadedFiles,
+	refreshStartupWorkspaceState,
 	serveStatic,
 } from './server';
 import { persistWorkspaceUpload } from './uploads';
@@ -592,6 +594,99 @@ describe('handleWorkspaceUploadDelete', () => {
 		} finally {
 			await rm(localPath, { recursive: true, force: true });
 		}
+	});
+});
+
+function makeWorkspace(overrides: Partial<WorkspaceRecord> = {}): WorkspaceRecord {
+	return {
+		id: 'workspace-1',
+		directoryId: 'directory-1',
+		localPath: '/tmp/workspace-1',
+		branchName: 'main',
+		setupState: 'ready',
+		reviewState: 'in_review',
+		visibilityState: 'active',
+		hasUnreadAgentResult: false,
+		createdAt: 0,
+		updatedAt: 0,
+		...overrides,
+	};
+}
+
+describe('refreshStartupWorkspaceState', () => {
+	test('skips workspaces that fail the startup filters', async () => {
+		const gitCalls: string[] = [];
+		const prCalls: string[] = [];
+
+		await refreshStartupWorkspaceState({
+			listWorkspaces: () => [
+				makeWorkspace({ id: 'active', visibilityState: 'active' }),
+				makeWorkspace({ id: 'archived', visibilityState: 'archived' }),
+				makeWorkspace({ id: 'not-ready', setupState: 'creating' }),
+				makeWorkspace({ id: 'done', reviewState: 'done' }),
+			],
+			refreshWorkspaceGitSnapshot: async (workspaceId) => {
+				gitCalls.push(workspaceId);
+				return false;
+			},
+			refreshWorkspacePrStage: async (workspaceId) => {
+				prCalls.push(workspaceId);
+				return { refreshed: false };
+			},
+			broadcastSnapshots: async () => {},
+			logger: { warn() {} },
+		});
+
+		// git refresh requires setupState ready; PR refresh does not.
+		expect(gitCalls).toEqual(['active']);
+		expect(prCalls).toEqual(['active', 'not-ready']);
+	});
+
+	test('broadcasts only after a workspace changes or refreshes', async () => {
+		let broadcasts = 0;
+
+		await refreshStartupWorkspaceState({
+			listWorkspaces: () => [makeWorkspace({ id: 'changed' }), makeWorkspace({ id: 'unchanged' })],
+			refreshWorkspaceGitSnapshot: async (workspaceId) => workspaceId === 'changed',
+			refreshWorkspacePrStage: async (workspaceId) => ({ refreshed: workspaceId === 'changed' }),
+			broadcastSnapshots: async () => {
+				broadcasts++;
+			},
+			logger: { warn() {} },
+		});
+
+		// One broadcast for the changed git snapshot, one for the refreshed PR stage.
+		expect(broadcasts).toBe(2);
+	});
+
+	test('isolates a failing workspace and keeps refreshing the rest', async () => {
+		const gitCalls: string[] = [];
+		const prCalls: string[] = [];
+		const warnings: unknown[][] = [];
+
+		await refreshStartupWorkspaceState({
+			listWorkspaces: () => [makeWorkspace({ id: 'bad' }), makeWorkspace({ id: 'good' })],
+			refreshWorkspaceGitSnapshot: async (workspaceId) => {
+				gitCalls.push(workspaceId);
+				if (workspaceId === 'bad') throw new Error('git boom');
+				return false;
+			},
+			refreshWorkspacePrStage: async (workspaceId) => {
+				prCalls.push(workspaceId);
+				if (workspaceId === 'bad') throw new Error('pr boom');
+				return { refreshed: false };
+			},
+			broadcastSnapshots: async () => {},
+			logger: {
+				warn: (...args: unknown[]) => {
+					warnings.push(args);
+				},
+			},
+		});
+
+		expect(gitCalls).toEqual(['bad', 'good']);
+		expect(prCalls).toEqual(['bad', 'good']);
+		expect(warnings).toHaveLength(2);
 	});
 });
 
