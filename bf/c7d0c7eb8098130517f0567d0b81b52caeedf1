@@ -1,0 +1,29 @@
+src/server/read-models.test.ts
+  s_d61337e585602a::t_55a2460bf8ba56 233-251
+src/server/server.ts
+  s_d61337e585602a::t_5bdd3af338aee7 163
+src/server/workspace-manager.ts
+  s_d61337e585602a::t_049a46c69a8637 395
+  s_d61337e585602a::t_10f98e91128930 59
+  s_d61337e585602a::t_d5f1c2e4b1f9d5 366,381
+  s_d61337e585602a::t_4098a18224f7bd 153,164-176
+src/server/workspace-manager.test.ts
+  s_d61337e585602a::t_ce73db85664f75 5
+  s_d61337e585602a::t_ed9fe0fceafc70 434-485
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "bfc7d0c7eb8098130517f0567d0b81b52caeedf1",
+  "prompts": {},
+  "sessions": {
+    "s_d61337e585602a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "db02e127-e1ba-4829-9298-b6f7b4e25409",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
