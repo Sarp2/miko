@@ -33,6 +33,7 @@ import {
 	SidebarProvider as SidebarPrimitiveProvider,
 	SidebarSeparator as SidebarPrimitiveSeparator,
 	SidebarTrigger as SidebarPrimitiveTrigger,
+	useSidebar as useSidebarPrimitive,
 } from './ui/sidebar';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 
@@ -500,6 +501,7 @@ function DirectoryGroup({
 	onCreateWorkspace?: () => void | Promise<void>;
 }) {
 	const avatar = directory.title.slice(0, 1).toUpperCase();
+	const { isMobile, setOpenMobile } = useSidebarPrimitive();
 
 	return (
 		<div className="flex flex-col gap-1">
@@ -558,7 +560,10 @@ function DirectoryGroup({
 							key={workspace.workspaceId}
 							workspace={workspace}
 							isActive={workspace.workspaceId === activeWorkspaceId}
-							onSelect={() => onWorkspaceSelect?.(workspace.workspaceId)}
+							onSelect={() => {
+								onWorkspaceSelect?.(workspace.workspaceId);
+								if (isMobile) setOpenMobile(false);
+							}}
 						/>
 					))}
 				</div>
