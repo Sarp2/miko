@@ -4,7 +4,7 @@ import type { SidebarDirectoryGroup } from '../../shared/types';
 import { useSidebarStore } from '../stores/sidebar-store';
 import { type SidebarSortField, useUiStore } from '../stores/ui-store';
 import { AddDirectoryDialog } from './add-directory-dialog';
-import { Sidebar } from './sidebar';
+import { Sidebar } from './left-sidebar-view';
 
 function sortTimestamp<T extends { createdAt: number; updatedAt: number }>(
 	item: T,
