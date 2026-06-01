@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from 'bun:test';
 import { mkdir, mkdtemp, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import type { WorkspaceGitHubSnapshot } from 'src/shared/types';
+import type { WorkspaceGitHubSnapshot, WorkspaceSetupState } from 'src/shared/types';
 import { runGit } from './diff-store';
 import { EventStore } from './event-store';
 import { WorkspaceManager } from './workspace-manager';
@@ -429,6 +429,58 @@ describe('WorkspaceManager.createWorkspace', () => {
 		expect(result.workspace).toMatchObject({ setupState: 'failed' });
 		expect(result.workspace.setupError).toContain('Directory must have a main branch');
 		expect(store.listSessionsByWorkspace(result.workspace.id)).toEqual([]);
+	});
+
+	test('broadcasts the persisted setup state after creating and ready transitions', async () => {
+		const setup = await createGitHubBackedDirectory();
+		const observedStates: WorkspaceSetupState[] = [];
+		const manager = await createWorkspaceManager(setup.store, {
+			diffStore: { refreshWorkspaceGitSnapshot: async () => true },
+			onWorkspaceSetupStateChanged: (workspaceId) => {
+				observedStates.push(setup.store.requireWorkspace(workspaceId).setupState);
+			},
+		});
+
+		const result = await manager.createWorkspace(setup.directory.id);
+
+		expect(result.workspace.setupState).toBe('ready');
+		expect(observedStates).toEqual(['creating', 'ready']);
+	});
+
+	test('broadcasts the persisted failed setup state when git worktree creation fails', async () => {
+		const { store, directory } = await createGitDirectoryWithoutMain();
+		const observedStates: WorkspaceSetupState[] = [];
+		const manager = await createWorkspaceManager(store, {
+			onWorkspaceSetupStateChanged: (workspaceId) => {
+				observedStates.push(store.requireWorkspace(workspaceId).setupState);
+			},
+		});
+
+		const result = await manager.createWorkspace(directory.id);
+
+		expect(result.workspace.setupState).toBe('failed');
+		expect(observedStates).toEqual(['creating', 'failed']);
+	});
+
+	test('keeps workspace creation working when the broadcast callback throws', async () => {
+		const setup = await createGitHubBackedDirectory();
+		const originalConsoleError = console.error;
+		console.error = () => {};
+		try {
+			const manager = await createWorkspaceManager(setup.store, {
+				diffStore: { refreshWorkspaceGitSnapshot: async () => true },
+				onWorkspaceSetupStateChanged: () => {
+					throw new Error('broadcast failed');
+				},
+			});
+
+			const result = await manager.createWorkspace(setup.directory.id);
+
+			expect(result.workspace.setupState).toBe('ready');
+			expect(result.session).toMatchObject({ workspaceId: result.workspace.id });
+		} finally {
+			console.error = originalConsoleError;
+		}
 	});
 
 	test('fails loudly when git cannot list existing branches', async () => {

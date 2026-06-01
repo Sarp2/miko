@@ -160,6 +160,7 @@ export async function startServer(options: StartServerOptions = {}) {
 	const workspaceManager = new WorkspaceManager(store, {
 		diffStore,
 		prManager,
+		onWorkspaceSetupStateChanged: () => router.broadcastSnapshots(),
 	});
 
 	const machineDisplayName = getMachineDisplayName();

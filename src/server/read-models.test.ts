@@ -230,6 +230,25 @@ describe('deriveSidebarSnapshot', () => {
 		});
 	});
 
+	test('reflects setup lifecycle state in the workspace indicator', () => {
+		const state = addDirectoryWorkspaceAndSession();
+		const workspace = state.workspacesById.get('workspace-1');
+		expect(workspace).toBeDefined();
+		if (!workspace) throw new Error('workspace missing');
+
+		workspace.setupState = 'creating';
+		expect(
+			deriveSidebarSnapshot({ state, activeStatuses: new Map() }).directoryGroups[0]?.workspaces[0]
+				?.indicator,
+		).toBe('workspace_creating');
+
+		workspace.setupState = 'failed';
+		expect(
+			deriveSidebarSnapshot({ state, activeStatuses: new Map() }).directoryGroups[0]?.workspaces[0]
+				?.indicator,
+		).toBe('workspace_failed');
+	});
+
 	test('orders workspaces by latest session activity', () => {
 		const state = addDirectoryWorkspaceAndSession();
 		state.workspacesById.set('workspace-2', {
