@@ -56,6 +56,7 @@ interface WorkspaceManagerDeps {
 	diffStore?: Pick<DiffStore, 'refreshWorkspaceGitSnapshot'>;
 	prManager?: Pick<PrManager, 'getWorkspaceGitHubSnapshot' | 'refreshWorkspacePrState'>;
 	worktreesRoot?: string;
+	onWorkspaceSetupStateChanged?: (workspaceId: string) => void | Promise<void>;
 }
 
 async function pathExists(localPath: string) {
@@ -149,6 +150,7 @@ export class WorkspaceManager {
 	private readonly diffStore: WorkspaceManagerDeps['diffStore'];
 	private readonly prManager: WorkspaceManagerDeps['prManager'];
 	private readonly worktreesRoot: string;
+	private readonly onWorkspaceSetupStateChanged: WorkspaceManagerDeps['onWorkspaceSetupStateChanged'];
 	private readonly pendingTurnIntentBySessionId = new Map<string, WorkspaceTurnIntent>();
 	private readonly lastPrRefreshAtByWorkspaceId = new Map<string, number>();
 
@@ -159,6 +161,19 @@ export class WorkspaceManager {
 		this.diffStore = deps.diffStore;
 		this.prManager = deps.prManager;
 		this.worktreesRoot = deps.worktreesRoot ?? getWorktreesDir(homedir());
+		this.onWorkspaceSetupStateChanged = deps.onWorkspaceSetupStateChanged;
+	}
+
+	private async notifyWorkspaceSetupStateChanged(workspaceId: string) {
+		if (!this.onWorkspaceSetupStateChanged) return;
+		try {
+			await this.onWorkspaceSetupStateChanged(workspaceId);
+		} catch (error) {
+			console.error('[workspace-manager] failed to broadcast workspace setup state change', {
+				workspaceId,
+				error,
+			});
+		}
 	}
 
 	private getWorktreePath(directoryId: string, branchName: string) {
@@ -348,6 +363,7 @@ export class WorkspaceManager {
 			localPath: identity.localPath,
 			branchName: identity.branchName,
 		});
+		await this.notifyWorkspaceSetupStateChanged(workspace.id);
 
 		try {
 			await mkdir(path.dirname(identity.localPath), { recursive: true });
@@ -362,6 +378,7 @@ export class WorkspaceManager {
 			}
 
 			await this.eventStore.markWorkspaceSetupCompleted(workspace.id);
+			await this.notifyWorkspaceSetupStateChanged(workspace.id);
 			const session = await this.eventStore.createSession(workspace.id);
 			await this.diffStore
 				?.refreshWorkspaceGitSnapshot(workspace.id, identity.localPath)
@@ -375,6 +392,7 @@ export class WorkspaceManager {
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
 			await this.eventStore.markWorkspaceSetupFailed(workspace.id, message);
+			await this.notifyWorkspaceSetupStateChanged(workspace.id);
 			return { workspace: this.eventStore.requireWorkspace(workspace.id), session: null };
 		}
 	}
