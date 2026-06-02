@@ -5,6 +5,7 @@ export const UI_STORAGE_KEY = 'miko:v1';
 
 export type RightSidebarTab = 'all_files' | 'changes' | 'checks';
 export type SidebarSortField = 'updated' | 'created';
+export type ExternalOpenApp = 'finder' | 'cursor' | 'warp' | 'terminal' | 'antigravity';
 export type WorkspaceFileSource =
 	| 'scratchpad'
 	| 'workspace_file'
@@ -45,6 +46,7 @@ export interface TerminalPanelState {
 interface PersistedUiState {
 	leftSidebarCollapsed: boolean;
 	leftSidebarWidth: number;
+	externalOpenApp: ExternalOpenApp;
 	expandedDirectoryIds: string[];
 	sidebarDirectorySort: SidebarSortField;
 	sidebarWorkspaceSort: SidebarSortField;
@@ -61,6 +63,7 @@ interface UiStoreState extends PersistedUiState {
 	setRightSidebarTab: (workspaceId: string, tab: RightSidebarTab) => void;
 	setLeftSidebarCollapsed: (collapsed: boolean) => void;
 	setLeftSidebarWidth: (width: number) => void;
+	setExternalOpenApp: (app: ExternalOpenApp) => void;
 	setDirectoryExpanded: (directoryId: string, expanded: boolean) => void;
 	setSidebarDirectorySort: (sort: SidebarSortField) => void;
 	setSidebarWorkspaceSort: (sort: SidebarSortField) => void;
@@ -82,6 +85,7 @@ interface UiStoreState extends PersistedUiState {
 
 const DEFAULT_LEFT_SIDEBAR_WIDTH = 292;
 const DEFAULT_TERMINAL_HEIGHT = 260;
+const DEFAULT_EXTERNAL_OPEN_APP: ExternalOpenApp = 'finder';
 
 const memoryStorage = new Map<string, string>();
 
@@ -164,6 +168,7 @@ export const useUiStore = create<UiStoreState>()(
 		(set, get) => ({
 			leftSidebarCollapsed: false,
 			leftSidebarWidth: DEFAULT_LEFT_SIDEBAR_WIDTH,
+			externalOpenApp: DEFAULT_EXTERNAL_OPEN_APP,
 			expandedDirectoryIds: [],
 			sidebarDirectorySort: 'updated',
 			sidebarWorkspaceSort: 'updated',
@@ -193,6 +198,10 @@ export const useUiStore = create<UiStoreState>()(
 
 			setLeftSidebarWidth: (width) => {
 				set({ leftSidebarWidth: width <= 0 ? 0 : clampPanelSize(width, 256, 420) });
+			},
+
+			setExternalOpenApp: (app) => {
+				set({ externalOpenApp: app });
 			},
 
 			setDirectoryExpanded: (directoryId, expanded) => {
@@ -426,6 +435,7 @@ export const useUiStore = create<UiStoreState>()(
 			partialize: (state): PersistedUiState => ({
 				leftSidebarCollapsed: state.leftSidebarCollapsed,
 				leftSidebarWidth: state.leftSidebarWidth,
+				externalOpenApp: state.externalOpenApp,
 				expandedDirectoryIds: state.expandedDirectoryIds,
 				sidebarDirectorySort: state.sidebarDirectorySort,
 				sidebarWorkspaceSort: state.sidebarWorkspaceSort,

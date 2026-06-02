@@ -126,12 +126,39 @@ describe('resolveEditorExecutable', () => {
 		expect(resolveEditorExecutable('cursor', 'linux')).toEqual({ command: 'cursor', args: [] });
 	});
 
+	test('supports Warp and Antigravity presets', () => {
+		spyOn(processUtils, 'hasCommand').mockImplementation((cmd) => cmd === 'warp');
+		spyOn(processUtils, 'canOpenMacApp').mockReturnValue(false);
+
+		expect(resolveEditorExecutable('warp', 'linux')).toEqual({ command: 'warp', args: [] });
+		expect(resolveEditorExecutable('antigravity', 'linux')).toEqual({
+			command: 'antigravity',
+			args: [],
+		});
+	});
+
 	test('falls back to `open -a` on darwin when CLI missing but app installed', () => {
 		spyOn(processUtils, 'hasCommand').mockReturnValue(false);
 		spyOn(processUtils, 'canOpenMacApp').mockImplementation((app) => app === 'Visual Studio Code');
 		expect(resolveEditorExecutable('vscode', 'darwin')).toEqual({
 			command: 'open',
 			args: ['-a', 'Visual Studio Code'],
+		});
+	});
+
+	test('falls back to macOS apps for Warp and Antigravity', () => {
+		spyOn(processUtils, 'hasCommand').mockReturnValue(false);
+		spyOn(processUtils, 'canOpenMacApp').mockImplementation((app) =>
+			['Warp', 'Antigravity'].includes(app),
+		);
+
+		expect(resolveEditorExecutable('warp', 'darwin')).toEqual({
+			command: 'open',
+			args: ['-a', 'Warp'],
+		});
+		expect(resolveEditorExecutable('antigravity', 'darwin')).toEqual({
+			command: 'open',
+			args: ['-a', 'Antigravity'],
 		});
 	});
 

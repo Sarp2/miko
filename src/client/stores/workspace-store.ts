@@ -1,6 +1,13 @@
 import { create } from 'zustand';
+import type { EditorOpenSettings } from '../../shared/protocol';
 import type { WorkspaceSnapshot } from '../../shared/types';
 import { useWsStore } from './ws-store';
+
+export interface OpenExternalArgs {
+	localPath: string;
+	action: 'open_finder' | 'open_terminal' | 'open_editor';
+	editor?: EditorOpenSettings;
+}
 
 function workspaceSubscriptionId(workspaceId: string) {
 	return `workspace:${workspaceId}`;
@@ -26,6 +33,7 @@ interface WorkspaceStoreState {
 		commentIds: string[],
 	) => Promise<unknown>;
 	mergePr: (workspaceId: string) => Promise<unknown>;
+	openExternal: (args: OpenExternalArgs) => Promise<unknown>;
 }
 
 let unsubscribeFromWsStore: (() => void) | null = null;
@@ -136,5 +144,11 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
 
 	mergePr: (workspaceId) => {
 		return useWsStore.getState().command({ type: 'workspace.mergePr', workspaceId });
+	},
+
+	openExternal: ({ localPath, action, editor }) => {
+		return useWsStore
+			.getState()
+			.command({ type: 'system.openExternal', localPath, action, editor });
 	},
 }));

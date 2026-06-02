@@ -20,6 +20,7 @@ import type {
 	SidebarWorkspaceRow,
 	WorkspaceSidebarIndicator,
 } from '../../shared/types';
+import { Icons } from '../lib/icons';
 import { cn } from '../lib/utils';
 import type { SidebarSortField } from '../stores/ui-store';
 import { Button } from './ui/button';
@@ -138,7 +139,7 @@ function SidebarFilterPopover({
 							className="size-7 text-ink-subtle hover:text-ink"
 							aria-label="Filter workspaces"
 						>
-							<SlidersHorizontal className="size-3" />
+							<SlidersHorizontal className="size-4" />
 						</Button>
 					</Popover.Trigger>
 				</TooltipTrigger>
@@ -197,120 +198,31 @@ function WorkspaceIndicatorIcon({
 	className?: string;
 }) {
 	if (indicator === 'agent_active' || indicator === 'workspace_creating') {
-		return (
-			<svg
-				viewBox="0 0 16 16"
-				aria-label={indicatorLabel(indicator)}
-				className={cn('size-3.5 animate-pulse text-ink-muted', className)}
-			>
-				<path
-					d="M3 10.5 6 7.5"
-					fill="none"
-					stroke="currentColor"
-					strokeLinecap="round"
-					strokeWidth="1.6"
-				/>
-				<path
-					d="M7 10.5 10 7.5"
-					fill="none"
-					stroke="currentColor"
-					strokeLinecap="round"
-					strokeWidth="1.6"
-					opacity="0.72"
-				/>
-				<path
-					d="M11 10.5 14 7.5"
-					fill="none"
-					stroke="currentColor"
-					strokeLinecap="round"
-					strokeWidth="1.6"
-					opacity="0.44"
-				/>
-			</svg>
-		);
+		return Icons.activeIcon({
+			ariaLabel: indicatorLabel(indicator),
+			className,
+		});
 	}
 
 	const colorClassName = indicatorTextClass(indicator);
-	const isDone = indicator === 'merged';
-	const isPr = indicator === 'pr_opened' || indicator === 'create_pr';
-	const isError =
-		indicator === 'ci_failed' || indicator === 'workspace_failed' || indicator === 'closed';
+	const iconClassName = cn(colorClassName, className);
 
-	return (
-		<svg
-			viewBox="0 0 16 16"
-			aria-hidden="true"
-			className={cn('size-3.5', colorClassName, className)}
-		>
-			{isDone ? (
-				<>
-					<path
-						d="M4 10.5 8 6.5"
-						fill="none"
-						stroke="currentColor"
-						strokeLinecap="round"
-						strokeWidth="1.55"
-						opacity="0.86"
-					/>
-					<path
-						d="M7.25 9.75 9.25 11.75 12.5 5.25"
-						fill="none"
-						stroke="currentColor"
-						strokeLinecap="round"
-						strokeLinejoin="round"
-						strokeWidth="1.55"
-						opacity="0.8"
-					/>
-				</>
-			) : isPr ? (
-				<>
-					<path
-						d="M4 10.5 8 6.5"
-						fill="none"
-						stroke="currentColor"
-						strokeLinecap="round"
-						strokeWidth="1.55"
-						opacity="0.86"
-					/>
-					<path
-						d="M8 10.5 12 6.5"
-						fill="none"
-						stroke="currentColor"
-						strokeLinecap="round"
-						strokeLinejoin="round"
-						strokeWidth="1.55"
-						opacity="0.62"
-					/>
-				</>
-			) : isError ? (
-				<>
-					<path
-						d="M5 5 11 11"
-						fill="none"
-						stroke="currentColor"
-						strokeLinecap="round"
-						strokeWidth="1.55"
-					/>
-					<path
-						d="M11 5 5 11"
-						fill="none"
-						stroke="currentColor"
-						strokeLinecap="round"
-						strokeWidth="1.55"
-					/>
-				</>
-			) : (
-				<path
-					d="M5 10.5 11 4.5"
-					fill="none"
-					stroke="currentColor"
-					strokeLinecap="round"
-					strokeWidth="1.55"
-					opacity={indicator === 'none' ? '0.38' : '0.9'}
-				/>
-			)}
-		</svg>
-	);
+	if (indicator === 'merged') {
+		return Icons.mergedIcon({ className: iconClassName });
+	}
+
+	if (indicator === 'pr_opened' || indicator === 'create_pr') {
+		return Icons.prIcon({ className: iconClassName });
+	}
+
+	if (indicator === 'ci_failed' || indicator === 'workspace_failed' || indicator === 'closed') {
+		return Icons.errorIcon({ className: iconClassName });
+	}
+
+	return Icons.idleIcon({
+		className: iconClassName,
+		muted: indicator === 'none',
+	});
 }
 
 function formatRelativeTime(timestamp: number | undefined) {
@@ -744,7 +656,7 @@ export function Sidebar({
 			}
 		>
 			<div className="contents">
-				<div className={cn('fixed top-2 left-2 z-30 md:hidden', isCollapsed && 'md:block')}>
+				<div className={cn('fixed top-1.5 left-2 z-30 md:hidden', isCollapsed && 'md:block')}>
 					<Tooltip>
 						<TooltipTrigger asChild>
 							<SidebarPrimitiveTrigger
@@ -809,7 +721,7 @@ export function Sidebar({
 											aria-label="Add directory"
 											onClick={onAddDirectory}
 										>
-											<FolderSimplePlus className="size-3" />
+											<FolderSimplePlus className="size-4" />
 										</Button>
 									</TooltipTrigger>
 									<TooltipContent>Add directory</TooltipContent>

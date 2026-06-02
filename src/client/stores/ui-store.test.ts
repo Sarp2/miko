@@ -86,6 +86,16 @@ describe('useUiStore.sidebar sorting', () => {
 	});
 });
 
+describe('useUiStore.setExternalOpenApp', () => {
+	test('stores the selected external app preference', () => {
+		expect(useUiStore.getState().externalOpenApp).toBe('finder');
+
+		useUiStore.getState().setExternalOpenApp('cursor');
+
+		expect(useUiStore.getState().externalOpenApp).toBe('cursor');
+	});
+});
+
 describe('useUiStore.setDirectoryExpanded', () => {
 	test('stores expanded directory ids without duplicates', () => {
 		useUiStore.getState().setDirectoryExpanded('directory-1', true);

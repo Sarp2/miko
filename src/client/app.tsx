@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Route, Routes } from 'react-router-dom';
+import { Toaster } from './components/ui/sonner';
 import { AppShell } from './routes/app-shell';
 import { ArchiveRoute } from './routes/archive-route';
 import { HomeRoute } from './routes/home-route';
@@ -15,21 +16,24 @@ export function App() {
 	}, []);
 
 	return (
-		<Routes>
-			<Route element={<AppShell />}>
-				<Route index element={<HomeRoute />} />
-				<Route path="workspaces/:workspaceId" element={<WorkspaceRoute kind="workspace" />} />
-				<Route
-					path="workspaces/:workspaceId/sessions/:sessionId"
-					element={<WorkspaceRoute kind="session" />}
-				/>
-				<Route path="workspaces/:workspaceId/diff" element={<WorkspaceRoute kind="diff" />} />
-				<Route path="workspaces/:workspaceId/file" element={<WorkspaceRoute kind="file" />} />
-			</Route>
-			<Route path="archive" element={<ArchiveRoute />} />
-			<Route path="settings" element={<SettingsRoute />} />
-			<Route path="*" element={<NotFoundRoute />} />
-		</Routes>
+		<>
+			<Routes>
+				<Route element={<AppShell />}>
+					<Route index element={<HomeRoute />} />
+					<Route path="workspaces/:workspaceId" element={<WorkspaceRoute kind="workspace" />} />
+					<Route
+						path="workspaces/:workspaceId/sessions/:sessionId"
+						element={<WorkspaceRoute kind="session" />}
+					/>
+					<Route path="workspaces/:workspaceId/diff" element={<WorkspaceRoute kind="diff" />} />
+					<Route path="workspaces/:workspaceId/file" element={<WorkspaceRoute kind="file" />} />
+				</Route>
+				<Route path="archive" element={<ArchiveRoute />} />
+				<Route path="settings" element={<SettingsRoute />} />
+				<Route path="*" element={<NotFoundRoute />} />
+			</Routes>
+			<Toaster />
+		</>
 	);
 }
 

@@ -88,12 +88,18 @@ export function LeftSidebar() {
 				onWorkspaceSelect={(workspaceId) => navigate(`/workspaces/${workspaceId}`)}
 				onCreateWorkspace={async (directoryId) => {
 					setWorkspaceCreateError(null);
-					const result = await createWorkspace(directoryId);
+					const wasExpanded = expandedDirectoryIds.includes(directoryId);
 					setDirectoryExpanded(directoryId, true);
-					const nextPath = result.sessionId
-						? `/workspaces/${result.workspaceId}/sessions/${result.sessionId}`
-						: `/workspaces/${result.workspaceId}`;
-					navigate(nextPath);
+					try {
+						const result = await createWorkspace(directoryId);
+						const nextPath = result.sessionId
+							? `/workspaces/${result.workspaceId}/sessions/${result.sessionId}`
+							: `/workspaces/${result.workspaceId}`;
+						navigate(nextPath);
+					} catch (error) {
+						if (!wasExpanded) setDirectoryExpanded(directoryId, false);
+						throw error;
+					}
 				}}
 				onCreateWorkspaceError={(error) => {
 					const message = error instanceof Error ? error.message : 'Failed to create workspace';
