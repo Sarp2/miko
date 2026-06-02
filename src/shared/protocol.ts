@@ -17,12 +17,11 @@ import type {
 	WorkspaceVisibilityState,
 } from './types';
 
-export type EditorPreset = 'cursor' | 'vscode' | 'windsurf' | 'custom';
+export type EditorPreset = 'cursor' | 'vscode' | 'warp' | 'antigravity' | 'custom';
 
-export interface EditorOpenSettings {
-	preset: EditorPreset;
-	commandTemplate: string;
-}
+export type EditorOpenSettings =
+	| { preset: Exclude<EditorPreset, 'custom'>; commandTemplate?: string }
+	| { preset: 'custom'; commandTemplate: string };
 
 export type SubscriptionTopic =
 	| { type: 'sidebar' }

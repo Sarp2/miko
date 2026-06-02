@@ -133,10 +133,16 @@ export function resolveEditorExecutable(
 			return { command: 'open', args: ['-a', 'Visual Studio Code'] };
 	}
 
-	if (preset === 'windsurf') {
-		if (hasCommand('windsurf')) return { command: 'windsurf', args: [] };
-		if (platform === 'darwin' && canOpenMacApp('Windsurf'))
-			return { command: 'open', args: ['-a', 'Windsurf'] };
+	if (preset === 'warp') {
+		if (hasCommand('warp')) return { command: 'warp', args: [] };
+		if (platform === 'darwin' && canOpenMacApp('Warp'))
+			return { command: 'open', args: ['-a', 'Warp'] };
+	}
+
+	if (preset === 'antigravity') {
+		if (hasCommand('antigravity')) return { command: 'antigravity', args: [] };
+		if (platform === 'darwin' && canOpenMacApp('Antigravity'))
+			return { command: 'open', args: ['-a', 'Antigravity'] };
 	}
 
 	if (platform === 'darwin') {
@@ -145,12 +151,15 @@ export function resolveEditorExecutable(
 				return { command: 'open', args: ['-a', 'Cursor'] };
 			case 'vscode':
 				return { command: 'open', args: ['-a', 'Visual Studio Code'] };
-			case 'windsurf':
-				return { command: 'open', args: ['-a', 'Windsurf'] };
+			case 'warp':
+				return { command: 'open', args: ['-a', 'Warp'] };
+			case 'antigravity':
+				return { command: 'open', args: ['-a', 'Antigravity'] };
 		}
 	}
 
-	return { command: preset === 'vscode' ? 'code' : preset, args: [] };
+	if (preset === 'vscode') return { command: 'code', args: [] };
+	return { command: preset, args: [] };
 }
 
 export function buildCustomEditorCommand(args: {
@@ -232,17 +241,16 @@ export function tokenizeCommandTemplate(template: string) {
 
 export function normalizeEditorSettings(editor: EditorOpenSettings): EditorOpenSettings {
 	const preset = normalizeEditorPreset(editor.preset);
-	return {
-		preset,
-		commandTemplate: editor.commandTemplate.trim() || DEFAULT_EDITOR_SETTINGS.commandTemplate,
-	};
+	const commandTemplate = editor.commandTemplate?.trim() || DEFAULT_EDITOR_SETTINGS.commandTemplate;
+	return { preset, commandTemplate } as EditorOpenSettings;
 }
 
 function normalizeEditorPreset(preset: EditorPreset): EditorPreset {
 	switch (preset) {
 		case 'vscode':
-		case 'windsurf':
 		case 'custom':
+		case 'warp':
+		case 'antigravity':
 		case 'cursor':
 			return preset;
 		default:

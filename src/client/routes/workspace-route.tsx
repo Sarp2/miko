@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
+import { WorkspaceHeader } from '../components/workspace-header/workspace-header';
 import { useScratchpadStore } from '../stores/scratchpad-store';
 import { useSessionStore } from '../stores/session-store';
 import { useUiStore } from '../stores/ui-store';
@@ -52,9 +53,18 @@ export function WorkspaceRoute({ kind }: WorkspaceRouteProps) {
 	if (!workspaceId) return <section data-testid="workspace-route">Missing workspace</section>;
 
 	return (
-		<section data-testid="workspace-route" data-workspace-id={workspaceId}>
-			Workspace {workspaceId}
-			{page ? <pre data-testid="workspace-page">{JSON.stringify(page)}</pre> : null}
+		<section
+			data-testid="workspace-route"
+			data-workspace-id={workspaceId}
+			className="flex h-full flex-col"
+		>
+			{workspaceSnapshot ? (
+				<WorkspaceHeader workspaceId={workspaceId} snapshot={workspaceSnapshot} />
+			) : null}
+			<div className="min-h-0 flex-1 overflow-auto p-3 text-ink-muted">
+				Workspace {workspaceId}
+				{page ? <pre data-testid="workspace-page">{JSON.stringify(page)}</pre> : null}
+			</div>
 		</section>
 	);
 }

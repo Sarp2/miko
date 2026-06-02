@@ -247,3 +247,31 @@ describe('useWorkspaceStore.addressReviewComments', () => {
 		await expect(resultPromise).resolves.toEqual({ sessionId: 'session-1' });
 	});
 });
+
+describe('useWorkspaceStore.openExternal', () => {
+	test('forwards external open requests through the websocket command flow', async () => {
+		useWsStore.getState().connect();
+		const socket = FakeWebSocket.instances[0];
+		socket.open();
+
+		const resultPromise = useWorkspaceStore.getState().openExternal({
+			localPath: '/repo/miko/atlas',
+			action: 'open_editor',
+			editor: { preset: 'cursor', commandTemplate: 'cursor "{path}"' },
+		});
+		const sent = JSON.parse(socket.sent[0]);
+
+		expect(sent).toMatchObject({
+			type: 'command',
+			command: {
+				type: 'system.openExternal',
+				localPath: '/repo/miko/atlas',
+				action: 'open_editor',
+				editor: { preset: 'cursor', commandTemplate: 'cursor "{path}"' },
+			},
+		});
+
+		socket.receive({ type: 'ack', id: sent.id, result: { ok: true } });
+		await expect(resultPromise).resolves.toEqual({ ok: true });
+	});
+});
