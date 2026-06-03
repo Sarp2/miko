@@ -1,0 +1,43 @@
+src/server/agent.ts
+  s_c3344e411d424c::t_6511595b4051b5 811,839
+src/server/generate-title.test.ts
+  s_c3344e411d424c::t_6511595b4051b5 51,53-54
+src/client/lib/middle-tabs.test.ts
+  s_c3344e411d424c::t_6511595b4051b5 1-69
+src/server/generate-title.ts
+  s_c3344e411d424c::t_6511595b4051b5 16
+src/client/routes/workspace-route.tsx
+  ai_agent 4,66-69
+src/server/event-store.test.ts
+  s_c3344e411d424c::t_6511595b4051b5 358,364
+src/client/components/left-sidebar.tsx
+  s_c3344e411d424c::t_6511595b4051b5 37
+src/server/event-store.ts
+  s_c3344e411d424c::t_6511595b4051b5 650
+src/client/lib/middle-tabs.ts
+  s_c3344e411d424c::t_6511595b4051b5 1-43
+src/client/components/middle-tabs.tsx
+  s_c3344e411d424c::t_6511595b4051b5 1-145
+src/client/components/ui/sidebar.tsx
+  ai_agent 5,32
+src/client/stores/ui-store.ts
+  s_c3344e411d424c::t_6511595b4051b5 107,111,123,134,149
+tsconfig.json
+  s_c3344e411d424c::t_6511595b4051b5 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "2b4def8a7c014e443b4ab9c0149176663612490c",
+  "prompts": {},
+  "sessions": {
+    "s_c3344e411d424c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9e1cdcea-8032-464c-8c7a-fd8683262663",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
