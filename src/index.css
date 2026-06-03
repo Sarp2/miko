@@ -293,6 +293,32 @@
 		line-height: 1.5;
 		letter-spacing: 0;
 	}
+
+	.scrollbar-miko {
+		scrollbar-color: var(--hairline-tertiary) transparent;
+		scrollbar-width: thin;
+	}
+
+	.scrollbar-miko::-webkit-scrollbar {
+		width: 8px;
+		height: 8px;
+	}
+
+	.scrollbar-miko::-webkit-scrollbar-track {
+		background: transparent;
+	}
+
+	.scrollbar-miko::-webkit-scrollbar-thumb {
+		background: var(--hairline-tertiary);
+		border: 2px solid transparent;
+		border-radius: var(--radius-pill);
+		background-clip: content-box;
+	}
+
+	.scrollbar-miko::-webkit-scrollbar-thumb:hover {
+		background: var(--ink-tertiary);
+		background-clip: content-box;
+	}
 }
 
 @media (max-width: 768px) {

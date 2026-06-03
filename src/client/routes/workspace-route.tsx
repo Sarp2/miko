@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { lazy, Suspense, useEffect, useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { MiddleTabs } from '../components/middle-tabs';
 import { WorkspaceHeader } from '../components/workspace-header/workspace-header';
@@ -11,6 +11,10 @@ import { deriveWorkspaceRoutePage, type WorkspaceRouteKind } from './workspace-r
 interface WorkspaceRouteProps {
 	kind: WorkspaceRouteKind;
 }
+
+const ScratchpadPage = lazy(() =>
+	import('../components/scratchpad-page').then((module) => ({ default: module.ScratchpadPage })),
+);
 
 export function WorkspaceRoute({ kind }: WorkspaceRouteProps) {
 	const { workspaceId, sessionId } = useParams();
@@ -53,6 +57,8 @@ export function WorkspaceRoute({ kind }: WorkspaceRouteProps) {
 
 	if (!workspaceId) return <section data-testid="workspace-route">Missing workspace</section>;
 
+	const scratchpadActive = page?.type === 'file' && page.source === 'scratchpad';
+
 	return (
 		<section
 			data-testid="workspace-route"
@@ -65,9 +71,19 @@ export function WorkspaceRoute({ kind }: WorkspaceRouteProps) {
 					<MiddleTabs workspaceId={workspaceId} sessions={workspaceSnapshot.sessions} />
 				</>
 			) : null}
-			<div className="min-h-0 flex-1 overflow-auto p-3 text-ink-muted">
-				Workspace {workspaceId}
-				{page ? <pre data-testid="workspace-page">{JSON.stringify(page)}</pre> : null}
+			<div className="min-h-0 flex-1 overflow-hidden">
+				{scratchpadActive ? (
+					<Suspense
+						fallback={<div className="p-4 text-caption text-ink-tertiary">Loading scratchpad…</div>}
+					>
+						<ScratchpadPage key={workspaceId} workspaceId={workspaceId} />
+					</Suspense>
+				) : (
+					<div className="h-full overflow-auto p-3 text-ink-muted">
+						Workspace {workspaceId}
+						{page ? <pre data-testid="workspace-page">{JSON.stringify(page)}</pre> : null}
+					</div>
+				)}
 			</div>
 		</section>
 	);
