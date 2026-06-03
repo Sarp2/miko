@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
+import { MiddleTabs } from '../components/middle-tabs';
 import { WorkspaceHeader } from '../components/workspace-header/workspace-header';
 import { useScratchpadStore } from '../stores/scratchpad-store';
 import { useSessionStore } from '../stores/session-store';
@@ -59,7 +60,10 @@ export function WorkspaceRoute({ kind }: WorkspaceRouteProps) {
 			className="flex h-full flex-col"
 		>
 			{workspaceSnapshot ? (
-				<WorkspaceHeader workspaceId={workspaceId} snapshot={workspaceSnapshot} />
+				<>
+					<WorkspaceHeader workspaceId={workspaceId} snapshot={workspaceSnapshot} />
+					<MiddleTabs workspaceId={workspaceId} sessions={workspaceSnapshot.sessions} />
+				</>
 			) : null}
 			<div className="min-h-0 flex-1 overflow-auto p-3 text-ink-muted">
 				Workspace {workspaceId}

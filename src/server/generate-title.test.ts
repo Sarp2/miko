@@ -48,10 +48,10 @@ describe('generateTitleForSessionDetailed', () => {
 		expect(result.usedFallback).toBe(false);
 	});
 
-	test('rejects "New Session" and falls back to the message-derived title', async () => {
+	test('rejects "Untitled" and falls back to the message-derived title', async () => {
 		const adapter = new QuickResponseAdapter({
-			runClaudeStructured: async () => ({ title: 'New Session' }),
-			runCodexStructured: async () => ({ title: 'New Session' }),
+			runClaudeStructured: async () => ({ title: 'Untitled' }),
+			runCodexStructured: async () => ({ title: 'Untitled' }),
 		});
 
 		const result = await generateTitleForSessionDetailed('build a settings page', adapter);

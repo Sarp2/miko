@@ -104,11 +104,11 @@ function getLocalStorage(): StateStorage {
 	return window.localStorage;
 }
 
-function scratchpadTabId(workspaceId: string) {
+export function scratchpadTabId(workspaceId: string) {
 	return `scratchpad:${workspaceId}`;
 }
 
-function pageTabId(page: WorkspacePage) {
+export function pageTabId(page: WorkspacePage) {
 	if (page.type === 'chat') return `chat:${page.sessionId}`;
 	if (page.type === 'diff') return page.path ? `diff:${page.path}` : 'diff:all_changes';
 
@@ -120,7 +120,7 @@ function basename(path: string) {
 	return path.split('/').filter(Boolean).at(-1) ?? path;
 }
 
-function fallbackTitleForPage(page: WorkspacePage) {
+export function fallbackTitleForPage(page: WorkspacePage) {
 	if (page.type === 'chat') return undefined;
 	if (page.type === 'diff') return 'All changes';
 
@@ -131,7 +131,7 @@ function fallbackTitleForPage(page: WorkspacePage) {
 	return page.title || 'Attachment';
 }
 
-function scratchpadTab(workspaceId: string, now = Date.now()): MiddleTabDescriptor {
+export function scratchpadTab(workspaceId: string, now = Date.now()): MiddleTabDescriptor {
 	return {
 		id: scratchpadTabId(workspaceId),
 		fallbackTitle: 'Scratchpad',
@@ -146,7 +146,7 @@ function scratchpadTab(workspaceId: string, now = Date.now()): MiddleTabDescript
 	};
 }
 
-function withScratchpadFirst(workspaceId: string, tabs: MiddleTabDescriptor[]) {
+export function withScratchpadFirst(workspaceId: string, tabs: MiddleTabDescriptor[]) {
 	const scratchpadId = scratchpadTabId(workspaceId);
 	const existingScratchpad = tabs.find((tab) => tab.id === scratchpadId);
 	const rest = tabs.filter((tab) => tab.id !== scratchpadId);
