@@ -29,12 +29,12 @@ function sortSidebarGroups(
 	return directoryGroups
 		.map((directory) => ({
 			...directory,
-			workspaces: [...directory.workspaces].sort(
+			workspaces: directory.workspaces.toSorted(
 				(a, b) =>
 					sortWorkspaceTimestamp(b, workspaceSort) - sortWorkspaceTimestamp(a, workspaceSort),
 			),
 		}))
-		.sort((a, b) => sortTimestamp(b, directorySort) - sortTimestamp(a, directorySort));
+		.toSorted((a, b) => sortTimestamp(b, directorySort) - sortTimestamp(a, directorySort));
 }
 
 function useActiveWorkspaceId() {
