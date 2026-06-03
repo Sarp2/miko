@@ -808,7 +808,7 @@ export class AgentCoordinator {
 
 		const existingMessages = this.store.getMessages(args.sessionId);
 		const shouldGenerateTitle =
-			args.appendUserPrompt && session.title === 'New Session' && existingMessages.length === 0;
+			args.appendUserPrompt && session.title === 'Untitled' && existingMessages.length === 0;
 
 		const optimisticTitle = shouldGenerateTitle ? fallbackTitleFromMessage(args.content) : null;
 
@@ -836,7 +836,7 @@ export class AgentCoordinator {
 				args.sessionId,
 				args.content,
 				workspace.localPath,
-				optimisticTitle ?? 'New Session',
+				optimisticTitle ?? 'Untitled',
 			);
 		}
 

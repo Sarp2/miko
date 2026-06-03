@@ -13,7 +13,7 @@ function normalizeGeneratedTitle(value: unknown): string | null {
 	if (typeof value !== 'string') return null;
 	const normalized = value.replace(/\s+/g, ' ').trim().slice(0, 80);
 
-	if (!normalized || normalized === 'New Session') return null;
+	if (!normalized || normalized === 'Untitled') return null;
 	return normalized;
 }
 

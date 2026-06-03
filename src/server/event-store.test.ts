@@ -355,13 +355,13 @@ describe('EventStore.createSession', () => {
 
 		const session = await store.createSession(workspace.id);
 
-		expect(session.title).toBe('New Session');
+		expect(session.title).toBe('Untitled');
 		expect(store.listSessionsByWorkspace(workspace.id).map((candidate) => candidate.id)).toEqual([
 			session.id,
 		]);
 
 		await store.renameSession(session.id, '   ');
-		expect(store.getSession(session.id)?.title).toBe('New Session');
+		expect(store.getSession(session.id)?.title).toBe('Untitled');
 
 		await store.renameSession(session.id, '  Better Session  ');
 		expect(store.getSession(session.id)?.title).toBe('Better Session');
