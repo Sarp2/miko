@@ -34,7 +34,7 @@ function sortSidebarGroups(
 					sortWorkspaceTimestamp(b, workspaceSort) - sortWorkspaceTimestamp(a, workspaceSort),
 			),
 		}))
-		.sort((a, b) => sortTimestamp(b, directorySort) - sortTimestamp(a, directorySort));
+		.toSorted((a, b) => sortTimestamp(b, directorySort) - sortTimestamp(a, directorySort));
 }
 
 function useActiveWorkspaceId() {

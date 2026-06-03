@@ -647,7 +647,7 @@ export class EventStore {
 		await this.append(this.workspacesLogPath, event);
 	}
 
-	async createSession(workspaceId: string, title = 'New Session') {
+	async createSession(workspaceId: string, title = 'Untitled') {
 		const workspace = this.requireWorkspace(workspaceId);
 		if (workspace.setupState !== 'ready') {
 			throw new Error('Workspace is not ready');
