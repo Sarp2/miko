@@ -1,0 +1,42 @@
+tsconfig.json
+  s_c3344e411d424c::t_c5715dd869a646 6
+src/client/components/left-sidebar.tsx
+  s_c3344e411d424c::t_51d791a7686df7 32
+src/client/routes/workspace-route-state.ts
+  s_c3344e411d424c::t_311d42cd84800f 26
+src/client/components/ui/sidebar.tsx
+  s_c3344e411d424c::t_b1cb0bf6e32e07 31
+  s_c3344e411d424c::t_b1877b20bee821 252
+src/client/components/add-directory-dialog.tsx
+  s_c3344e411d424c::t_e139aaa05f7913 1,16-21,40-54,69,78-84,86-103,105-115,117-125
+src/client/components/left-sidebar-view.tsx
+  s_c3344e411d424c::t_0acf6f94ab49cc 17
+  s_c3344e411d424c::t_9bd1be4e395cd0 23-24
+  s_c3344e411d424c::t_faf1e578cb85e1 505-508,510-511
+  s_c3344e411d424c::t_6eacca4fdcab5a 601
+src/client/routes/workspace-route.tsx
+  s_c3344e411d424c::t_ed513583d09c48 3,11
+  s_c3344e411d424c::t_1fe542bd7c3b08 23
+src/client/components/workspace-header/branch-name-editor.tsx
+  s_c3344e411d424c::t_5f7c6cff85807d 1,17-19,24,28-29,33,36,44,54,69,74
+src/client/hooks/use-sidebar-expansion.ts
+  s_c3344e411d424c::t_ffead0685c0bfa 1-44
+src/client/hooks/use-sidebar-resize.ts
+  s_c3344e411d424c::t_a2fcb3b8fd9c4a 1-130
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "42453b9d5e2e4216e8cbd6ed7213c87d6a26b89a",
+  "prompts": {},
+  "sessions": {
+    "s_c3344e411d424c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9e1cdcea-8032-464c-8c7a-fd8683262663",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
