@@ -23,7 +23,7 @@ export function basename(path: string) {
 }
 
 export function selectFirstSessionId(sessions: Pick<SessionSummary, 'id' | 'createdAt'>[] = []) {
-	return [...sessions].sort((a, b) => a.createdAt - b.createdAt)[0]?.id ?? null;
+	return sessions.toSorted((a, b) => a.createdAt - b.createdAt)[0]?.id ?? null;
 }
 
 function parseFileSource(value: string | null, path: string | null): WorkspaceFileSource {

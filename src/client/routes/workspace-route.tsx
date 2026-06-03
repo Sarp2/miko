@@ -1,11 +1,14 @@
 import { useEffect, useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
+import type { SessionSummary } from '../../shared/types';
 import { WorkspaceHeader } from '../components/workspace-header/workspace-header';
 import { useScratchpadStore } from '../stores/scratchpad-store';
 import { useSessionStore } from '../stores/session-store';
 import { useUiStore } from '../stores/ui-store';
 import { useWorkspaceStore } from '../stores/workspace-store';
 import { deriveWorkspaceRoutePage, type WorkspaceRouteKind } from './workspace-route-state';
+
+const EMPTY_SESSIONS: SessionSummary[] = [];
 
 interface WorkspaceRouteProps {
 	kind: WorkspaceRouteKind;
@@ -17,7 +20,7 @@ export function WorkspaceRoute({ kind }: WorkspaceRouteProps) {
 	const workspaceSnapshot = useWorkspaceStore((state) =>
 		workspaceId ? state.getWorkspaceSnapshot(workspaceId) : null,
 	);
-	const sessions = workspaceSnapshot?.sessions ?? [];
+	const sessions = workspaceSnapshot?.sessions ?? EMPTY_SESSIONS;
 
 	useEffect(() => {
 		if (!workspaceId) return;

@@ -29,7 +29,7 @@ function sortSidebarGroups(
 	return directoryGroups
 		.map((directory) => ({
 			...directory,
-			workspaces: [...directory.workspaces].sort(
+			workspaces: directory.workspaces.toSorted(
 				(a, b) =>
 					sortWorkspaceTimestamp(b, workspaceSort) - sortWorkspaceTimestamp(a, workspaceSort),
 			),
