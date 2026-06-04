@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useScratchpadAutosave } from '../hooks/use-scratchpad-autosave';
 import { cn } from '../lib/utils';
 import { useScratchpadStore } from '../stores/scratchpad-store';
 import { Button } from './ui/button';
@@ -119,50 +120,8 @@ function ScratchpadPreview({ content }: { content: string }) {
 
 export function ScratchpadPage({ workspaceId }: ScratchpadPageProps) {
 	const snapshot = useScratchpadStore((state) => state.getScratchpadSnapshot(workspaceId));
-	const updateScratchpad = useScratchpadStore((state) => state.updateScratchpad);
-	const loaded = snapshot !== null;
+	const { draft, loaded, setDraft } = useScratchpadAutosave({ workspaceId, snapshot });
 	const [mode, setMode] = useState<ScratchpadMode>('edit');
-	const [draft, setDraft] = useState(snapshot?.content ?? '');
-	const lastSavedContentRef = useRef(snapshot?.content ?? '');
-	const draftRef = useRef(draft);
-	const dirtyRef = useRef(false);
-
-	useEffect(() => {
-		draftRef.current = draft;
-	}, [draft]);
-
-	useEffect(() => {
-		if (!snapshot || dirtyRef.current) return;
-		const nextContent = snapshot.content;
-		if (nextContent === lastSavedContentRef.current) return;
-		lastSavedContentRef.current = nextContent;
-		setDraft(nextContent);
-	}, [snapshot]);
-
-	useEffect(() => {
-		if (!loaded || draft === lastSavedContentRef.current) return;
-
-		const contentToSave = draft;
-		const timeoutId = window.setTimeout(() => {
-			void updateScratchpad(workspaceId, contentToSave)
-				.then((updated) => {
-					lastSavedContentRef.current = updated.content;
-					if (draftRef.current === updated.content) dirtyRef.current = false;
-				})
-				.catch(() => undefined);
-		}, 600);
-
-		return () => window.clearTimeout(timeoutId);
-	}, [draft, loaded, updateScratchpad, workspaceId]);
-
-	useEffect(() => {
-		return () => {
-			const latestDraft = draftRef.current;
-			if (!useScratchpadStore.getState().getScratchpadSnapshot(workspaceId)) return;
-			if (latestDraft === lastSavedContentRef.current) return;
-			void useScratchpadStore.getState().updateScratchpad(workspaceId, latestDraft);
-		};
-	}, [workspaceId]);
 
 	return (
 		<div className="flex h-full min-h-0 flex-col bg-canvas">
@@ -181,10 +140,7 @@ export function ScratchpadPage({ workspaceId }: ScratchpadPageProps) {
 						value={draft}
 						placeholder="Write Markdown notes for this workspace…"
 						spellCheck={false}
-						onChange={(event) => {
-							dirtyRef.current = true;
-							setDraft(event.target.value);
-						}}
+						onChange={(event) => setDraft(event.target.value)}
 					/>
 				) : (
 					<ScratchpadPreview content={draft} />
