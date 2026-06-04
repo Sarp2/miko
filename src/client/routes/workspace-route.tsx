@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
+import type { SessionSummary } from '../../shared/types';
 import { ErrorBoundary } from '../components/error-boundary';
 import { MiddleTabs } from '../components/middle-tabs';
 import { WorkspaceHeader } from '../components/workspace-header/workspace-header';
@@ -8,6 +9,8 @@ import { useSessionStore } from '../stores/session-store';
 import { useUiStore } from '../stores/ui-store';
 import { useWorkspaceStore } from '../stores/workspace-store';
 import { deriveWorkspaceRoutePage, type WorkspaceRouteKind } from './workspace-route-state';
+
+const EMPTY_SESSIONS: SessionSummary[] = [];
 
 interface WorkspaceRouteProps {
 	kind: WorkspaceRouteKind;
@@ -23,7 +26,7 @@ export function WorkspaceRoute({ kind }: WorkspaceRouteProps) {
 	const workspaceSnapshot = useWorkspaceStore((state) =>
 		workspaceId ? state.getWorkspaceSnapshot(workspaceId) : null,
 	);
-	const sessions = workspaceSnapshot?.sessions ?? [];
+	const sessions = workspaceSnapshot?.sessions ?? EMPTY_SESSIONS;
 
 	useEffect(() => {
 		if (!workspaceId) return;

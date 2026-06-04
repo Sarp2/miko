@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { cn } from '../../lib/utils';
 import { validateBranchName } from '../../lib/validate-branch-name';
@@ -14,31 +14,27 @@ export function BranchNameEditor({
 	branchName: string;
 	onRename: (next: string) => Promise<void>;
 }) {
-	const [draft, setDraft] = useState(branchName);
-	const [editing, setEditing] = useState(false);
+	// `draft` is null while idle (we render the live branchName prop) and holds the edited
+	// text while focused, so snapshot updates never clobber an in-progress edit.
+	const [draft, setDraft] = useState<string | null>(null);
 	const [submitting, setSubmitting] = useState(false);
 	const inputRef = useRef<HTMLInputElement | null>(null);
 	const submittingRef = useRef(false);
+	const cancelingRef = useRef(false);
 
-	// Follow snapshot updates while idle; never clobber an in-progress edit.
-	useEffect(() => {
-		if (!editing) setDraft(branchName);
-	}, [branchName, editing]);
+	const value = draft ?? branchName;
 
 	const commit = async ({ resetOnInvalid = false }: { resetOnInvalid?: boolean } = {}) => {
 		if (submittingRef.current) return;
-		if (draft === branchName) {
-			setEditing(false);
+		if (value === branchName) {
+			setDraft(null);
 			return;
 		}
 
-		const validation = validateBranchName(draft);
+		const validation = validateBranchName(value);
 		if (!validation.ok) {
 			toast.error(validation.message);
-			if (resetOnInvalid) {
-				setDraft(branchName);
-				setEditing(false);
-			}
+			if (resetOnInvalid) setDraft(null);
 			return;
 		}
 
@@ -46,7 +42,7 @@ export function BranchNameEditor({
 		setSubmitting(true);
 		try {
 			await onRename(validation.value);
-			setEditing(false);
+			setDraft(null);
 		} catch (error) {
 			toast.error(toErrorMessage(error, 'Failed to rename branch'));
 		} finally {
@@ -56,8 +52,8 @@ export function BranchNameEditor({
 	};
 
 	const cancel = () => {
-		setDraft(branchName);
-		setEditing(false);
+		cancelingRef.current = true;
+		setDraft(null);
 		inputRef.current?.blur();
 	};
 
@@ -72,13 +68,19 @@ export function BranchNameEditor({
 			</span>
 			<input
 				ref={inputRef}
-				value={draft}
+				value={value}
 				spellCheck={false}
 				disabled={submitting}
 				aria-label="Branch name"
 				onChange={(event) => setDraft(event.target.value)}
-				onFocus={() => setEditing(true)}
-				onBlur={() => void commit({ resetOnInvalid: true })}
+				onFocus={() => setDraft(branchName)}
+				onBlur={() => {
+					if (cancelingRef.current) {
+						cancelingRef.current = false;
+						return;
+					}
+					void commit({ resetOnInvalid: true });
+				}}
 				onKeyDown={(event) => {
 					if (event.key === 'Enter') {
 						event.preventDefault();
