@@ -11,17 +11,21 @@ export function useSidebarExpansion(
 		directoryGroups.map((directory) => directory.directoryId),
 	);
 
-	// When the directory list changes, expand any newly-added directories by default.
+	// When the directory list changes, expand only directories that are genuinely new
+	// (absent from the previous list) so we don't reopen ones the user collapsed.
 	// Adjust state during render (tracking the previous list) rather than in an effect,
 	// so it only runs when the list identity changes and never adds an extra commit.
 	const [seenGroups, setSeenGroups] = React.useState(directoryGroups);
 	if (!isControlled && directoryGroups !== seenGroups) {
+		const previousIds = new Set(seenGroups.map((directory) => directory.directoryId));
+		const newIds: string[] = [];
+		for (const directory of directoryGroups) {
+			if (!previousIds.has(directory.directoryId)) newIds.push(directory.directoryId);
+		}
 		setSeenGroups(directoryGroups);
-		setInternalExpandedIds((previous) => {
-			const existing = new Set(previous);
-			for (const directory of directoryGroups) existing.add(directory.directoryId);
-			return [...existing];
-		});
+		if (newIds.length > 0) {
+			setInternalExpandedIds((previous) => [...new Set([...previous, ...newIds])]);
+		}
 	}
 
 	const setExpanded = React.useCallback(
