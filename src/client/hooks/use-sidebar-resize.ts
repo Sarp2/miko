@@ -33,17 +33,26 @@ export function useSidebarResize({
 		if (width >= MIN_WIDTH && width !== lastOpenWidth) setLastOpenWidth(width);
 	}
 
-	const setCollapsed = React.useCallback(
+	// Update only the collapsed flag, with no width side-effect. The resize handler uses
+	// this directly so a finished drag keeps the width it just committed.
+	const applyCollapsed = React.useCallback(
 		(next: boolean) => {
 			if (!isCollapsedControlled) setInternalCollapsed(next);
 			onCollapsedChange?.(next);
+		},
+		[isCollapsedControlled, onCollapsedChange],
+	);
+
+	const setCollapsed = React.useCallback(
+		(next: boolean) => {
+			applyCollapsed(next);
 			if (!next) {
 				const nextWidth = internalWidth < MIN_WIDTH ? lastOpenWidth : internalWidth;
 				setInternalWidth(nextWidth);
 				onWidthChange?.(nextWidth);
 			}
 		},
-		[isCollapsedControlled, internalWidth, lastOpenWidth, onCollapsedChange, onWidthChange],
+		[applyCollapsed, internalWidth, lastOpenWidth, onWidthChange],
 	);
 
 	React.useEffect(() => {
@@ -84,7 +93,7 @@ export function useSidebarResize({
 				cleanup();
 
 				if (nextRawWidth <= CLOSE_THRESHOLD) {
-					setCollapsed(true);
+					applyCollapsed(true);
 					setInternalWidth(0);
 					onWidthChange?.(0);
 					return;
@@ -94,7 +103,7 @@ export function useSidebarResize({
 				setInternalWidth(clampedWidth);
 				setLastOpenWidth(clampedWidth);
 				onWidthChange?.(clampedWidth);
-				setCollapsed(false);
+				applyCollapsed(false);
 			};
 
 			function onPointerMove(moveEvent: PointerEvent) {
@@ -117,7 +126,7 @@ export function useSidebarResize({
 			document.addEventListener('pointerup', onPointerUp);
 			document.addEventListener('pointercancel', onPointerCancel);
 		},
-		[isCollapsed, setCollapsed, internalWidth, onWidthChange],
+		[isCollapsed, applyCollapsed, internalWidth, onWidthChange],
 	);
 
 	const openWidth = isResizing

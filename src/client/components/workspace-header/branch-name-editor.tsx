@@ -20,6 +20,7 @@ export function BranchNameEditor({
 	const [submitting, setSubmitting] = useState(false);
 	const inputRef = useRef<HTMLInputElement | null>(null);
 	const submittingRef = useRef(false);
+	const cancelingRef = useRef(false);
 
 	const value = draft ?? branchName;
 
@@ -51,6 +52,7 @@ export function BranchNameEditor({
 	};
 
 	const cancel = () => {
+		cancelingRef.current = true;
 		setDraft(null);
 		inputRef.current?.blur();
 	};
@@ -72,7 +74,13 @@ export function BranchNameEditor({
 				aria-label="Branch name"
 				onChange={(event) => setDraft(event.target.value)}
 				onFocus={() => setDraft(branchName)}
-				onBlur={() => void commit({ resetOnInvalid: true })}
+				onBlur={() => {
+					if (cancelingRef.current) {
+						cancelingRef.current = false;
+						return;
+					}
+					void commit({ resetOnInvalid: true });
+				}}
 				onKeyDown={(event) => {
 					if (event.key === 'Enter') {
 						event.preventDefault();
