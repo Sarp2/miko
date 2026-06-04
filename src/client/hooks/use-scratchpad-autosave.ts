@@ -109,12 +109,16 @@ export function useScratchpadAutosave({ workspaceId, snapshot }: UseScratchpadAu
 			const latestDraft = draftRef.current;
 			if (!useScratchpadStore.getState().getScratchpadSnapshot(workspaceId)) return;
 			if (latestDraft === lastSavedContentRef.current) return;
-			void useScratchpadStore.getState().updateScratchpad(workspaceId, latestDraft);
+			void useScratchpadStore
+				.getState()
+				.updateScratchpad(workspaceId, latestDraft)
+				.catch(() => undefined);
 		};
 	}, [clearDebounceTimeout, clearRetryTimeout, workspaceId]);
 
 	const setDraft = (nextDraft: string) => {
 		dirtyRef.current = true;
+		draftRef.current = nextDraft;
 		setDraftState(nextDraft);
 	};
 
