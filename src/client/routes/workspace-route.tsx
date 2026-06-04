@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
+import { ErrorBoundary } from '../components/error-boundary';
 import { MiddleTabs } from '../components/middle-tabs';
 import { WorkspaceHeader } from '../components/workspace-header/workspace-header';
 import { useScratchpadStore } from '../stores/scratchpad-store';
@@ -73,11 +74,20 @@ export function WorkspaceRoute({ kind }: WorkspaceRouteProps) {
 			) : null}
 			<div className="min-h-0 flex-1 overflow-hidden">
 				{scratchpadActive ? (
-					<Suspense
-						fallback={<div className="p-4 text-caption text-ink-tertiary">Loading scratchpad…</div>}
+					<ErrorBoundary
+						resetKey={workspaceId}
+						message="Could not load scratchpad."
+						resetLabel="Reload"
+						onReset={() => window.location.reload()}
 					>
-						<ScratchpadPage key={workspaceId} workspaceId={workspaceId} />
-					</Suspense>
+						<Suspense
+							fallback={
+								<div className="p-4 text-caption text-ink-tertiary">Loading scratchpad…</div>
+							}
+						>
+							<ScratchpadPage key={workspaceId} workspaceId={workspaceId} />
+						</Suspense>
+					</ErrorBoundary>
 				) : (
 					<div className="h-full overflow-auto p-3 text-ink-muted">
 						Workspace {workspaceId}
