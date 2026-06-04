@@ -1,0 +1,20 @@
+src/client/hooks/use-sidebar-expansion.ts
+  s_c3344e411d424c::t_33d57cd4cb186a 14-15,20,26-28
+  s_c3344e411d424c::t_c674e8f9771697 21-24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "e9dbc6080735d68198a0bd9fbb02ea48d162a048",
+  "prompts": {},
+  "sessions": {
+    "s_c3344e411d424c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9e1cdcea-8032-464c-8c7a-fd8683262663",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
