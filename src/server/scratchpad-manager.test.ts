@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rename, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { ScratchpadManager } from './scratchpad-manager';
@@ -54,6 +54,41 @@ describe('ScratchpadManager.updateScratchpad', () => {
 
 		await expect(manager.getSnapshot('workspace-1')).resolves.toMatchObject({ content: 'one' });
 		await expect(manager.getSnapshot('workspace-2')).resolves.toMatchObject({ content: 'two' });
+	});
+
+	test('serializes concurrent writes for the same workspace', async () => {
+		const dataDir = await createTempDir();
+		let writeCount = 0;
+		let releaseFirstWrite: () => void = () => undefined;
+		let resolveFirstWriteStarted: (() => void) | null = null;
+		const firstWriteStarted = new Promise<void>((resolve) => {
+			resolveFirstWriteStarted = resolve;
+		});
+		const manager = new ScratchpadManager(dataDir, {
+			mkdir,
+			rename,
+			write: async (destination, content) => {
+				writeCount += 1;
+				if (writeCount === 1) {
+					resolveFirstWriteStarted?.();
+					await new Promise<void>((release) => {
+						releaseFirstWrite = release;
+					});
+				}
+				return Bun.write(destination, content);
+			},
+		});
+
+		const olderWrite = manager.updateScratchpad('workspace-1', 'older');
+		await firstWriteStarted;
+		const newerWrite = manager.updateScratchpad('workspace-1', 'newer');
+
+		releaseFirstWrite?.();
+		await Promise.all([olderWrite, newerWrite]);
+
+		await expect(
+			Bun.file(path.join(dataDir, 'scratchpads', 'workspace-1.md')).text(),
+		).resolves.toBe('newer');
 	});
 
 	test('rejects unsafe workspace ids before resolving file paths', async () => {
