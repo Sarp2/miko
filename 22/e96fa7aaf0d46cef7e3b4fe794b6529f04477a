@@ -1,0 +1,29 @@
+src/client/components/add-directory-dialog.tsx
+  s_82e93de1bb8ac8::t_2717a115fe5e4b 1,16-21,40-54,69,78-84,86-103,105-115,117-125
+src/client/components/left-sidebar-view.tsx
+  s_82e93de1bb8ac8::t_2717a115fe5e4b 17,23-24,505-508,510-511,601
+src/client/components/workspace-header/branch-name-editor.tsx
+  s_82e93de1bb8ac8::t_2717a115fe5e4b 1,17-19,23,25,29-30,34,37,45,55-56,71,76-83
+src/client/routes/workspace-route-state.ts
+  s_82e93de1bb8ac8::t_2717a115fe5e4b 26
+src/client/hooks/use-sidebar-expansion.ts
+  s_82e93de1bb8ac8::t_2717a115fe5e4b 1-48
+src/client/hooks/use-sidebar-resize.ts
+  s_82e93de1bb8ac8::t_2717a115fe5e4b 1-139
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "22e96fa7aaf0d46cef7e3b4fe794b6529f04477a",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
