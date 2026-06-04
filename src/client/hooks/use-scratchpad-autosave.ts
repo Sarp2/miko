@@ -117,8 +117,8 @@ export function useScratchpadAutosave({ workspaceId, snapshot }: UseScratchpadAu
 	}, [clearDebounceTimeout, clearRetryTimeout, workspaceId]);
 
 	const setDraft = (nextDraft: string) => {
-		dirtyRef.current = true;
 		draftRef.current = nextDraft;
+		dirtyRef.current = nextDraft !== lastSavedContentRef.current;
 		setDraftState(nextDraft);
 	};
 
