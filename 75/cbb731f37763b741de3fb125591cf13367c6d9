@@ -1,0 +1,24 @@
+src/client/components/scratchpad-page.tsx
+  s_82e93de1bb8ac8::t_700bdc131c154d 1,4,123
+  s_82e93de1bb8ac8::t_4d486d9494e936 143
+src/client/hooks/use-scratchpad-autosave.ts
+  s_82e93de1bb8ac8::t_79a45f21fa22a6 1,21,23,26-27,32-33,40-70,74-75,94,97-99,106
+  s_82e93de1bb8ac8::t_700bdc131c154d 2-20,22,77-91,102-103,105,109-113,115-122
+  s_82e93de1bb8ac8::t_7dbd71c7acefed 24-25,28-31,34-39,71-73,76,92-93,95-96,100-101,104,107-108,114
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "75cbb731f37763b741de3fb125591cf13367c6d9",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
