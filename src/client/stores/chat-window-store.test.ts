@@ -1,10 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import type { SessionHistoryPage, SessionSnapshot, TranscriptEntry } from '../../shared/types';
+import type { SessionSnapshot, TranscriptEntry } from '../../shared/types';
 import { useChatWindowStore } from './chat-window-store';
-import { useSessionStore } from './session-store';
 
 const initialChatWindowState = useChatWindowStore.getInitialState();
-const initialSessionState = useSessionStore.getInitialState();
 
 function entry(id: string, createdAt: number, text = id): TranscriptEntry {
 	return {
@@ -39,22 +37,12 @@ function sessionSnapshot(
 	};
 }
 
-function useHistoryLoader(
-	loader: (sessionId: string, cursor: string, limit: number) => Promise<SessionHistoryPage>,
-) {
-	useSessionStore.setState({
-		loadHistory: loader,
-	});
-}
-
 beforeEach(() => {
 	useChatWindowStore.setState(initialChatWindowState, true);
-	useSessionStore.setState(initialSessionState, true);
 });
 
 afterEach(() => {
 	useChatWindowStore.setState(initialChatWindowState, true);
-	useSessionStore.setState(initialSessionState, true);
 });
 
 describe('useChatWindowStore.syncFromSnapshot', () => {
@@ -80,7 +68,7 @@ describe('useChatWindowStore.syncFromSnapshot', () => {
 		expect(window?.messages.map((message) => message._id)).toEqual(['m2', 'm3']);
 	});
 
-	test('keeps loaded older pages while replacing the recent tail', async () => {
+	test('keeps loaded older pages while replacing the recent tail', () => {
 		useChatWindowStore.getState().syncFromSnapshot(
 			'session-1',
 			sessionSnapshot('session-1', [entry('m3', 3), entry('m4', 4)], {
@@ -89,13 +77,13 @@ describe('useChatWindowStore.syncFromSnapshot', () => {
 				recentLimit: 80,
 			}),
 		);
-		useHistoryLoader(async () => ({
+		const request = useChatWindowStore.getState().beginOlderPageLoad('session-1');
+		if (!request) throw new Error('Expected request');
+		useChatWindowStore.getState().applyOlderPage('session-1', request, {
 			messages: [entry('m1', 1), entry('m2', 2)],
 			hasOlder: false,
 			olderCursor: null,
-		}));
-
-		await useChatWindowStore.getState().loadOlder('session-1');
+		});
 
 		useChatWindowStore.getState().syncFromSnapshot(
 			'session-1',
@@ -127,8 +115,8 @@ describe('useChatWindowStore.syncFromSnapshot', () => {
 	});
 });
 
-describe('useChatWindowStore.loadOlder', () => {
-	test('prepends an older history page and advances the cursor', async () => {
+describe('useChatWindowStore older page operations', () => {
+	test('begins an older-page request and applies the page', () => {
 		useChatWindowStore.getState().syncFromSnapshot(
 			'session-1',
 			sessionSnapshot('session-1', [entry('m3', 3), entry('m4', 4)], {
@@ -137,18 +125,18 @@ describe('useChatWindowStore.loadOlder', () => {
 				recentLimit: 80,
 			}),
 		);
-		useHistoryLoader(async (sessionId, cursor, limit) => {
-			expect(sessionId).toBe('session-1');
-			expect(cursor).toBe('idx:2');
-			expect(limit).toBe(40);
-			return {
-				messages: [entry('m1', 1), entry('m2', 2), entry('m3', 3)],
-				hasOlder: true,
-				olderCursor: 'idx:1',
-			};
-		});
 
-		await useChatWindowStore.getState().loadOlder('session-1', 40);
+		const request = useChatWindowStore.getState().beginOlderPageLoad('session-1');
+
+		expect(request).toMatchObject({ sessionId: 'session-1', olderCursor: 'idx:2' });
+		expect(useChatWindowStore.getState().getWindow('session-1')?.loadingOlder).toBe(true);
+
+		if (!request) throw new Error('Expected request');
+		useChatWindowStore.getState().applyOlderPage('session-1', request, {
+			messages: [entry('m1', 1), entry('m2', 2), entry('m3', 3)],
+			hasOlder: true,
+			olderCursor: 'idx:1',
+		});
 
 		const window = useChatWindowStore.getState().getWindow('session-1');
 
@@ -161,31 +149,15 @@ describe('useChatWindowStore.loadOlder', () => {
 		});
 	});
 
-	test('does not request history when there is no older cursor', async () => {
-		let calls = 0;
-		useHistoryLoader(async () => {
-			calls += 1;
-			return { messages: [], hasOlder: false, olderCursor: null };
-		});
+	test('does not begin a request when there is no older cursor', () => {
 		useChatWindowStore
 			.getState()
 			.syncFromSnapshot('session-1', sessionSnapshot('session-1', [entry('m1', 1)]));
 
-		await useChatWindowStore.getState().loadOlder('session-1');
-
-		expect(calls).toBe(0);
+		expect(useChatWindowStore.getState().beginOlderPageLoad('session-1')).toBeNull();
 	});
 
-	test('coalesces duplicate older-page requests while one is loading', async () => {
-		let calls = 0;
-		let resolvePage: (page: SessionHistoryPage) => void = () => undefined;
-		useHistoryLoader(
-			async () =>
-				new Promise<SessionHistoryPage>((resolve) => {
-					calls += 1;
-					resolvePage = resolve;
-				}),
-		);
+	test('coalesces duplicate older-page requests while one is loading', () => {
 		useChatWindowStore.getState().syncFromSnapshot(
 			'session-1',
 			sessionSnapshot('session-1', [entry('m2', 2)], {
@@ -195,22 +167,15 @@ describe('useChatWindowStore.loadOlder', () => {
 			}),
 		);
 
-		const firstLoad = useChatWindowStore.getState().loadOlder('session-1');
-		const secondLoad = useChatWindowStore.getState().loadOlder('session-1');
+		const firstRequest = useChatWindowStore.getState().beginOlderPageLoad('session-1');
+		const secondRequest = useChatWindowStore.getState().beginOlderPageLoad('session-1');
 
-		expect(calls).toBe(1);
+		expect(firstRequest).not.toBeNull();
+		expect(secondRequest).toBeNull();
 		expect(useChatWindowStore.getState().getWindow('session-1')?.loadingOlder).toBe(true);
-
-		resolvePage({ messages: [entry('m1', 1)], hasOlder: false, olderCursor: null });
-		await Promise.all([firstLoad, secondLoad]);
-
-		expect(useChatWindowStore.getState().getWindow('session-1')?.messages).toHaveLength(2);
 	});
 
-	test('clears loading state when history loading fails', async () => {
-		useHistoryLoader(async () => {
-			throw new Error('history failed');
-		});
+	test('clears loading state when an older-page request fails', () => {
 		useChatWindowStore.getState().syncFromSnapshot(
 			'session-1',
 			sessionSnapshot('session-1', [entry('m2', 2)], {
@@ -219,22 +184,15 @@ describe('useChatWindowStore.loadOlder', () => {
 				recentLimit: 80,
 			}),
 		);
+		const request = useChatWindowStore.getState().beginOlderPageLoad('session-1');
+		if (!request) throw new Error('Expected request');
 
-		await expect(useChatWindowStore.getState().loadOlder('session-1')).rejects.toThrow(
-			'history failed',
-		);
+		useChatWindowStore.getState().failOlderPage('session-1', request);
 
 		expect(useChatWindowStore.getState().getWindow('session-1')?.loadingOlder).toBe(false);
 	});
 
-	test('does not resurrect a reset chat window after an in-flight history load resolves', async () => {
-		let resolvePage: (page: SessionHistoryPage) => void = () => undefined;
-		useHistoryLoader(
-			async () =>
-				new Promise<SessionHistoryPage>((resolve) => {
-					resolvePage = resolve;
-				}),
-		);
+	test('does not resurrect a reset chat window after an in-flight history load resolves', () => {
 		useChatWindowStore.getState().syncFromSnapshot(
 			'session-1',
 			sessionSnapshot('session-1', [entry('m2', 2)], {
@@ -243,24 +201,20 @@ describe('useChatWindowStore.loadOlder', () => {
 				recentLimit: 80,
 			}),
 		);
+		const request = useChatWindowStore.getState().beginOlderPageLoad('session-1');
+		if (!request) throw new Error('Expected request');
 
-		const load = useChatWindowStore.getState().loadOlder('session-1');
 		useChatWindowStore.getState().resetSession('session-1');
-
-		resolvePage({ messages: [entry('m1', 1)], hasOlder: false, olderCursor: null });
-		await load;
+		useChatWindowStore.getState().applyOlderPage('session-1', request, {
+			messages: [entry('m1', 1)],
+			hasOlder: false,
+			olderCursor: null,
+		});
 
 		expect(useChatWindowStore.getState().getWindow('session-1')).toBeNull();
 	});
 
-	test('ignores stale history when a reset session is recreated before the load resolves', async () => {
-		let resolvePage: (page: SessionHistoryPage) => void = () => undefined;
-		useHistoryLoader(
-			async () =>
-				new Promise<SessionHistoryPage>((resolve) => {
-					resolvePage = resolve;
-				}),
-		);
+	test('ignores stale history when a reset session is recreated before the load resolves', () => {
 		useChatWindowStore.getState().syncFromSnapshot(
 			'session-1',
 			sessionSnapshot('session-1', [entry('m3', 3)], {
@@ -269,8 +223,9 @@ describe('useChatWindowStore.loadOlder', () => {
 				recentLimit: 80,
 			}),
 		);
+		const staleRequest = useChatWindowStore.getState().beginOlderPageLoad('session-1');
+		if (!staleRequest) throw new Error('Expected request');
 
-		const staleLoad = useChatWindowStore.getState().loadOlder('session-1');
 		useChatWindowStore.getState().resetSession('session-1');
 		useChatWindowStore.getState().syncFromSnapshot(
 			'session-1',
@@ -281,8 +236,11 @@ describe('useChatWindowStore.loadOlder', () => {
 			}),
 		);
 
-		resolvePage({ messages: [entry('stale', 1)], hasOlder: false, olderCursor: null });
-		await staleLoad;
+		useChatWindowStore.getState().applyOlderPage('session-1', staleRequest, {
+			messages: [entry('stale', 1)],
+			hasOlder: false,
+			olderCursor: null,
+		});
 
 		const window = useChatWindowStore.getState().getWindow('session-1');
 		expect(window?.messages.map((message) => message._id)).toEqual(['fresh']);
