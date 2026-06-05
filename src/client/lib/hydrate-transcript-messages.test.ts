@@ -144,6 +144,58 @@ describe('hydrateTranscriptMessages', () => {
 		expect(messages[0]).toMatchObject({ kind: 'tool', result: 'early' });
 	});
 
+	test('normalizes specialized tool results for render components', () => {
+		const messages = hydrateTranscriptMessages([
+			{
+				...baseEntry('question-tool', 'tool_call', 1000),
+				tool: {
+					kind: 'tool',
+					toolKind: 'ask_user_question',
+					toolName: 'AskUserQuestion',
+					toolId: 'question-1',
+					input: { questions: [{ id: 'choice', question: 'Pick one' }] },
+				},
+			},
+			{
+				...baseEntry('question-result', 'tool_result', 2000),
+				toolId: 'question-1',
+				content: JSON.stringify({ answers: { choice: 'yes' } }),
+			},
+			{
+				...baseEntry('read-tool', 'tool_call', 3000),
+				tool: {
+					kind: 'tool',
+					toolKind: 'read_file',
+					toolName: 'Read',
+					toolId: 'read-1',
+					input: { filePath: 'src/index.ts' },
+				},
+			},
+			{
+				...baseEntry('read-result', 'tool_result', 4000),
+				toolId: 'read-1',
+				content: [{ type: 'text', text: 'hello' }],
+			},
+		] as TranscriptEntry[]);
+
+		expect(messages[0]).toMatchObject({
+			kind: 'tool',
+			toolKind: 'ask_user_question',
+			rawResult: JSON.stringify({ answers: { choice: 'yes' } }),
+			result: { answers: { choice: ['yes'] } },
+		});
+
+		expect(messages[1]).toMatchObject({
+			kind: 'tool',
+			toolKind: 'read_file',
+			rawResult: [{ type: 'text', text: 'hello' }],
+			result: {
+				content: 'hello',
+				blocks: [{ type: 'text', text: 'hello' }],
+			},
+		});
+	});
+
 	test('hydrates unknown future entries safely', () => {
 		const messages = hydrateTranscriptMessages([
 			{ ...baseEntry('future', 'future_kind' as TranscriptEntry['kind'], 1000), value: 1 },

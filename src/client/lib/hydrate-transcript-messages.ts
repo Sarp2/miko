@@ -1,3 +1,4 @@
+import { hydrateToolResult } from '../../shared/tools';
 import type {
 	HydratedToolCall,
 	HydratedTranscriptMessage,
@@ -47,7 +48,7 @@ function hydrateToolCall(entry: ToolCallEntry, result?: ToolResultEntry): Hydrat
 	return {
 		...hydrated,
 		rawResult: result.content,
-		result: result.content,
+		result: hydrateToolResult(entry.tool, result.content),
 		isError: (result as { isError?: boolean }).isError === true,
 	} as HydratedToolCall;
 }
