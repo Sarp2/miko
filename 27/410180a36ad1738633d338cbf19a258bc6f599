@@ -1,0 +1,29 @@
+src/client/lib/hydrate-transcript-messages.ts
+  s_82e93de1bb8ac8::t_076c2553c31ae2 66
+  s_82e93de1bb8ac8::t_8b06b0c1f3fc3a 1-2,4-8,16-35,37,39-43,53-65,67-173
+  s_82e93de1bb8ac8::t_133ddd99c56c31 9-15
+  s_82e93de1bb8ac8::t_bbadcf81586eb1 36,38,44-50,52
+  s_82e93de1bb8ac8::t_104a6b72c95411 3,51
+src/client/lib/hydrate-transcript-messages.test.ts
+  s_82e93de1bb8ac8::t_104a6b72c95411 150
+  ai_agent 158
+  s_82e93de1bb8ac8::t_076c2553c31ae2 1-149,151-157,174
+  s_82e93de1bb8ac8::t_42dee65ae0e187 161-165
+  s_82e93de1bb8ac8::t_133ddd99c56c31 159-160,166-173
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "27410180a36ad1738633d338cbf19a258bc6f599",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
