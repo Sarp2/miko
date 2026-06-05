@@ -1,0 +1,25 @@
+src/client/stores/chat-window-store.test.ts
+  s_82e93de1bb8ac8::t_518e7c26a8f82b 42-44,111
+  s_82e93de1bb8ac8::t_43872abf9cafbc 229-254
+  s_82e93de1bb8ac8::t_181d058a5209a2 1-41,45-110,112-228,255-271
+src/client/stores/chat-window-store.ts
+  s_82e93de1bb8ac8::t_518e7c26a8f82b 75-77
+  s_82e93de1bb8ac8::t_562ffe2cb74973 1-74,78-99,115,126-152
+  s_82e93de1bb8ac8::t_14225505fcc1e4 100-114,116-125
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "931d264c4dea7c1fb78fe02e8867d4f8f33426c3",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
