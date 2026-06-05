@@ -252,6 +252,44 @@ describe('useChatWindowStore.loadOlder', () => {
 
 		expect(useChatWindowStore.getState().getWindow('session-1')).toBeNull();
 	});
+
+	test('ignores stale history when a reset session is recreated before the load resolves', async () => {
+		let resolvePage: (page: SessionHistoryPage) => void = () => undefined;
+		useHistoryLoader(
+			async () =>
+				new Promise<SessionHistoryPage>((resolve) => {
+					resolvePage = resolve;
+				}),
+		);
+		useChatWindowStore.getState().syncFromSnapshot(
+			'session-1',
+			sessionSnapshot('session-1', [entry('m3', 3)], {
+				hasOlder: true,
+				olderCursor: 'idx:2',
+				recentLimit: 80,
+			}),
+		);
+
+		const staleLoad = useChatWindowStore.getState().loadOlder('session-1');
+		useChatWindowStore.getState().resetSession('session-1');
+		useChatWindowStore.getState().syncFromSnapshot(
+			'session-1',
+			sessionSnapshot('session-1', [entry('fresh', 10)], {
+				hasOlder: true,
+				olderCursor: 'idx:fresh',
+				recentLimit: 80,
+			}),
+		);
+
+		resolvePage({ messages: [entry('stale', 1)], hasOlder: false, olderCursor: null });
+		await staleLoad;
+
+		const window = useChatWindowStore.getState().getWindow('session-1');
+		expect(window?.messages.map((message) => message._id)).toEqual(['fresh']);
+		expect(window?.hasOlder).toBe(true);
+		expect(window?.olderCursor).toBe('idx:fresh');
+		expect(window?.loadingOlder).toBe(false);
+	});
 });
 
 describe('useChatWindowStore.resetSessions', () => {
