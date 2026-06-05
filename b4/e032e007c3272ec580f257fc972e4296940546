@@ -1,0 +1,21 @@
+src/client/lib/hydrate-transcript-messages.test.ts
+  s_82e93de1bb8ac8::t_5fadbfa5372774 147-198
+src/client/lib/hydrate-transcript-messages.ts
+  s_82e93de1bb8ac8::t_1942af382d7a80 1,51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "b4e032e007c3272ec580f257fc972e4296940546",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
