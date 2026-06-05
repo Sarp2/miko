@@ -7,6 +7,7 @@ import type {
 	SessionHistoryPage,
 	SessionSnapshot,
 } from '../../shared/types';
+import { useChatWindowStore } from './chat-window-store';
 import { useWsStore } from './ws-store';
 
 function sessionSubscriptionId(sessionId: string) {
@@ -54,6 +55,7 @@ interface SessionStoreState {
 		beforeCursor: string,
 		limit: number,
 	) => Promise<SessionHistoryPage>;
+	loadOlderChatWindow: (sessionId: string, limit?: number) => Promise<void>;
 	respondTool: (sessionId: string, toolUseId: string, result: unknown) => Promise<void>;
 }
 
@@ -75,6 +77,7 @@ function syncConnectedSessionSnapshots() {
 		if (snapshotBySessionId.get(sessionId) === snapshot) continue;
 
 		snapshotBySessionId.set(sessionId, snapshot);
+		useChatWindowStore.getState().syncFromSnapshot(sessionId, snapshot);
 		changed = true;
 	}
 
@@ -116,6 +119,7 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
 
 	disconnectSession: (sessionId) => {
 		useWsStore.getState().unsubscribeTopic(sessionSubscriptionId(sessionId));
+		useChatWindowStore.getState().resetSession(sessionId);
 		set((state) => {
 			const connectedSessionIds = new Set(state.connectedSessionIds);
 			const snapshotBySessionId = new Map(state.snapshotBySessionId);
@@ -176,6 +180,19 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
 		return useWsStore
 			.getState()
 			.command({ type: 'session.loadHistory', sessionId, beforeCursor, limit });
+	},
+
+	loadOlderChatWindow: async (sessionId, limit = 80) => {
+		const request = useChatWindowStore.getState().beginOlderPageLoad(sessionId);
+		if (!request) return;
+
+		try {
+			const page = await get().loadHistory(sessionId, request.olderCursor, limit);
+			useChatWindowStore.getState().applyOlderPage(sessionId, request, page);
+		} catch (error) {
+			useChatWindowStore.getState().failOlderPage(sessionId, request);
+			throw error;
+		}
 	},
 
 	respondTool: async (sessionId, toolUseId, result) => {

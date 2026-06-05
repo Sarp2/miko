@@ -1,6 +1,5 @@
 import { create } from 'zustand';
-import type { SessionSnapshot, TranscriptEntry } from '../../shared/types';
-import { useSessionStore } from './session-store';
+import type { SessionHistoryPage, SessionSnapshot, TranscriptEntry } from '../../shared/types';
 
 export interface ChatWindow {
 	sessionId: string;
@@ -13,12 +12,24 @@ export interface ChatWindow {
 	generation: number;
 }
 
+export interface ChatWindowOlderPageRequest {
+	sessionId: string;
+	olderCursor: string;
+	generation: number;
+}
+
 interface ChatWindowStoreState {
 	windowBySessionId: Map<string, ChatWindow>;
 	nextGeneration: number;
 	getWindow: (sessionId: string) => ChatWindow | null;
 	syncFromSnapshot: (sessionId: string, snapshot: SessionSnapshot | null) => void;
-	loadOlder: (sessionId: string, limit?: number) => Promise<void>;
+	beginOlderPageLoad: (sessionId: string) => ChatWindowOlderPageRequest | null;
+	applyOlderPage: (
+		sessionId: string,
+		request: ChatWindowOlderPageRequest,
+		page: SessionHistoryPage,
+	) => void;
+	failOlderPage: (sessionId: string, request: ChatWindowOlderPageRequest) => void;
 	resetSession: (sessionId: string) => void;
 	resetSessions: (sessionIds: string[]) => void;
 }
@@ -60,6 +71,10 @@ function setWindow(windows: Map<string, ChatWindow>, sessionId: string, window: 
 	return nextWindows;
 }
 
+function isCurrentRequest(window: ChatWindow | undefined, request: ChatWindowOlderPageRequest) {
+	return Boolean(window && window.generation === request.generation);
+}
+
 export const useChatWindowStore = create<ChatWindowStoreState>((set, get) => ({
 	windowBySessionId: new Map(),
 	nextGeneration: 1,
@@ -94,10 +109,9 @@ export const useChatWindowStore = create<ChatWindowStoreState>((set, get) => ({
 		});
 	},
 
-	loadOlder: async (sessionId, limit = 80) => {
+	beginOlderPageLoad: (sessionId) => {
 		const current = get().windowBySessionId.get(sessionId);
-		if (!current || current.loadingOlder || !current.hasOlder || !current.olderCursor) return;
-		const requestGeneration = current.generation;
+		if (!current || current.loadingOlder || !current.hasOlder || !current.olderCursor) return null;
 
 		set((state) => ({
 			windowBySessionId: replaceExistingWindow(state.windowBySessionId, sessionId, (window) => ({
@@ -106,49 +120,44 @@ export const useChatWindowStore = create<ChatWindowStoreState>((set, get) => ({
 			})),
 		}));
 
-		try {
-			const page = await useSessionStore
-				.getState()
-				.loadHistory(sessionId, current.olderCursor, limit);
+		return {
+			sessionId,
+			olderCursor: current.olderCursor,
+			generation: current.generation,
+		};
+	},
 
-			set((state) => {
-				const window = state.windowBySessionId.get(sessionId);
-				if (!window || window.generation !== requestGeneration) return state;
+	applyOlderPage: (sessionId, request, page) => {
+		set((state) => {
+			const window = state.windowBySessionId.get(sessionId);
+			if (!isCurrentRequest(window, request)) return state;
 
-				return {
-					windowBySessionId: replaceExistingWindow(
-						state.windowBySessionId,
-						sessionId,
-						(window) => ({
-							...window,
-							messages: mergeOlderWithRecent(page.messages, window.messages),
-							hasOlder: page.hasOlder,
-							olderCursor: page.olderCursor,
-							loadingOlder: false,
-							initialized: true,
-							olderPagesLoaded: true,
-						}),
-					),
-				};
-			});
-		} catch (error) {
-			set((state) => {
-				const window = state.windowBySessionId.get(sessionId);
-				if (!window || window.generation !== requestGeneration) return state;
+			return {
+				windowBySessionId: replaceExistingWindow(state.windowBySessionId, sessionId, (window) => ({
+					...window,
+					messages: mergeOlderWithRecent(page.messages, window.messages),
+					hasOlder: page.hasOlder,
+					olderCursor: page.olderCursor,
+					loadingOlder: false,
+					initialized: true,
+					olderPagesLoaded: true,
+				})),
+			};
+		});
+	},
 
-				return {
-					windowBySessionId: replaceExistingWindow(
-						state.windowBySessionId,
-						sessionId,
-						(window) => ({
-							...window,
-							loadingOlder: false,
-						}),
-					),
-				};
-			});
-			throw error;
-		}
+	failOlderPage: (sessionId, request) => {
+		set((state) => {
+			const window = state.windowBySessionId.get(sessionId);
+			if (!isCurrentRequest(window, request)) return state;
+
+			return {
+				windowBySessionId: replaceExistingWindow(state.windowBySessionId, sessionId, (window) => ({
+					...window,
+					loadingOlder: false,
+				})),
+			};
+		});
 	},
 
 	resetSession: (sessionId) => {
