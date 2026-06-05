@@ -1,0 +1,30 @@
+src/client/stores/session-store.test.ts
+  s_82e93de1bb8ac8::t_99646735c766b6 4
+  s_82e93de1bb8ac8::t_66fb278e8c4ec8 205-208,243-246
+  s_82e93de1bb8ac8::t_330d5b72df7108 3,46-58,60,74,85-88,157-159,197-204,209-216,235-242,247-251
+  s_82e93de1bb8ac8::t_08d6441169696d 59,75,318-361
+src/client/stores/chat-window-store.test.ts
+  s_82e93de1bb8ac8::t_e8d440eda55e3f 118-119,129-139,152,157,160,170-171,173-174,178,187-188,190,195,204-205,208-212,217,226-227,239-243
+  s_82e93de1bb8ac8::t_783f2b5daf80bc 2,71,80-82,86
+src/client/stores/session-store.ts
+  s_82e93de1bb8ac8::t_faaa2b6befd6ca 10,58,80,122,185-195
+src/client/stores/chat-window-store.ts
+  s_82e93de1bb8ac8::t_be66dff287a137 2,15-20,26-32,74-77,112,114,123-135,145-154,159-160
+  s_82e93de1bb8ac8::t_783f2b5daf80bc 136-144,155-158
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "51dd6b6aa271b9b6c91d9885d3b29530315d640c",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
