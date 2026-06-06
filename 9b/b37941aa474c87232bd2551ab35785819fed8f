@@ -1,0 +1,9 @@
+src/client/components/messages/tool-call.tsx
+  ai_agent 197,199-201,203-204,206,208-229
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "9bb37941aa474c87232bd2551ab35785819fed8f",
+  "prompts": {}
+}
