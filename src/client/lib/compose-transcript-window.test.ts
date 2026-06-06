@@ -40,6 +40,7 @@ describe('composeTranscriptWindow', () => {
 				toolId: 'call-1',
 				input: { command: 'bun test' },
 				result: 'pass',
+				hasResult: true,
 				rawResult: 'pass',
 				isError: false,
 			},
@@ -87,6 +88,7 @@ describe('composeTranscriptWindow', () => {
 		expect(composeTranscriptWindow(messages)[0]).toMatchObject({
 			kind: 'tool',
 			toolKind: 'ask_user_question',
+			hasResult: true,
 			rawResult: JSON.stringify({ answers: { choice: 'yes' } }),
 			result: { answers: { choice: ['yes'] } },
 		});

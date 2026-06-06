@@ -52,7 +52,7 @@ export function TranscriptMessageView({ message, className }: TranscriptMessageV
 			return <AssistantText text={message.text} mode="markdown" className={className} />;
 		case 'tool':
 			return (
-				<ToolCall tool={message} isLoading={message.result === undefined} className={className} />
+				<ToolCall tool={message} isLoading={message.hasResult !== true} className={className} />
 			);
 		case 'tool_result':
 			return (
