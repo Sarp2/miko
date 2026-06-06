@@ -48,7 +48,9 @@ export function AssistantText({ text, mode = 'plain', className }: AssistantText
 					),
 					table: ({ children }) => (
 						<div className="mb-3 overflow-x-auto rounded-md border border-hairline">
-							<table className="w-full text-left text-caption">{children}</table>
+							<table className="w-full text-left text-caption [&_tr:last-child_td]:border-b-0">
+								{children}
+							</table>
 						</div>
 					),
 					thead: ({ children }) => <thead className="bg-surface-2">{children}</thead>,
@@ -56,9 +58,7 @@ export function AssistantText({ text, mode = 'plain', className }: AssistantText
 						<th className="px-3 py-2 text-ink font-medium border-b border-hairline">{children}</th>
 					),
 					td: ({ children }) => (
-						<td className="px-3 py-2 text-ink-muted border-b border-hairline last:border-b-0">
-							{children}
-						</td>
+						<td className="border-b border-hairline px-3 py-2 text-ink-muted">{children}</td>
 					),
 					a: ({ children, href }) => (
 						<a
