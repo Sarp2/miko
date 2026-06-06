@@ -78,39 +78,27 @@ export function ContextWindowUpdatedMessage({
 		{ label: 'Auto Compact', value: usage.compactsAutomatically ? 'On' : 'Off' },
 	].filter((item): item is { label: string; value: string } => item !== null);
 
-	const hasDetails = details.length > 1;
-
 	return (
 		<div className={cn('flex justify-center', className)}>
 			<Collapsible>
-				<CollapsibleTrigger
-					className={cn(
-						'group inline-flex items-center gap-1.5 text-xs text-ink-subtle',
-						hasDetails && 'hover:text-ink-muted',
-					)}
-					disabled={!hasDetails}
-				>
+				<CollapsibleTrigger className="group inline-flex items-center gap-1.5 text-xs text-ink-subtle hover:text-ink-muted">
 					<span>{summary}</span>
-					{hasDetails && (
-						<CaretDown
-							className="size-3 transition-transform group-data-[state=open]:rotate-180"
-							weight="bold"
-						/>
-					)}
+					<CaretDown
+						className="size-3 transition-transform group-data-[state=open]:rotate-180"
+						weight="bold"
+					/>
 				</CollapsibleTrigger>
 
-				{hasDetails && (
-					<CollapsibleContent className="mt-2">
-						<div className="space-y-2 text-xs text-ink-muted">
-							{details.map((item) => (
-								<div key={item.label} className="flex gap-2">
-									<span className="text-ink-subtle">{item.label}:</span>
-									<span className="font-mono text-ink">{item.value}</span>
-								</div>
-							))}
-						</div>
-					</CollapsibleContent>
-				)}
+				<CollapsibleContent className="mt-2">
+					<div className="space-y-2 text-xs text-ink-muted">
+						{details.map((item) => (
+							<div key={item.label} className="flex gap-2">
+								<span className="text-ink-subtle">{item.label}:</span>
+								<span className="font-mono text-ink">{item.value}</span>
+							</div>
+						))}
+					</div>
+				</CollapsibleContent>
 			</Collapsible>
 		</div>
 	);
