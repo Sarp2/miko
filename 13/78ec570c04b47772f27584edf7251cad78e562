@@ -1,0 +1,11 @@
+src/client/components/messages/context-window-updated-message.tsx
+  ai_agent 69-70
+src/shared/types.ts
+  ai_agent 556
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "1378ec570c04b47772f27584edf7251cad78e562",
+  "prompts": {}
+}
