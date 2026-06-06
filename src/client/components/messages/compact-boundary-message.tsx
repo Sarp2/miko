@@ -13,12 +13,16 @@ export function CompactBoundaryMessage({
 	label = 'Compacted',
 	className,
 }: CompactBoundaryMessageProps) {
+	const visibleLabel = label.trim();
+
 	return (
 		<div className={cn('flex items-center gap-3', className)}>
 			<div className="h-px flex-1 bg-hairline/80" />
-			<span className="shrink-0 text-caption uppercase tracking-[0.08em] text-ink-subtle">
-				{label}
-			</span>
+			{visibleLabel ? (
+				<span className="shrink-0 text-caption uppercase tracking-[0.08em] text-ink-subtle">
+					{visibleLabel}
+				</span>
+			) : null}
 			<div className="h-px flex-1 bg-hairline/80" />
 		</div>
 	);
