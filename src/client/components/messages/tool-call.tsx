@@ -92,6 +92,15 @@ function formatResultDetail(result: unknown): string {
 	}
 }
 
+function formatToolInput(input: unknown): string {
+	if (typeof input === 'string') return input;
+	try {
+		return JSON.stringify(input, null, 2);
+	} catch {
+		return String(input);
+	}
+}
+
 function getObject(value: unknown): Record<string, unknown> | null {
 	if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
 	return value as Record<string, unknown>;
@@ -300,6 +309,7 @@ export function ToolCall({ tool, isLoading = false, className }: ToolCallProps) 
 	) : (
 		getToolIcon(tool)
 	);
+	const inputDetail = formatToolInput(tool.input);
 
 	return (
 		<ToolEventRow className={cn(className)} icon={resolvedIcon} title={title} subtitle={summary}>
@@ -315,6 +325,12 @@ export function ToolCall({ tool, isLoading = false, className }: ToolCallProps) 
 					<span className="max-w-80 truncate font-mono text-ink" title={tool.toolId}>
 						{tool.toolId}
 					</span>
+				</div>
+				<div className="space-y-2">
+					<span className="text-ink-subtle">Input</span>
+					<pre className="max-h-[240px] overflow-x-auto rounded-md border border-hairline bg-surface-1 p-2.5 font-mono text-caption leading-relaxed text-ink-muted">
+						{inputDetail || '(empty)'}
+					</pre>
 				</div>
 				{hasResult &&
 					(tool.toolKind === 'edit_file' && !tool.isError

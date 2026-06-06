@@ -75,6 +75,8 @@ function normalizeAttachment(attachment: UserPromptAttachment, index: number): C
 export function UserPrompt({ content, attachments, className }: UserPromptProps) {
 	const [isOpen, setIsOpen] = React.useState(false);
 	const [openAttachmentId, setOpenAttachmentId] = React.useState<string | null>(null);
+	const [previewTextByUrl, setPreviewTextByUrl] = React.useState<Record<string, string>>({});
+	const [previewErrorByUrl, setPreviewErrorByUrl] = React.useState<Record<string, string>>({});
 	const maxLength = 150;
 	const normalizedAttachments = React.useMemo(
 		() =>
@@ -92,6 +94,50 @@ export function UserPrompt({ content, attachments, className }: UserPromptProps)
 			normalizedAttachments.find(({ normalized }) => normalized.id === openAttachmentId) ?? null,
 		[normalizedAttachments, openAttachmentId],
 	);
+	const selectedPreviewUrl = selectedAttachment?.normalized.contentUrl || '';
+	const selectedIsTextPreview = selectedAttachment
+		? isTextPreviewType(selectedAttachment.normalized.mimeType.toLowerCase())
+		: false;
+	const hasFetchedPreviewText = selectedPreviewUrl
+		? Object.hasOwn(previewTextByUrl, selectedPreviewUrl)
+		: false;
+	const hasPreviewError = selectedPreviewUrl
+		? Object.hasOwn(previewErrorByUrl, selectedPreviewUrl)
+		: false;
+	const selectedPreviewText =
+		selectedAttachment?.raw.previewText ??
+		(hasFetchedPreviewText ? previewTextByUrl[selectedPreviewUrl] : undefined);
+	const selectedPreviewError = hasPreviewError ? previewErrorByUrl[selectedPreviewUrl] : undefined;
+
+	React.useEffect(() => {
+		if (!selectedAttachment || !selectedIsTextPreview || selectedAttachment.raw.previewText) return;
+		if (!selectedPreviewUrl || hasFetchedPreviewText || hasPreviewError) return;
+
+		const controller = new AbortController();
+		void fetch(selectedPreviewUrl, { signal: controller.signal })
+			.then(async (response) => {
+				if (!response.ok) throw new Error(`Preview failed with ${response.status}`);
+				return await response.text();
+			})
+			.then((text) => {
+				setPreviewTextByUrl((current) => ({ ...current, [selectedPreviewUrl]: text }));
+			})
+			.catch((error) => {
+				if (error instanceof DOMException && error.name === 'AbortError') return;
+				setPreviewErrorByUrl((current) => ({
+					...current,
+					[selectedPreviewUrl]: 'Preview unavailable for this attachment.',
+				}));
+			});
+
+		return () => controller.abort();
+	}, [
+		hasFetchedPreviewText,
+		hasPreviewError,
+		selectedAttachment,
+		selectedIsTextPreview,
+		selectedPreviewUrl,
+	]);
 
 	return (
 		<>
@@ -177,7 +223,7 @@ export function UserPrompt({ content, attachments, className }: UserPromptProps)
 								</span>
 							</div>
 
-							{selectedAttachment.normalized.mimeType.startsWith('image/') &&
+							{selectedAttachment.normalized.mimeType.toLowerCase().startsWith('image/') &&
 							(selectedAttachment.raw.previewUrl || selectedAttachment.normalized.contentUrl) ? (
 								<div className="overflow-hidden rounded-md border border-hairline bg-surface-2">
 									<img
@@ -190,23 +236,32 @@ export function UserPrompt({ content, attachments, className }: UserPromptProps)
 								</div>
 							) : null}
 
-							{isTextPreviewType(selectedAttachment.normalized.mimeType) &&
-							selectedAttachment.raw.previewText ? (
+							{selectedIsTextPreview && selectedPreviewText !== undefined ? (
 								<pre className="max-h-[65vh] overflow-auto whitespace-pre-wrap break-words rounded-md border border-hairline bg-surface-2 p-3 font-mono text-caption leading-relaxed text-ink-muted">
-									{selectedAttachment.raw.previewText}
+									{selectedPreviewText}
 								</pre>
 							) : null}
 
+							{selectedIsTextPreview &&
+							selectedPreviewUrl &&
+							selectedPreviewText === undefined &&
+							!selectedPreviewError ? (
+								<div className="rounded-md border border-hairline bg-surface-2 p-3">
+									<span className="text-body-sm text-ink-subtle">Loading preview...</span>
+								</div>
+							) : null}
+
 							{!(
-								(selectedAttachment.normalized.mimeType.startsWith('image/') &&
+								(selectedAttachment.normalized.mimeType.toLowerCase().startsWith('image/') &&
 									(selectedAttachment.raw.previewUrl ||
 										selectedAttachment.normalized.contentUrl)) ||
-								(isTextPreviewType(selectedAttachment.normalized.mimeType) &&
-									selectedAttachment.raw.previewText)
+								(selectedIsTextPreview &&
+									(selectedPreviewText !== undefined ||
+										(Boolean(selectedPreviewUrl) && !selectedPreviewError)))
 							) ? (
 								<div className="rounded-md border border-hairline bg-surface-2 p-3">
 									<span className="text-body-sm text-ink-subtle">
-										Preview unavailable for this file type.
+										{selectedPreviewError || 'Preview unavailable for this file type.'}
 									</span>
 								</div>
 							) : null}
