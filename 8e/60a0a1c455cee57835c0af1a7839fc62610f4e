@@ -1,0 +1,9 @@
+src/client/components/messages/user-prompt.tsx
+  ai_agent 52,55
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "8e60a0a1c455cee57835c0af1a7839fc62610f4e",
+  "prompts": {}
+}
