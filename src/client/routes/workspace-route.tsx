@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import type { SessionSummary } from '../../shared/types';
 import { ErrorBoundary } from '../components/error-boundary';
 import { MiddleTabs } from '../components/middle-tabs';
@@ -8,7 +8,11 @@ import { useScratchpadStore } from '../stores/scratchpad-store';
 import { useSessionStore } from '../stores/session-store';
 import { useUiStore } from '../stores/ui-store';
 import { useWorkspaceStore } from '../stores/workspace-store';
-import { deriveWorkspaceRoutePage, type WorkspaceRouteKind } from './workspace-route-state';
+import {
+	deriveWorkspaceRoutePage,
+	selectFirstSessionId,
+	type WorkspaceRouteKind,
+} from './workspace-route-state';
 
 const EMPTY_SESSIONS: SessionSummary[] = [];
 
@@ -21,6 +25,7 @@ const ScratchpadPage = lazy(() =>
 );
 
 export function WorkspaceRoute({ kind }: WorkspaceRouteProps) {
+	const navigate = useNavigate();
 	const { workspaceId, sessionId } = useParams();
 	const [searchParams] = useSearchParams();
 	const workspaceSnapshot = useWorkspaceStore((state) =>
@@ -50,9 +55,18 @@ export function WorkspaceRoute({ kind }: WorkspaceRouteProps) {
 		);
 	}, [workspaceId, workspaceSnapshot]);
 
+	const firstSessionId = useMemo(() => selectFirstSessionId(sessions), [sessions]);
 	const page = useMemo(() => {
-		return deriveWorkspaceRoutePage({ kind, sessionId, searchParams, sessions });
-	}, [kind, sessionId, searchParams, sessions]);
+		return deriveWorkspaceRoutePage({ kind, sessionId, searchParams });
+	}, [kind, sessionId, searchParams]);
+
+	useEffect(() => {
+		if (!workspaceId || kind !== 'workspace' || !firstSessionId) return;
+		navigate(
+			`/workspaces/${encodeURIComponent(workspaceId)}/sessions/${encodeURIComponent(firstSessionId)}`,
+			{ replace: true },
+		);
+	}, [firstSessionId, kind, navigate, workspaceId]);
 
 	useEffect(() => {
 		if (!workspaceId || !page) return;

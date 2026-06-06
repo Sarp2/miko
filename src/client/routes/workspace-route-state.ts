@@ -7,7 +7,6 @@ interface WorkspaceRoutePageInput {
 	kind: WorkspaceRouteKind;
 	sessionId?: string;
 	searchParams?: URLSearchParams;
-	sessions?: Pick<SessionSummary, 'id' | 'createdAt'>[];
 }
 
 const FILE_SOURCES = new Set<WorkspaceFileSource>([
@@ -43,16 +42,12 @@ export function deriveWorkspaceRoutePage({
 	kind,
 	sessionId,
 	searchParams = new URLSearchParams(),
-	sessions = [],
 }: WorkspaceRoutePageInput): WorkspacePage | null {
 	if (kind === 'session') {
 		return sessionId ? { type: 'chat', sessionId } : null;
 	}
 
-	if (kind === 'workspace') {
-		const firstSessionId = selectFirstSessionId(sessions);
-		return firstSessionId ? { type: 'chat', sessionId: firstSessionId } : null;
-	}
+	if (kind === 'workspace') return null;
 
 	if (kind === 'diff') {
 		const path = searchParams.get('path')?.trim();
