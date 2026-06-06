@@ -1,9 +1,6 @@
-import { hydrateToolResult } from '../../shared/tools';
 import type {
 	HydratedToolCall,
 	HydratedTranscriptMessage,
-	ToolCallEntry,
-	ToolResultEntry,
 	TranscriptEntry,
 } from '../../shared/types';
 
@@ -33,142 +30,133 @@ function serializeUnknown(entry: TranscriptEntry) {
 	}
 }
 
-function hydrateToolCall(entry: ToolCallEntry, result?: ToolResultEntry): HydratedToolCall {
-	const hydrated = {
-		...entryBase(entry),
-		kind: 'tool' as const,
-		toolKind: entry.tool.toolKind,
-		toolName: entry.tool.toolName,
-		toolId: entry.tool.toolId,
-		input: entry.tool.input,
-	};
-
-	if (!result) return hydrated as HydratedToolCall;
-
-	return {
-		...hydrated,
-		rawResult: result.content,
-		result: hydrateToolResult(entry.tool, result.content),
-		isError: (result as { isError?: boolean }).isError === true,
-	} as HydratedToolCall;
+// The backend owns transcript normalization. This is only a read-side render guard so a
+// malformed persisted tool row cannot crash the entire chat surface.
+function isHydratableToolCallEntry(entry: TranscriptEntry) {
+	if (entry.kind !== 'tool_call') return false;
+	const tool = (entry as { tool?: unknown }).tool;
+	if (!tool || typeof tool !== 'object') return false;
+	const candidate = tool as { toolId?: unknown; toolKind?: unknown; toolName?: unknown };
+	return (
+		typeof candidate.toolId === 'string' &&
+		candidate.toolId.length > 0 &&
+		typeof candidate.toolKind === 'string' &&
+		typeof candidate.toolName === 'string' &&
+		'input' in tool
+	);
 }
 
-function findToolResults(entries: TranscriptEntry[]) {
-	const resultsByToolId = new Map<string, ToolResultEntry>();
+export function hydrateTranscriptEntry(entry: TranscriptEntry): HydratedTranscriptMessage {
+	const base = entryBase(entry);
 
-	for (const entry of entries) {
-		if (entry.kind !== 'tool_result') continue;
-		resultsByToolId.set(entry.toolId, entry);
-	}
-
-	return resultsByToolId;
-}
-
-export function hydrateTranscriptMessages(entries: TranscriptEntry[]): HydratedTranscriptMessage[] {
-	const toolResultsByToolId = findToolResults(entries);
-	const messages: HydratedTranscriptMessage[] = [];
-
-	for (const entry of entries) {
-		if (entry.kind === 'tool_result') continue;
-		const base = entryBase(entry);
-
-		switch (entry.kind) {
-			case 'user_prompt':
-				messages.push({
-					...base,
-					kind: 'user_prompt',
-					content: entry.content,
-					attachments: entry.attachments,
-				});
-				break;
-			case 'system_init':
-				messages.push({
-					...base,
-					kind: 'system_init',
-					model: entry.model,
-					tools: entry.tools,
-					agents: entry.agents,
-					slashCommands: entry.slashCommands,
-					mcpServers: entry.mcpServers,
-					provider: entry.provider,
-					debugRaw: entry.debugRaw,
-				});
-				break;
-			case 'account_info':
-				messages.push({
-					...base,
-					kind: 'account_info',
-					accountInfo: entry.accountInfo,
-				});
-				break;
-			case 'assistant_text':
-				messages.push({
-					...base,
-					kind: 'assistant_text',
-					text: entry.text,
-				});
-				break;
-			case 'tool_call':
-				messages.push(hydrateToolCall(entry, toolResultsByToolId.get(entry.tool.toolId)));
-				break;
-			case 'result':
-				messages.push({
-					...base,
-					kind: 'result',
-					success: entry.subtype === 'success' && !entry.isError,
-					cancelled: entry.subtype === 'cancelled',
-					result: entry.result,
-					durationMs: entry.durationMs,
-					costUsd: entry.costUsd,
-				});
-				break;
-			case 'status':
-				messages.push({
-					...base,
-					kind: 'status',
-					status: entry.status,
-				});
-				break;
-			case 'context_window_updated':
-				messages.push({
-					...base,
-					kind: 'context_window_updated',
-					usage: entry.usage,
-				});
-				break;
-			case 'compact_boundary':
-				messages.push({
-					...base,
-					kind: 'compact_boundary',
-				});
-				break;
-			case 'compact_summary':
-				messages.push({
-					...base,
-					kind: 'compact_summary',
-					summary: entry.summary,
-				});
-				break;
-			case 'context_cleared':
-				messages.push({
-					...base,
-					kind: 'context_cleared',
-				});
-				break;
-			case 'interrupted':
-				messages.push({
-					...base,
-					kind: 'interrupted',
-				});
-				break;
-			default:
-				messages.push({
+	switch (entry.kind) {
+		case 'user_prompt':
+			return {
+				...base,
+				kind: 'user_prompt',
+				content: entry.content,
+				attachments: entry.attachments,
+			};
+		case 'system_init':
+			return {
+				...base,
+				kind: 'system_init',
+				model: entry.model,
+				tools: entry.tools,
+				agents: entry.agents,
+				slashCommands: entry.slashCommands,
+				mcpServers: entry.mcpServers,
+				provider: entry.provider,
+				debugRaw: entry.debugRaw,
+			};
+		case 'account_info':
+			return {
+				...base,
+				kind: 'account_info',
+				accountInfo: entry.accountInfo,
+			};
+		case 'assistant_text':
+			return {
+				...base,
+				kind: 'assistant_text',
+				text: entry.text,
+			};
+		case 'tool_call':
+			if (!isHydratableToolCallEntry(entry)) {
+				return {
 					...base,
 					kind: 'unknown',
 					json: serializeUnknown(entry),
-				});
-		}
+				};
+			}
+			return {
+				...base,
+				kind: 'tool',
+				toolKind: entry.tool.toolKind,
+				toolName: entry.tool.toolName,
+				toolId: entry.tool.toolId,
+				input: entry.tool.input,
+			} as HydratedToolCall;
+		case 'tool_result':
+			return {
+				...base,
+				kind: 'tool_result',
+				toolId: entry.toolId,
+				rawResult: entry.content,
+				isError: (entry as { isError?: boolean }).isError === true,
+			};
+		case 'result':
+			return {
+				...base,
+				kind: 'result',
+				success: entry.subtype === 'success' && !entry.isError,
+				cancelled: entry.subtype === 'cancelled',
+				result: entry.result,
+				durationMs: entry.durationMs,
+				costUsd: entry.costUsd,
+			};
+		case 'status':
+			return {
+				...base,
+				kind: 'status',
+				status: entry.status,
+			};
+		case 'context_window_updated':
+			return {
+				...base,
+				kind: 'context_window_updated',
+				usage: entry.usage,
+			};
+		case 'compact_boundary':
+			return {
+				...base,
+				kind: 'compact_boundary',
+			};
+		case 'compact_summary':
+			return {
+				...base,
+				kind: 'compact_summary',
+				summary: entry.summary,
+			};
+		case 'context_cleared':
+			return {
+				...base,
+				kind: 'context_cleared',
+			};
+		case 'interrupted':
+			return {
+				...base,
+				kind: 'interrupted',
+			};
+		default:
+			return {
+				...base,
+				kind: 'unknown',
+				json: serializeUnknown(entry),
+			};
 	}
+}
 
-	return messages;
+export function hydrateTranscriptMessages(entries: TranscriptEntry[]): HydratedTranscriptMessage[] {
+	return entries.map(hydrateTranscriptEntry);
 }

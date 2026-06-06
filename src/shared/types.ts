@@ -1031,6 +1031,16 @@ export type HydratedTranscriptMessage =
 			timestamp: string;
 			hidden?: boolean;
 	  }
+	| {
+			kind: 'tool_result';
+			toolId: string;
+			rawResult: unknown;
+			isError?: boolean;
+			id: string;
+			messageId?: string;
+			timestamp: string;
+			hidden?: boolean;
+	  }
 	| ({ id: string; messageId?: string; hidden?: boolean } & HydratedToolCall);
 
 export interface SessionRuntime {

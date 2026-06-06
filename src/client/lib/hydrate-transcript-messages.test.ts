@@ -38,7 +38,7 @@ describe('hydrateTranscriptMessages', () => {
 		]);
 	});
 
-	test('pairs tool calls with tool results by tool id', () => {
+	test('hydrates tool calls and tool results as separate transcript entries', () => {
 		const messages = hydrateTranscriptMessages([
 			{
 				...baseEntry('tool-1', 'tool_call', 1000),
@@ -69,7 +69,14 @@ describe('hydrateTranscriptMessages', () => {
 				toolName: 'bash',
 				toolId: 'call-1',
 				input: { command: 'bun test' },
-				result: 'pass',
+			},
+			{
+				kind: 'tool_result',
+				id: 'result-1',
+				messageId: undefined,
+				hidden: undefined,
+				timestamp: '1970-01-01T00:00:02.000Z',
+				toolId: 'call-1',
 				rawResult: 'pass',
 				isError: false,
 			},
@@ -124,76 +131,41 @@ describe('hydrateTranscriptMessages', () => {
 		]);
 	});
 
-	test('skips standalone tool results and keeps chronological tool call position', () => {
+	test('preserves standalone tool results for transcript window composition', () => {
 		const messages = hydrateTranscriptMessages([
 			{ ...baseEntry('result-early', 'tool_result', 500), toolId: 'call-1', content: 'early' },
-			{
-				...baseEntry('tool-1', 'tool_call', 1000),
-				tool: {
-					kind: 'tool',
-					toolKind: 'grep',
-					toolName: 'grep',
-					toolId: 'call-1',
-					input: { pattern: 'TODO' },
-				},
-			},
 			{ ...baseEntry('a1', 'assistant_text', 1500), text: 'After tool' },
 		] as TranscriptEntry[]);
 
-		expect(messages.map((message) => message.id)).toEqual(['tool-1', 'a1']);
-		expect(messages[0]).toMatchObject({ kind: 'tool', result: 'early' });
+		expect(messages.map((message) => message.id)).toEqual(['result-early', 'a1']);
+		expect(messages[0]).toMatchObject({
+			kind: 'tool_result',
+			toolId: 'call-1',
+			rawResult: 'early',
+		});
 	});
 
-	test('normalizes specialized tool results for render components', () => {
+	test('degrades malformed tool calls instead of dereferencing missing tool ids', () => {
 		const messages = hydrateTranscriptMessages([
+			{ ...baseEntry('bad-tool', 'tool_call', 1000), tool: undefined },
 			{
-				...baseEntry('question-tool', 'tool_call', 1000),
-				tool: {
-					kind: 'tool',
-					toolKind: 'ask_user_question',
-					toolName: 'AskUserQuestion',
-					toolId: 'question-1',
-					input: { questions: [{ id: 'choice', question: 'Pick one' }] },
-				},
+				...baseEntry('after-bad-tool', 'assistant_text', 2000),
+				text: 'Still render the rest',
 			},
-			{
-				...baseEntry('question-result', 'tool_result', 2000),
-				toolId: 'question-1',
-				content: JSON.stringify({ answers: { choice: 'yes' } }),
-			},
-			{
-				...baseEntry('read-tool', 'tool_call', 3000),
-				tool: {
-					kind: 'tool',
-					toolKind: 'read_file',
-					toolName: 'Read',
-					toolId: 'read-1',
-					input: { filePath: 'src/index.ts' },
-				},
-			},
-			{
-				...baseEntry('read-result', 'tool_result', 4000),
-				toolId: 'read-1',
-				content: [{ type: 'text', text: 'hello' }],
-			},
-		] as TranscriptEntry[]);
+		] as unknown as TranscriptEntry[]);
 
-		expect(messages[0]).toMatchObject({
-			kind: 'tool',
-			toolKind: 'ask_user_question',
-			rawResult: JSON.stringify({ answers: { choice: 'yes' } }),
-			result: { answers: { choice: ['yes'] } },
-		});
-
-		expect(messages[1]).toMatchObject({
-			kind: 'tool',
-			toolKind: 'read_file',
-			rawResult: [{ type: 'text', text: 'hello' }],
-			result: {
-				content: 'hello',
-				blocks: [{ type: 'text', text: 'hello' }],
+		expect(messages).toMatchObject([
+			{
+				kind: 'unknown',
+				id: 'bad-tool',
+				json: expect.stringContaining('tool_call'),
 			},
-		});
+			{
+				kind: 'assistant_text',
+				id: 'after-bad-tool',
+				text: 'Still render the rest',
+			},
+		]);
 	});
 
 	test('hydrates unknown future entries safely', () => {
