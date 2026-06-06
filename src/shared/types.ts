@@ -553,7 +553,7 @@ export interface ContextWindowUsageSnapshot {
 	lastInputTokens?: number;
 	lastCachedInputTokens?: number;
 	lastOutputTokens?: number;
-	lastReasoningOuputTokens?: number;
+	lastReasoningOutputTokens?: number;
 	toolUses?: number;
 	durationMs?: number;
 	compactsAutomatically: boolean;
