@@ -7,7 +7,7 @@ import {
 	type AttachmentKind,
 	type ChatAttachment,
 	formatAttachmentSize,
-} from './index';
+} from './attachment-card';
 
 export interface UserPromptAttachment {
 	id?: string;
