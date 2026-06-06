@@ -1,0 +1,9 @@
+src/client/components/messages/assistant-text.tsx
+  ai_agent 34-48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "b24ed031bf4cae2fc86b733cf6da9e437277c3ca",
+  "prompts": {}
+}
