@@ -31,27 +31,21 @@ export function AssistantText({ text, mode = 'plain', className }: AssistantText
 					li: ({ children }) => <li className="text-ink">{children}</li>,
 					strong: ({ children }) => <strong className="font-semibold text-ink">{children}</strong>,
 					em: ({ children }) => <em className="italic text-ink-muted">{children}</em>,
-					code: ({ children, className: codeClassName }) => {
-						const isBlock = Boolean(codeClassName);
-						if (!isBlock) {
-							return (
-								<code className="rounded border border-hairline bg-surface-2 px-1 py-0.5 font-mono text-caption text-ink-muted">
-									{children}
-								</code>
-							);
-						}
-						return (
-							<code
-								className={cn(
-									'block overflow-x-auto rounded-md border border-hairline bg-surface-2 p-3 font-mono text-caption leading-relaxed text-ink-muted',
-									codeClassName,
-								)}
-							>
-								{children}
-							</code>
-						);
-					},
-					pre: ({ children }) => <pre className="mb-3">{children}</pre>,
+					code: ({ children, className: codeClassName }) => (
+						<code
+							className={cn(
+								'rounded border border-hairline bg-surface-2 px-1 py-0.5 font-mono text-caption text-ink-muted',
+								codeClassName,
+							)}
+						>
+							{children}
+						</code>
+					),
+					pre: ({ children }) => (
+						<pre className="mb-3 overflow-x-auto rounded-md border border-hairline bg-surface-2 p-3 font-mono text-caption leading-relaxed text-ink-muted [&_code]:border-0 [&_code]:bg-transparent [&_code]:p-0 [&_code]:text-inherit">
+							{children}
+						</pre>
+					),
 					table: ({ children }) => (
 						<div className="mb-3 overflow-x-auto rounded-md border border-hairline">
 							<table className="w-full text-left text-caption">{children}</table>
