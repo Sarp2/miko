@@ -8,7 +8,8 @@ import {
 	Wrench,
 } from '@phosphor-icons/react';
 import { cn } from '../../lib/utils';
-import { FileContentView, ToolEventRow } from './index';
+import { FileContentView } from './file-content-view';
+import { ToolEventRow } from './tool-event-card';
 
 export interface ToolCallData {
 	toolKind: string;
