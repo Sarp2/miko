@@ -49,9 +49,10 @@ function isTextPreviewType(type: string): boolean {
 function normalizeAttachment(attachment: UserPromptAttachment, index: number): ChatAttachment {
 	const displayName = attachment.displayName || attachment.name || `attachment-${index + 1}`;
 	const mimeType = attachment.mimeType || attachment.type || 'application/octet-stream';
+	const normalizedMimeType = mimeType.toLowerCase();
 	const inferredKind: AttachmentKind = attachment.kind
 		? attachment.kind
-		: mimeType.startsWith('image/')
+		: normalizedMimeType.startsWith('image/')
 			? 'image'
 			: 'file';
 
