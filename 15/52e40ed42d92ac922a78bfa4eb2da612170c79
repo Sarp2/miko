@@ -1,0 +1,33 @@
+src/shared/types.ts
+  s_82e93de1bb8ac8::t_c995a0ba94eb3e 1034-1040
+src/client/lib/compose-transcript-window.test.ts
+  s_82e93de1bb8ac8::t_cc38e756138baf 42
+  s_82e93de1bb8ac8::t_3222fa76882226 1-41,43-94
+src/client/lib/compose-transcript-window.ts
+  s_82e93de1bb8ac8::t_3dfb4b5c68e1a9 1-34,37-38,41-43,45-46,51
+  s_82e93de1bb8ac8::t_243c60a005b32a 35-36,39-40,44,47-50
+src/client/lib/hydrate-transcript-messages.test.ts
+  s_82e93de1bb8ac8::t_6db0bdb4760e0a 148,150,152-153,155-157,159-161,164-166,168
+  s_82e93de1bb8ac8::t_3815cf883ba622 41,72-79,134,140
+  s_82e93de1bb8ac8::t_7ff74df6a719c3 141-145
+src/client/lib/hydrate-transcript-messages.ts
+  s_82e93de1bb8ac8::t_3b3269efa27eb2 49-50,52-84,92-98,100-156,158,160-161
+  s_82e93de1bb8ac8::t_0917273f041704 99
+  s_82e93de1bb8ac8::t_dc01d5a2df2c64 33-46,85-86,90-91
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "1552e40ed42d92ac922a78bfa4eb2da612170c79",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
