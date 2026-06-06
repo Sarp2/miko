@@ -66,8 +66,8 @@ export function ContextWindowUpdatedMessage({
 		usage.lastOutputTokens !== undefined
 			? { label: 'Last Output Tokens', value: formatNumber(usage.lastOutputTokens) }
 			: null,
-		usage.lastReasoningOuputTokens !== undefined
-			? { label: 'Last Reasoning Tokens', value: formatNumber(usage.lastReasoningOuputTokens) }
+		usage.lastReasoningOutputTokens !== undefined
+			? { label: 'Last Reasoning Tokens', value: formatNumber(usage.lastReasoningOutputTokens) }
 			: null,
 		usage.toolUses !== undefined
 			? { label: 'Tool Uses', value: formatNumber(usage.toolUses) }
