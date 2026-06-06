@@ -1,0 +1,26 @@
+src/shared/types.ts
+  s_82e93de1bb8ac8::t_0d74dc4297efe6 824
+src/client/lib/compose-transcript-window.test.ts
+  s_82e93de1bb8ac8::t_0d74dc4297efe6 91
+  s_82e93de1bb8ac8::t_bd0bcf71aeafea 43
+src/client/components/transcript-message-view.tsx
+  s_82e93de1bb8ac8::t_0d74dc4297efe6 55
+src/client/lib/compose-transcript-window.ts
+  s_82e93de1bb8ac8::t_0d74dc4297efe6 14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "5bf8acbd9c16a54d25848a0a9c3263f69ef3700f",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
