@@ -194,36 +194,39 @@ function renderEditFileOutput(input: unknown) {
 function renderReadFileOutput(result: unknown) {
 	const text = extractReadFileText(result);
 	const images = extractReadImageBlocks(result);
-
-	if (images.length > 0) {
-		return (
-			<div className="space-y-2">
-				<span className="text-ink-subtle">Read Images</span>
-				<div className="space-y-2">
-					{images.map((image) => {
-						const mimeType = image.mimeType || 'image/png';
-						return (
-							<div
-								key={`${mimeType}:${image.data}`}
-								className="overflow-hidden rounded-md border border-hairline bg-surface-2"
-							>
-								<img
-									src={`data:${mimeType};base64,${image.data}`}
-									alt="Read result"
-									className="max-h-[50vh] w-full object-contain bg-canvas"
-								/>
-							</div>
-						);
-					})}
-				</div>
-			</div>
-		);
-	}
+	const fallback = !text && images.length === 0 ? formatResultDetail(result) || '(empty)' : '';
 
 	return (
-		<div className="space-y-2">
-			<span className="text-ink-subtle">Read Output</span>
-			<FileContentView content={text || formatResultDetail(result) || '(empty)'} />
+		<div className="space-y-3">
+			{text || fallback ? (
+				<div className="space-y-2">
+					<span className="text-ink-subtle">Read Output</span>
+					<FileContentView content={text || fallback} />
+				</div>
+			) : null}
+
+			{images.length > 0 ? (
+				<div className="space-y-2">
+					<span className="text-ink-subtle">Read Images</span>
+					<div className="space-y-2">
+						{images.map((image) => {
+							const mimeType = image.mimeType || 'image/png';
+							return (
+								<div
+									key={`${mimeType}:${image.data}`}
+									className="overflow-hidden rounded-md border border-hairline bg-surface-2"
+								>
+									<img
+										src={`data:${mimeType};base64,${image.data}`}
+										alt="Read result"
+										className="max-h-[50vh] w-full object-contain bg-canvas"
+									/>
+								</div>
+							);
+						})}
+					</div>
+				</div>
+			) : null}
 		</div>
 	);
 }
