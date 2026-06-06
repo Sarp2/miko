@@ -11,6 +11,7 @@ function attachToolResult(
 	return {
 		...tool,
 		result: hydrateToolResult(tool, result.rawResult),
+		hasResult: true,
 		rawResult: result.rawResult,
 		isError: result.isError === true,
 	} as HydratedToolCall;

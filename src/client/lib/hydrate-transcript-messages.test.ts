@@ -69,6 +69,7 @@ describe('hydrateTranscriptMessages', () => {
 				toolName: 'bash',
 				toolId: 'call-1',
 				input: { command: 'bun test' },
+				hasResult: false,
 			},
 			{
 				kind: 'tool_result',
@@ -102,6 +103,7 @@ describe('hydrateTranscriptMessages', () => {
 			toolKind: 'read_file',
 			toolId: 'call-1',
 			input: { filePath: 'src/index.ts' },
+			hasResult: false,
 		});
 		expect(messages[0]).not.toHaveProperty('result');
 	});

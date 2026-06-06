@@ -16,6 +16,7 @@ export interface ToolCallData {
 	toolName: string;
 	toolId: string;
 	input: unknown;
+	hasResult: boolean;
 	result?: unknown;
 	isError?: boolean;
 }
@@ -299,7 +300,7 @@ function getToolIcon(tool: ToolCallData) {
  * Shows a compact summary with expandable payload details.
  */
 export function ToolCall({ tool, isLoading = false, className }: ToolCallProps) {
-	const hasResult = tool.result !== undefined;
+	const hasResult = tool.hasResult;
 	const summary = hasResult
 		? truncateMiddle(formatResultPreview(tool.result), 64)
 		: truncateMiddle(getSummary(tool), 64);

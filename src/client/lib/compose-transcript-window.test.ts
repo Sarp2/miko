@@ -21,6 +21,7 @@ describe('composeTranscriptWindow', () => {
 				toolName: 'Bash',
 				toolId: 'call-1',
 				input: { command: 'bun test' },
+				hasResult: false,
 			},
 			{
 				...base('result-1'),
@@ -40,6 +41,7 @@ describe('composeTranscriptWindow', () => {
 				toolId: 'call-1',
 				input: { command: 'bun test' },
 				result: 'pass',
+				hasResult: true,
 				rawResult: 'pass',
 				isError: false,
 			},
@@ -74,6 +76,7 @@ describe('composeTranscriptWindow', () => {
 				toolName: 'AskUserQuestion',
 				toolId: 'question-1',
 				input: { questions: [{ id: 'choice', question: 'Pick one' }] },
+				hasResult: false,
 			},
 			{
 				...base('question-result'),
@@ -87,6 +90,7 @@ describe('composeTranscriptWindow', () => {
 		expect(composeTranscriptWindow(messages)[0]).toMatchObject({
 			kind: 'tool',
 			toolKind: 'ask_user_question',
+			hasResult: true,
 			rawResult: JSON.stringify({ answers: { choice: 'yes' } }),
 			result: { answers: { choice: ['yes'] } },
 		});
