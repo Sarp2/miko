@@ -59,6 +59,7 @@ describe('TranscriptMessageView', () => {
 			toolName: 'bash',
 			toolId: 'call-1',
 			input: { command: 'bun test' },
+			hasResult: false,
 		});
 		const completedHtml = renderMessage({
 			...base('tool-completed'),
@@ -67,6 +68,7 @@ describe('TranscriptMessageView', () => {
 			toolName: 'bash',
 			toolId: 'call-2',
 			input: { command: 'bun run lint' },
+			hasResult: true,
 			result: 'pass',
 			rawResult: 'pass',
 			isError: false,

@@ -51,9 +51,7 @@ export function TranscriptMessageView({ message, className }: TranscriptMessageV
 		case 'assistant_text':
 			return <AssistantText text={message.text} mode="markdown" className={className} />;
 		case 'tool':
-			return (
-				<ToolCall tool={message} isLoading={message.hasResult !== true} className={className} />
-			);
+			return <ToolCall tool={message} isLoading={!message.hasResult} className={className} />;
 		case 'tool_result':
 			return (
 				<UnknownMessage

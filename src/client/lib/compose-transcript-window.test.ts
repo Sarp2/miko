@@ -21,6 +21,7 @@ describe('composeTranscriptWindow', () => {
 				toolName: 'Bash',
 				toolId: 'call-1',
 				input: { command: 'bun test' },
+				hasResult: false,
 			},
 			{
 				...base('result-1'),
@@ -75,6 +76,7 @@ describe('composeTranscriptWindow', () => {
 				toolName: 'AskUserQuestion',
 				toolId: 'question-1',
 				input: { questions: [{ id: 'choice', question: 'Pick one' }] },
+				hasResult: false,
 			},
 			{
 				...base('question-result'),
