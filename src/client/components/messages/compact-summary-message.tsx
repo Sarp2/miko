@@ -75,7 +75,7 @@ export function CompactSummaryMessage({
 									),
 								}}
 							>
-								{trimmedSummary}
+								{summary}
 							</ReactMarkdown>
 						</div>
 					</CollapsibleContent>
