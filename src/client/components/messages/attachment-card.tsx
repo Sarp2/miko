@@ -96,6 +96,8 @@ function getFileExtension(fileName: string): string {
 }
 
 export function classifyAttachmentIcon(attachment: ChatAttachment): AttachmentIconKind {
+	if (attachment.kind === 'image') return 'image';
+
 	const mimeType = attachment.mimeType.toLowerCase();
 	const extension = getFileExtension(attachment.displayName);
 
