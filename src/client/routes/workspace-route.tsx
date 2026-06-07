@@ -12,6 +12,7 @@ import { useWorkspaceStore } from '../stores/workspace-store';
 import {
 	deriveWorkspaceRoutePage,
 	selectFirstSessionId,
+	selectSessionRouteTarget,
 	type WorkspaceRouteKind,
 } from './workspace-route-state';
 
@@ -60,6 +61,10 @@ export function WorkspaceRoute({ kind }: WorkspaceRouteProps) {
 	const page = useMemo(() => {
 		return deriveWorkspaceRoutePage({ kind, sessionId, searchParams });
 	}, [kind, sessionId, searchParams]);
+	const sessionRouteTargetId = useMemo(() => {
+		if (page?.type !== 'chat') return null;
+		return selectSessionRouteTarget(sessions, page.sessionId);
+	}, [page, sessions]);
 
 	useEffect(() => {
 		if (!workspaceId || kind !== 'workspace' || !firstSessionId) return;
@@ -70,14 +75,26 @@ export function WorkspaceRoute({ kind }: WorkspaceRouteProps) {
 	}, [firstSessionId, kind, navigate, workspaceId]);
 
 	useEffect(() => {
+		if (!workspaceId || !workspaceSnapshot || page?.type !== 'chat') return;
+		if (!sessionRouteTargetId || sessionRouteTargetId === page.sessionId) return;
+
+		navigate(
+			`/workspaces/${encodeURIComponent(workspaceId)}/sessions/${encodeURIComponent(sessionRouteTargetId)}`,
+			{ replace: true },
+		);
+	}, [navigate, page, sessionRouteTargetId, workspaceId, workspaceSnapshot]);
+
+	useEffect(() => {
 		if (!workspaceId || !page) return;
+		if (page.type === 'chat' && sessionRouteTargetId !== page.sessionId) return;
 		useUiStore.getState().openMiddleTab(workspaceId, page);
-	}, [workspaceId, page]);
+	}, [workspaceId, page, sessionRouteTargetId]);
 
 	if (!workspaceId) return <section data-testid="workspace-route">Missing workspace</section>;
 
 	const scratchpadActive = page?.type === 'file' && page.source === 'scratchpad';
 	const chatActive = page?.type === 'chat';
+	const chatSessionIsReady = chatActive && sessionRouteTargetId === page.sessionId;
 
 	return (
 		<section
@@ -107,12 +124,16 @@ export function WorkspaceRoute({ kind }: WorkspaceRouteProps) {
 							<ScratchpadPage key={workspaceId} workspaceId={workspaceId} />
 						</Suspense>
 					</ErrorBoundary>
-				) : chatActive && workspaceSnapshot ? (
+				) : chatSessionIsReady && workspaceSnapshot ? (
 					<ChatPage
 						workspaceId={workspaceId}
 						sessionId={page.sessionId}
 						workspaceSnapshot={workspaceSnapshot}
 					/>
+				) : chatActive && workspaceSnapshot ? (
+					<div className="flex h-full items-center justify-center text-caption text-ink-tertiary">
+						{sessionRouteTargetId ? 'Opening chat…' : 'Chat not found.'}
+					</div>
 				) : (
 					<div className="h-full overflow-auto p-3 text-ink-muted">
 						{page ? <pre data-testid="workspace-page">{JSON.stringify(page)}</pre> : null}

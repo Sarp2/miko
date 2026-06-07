@@ -25,6 +25,17 @@ export function selectFirstSessionId(sessions: Pick<SessionSummary, 'id' | 'crea
 	return sessions.toSorted((a, b) => a.createdAt - b.createdAt)[0]?.id ?? null;
 }
 
+export function selectSessionRouteTarget(
+	sessions: Pick<SessionSummary, 'id' | 'createdAt'>[] = [],
+	requestedSessionId?: string | null,
+) {
+	if (requestedSessionId && sessions.some((session) => session.id === requestedSessionId)) {
+		return requestedSessionId;
+	}
+
+	return selectFirstSessionId(sessions);
+}
+
 function parseFileSource(value: string | null, path: string | null): WorkspaceFileSource {
 	if (value && FILE_SOURCES.has(value as WorkspaceFileSource)) return value as WorkspaceFileSource;
 	return path ? 'workspace_file' : 'generated_attachment';
