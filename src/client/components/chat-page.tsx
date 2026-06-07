@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import type { WorkspaceSnapshot } from '../../shared/types';
 import { composeTranscriptWindow } from '../lib/compose-transcript-window';
 import { hydrateTranscriptMessages } from '../lib/hydrate-transcript-messages';
 import { selectFirstSessionId } from '../routes/workspace-route-state';
 import { type ChatWindow, useChatWindowStore } from '../stores/chat-window-store';
+import { useWorkspaceStore } from '../stores/workspace-store';
 import { EmptyChatIntro } from './chat-empty-state';
 import { TranscriptMessageView } from './transcript-message-view';
 
@@ -72,6 +73,15 @@ export function ChatPageView({
 
 export function ChatPage({ workspaceId, sessionId, workspaceSnapshot }: ChatPageProps) {
 	const chatWindow = useChatWindowStore((state) => state.windowBySessionId.get(sessionId) ?? null);
+
+	useEffect(() => {
+		if (!workspaceSnapshot.hasUnreadAgentResult) return;
+		void useWorkspaceStore
+			.getState()
+			.markRead(workspaceId)
+			.catch(() => undefined);
+	}, [workspaceId, workspaceSnapshot.hasUnreadAgentResult]);
+
 	return (
 		<ChatPageView
 			workspaceId={workspaceId}
