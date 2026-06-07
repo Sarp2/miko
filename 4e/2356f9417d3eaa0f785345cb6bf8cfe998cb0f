@@ -1,0 +1,45 @@
+src/client/routes/workspace-route.tsx
+  s_82e93de1bb8ac8::t_d1386d7756d9f0 4,96,128-132
+  s_82e93de1bb8ac8::t_a56d8ae5ecc8d8 15,64-67,77-86,89,91,97,127,133-136
+src/client/components/chat-page.test.tsx
+  s_82e93de1bb8ac8::t_a29a0cd1480d71 5,83,87
+  s_82e93de1bb8ac8::t_a2bf87e26bb5ed 34-46,111-136,139
+  s_82e93de1bb8ac8::t_5bce9ccad34c6f 137-138
+  s_82e93de1bb8ac8::t_b73aa3555a810e 1-4,6-8,12-17,19-33,47-82,84-86,88-109,156-175
+  s_82e93de1bb8ac8::t_d9c1df35cf008a 9-11,18,140-155
+  s_82e93de1bb8ac8::t_57ac9710e4515e 110
+src/client/components/chat-page.tsx
+  s_82e93de1bb8ac8::t_d1386d7756d9f0 2-4,8-15,39-42,48-55,57,60-69,82-83
+  s_82e93de1bb8ac8::t_e417a5224925bc 26
+  s_82e93de1bb8ac8::t_a2bf87e26bb5ed 5,25,29-38,43-46,58
+  s_82e93de1bb8ac8::t_07acdabf4e1fdd 6,16-19
+  s_82e93de1bb8ac8::t_9dc14593212244 20-24,27
+  s_82e93de1bb8ac8::t_5bce9ccad34c6f 59
+  s_82e93de1bb8ac8::t_0097ea3879211d 47,56
+  s_82e93de1bb8ac8::t_d75aae586157e6 1,7,70-81
+src/client/routes/workspace-route-state.test.ts
+  s_82e93de1bb8ac8::t_40bc4f08af4668 2-6,23-49
+src/client/routes/workspace-route-state.ts
+  s_82e93de1bb8ac8::t_40bc4f08af4668 28-38
+src/client/components/chat-empty-state.tsx
+  s_82e93de1bb8ac8::t_b8bd2dc9601b3f 134
+  s_82e93de1bb8ac8::t_8935772df8242a 1,6,121,127-131,144,146,148-150
+  s_82e93de1bb8ac8::t_d75aae586157e6 2-5,7-60,62-64,66-120,123-124,132-133,137,140-142,151-157,160-165
+  s_82e93de1bb8ac8::t_7362477a49b702 61,65,136,138-139,145,147,159
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "4e2356f9417d3eaa0f785345cb6bf8cfe998cb0f",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": null
+    }
+  }
+}
