@@ -29,7 +29,7 @@ export function ResultMessage({
 
 	return (
 		<div className={cn('flex', className)}>
-			<div className="inline-flex w-fit max-w-[68ch] items-start gap-2 rounded-md border border-hairline bg-surface-2 px-3 py-2">
+			<div className="inline-flex w-fit max-w-[68ch] items-start gap-2 rounded-lg border border-hairline bg-surface-2 px-3 py-2">
 				<WarningCircle className="mt-0.5 size-4 flex-shrink-0 text-ink-subtle" weight="fill" />
 				<span className="text-body text-ink-muted whitespace-pre-wrap break-words">
 					{errorText}

@@ -27,7 +27,7 @@ export function ProcessingMessage({ status, className }: ProcessingMessageProps)
 
 	return (
 		<div className={cn('flex justify-center', className)}>
-			<div className="inline-flex items-center gap-1.5 text-sm">
+			<div className="inline-flex items-center gap-1.5 text-body-sm">
 				{isFailed ? (
 					<XCircle className="size-4 text-destructive" weight="fill" />
 				) : (

@@ -120,7 +120,7 @@ export function ExternalOpenMenu({ localPath }: { localPath: string }) {
 						aria-label={`Open workspace in ${selectedOption.label}`}
 						onClick={() => void open(selectedOption.value)}
 					>
-						<ExternalAppIcon option={selectedOption} className="size-3.5 rounded-[3px]" />
+						<ExternalAppIcon option={selectedOption} className="size-3.5 rounded-xs" />
 					</button>
 				</TooltipTrigger>
 				<TooltipContent>Open in {selectedOption.label}</TooltipContent>
@@ -138,19 +138,19 @@ export function ExternalOpenMenu({ localPath }: { localPath: string }) {
 				</DropdownMenuTrigger>
 				<DropdownMenuContent
 					align="end"
-					className="min-w-[190px] rounded-xl border-hairline bg-surface-2 p-1 shadow-xl"
+					className="min-w-[190px] rounded-lg border border-hairline bg-surface-1 p-1 shadow-xl ring-0"
 				>
 					<DropdownMenuGroup>
 						{EXTERNAL_OPEN_APPS.map((app) => (
 							<DropdownMenuItem
 								key={app.value}
 								className={cn(
-									'flex h-9 cursor-default items-center gap-2 rounded-lg px-2 text-[13px] text-ink focus:bg-surface-3 focus:text-ink',
+									'flex h-9 cursor-default items-center gap-2 rounded-md px-2 text-[13px] text-ink focus:bg-surface-3 focus:text-ink',
 									app.value === externalOpenApp && 'bg-surface-3',
 								)}
 								onSelect={() => setExternalOpenApp(app.value)}
 							>
-								<ExternalAppIcon option={app} className="size-5 rounded-[5px]" />
+								<ExternalAppIcon option={app} className="size-5 rounded-sm" />
 								<span className="min-w-0 flex-1 truncate">{app.label}</span>
 							</DropdownMenuItem>
 						))}
@@ -158,7 +158,7 @@ export function ExternalOpenMenu({ localPath }: { localPath: string }) {
 					<DropdownMenuSeparator className="bg-hairline" />
 					<DropdownMenuGroup>
 						<DropdownMenuItem
-							className="flex h-9 cursor-default items-center gap-2 rounded-lg px-2 text-[13px] text-ink focus:bg-surface-3 focus:text-ink"
+							className="flex h-9 cursor-default items-center gap-2 rounded-md px-2 text-[13px] text-ink focus:bg-surface-3 focus:text-ink"
 							onSelect={() => void copyPath()}
 						>
 							<span className="flex size-5 items-center justify-center text-ink-subtle">
@@ -191,14 +191,14 @@ export function WorktreeLocationMenu({ localPath }: { localPath: string }) {
 			</DropdownMenuTrigger>
 			<DropdownMenuContent
 				align="start"
-				className="min-w-[190px] rounded-xl border-hairline bg-surface-2 p-1 shadow-xl"
+				className="min-w-[190px] rounded-lg border border-hairline bg-surface-1 p-1 shadow-xl ring-0"
 			>
 				<DropdownMenuGroup>
 					{EXTERNAL_OPEN_APPS.map((app) => (
 						<DropdownMenuItem
 							key={app.value}
 							className={cn(
-								'flex h-9 cursor-default items-center gap-2 rounded-lg px-2 text-[13px] text-ink focus:bg-surface-3 focus:text-ink',
+								'flex h-9 cursor-default items-center gap-2 rounded-md px-2 text-[13px] text-ink focus:bg-surface-3 focus:text-ink',
 								app.value === externalOpenApp && 'bg-surface-3',
 							)}
 							onSelect={() => {
@@ -206,14 +206,14 @@ export function WorktreeLocationMenu({ localPath }: { localPath: string }) {
 								void open(app.value);
 							}}
 						>
-							<ExternalAppIcon option={app} className="size-5 rounded-[5px]" />
+							<ExternalAppIcon option={app} className="size-5 rounded-sm" />
 							<span className="min-w-0 flex-1 truncate">{app.label}</span>
 						</DropdownMenuItem>
 					))}
 				</DropdownMenuGroup>
 				<DropdownMenuSeparator className="bg-hairline" />
 				<DropdownMenuItem
-					className="flex h-9 cursor-default items-center gap-2 rounded-lg px-2 text-[13px] text-ink focus:bg-surface-3 focus:text-ink"
+					className="flex h-9 cursor-default items-center gap-2 rounded-md px-2 text-[13px] text-ink focus:bg-surface-3 focus:text-ink"
 					onSelect={() => void copyPath()}
 				>
 					<span className="flex size-5 items-center justify-center text-ink-subtle">

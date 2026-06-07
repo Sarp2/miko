@@ -94,7 +94,7 @@ function ScratchpadPreview({ content }: { content: string }) {
 							</blockquote>
 						),
 						code: ({ children }) => (
-							<code className="rounded bg-surface-2 px-1 py-0.5 font-mono text-[13px] text-ink">
+							<code className="rounded-sm bg-surface-2 px-1 py-0.5 font-mono text-[13px] text-ink">
 								{children}
 							</code>
 						),

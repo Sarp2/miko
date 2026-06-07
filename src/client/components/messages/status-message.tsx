@@ -29,7 +29,7 @@ export function StatusMessage({ status, className }: StatusMessageProps) {
 
 	return (
 		<div className={cn('flex justify-center', className)}>
-			<div className="inline-flex items-center gap-1.5 text-xs text-ink-subtle animate-pulse">
+			<div className="inline-flex items-center gap-1.5 text-caption text-ink-subtle animate-pulse">
 				<ArrowsInSimple className="size-3" weight="bold" />
 				<span>{label}</span>
 			</div>

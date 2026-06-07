@@ -78,7 +78,7 @@ function SidebarSortSelect({
 		<Select.Root value={value} onValueChange={(next) => onValueChange?.(next as SidebarSortField)}>
 			<Select.Trigger
 				className={cn(
-					'flex h-7 w-[94px] items-center justify-between rounded-[8px] border border-hairline bg-canvas px-2.5 text-left text-[12px] leading-4 text-ink outline-none transition-colors',
+					'flex h-7 w-[94px] items-center justify-between rounded-md border border-hairline bg-canvas px-2.5 text-left text-[12px] leading-4 text-ink outline-none transition-colors',
 					'hover:border-hairline-strong focus-visible:ring-1 focus-visible:ring-primary',
 				)}
 			>
@@ -91,14 +91,14 @@ function SidebarSortSelect({
 				<Select.Content
 					position="popper"
 					sideOffset={4}
-					className="overflow-hidden rounded-[8px] border border-hairline bg-surface-1 p-0.5 shadow-none"
+					className="overflow-hidden rounded-md border border-hairline bg-surface-1 p-0.5 shadow-none"
 				>
 					<Select.Viewport>
 						{SORT_OPTIONS.map((option) => (
 							<Select.Item
 								key={option.value}
 								value={option.value}
-								className="flex h-6 min-w-[92px] cursor-default select-none items-center justify-between rounded-[6px] px-2 text-[11px] leading-4 text-ink outline-none data-[highlighted]:bg-surface-2"
+								className="flex h-6 min-w-[92px] cursor-default select-none items-center justify-between rounded-sm px-2 text-[11px] leading-4 text-ink outline-none data-[highlighted]:bg-surface-2"
 							>
 								<Select.ItemText>{option.label}</Select.ItemText>
 								<Select.ItemIndicator>
@@ -146,7 +146,7 @@ function SidebarFilterPopover({
 				<Popover.Content
 					align="end"
 					sideOffset={8}
-					className="w-[194px] rounded-[10px] border border-hairline bg-surface-1 p-2 shadow-none outline-none"
+					className="w-[194px] rounded-lg border border-hairline bg-surface-1 p-2 shadow-none outline-none"
 				>
 					<div className="flex flex-col gap-px">
 						<div className="flex items-center justify-between gap-2">
