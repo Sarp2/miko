@@ -1,0 +1,13 @@
+src/client/routes/workspace-route-state.ts
+  ai_agent 28-38
+src/client/routes/workspace-route.tsx
+  ai_agent 15,64-67,77-86,89,91,97,127,133-136
+src/client/routes/workspace-route-state.test.ts
+  ai_agent 2-6,23-49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "1fbffed6353cb8d9e3ba02cdc70d97f7e73ada90",
+  "prompts": {}
+}
