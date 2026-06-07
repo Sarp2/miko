@@ -1,0 +1,76 @@
+src/client/components/messages/user-prompt.tsx
+  s_d38d58d1b6d824::t_8b44ff81ddd8fc 240
+  s_d38d58d1b6d824::t_8f1caf7f0ed15f 195
+  s_d38d58d1b6d824::t_e2b0645fdd02ef 228
+  s_d38d58d1b6d824::t_296d12044c449b 249,262
+src/client/components/messages/status-message.tsx
+  s_d38d58d1b6d824::t_ceb6252ae511e3 32
+src/client/components/messages/assistant-text.tsx
+  s_d38d58d1b6d824::t_a268f6ee0f8eb1 45
+  s_d38d58d1b6d824::t_f6250f25b52dda 50
+src/client/components/messages/interrupted-message.tsx
+  s_d38d58d1b6d824::t_88a5a1093f2123 16
+src/client/components/messages/result-message.tsx
+  s_d38d58d1b6d824::t_8f39924a1ccd6c 32
+src/client/components/messages/tool-call.tsx
+  s_d38d58d1b6d824::t_f7f252dc6a94a1 332
+  s_d38d58d1b6d824::t_63992730a58371 178
+  s_d38d58d1b6d824::t_52473278855854 317
+  s_d38d58d1b6d824::t_30a83c2243fcdc 227
+src/client/routes/home-route.tsx
+  s_d38d58d1b6d824::t_8178d1c1fe4b4b 42
+src/client/components/scratchpad-page.tsx
+  s_d38d58d1b6d824::t_a251bbf6d49b25 97
+src/client/components/left-sidebar-view.tsx
+  s_d38d58d1b6d824::t_ebac76926a8772 81
+  s_d38d58d1b6d824::t_ed936500b37fa8 101
+  s_d38d58d1b6d824::t_1fb6198bae7051 149
+  s_d38d58d1b6d824::t_f6ea102803cb10 94
+src/client/components/messages/attachment-card.tsx
+  s_d38d58d1b6d824::t_9467d5727ba896 188
+src/client/components/ui/tooltip.tsx
+  s_d38d58d1b6d824::t_53738fac6b7e7d 43
+src/client/components/messages/compact-summary-message.tsx
+  s_d38d58d1b6d824::t_8c5a617b692f24 30
+  s_d38d58d1b6d824::t_5dd945b8497356 72
+src/client/components/workspace-header/external-open-menu.tsx
+  s_d38d58d1b6d824::t_f562cb0d8d1370 161,216
+  s_d38d58d1b6d824::t_0bee34a784efb9 141,194
+  s_d38d58d1b6d824::t_d115d7cb992f1b 148,201
+  s_d38d58d1b6d824::t_a8e82d44dd27f9 153,209
+  s_d38d58d1b6d824::t_1394cbf2900951 123
+src/client/components/messages/account-info.tsx
+  s_d38d58d1b6d824::t_b3683821d5b942 54
+  s_d38d58d1b6d824::t_9d6c3d9ed0a791 38
+src/client/components/messages/system-init.tsx
+  s_d38d58d1b6d824::t_8a65905de96b76 63
+  s_d38d58d1b6d824::t_085824487ef535 47
+src/client/components/messages/processing-message.tsx
+  s_d38d58d1b6d824::t_4419fb71a18dd5 30
+src/client/components/messages/tool-event-card.tsx
+  s_d38d58d1b6d824::t_6156054a944d42 22
+src/client/components/messages/context-window-updated-message.tsx
+  s_d38d58d1b6d824::t_9e165b49f8bb34 93
+  s_d38d58d1b6d824::t_695f52a49cc4e1 84
+src/client/components/messages/unknown-message.tsx
+  s_d38d58d1b6d824::t_a5139426932eb7 37
+  s_d38d58d1b6d824::t_248d6275bda3f8 54
+src/client/components/ui/dialog.tsx
+  s_d38d58d1b6d824::t_d38d19637b485f 53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "c4c3283df3e60cdee8f9b3b6ae0dbe263a3d2be6",
+  "prompts": {},
+  "sessions": {
+    "s_d38d58d1b6d824": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5edc5267-1875-4615-b5ee-f1d6bdbdd8e9",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
