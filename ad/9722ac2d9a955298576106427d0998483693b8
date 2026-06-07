@@ -1,0 +1,20 @@
+src/client/components/chat-page.tsx
+  s_82e93de1bb8ac8::t_e52e8ac0e2976a 79-82
+  s_82e93de1bb8ac8::t_b407943a698d31 1,7,76-78,83-84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "ad9722ac2d9a955298576106427d0998483693b8",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
