@@ -40,6 +40,9 @@ export function ChatPageView({
 	const messages = useMemo(() => {
 		return composeTranscriptWindow(hydrateTranscriptMessages(chatWindow?.messages ?? []));
 	}, [chatWindow?.messages]);
+	const visibleMessages = useMemo(() => {
+		return messages.filter((message) => !message.hidden);
+	}, [messages]);
 	const initialized = chatWindow?.initialized === true;
 	const firstSessionId = useMemo(
 		() => selectFirstSessionId(workspaceSnapshot.sessions),
@@ -54,13 +57,13 @@ export function ChatPageView({
 					<div className="flex h-full items-center justify-center text-caption text-ink-tertiary">
 						Loading chat…
 					</div>
-				) : messages.length === 0 && isFirstSession ? (
+				) : visibleMessages.length === 0 && isFirstSession ? (
 					<EmptyChatIntro workspaceSnapshot={workspaceSnapshot} />
-				) : messages.length === 0 ? (
+				) : visibleMessages.length === 0 ? (
 					<EmptyChatSessionState localPath={workspaceSnapshot.workspace.localPath} />
 				) : (
 					<div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-5 py-6">
-						{messages.map((message) => (
+						{visibleMessages.map((message) => (
 							<TranscriptMessageView key={message.id} message={message} />
 						))}
 					</div>

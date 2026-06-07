@@ -155,6 +155,20 @@ describe('ChatPage', () => {
 		expect(html).not.toContain('Created</span>');
 	});
 
+	test('renders the empty state when all transcript messages are hidden', () => {
+		useChatWindowStore
+			.getState()
+			.syncFromSnapshot(
+				'session-1',
+				sessionSnapshot([{ ...entry('assistant-1', 'hidden'), hidden: true }]),
+			);
+
+		const html = renderChatPage();
+
+		expect(html).toContain('new worktree');
+		expect(html).not.toContain('hidden');
+	});
+
 	test('renders hydrated transcript messages for a session', () => {
 		useChatWindowStore
 			.getState()
