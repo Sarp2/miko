@@ -1,4 +1,4 @@
-import { CaretDown, SquaresFour } from '@phosphor-icons/react';
+import { CaretDown, Copy, SquaresFour } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import type { EditorOpenSettings } from '../../../shared/protocol';
 import { cn } from '../../lib/utils';
@@ -47,6 +47,10 @@ function toErrorMessage(error: unknown, fallback: string) {
 	return error instanceof Error && error.message ? error.message : fallback;
 }
 
+function basename(path: string) {
+	return path.split('/').filter(Boolean).at(-1) ?? path;
+}
+
 function ExternalAppIcon({
 	option,
 	className,
@@ -66,7 +70,7 @@ function ExternalAppIcon({
 	);
 }
 
-export function ExternalOpenMenu({ localPath }: { localPath: string }) {
+function useExternalOpenMenu(localPath: string) {
 	const externalOpenApp = useUiStore((state) => state.externalOpenApp);
 	const setExternalOpenApp = useUiStore((state) => state.setExternalOpenApp);
 	const openExternal = useWorkspaceStore((state) => state.openExternal);
@@ -98,6 +102,13 @@ export function ExternalOpenMenu({ localPath }: { localPath: string }) {
 			toast.error(toErrorMessage(error, 'Could not copy workspace path'));
 		}
 	};
+
+	return { externalOpenApp, selectedOption, setExternalOpenApp, open, copyPath };
+}
+
+export function ExternalOpenMenu({ localPath }: { localPath: string }) {
+	const { externalOpenApp, selectedOption, setExternalOpenApp, open, copyPath } =
+		useExternalOpenMenu(localPath);
 
 	return (
 		<div className="flex h-6 shrink-0 overflow-hidden rounded-md border border-hairline-strong bg-surface-1">
@@ -159,5 +170,58 @@ export function ExternalOpenMenu({ localPath }: { localPath: string }) {
 				</DropdownMenuContent>
 			</DropdownMenu>
 		</div>
+	);
+}
+
+export function WorktreeLocationMenu({ localPath }: { localPath: string }) {
+	const { externalOpenApp, setExternalOpenApp, open, copyPath } = useExternalOpenMenu(localPath);
+	const folderName = basename(localPath);
+
+	return (
+		<DropdownMenu>
+			<DropdownMenuTrigger asChild>
+				<button
+					type="button"
+					className="inline-flex h-5 items-center gap-1 rounded-md bg-surface-2 px-2 font-mono text-[11px] font-medium leading-none text-ink-muted outline-none transition-colors hover:bg-surface-3 focus-visible:ring-1 focus-visible:ring-primary"
+					title={localPath}
+				>
+					<span>{folderName}</span>
+					<CaretDown className="size-2.5" />
+				</button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent
+				align="start"
+				className="min-w-[190px] rounded-xl border-hairline bg-surface-2 p-1 shadow-xl"
+			>
+				<DropdownMenuGroup>
+					{EXTERNAL_OPEN_APPS.map((app) => (
+						<DropdownMenuItem
+							key={app.value}
+							className={cn(
+								'flex h-9 cursor-default items-center gap-2 rounded-lg px-2 text-[13px] text-ink focus:bg-surface-3 focus:text-ink',
+								app.value === externalOpenApp && 'bg-surface-3',
+							)}
+							onSelect={() => {
+								setExternalOpenApp(app.value);
+								void open(app.value);
+							}}
+						>
+							<ExternalAppIcon option={app} className="size-5 rounded-[5px]" />
+							<span className="min-w-0 flex-1 truncate">{app.label}</span>
+						</DropdownMenuItem>
+					))}
+				</DropdownMenuGroup>
+				<DropdownMenuSeparator className="bg-hairline" />
+				<DropdownMenuItem
+					className="flex h-9 cursor-default items-center gap-2 rounded-lg px-2 text-[13px] text-ink focus:bg-surface-3 focus:text-ink"
+					onSelect={() => void copyPath()}
+				>
+					<span className="flex size-5 items-center justify-center text-ink-subtle">
+						<Copy className="size-4" />
+					</span>
+					<span className="min-w-0 flex-1 truncate">Copy path</span>
+				</DropdownMenuItem>
+			</DropdownMenuContent>
+		</DropdownMenu>
 	);
 }
