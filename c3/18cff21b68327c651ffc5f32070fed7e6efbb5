@@ -1,0 +1,21 @@
+src/client/components/chat-page.test.tsx
+  s_82e93de1bb8ac8::t_943396f6530289 3-8,66-69,84-88,196-226
+src/client/components/chat-page.tsx
+  s_82e93de1bb8ac8::t_7421fa1b6c35b7 7,11,21,33-55,61,70-71,85,87,91-93,107-112,149
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "c318cff21b68327c651ffc5f32070fed7e6efbb5",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
