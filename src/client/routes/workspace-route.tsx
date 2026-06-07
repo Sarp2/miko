@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import type { SessionSummary } from '../../shared/types';
+import { ChatPage } from '../components/chat-page';
 import { ErrorBoundary } from '../components/error-boundary';
 import { MiddleTabs } from '../components/middle-tabs';
 import { WorkspaceHeader } from '../components/workspace-header/workspace-header';
@@ -76,6 +77,7 @@ export function WorkspaceRoute({ kind }: WorkspaceRouteProps) {
 	if (!workspaceId) return <section data-testid="workspace-route">Missing workspace</section>;
 
 	const scratchpadActive = page?.type === 'file' && page.source === 'scratchpad';
+	const chatActive = page?.type === 'chat';
 
 	return (
 		<section
@@ -105,9 +107,14 @@ export function WorkspaceRoute({ kind }: WorkspaceRouteProps) {
 							<ScratchpadPage key={workspaceId} workspaceId={workspaceId} />
 						</Suspense>
 					</ErrorBoundary>
+				) : chatActive && workspaceSnapshot ? (
+					<ChatPage
+						workspaceId={workspaceId}
+						sessionId={page.sessionId}
+						workspaceSnapshot={workspaceSnapshot}
+					/>
 				) : (
 					<div className="h-full overflow-auto p-3 text-ink-muted">
-						Workspace {workspaceId}
 						{page ? <pre data-testid="workspace-page">{JSON.stringify(page)}</pre> : null}
 					</div>
 				)}
