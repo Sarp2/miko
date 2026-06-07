@@ -34,7 +34,7 @@ export function UnknownMessage({
 			<Collapsible>
 				<CollapsibleTrigger
 					className={cn(
-						'group inline-flex items-center gap-1.5 text-xs text-ink-subtle',
+						'group inline-flex items-center gap-1.5 text-caption text-ink-subtle',
 						hasDetails && 'hover:text-ink-muted',
 					)}
 					disabled={!hasDetails}
@@ -51,7 +51,7 @@ export function UnknownMessage({
 
 				{hasDetails && (
 					<CollapsibleContent className="mt-2">
-						<pre className="max-h-80 w-fit max-w-[68ch] overflow-auto whitespace-pre-wrap break-words rounded-md border border-hairline bg-surface-2 p-2.5 font-mono text-caption leading-relaxed text-ink-muted">
+						<pre className="max-h-80 w-fit max-w-[68ch] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-hairline bg-surface-2 p-2.5 font-mono text-caption leading-relaxed text-ink-muted">
 							{displayJson}
 						</pre>
 					</CollapsibleContent>

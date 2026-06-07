@@ -175,7 +175,7 @@ function renderDefaultOutput(result: unknown, isError?: boolean) {
 	return (
 		<div className="space-y-2">
 			<span className="text-ink-subtle">{isError ? 'Error Output' : 'Result Output'}</span>
-			<pre className="mt-1 max-h-[240px] overflow-x-auto rounded-md border border-hairline bg-surface-2 p-2.5 font-mono text-caption leading-relaxed text-ink-muted">
+			<pre className="mt-1 max-h-[240px] overflow-x-auto rounded-lg border border-hairline bg-surface-2 p-2.5 font-mono text-caption leading-relaxed text-ink-muted">
 				{detail || '(empty)'}
 			</pre>
 		</div>
@@ -224,7 +224,7 @@ function renderReadFileOutput(result: unknown) {
 							return (
 								<div
 									key={`${mimeType}:${image.data}`}
-									className="overflow-hidden rounded-md border border-hairline bg-surface-2"
+									className="overflow-hidden rounded-lg border border-hairline bg-surface-2"
 								>
 									<img
 										src={`data:${mimeType};base64,${image.data}`}
@@ -314,7 +314,7 @@ export function ToolCall({ tool, isLoading = false, className }: ToolCallProps) 
 
 	return (
 		<ToolEventRow className={cn(className)} icon={resolvedIcon} title={title} subtitle={summary}>
-			<div className="space-y-3 text-xs text-ink-muted rounded-md border border-hairline bg-surface-2 p-3 max-w-xl">
+			<div className="space-y-3 text-caption text-ink-muted rounded-lg border border-hairline bg-surface-2 p-3 max-w-xl">
 				<div className="flex items-center justify-between gap-3">
 					<span className="text-ink-subtle">Tool Kind</span>
 					<span className="max-w-80 truncate font-mono text-ink" title={tool.toolKind}>
@@ -329,7 +329,7 @@ export function ToolCall({ tool, isLoading = false, className }: ToolCallProps) 
 				</div>
 				<div className="space-y-2">
 					<span className="text-ink-subtle">Input</span>
-					<pre className="max-h-[240px] overflow-x-auto rounded-md border border-hairline bg-surface-1 p-2.5 font-mono text-caption leading-relaxed text-ink-muted">
+					<pre className="max-h-[240px] overflow-x-auto rounded-lg border border-hairline bg-surface-1 p-2.5 font-mono text-caption leading-relaxed text-ink-muted">
 						{inputDetail || '(empty)'}
 					</pre>
 				</div>

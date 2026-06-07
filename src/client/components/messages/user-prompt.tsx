@@ -192,7 +192,7 @@ export function UserPrompt({ content, attachments, className }: UserPromptProps)
 					<DialogHeader>
 						<DialogTitle className="text-body font-medium text-ink">Full message</DialogTitle>
 					</DialogHeader>
-					<div className="text-sm font-normal leading-relaxed text-ink whitespace-pre-wrap max-h-[60vh] overflow-y-auto">
+					<div className="text-body-sm font-normal leading-relaxed text-ink whitespace-pre-wrap max-h-[60vh] overflow-y-auto">
 						{content}
 					</div>
 				</DialogContent>
@@ -225,7 +225,7 @@ export function UserPrompt({ content, attachments, className }: UserPromptProps)
 
 							{selectedAttachment.normalized.mimeType.toLowerCase().startsWith('image/') &&
 							(selectedAttachment.raw.previewUrl || selectedAttachment.normalized.contentUrl) ? (
-								<div className="overflow-hidden rounded-md border border-hairline bg-surface-2">
+								<div className="overflow-hidden rounded-lg border border-hairline bg-surface-2">
 									<img
 										src={
 											selectedAttachment.raw.previewUrl || selectedAttachment.normalized.contentUrl
@@ -237,7 +237,7 @@ export function UserPrompt({ content, attachments, className }: UserPromptProps)
 							) : null}
 
 							{selectedIsTextPreview && selectedPreviewText !== undefined ? (
-								<pre className="max-h-[65vh] overflow-auto whitespace-pre-wrap break-words rounded-md border border-hairline bg-surface-2 p-3 font-mono text-caption leading-relaxed text-ink-muted">
+								<pre className="max-h-[65vh] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-hairline bg-surface-2 p-3 font-mono text-caption leading-relaxed text-ink-muted">
 									{selectedPreviewText}
 								</pre>
 							) : null}
@@ -246,7 +246,7 @@ export function UserPrompt({ content, attachments, className }: UserPromptProps)
 							selectedPreviewUrl &&
 							selectedPreviewText === undefined &&
 							!selectedPreviewError ? (
-								<div className="rounded-md border border-hairline bg-surface-2 p-3">
+								<div className="rounded-lg border border-hairline bg-surface-2 p-3">
 									<span className="text-body-sm text-ink-subtle">Loading preview...</span>
 								</div>
 							) : null}
@@ -259,7 +259,7 @@ export function UserPrompt({ content, attachments, className }: UserPromptProps)
 									(selectedPreviewText !== undefined ||
 										(Boolean(selectedPreviewUrl) && !selectedPreviewError)))
 							) ? (
-								<div className="rounded-md border border-hairline bg-surface-2 p-3">
+								<div className="rounded-lg border border-hairline bg-surface-2 p-3">
 									<span className="text-body-sm text-ink-subtle">
 										{selectedPreviewError || 'Preview unavailable for this file type.'}
 									</span>

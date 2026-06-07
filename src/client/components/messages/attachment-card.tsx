@@ -185,7 +185,7 @@ export function AttachmentCard({
 				type="button"
 				variant="ghost"
 				onClick={onClick}
-				className="flex h-auto w-full max-w-64 items-center justify-start gap-2 rounded-xl border border-hairline bg-surface-1/90 p-1 pr-3 text-left hover:bg-surface-2"
+				className="flex h-auto w-full max-w-64 items-center justify-start gap-2 rounded-lg border border-hairline bg-surface-1/90 p-1 pr-3 text-left hover:bg-surface-2"
 			>
 				<div className="flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-hairline bg-surface-2 text-ink-subtle">
 					{getAttachmentIcon(iconKind)}

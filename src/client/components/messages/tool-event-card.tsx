@@ -19,7 +19,7 @@ export function ToolEventRow({ icon, title, subtitle, className, children }: Too
 			<Collapsible>
 				<CollapsibleTrigger
 					className={cn(
-						'group inline-flex items-center gap-2 text-xs transition-colors',
+						'group inline-flex items-center gap-2 text-caption transition-colors',
 						hasDetails ? 'hover:text-ink-muted' : 'cursor-default',
 					)}
 					disabled={!hasDetails}
