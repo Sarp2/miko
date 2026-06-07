@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react';
 import type { WorkspaceSnapshot } from '../../shared/types';
 import { composeTranscriptWindow } from '../lib/compose-transcript-window';
 import { hydrateTranscriptMessages } from '../lib/hydrate-transcript-messages';
-import { selectFirstSessionId } from '../routes/workspace-route-state';
+import { basename, selectFirstSessionId } from '../routes/workspace-route-state';
 import { type ChatWindow, useChatWindowStore } from '../stores/chat-window-store';
 import { useWorkspaceStore } from '../stores/workspace-store';
 import { EmptyChatIntro } from './chat-empty-state';
@@ -16,10 +16,6 @@ interface ChatPageProps {
 
 export interface ChatPageViewProps extends ChatPageProps {
 	chatWindow: ChatWindow | null;
-}
-
-function basename(path: string) {
-	return path.split('/').filter(Boolean).at(-1) ?? path;
 }
 
 function EmptyChatSessionState({ localPath }: { localPath: string }) {
