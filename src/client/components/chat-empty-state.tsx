@@ -1,108 +1,15 @@
-import { CaretDown, CircleNotch, Copy, Folder, GitBranch, Info } from '@phosphor-icons/react';
-import { toast } from 'sonner';
+import { CircleNotch, Folder, GitBranch, Info } from '@phosphor-icons/react';
 import type { WorkspaceSnapshot } from '../../shared/types';
 import { useSidebarStore } from '../stores/sidebar-store';
-import { useWorkspaceStore } from '../stores/workspace-store';
 import { AssistantText } from './messages';
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-} from './ui/dropdown-menu';
+import { WorktreeLocationMenu } from './workspace-header/external-open-menu';
 
 interface EmptyChatIntroProps {
 	workspaceSnapshot: WorkspaceSnapshot;
 }
 
-function basename(path: string) {
-	return path.split('/').filter(Boolean).at(-1) ?? path;
-}
-
 function repoNameFromSlug(slug?: string) {
 	return slug?.split('/').filter(Boolean).at(-1) ?? null;
-}
-
-function toErrorMessage(error: unknown, fallback: string) {
-	return error instanceof Error && error.message ? error.message : fallback;
-}
-
-function WorktreeLocationMenu({ localPath }: { localPath: string }) {
-	const openExternal = useWorkspaceStore((state) => state.openExternal);
-	const folderName = basename(localPath);
-
-	const open = async (action: 'open_finder' | 'open_terminal' | 'open_editor') => {
-		try {
-			if (action === 'open_editor') {
-				await openExternal({ localPath, action, editor: { preset: 'cursor' } });
-				return;
-			}
-			await openExternal({ localPath, action });
-		} catch (error) {
-			toast.error(toErrorMessage(error, 'Could not open workspace'));
-		}
-	};
-
-	const copyPath = async () => {
-		try {
-			await navigator.clipboard.writeText(localPath);
-			toast.success('Workspace path copied');
-		} catch (error) {
-			toast.error(toErrorMessage(error, 'Could not copy workspace path'));
-		}
-	};
-
-	return (
-		<DropdownMenu>
-			<DropdownMenuTrigger asChild>
-				<button
-					type="button"
-					className="inline-flex h-5 items-center gap-1 rounded-md bg-surface-2 px-2 font-mono text-[11px] font-medium leading-none text-ink-muted outline-none transition-colors hover:bg-surface-3 focus-visible:ring-1 focus-visible:ring-primary"
-					title={localPath}
-				>
-					<span>{folderName}</span>
-					<CaretDown className="size-2.5" />
-				</button>
-			</DropdownMenuTrigger>
-			<DropdownMenuContent
-				align="start"
-				className="min-w-[190px] rounded-xl border-hairline bg-surface-2 p-1 shadow-xl"
-			>
-				<DropdownMenuItem
-					className="flex h-9 cursor-default items-center gap-2 rounded-lg px-2 text-[13px] text-ink focus:bg-surface-3 focus:text-ink"
-					onSelect={() => void open('open_finder')}
-				>
-					<img src="/finder.png" alt="" className="size-5 rounded-[5px]" draggable={false} />
-					<span className="min-w-0 flex-1 truncate">Finder</span>
-				</DropdownMenuItem>
-				<DropdownMenuItem
-					className="flex h-9 cursor-default items-center gap-2 rounded-lg px-2 text-[13px] text-ink focus:bg-surface-3 focus:text-ink"
-					onSelect={() => void open('open_editor')}
-				>
-					<img src="/cursor.png" alt="" className="size-5 rounded-[5px]" draggable={false} />
-					<span className="min-w-0 flex-1 truncate">Cursor</span>
-				</DropdownMenuItem>
-				<DropdownMenuItem
-					className="flex h-9 cursor-default items-center gap-2 rounded-lg px-2 text-[13px] text-ink focus:bg-surface-3 focus:text-ink"
-					onSelect={() => void open('open_terminal')}
-				>
-					<img src="/terminal.png" alt="" className="size-5 rounded-[5px]" draggable={false} />
-					<span className="min-w-0 flex-1 truncate">Terminal</span>
-				</DropdownMenuItem>
-				<DropdownMenuSeparator className="bg-hairline" />
-				<DropdownMenuItem
-					className="flex h-9 cursor-default items-center gap-2 rounded-lg px-2 text-[13px] text-ink focus:bg-surface-3 focus:text-ink"
-					onSelect={() => void copyPath()}
-				>
-					<span className="flex size-5 items-center justify-center text-ink-subtle">
-						<Copy className="size-4" />
-					</span>
-					<span className="min-w-0 flex-1 truncate">Copy path</span>
-				</DropdownMenuItem>
-			</DropdownMenuContent>
-		</DropdownMenu>
-	);
 }
 
 export function EmptyChatIntro({ workspaceSnapshot }: EmptyChatIntroProps) {
