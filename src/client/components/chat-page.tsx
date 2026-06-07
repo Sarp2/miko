@@ -4,9 +4,11 @@ import { composeTranscriptWindow } from '../lib/compose-transcript-window';
 import { hydrateTranscriptMessages } from '../lib/hydrate-transcript-messages';
 import { basename, selectFirstSessionId } from '../routes/workspace-route-state';
 import { type ChatWindow, useChatWindowStore } from '../stores/chat-window-store';
+import { useSessionStore } from '../stores/session-store';
 import { useWorkspaceStore } from '../stores/workspace-store';
 import { EmptyChatIntro } from './chat-empty-state';
 import { TranscriptMessageView } from './transcript-message-view';
+import { Button } from './ui/button';
 
 interface ChatPageProps {
 	workspaceId: string;
@@ -16,6 +18,7 @@ interface ChatPageProps {
 
 export interface ChatPageViewProps extends ChatPageProps {
 	chatWindow: ChatWindow | null;
+	onLoadOlder?: () => void;
 }
 
 function EmptyChatSessionState({ localPath }: { localPath: string }) {
@@ -27,11 +30,35 @@ function EmptyChatSessionState({ localPath }: { localPath: string }) {
 	);
 }
 
+function LoadOlderMessagesButton({
+	loading,
+	onLoadOlder,
+}: {
+	loading: boolean;
+	onLoadOlder?: () => void;
+}) {
+	return (
+		<div className="flex justify-center pb-1">
+			<Button
+				type="button"
+				variant="ghost"
+				size="sm"
+				className="h-7 rounded-md px-2 text-caption font-medium text-ink-subtle hover:text-ink"
+				disabled={loading}
+				onClick={onLoadOlder}
+			>
+				{loading ? 'Loading older messages…' : 'Load older messages'}
+			</Button>
+		</div>
+	);
+}
+
 export function ChatPageView({
 	workspaceId,
 	sessionId,
 	workspaceSnapshot,
 	chatWindow,
+	onLoadOlder,
 }: ChatPageViewProps) {
 	const messages = useMemo(() => {
 		return composeTranscriptWindow(hydrateTranscriptMessages(chatWindow?.messages ?? []));
@@ -40,6 +67,8 @@ export function ChatPageView({
 		return messages.filter((message) => !message.hidden);
 	}, [messages]);
 	const initialized = chatWindow?.initialized === true;
+	const hasOlderMessages = chatWindow?.hasOlder === true;
+	const loadingOlder = chatWindow?.loadingOlder === true;
 	const firstSessionId = useMemo(
 		() => selectFirstSessionId(workspaceSnapshot.sessions),
 		[workspaceSnapshot.sessions],
@@ -53,12 +82,15 @@ export function ChatPageView({
 					<div className="flex h-full items-center justify-center text-caption text-ink-tertiary">
 						Loading chat…
 					</div>
-				) : visibleMessages.length === 0 && isFirstSession ? (
+				) : visibleMessages.length === 0 && !hasOlderMessages && isFirstSession ? (
 					<EmptyChatIntro workspaceSnapshot={workspaceSnapshot} />
-				) : visibleMessages.length === 0 ? (
+				) : visibleMessages.length === 0 && !hasOlderMessages ? (
 					<EmptyChatSessionState localPath={workspaceSnapshot.workspace.localPath} />
 				) : (
 					<div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-5 py-6">
+						{hasOlderMessages ? (
+							<LoadOlderMessagesButton loading={loadingOlder} onLoadOlder={onLoadOlder} />
+						) : null}
 						{visibleMessages.map((message) => (
 							<TranscriptMessageView key={message.id} message={message} />
 						))}
@@ -72,6 +104,12 @@ export function ChatPageView({
 
 export function ChatPage({ workspaceId, sessionId, workspaceSnapshot }: ChatPageProps) {
 	const chatWindow = useChatWindowStore((state) => state.windowBySessionId.get(sessionId) ?? null);
+	const loadOlder = () => {
+		void useSessionStore
+			.getState()
+			.loadOlderChatWindow(sessionId)
+			.catch((error) => console.warn('[chat-page] failed to load older messages', error));
+	};
 
 	useEffect(() => {
 		if (!workspaceSnapshot.hasUnreadAgentResult) return;
@@ -108,6 +146,7 @@ export function ChatPage({ workspaceId, sessionId, workspaceSnapshot }: ChatPage
 			sessionId={sessionId}
 			workspaceSnapshot={workspaceSnapshot}
 			chatWindow={chatWindow}
+			onLoadOlder={loadOlder}
 		/>
 	);
 }

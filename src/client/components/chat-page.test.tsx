@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { renderToStaticMarkup } from 'react-dom/server';
-import type { SessionSnapshot, TranscriptEntry, WorkspaceSnapshot } from '../../shared/types';
+import type {
+	SessionHistoryPage,
+	SessionSnapshot,
+	TranscriptEntry,
+	WorkspaceSnapshot,
+} from '../../shared/types';
 import { useChatWindowStore } from '../stores/chat-window-store';
 import { ChatPageView } from './chat-page';
 
@@ -58,7 +63,10 @@ function entry(id: string, text: string): TranscriptEntry {
 	};
 }
 
-function sessionSnapshot(messages: TranscriptEntry[]): SessionSnapshot {
+function sessionSnapshot(
+	messages: TranscriptEntry[],
+	history: SessionHistoryPage = { hasOlder: false, olderCursor: null, messages: [] },
+): SessionSnapshot {
 	return {
 		runtime: {
 			sessionId: 'session-1',
@@ -73,7 +81,11 @@ function sessionSnapshot(messages: TranscriptEntry[]): SessionSnapshot {
 			sessionToken: null,
 		},
 		messages,
-		history: { hasOlder: false, olderCursor: null, recentLimit: 80 },
+		history: {
+			hasOlder: history.hasOlder,
+			olderCursor: history.olderCursor,
+			recentLimit: 80,
+		},
 		availableProviders: [],
 	};
 }
@@ -179,6 +191,39 @@ describe('ChatPage', () => {
 		expect(html).toContain('<strong');
 		expect(html).toContain('Done');
 		expect(html).not.toContain('new worktree');
+	});
+
+	test('renders a load older control when transcript history has older messages', () => {
+		useChatWindowStore.getState().syncFromSnapshot(
+			'session-1',
+			sessionSnapshot([entry('assistant-1', '**Done**')], {
+				messages: [],
+				hasOlder: true,
+				olderCursor: 'idx:1',
+			}),
+		);
+
+		const html = renderChatPage();
+
+		expect(html).toContain('Load older messages');
+		expect(html).toContain('Done');
+	});
+
+	test('keeps older history reachable when recent transcript messages are hidden', () => {
+		useChatWindowStore.getState().syncFromSnapshot(
+			'session-1',
+			sessionSnapshot([{ ...entry('assistant-1', 'hidden'), hidden: true }], {
+				messages: [],
+				hasOlder: true,
+				olderCursor: 'idx:1',
+			}),
+		);
+
+		const html = renderChatPage();
+
+		expect(html).toContain('Load older messages');
+		expect(html).not.toContain('new worktree');
+		expect(html).not.toContain('hidden');
 	});
 
 	test('renders loading state before the session window initializes', () => {
