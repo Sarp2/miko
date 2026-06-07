@@ -75,10 +75,31 @@ export function ChatPage({ workspaceId, sessionId, workspaceSnapshot }: ChatPage
 
 	useEffect(() => {
 		if (!workspaceSnapshot.hasUnreadAgentResult) return;
-		void useWorkspaceStore
-			.getState()
-			.markRead(workspaceId)
-			.catch(() => undefined);
+
+		let cancelled = false;
+		let retryTimeoutId: number | null = null;
+		let attempt = 0;
+
+		const markRead = async () => {
+			try {
+				await useWorkspaceStore.getState().markRead(workspaceId);
+			} catch (error) {
+				if (cancelled) return;
+				console.warn('[chat-page] failed to mark workspace read', error);
+				const delayMs = Math.min(1000 * 2 ** attempt, 8000);
+				attempt += 1;
+				retryTimeoutId = window.setTimeout(() => {
+					void markRead();
+				}, delayMs);
+			}
+		};
+
+		void markRead();
+
+		return () => {
+			cancelled = true;
+			if (retryTimeoutId !== null) window.clearTimeout(retryTimeoutId);
+		};
 	}, [workspaceId, workspaceSnapshot.hasUnreadAgentResult]);
 
 	return (
