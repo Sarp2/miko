@@ -1,0 +1,49 @@
+src/client/components/messages/interrupted-message.tsx
+  s_82e93de1bb8ac8::t_102a196246c864 16
+src/client/components/messages/context-window-updated-message.tsx
+  s_82e93de1bb8ac8::t_102a196246c864 84,93
+src/client/components/messages/tool-call.tsx
+  s_82e93de1bb8ac8::t_102a196246c864 178,227,317,332
+src/client/routes/home-route.tsx
+  s_82e93de1bb8ac8::t_102a196246c864 42
+src/client/components/messages/attachment-card.tsx
+  s_82e93de1bb8ac8::t_102a196246c864 188
+src/client/components/messages/system-init.tsx
+  s_82e93de1bb8ac8::t_102a196246c864 47,63
+src/client/components/messages/account-info.tsx
+  s_82e93de1bb8ac8::t_102a196246c864 38,54
+src/client/components/scratchpad-page.tsx
+  s_82e93de1bb8ac8::t_102a196246c864 97
+src/client/components/messages/user-prompt.tsx
+  s_82e93de1bb8ac8::t_102a196246c864 188,221,233,242,255
+src/client/components/ui/tooltip.tsx
+  s_82e93de1bb8ac8::t_102a196246c864 43
+src/client/components/workspace-header/external-open-menu.tsx
+  s_82e93de1bb8ac8::t_102a196246c864 123,141,148,153,161,194,201,209,216
+src/client/components/messages/result-message.tsx
+  s_82e93de1bb8ac8::t_102a196246c864 32
+src/client/components/left-sidebar-view.tsx
+  s_82e93de1bb8ac8::t_102a196246c864 81,94,101,149
+src/client/components/ui/dialog.tsx
+  s_82e93de1bb8ac8::t_102a196246c864 53
+src/client/components/messages/unknown-message.tsx
+  s_82e93de1bb8ac8::t_102a196246c864 37,54
+src/client/components/messages/compact-summary-message.tsx
+  s_82e93de1bb8ac8::t_102a196246c864 30,72
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "fd8e0e8651757991d42f0479ddc8f21973aa85ac",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
