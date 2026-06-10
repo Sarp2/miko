@@ -1,6 +1,10 @@
 import { CaretDown, Check } from '@phosphor-icons/react';
 
-import type { ClaudeReasoningEffort, ProviderEffortOption } from '../../../shared/types';
+import {
+	type ClaudeReasoningEffort,
+	isClaudeReasoningEffort,
+	type ProviderEffortOption,
+} from '../../../shared/types';
 import { Button } from '../ui/button';
 import {
 	DropdownMenu,
@@ -42,7 +46,9 @@ export function ComposerEffortMenu({
 					<DropdownMenuItem
 						key={effort.id}
 						className="cursor-pointer rounded-md px-2 py-1.5 text-[12px] font-medium text-ink focus:bg-surface-2 focus:text-ink"
-						onSelect={() => onChange(effort.id as ClaudeReasoningEffort)}
+						onSelect={() => {
+							if (isClaudeReasoningEffort(effort.id)) onChange(effort.id);
+						}}
 					>
 						<span className="flex-1">{effort.label}</span>
 						{effort.id === value ? <Check className="size-3.5 text-ink-muted" /> : null}
