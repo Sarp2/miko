@@ -51,13 +51,6 @@ export function defaultProviderForRuntime(
 	return providers[0]?.id ?? 'claude';
 }
 
-export function defaultProvider(
-	sessionSnapshot: SessionSnapshot | null,
-	providers: ProviderCatalogEntry[],
-) {
-	return defaultProviderForRuntime(sessionSnapshot?.runtime.provider, providers);
-}
-
 export function modelForProvider(
 	provider: ProviderCatalogEntry,
 	selectedModelByProvider: Record<string, string>,
