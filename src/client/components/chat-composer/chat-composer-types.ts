@@ -1,9 +1,9 @@
-import type { ChatAttachment } from '../../../shared/types';
+import type { AttachmentKind, ChatAttachment } from '../../../shared/types';
 
 export interface LocalAttachment {
 	id: string;
 	file: File;
-	kind: 'image' | 'file';
+	kind: AttachmentKind;
 }
 
 export interface UploadResponse {

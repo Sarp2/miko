@@ -7,13 +7,13 @@ import {
 	type ClaudeReasoningEffort,
 	type CodexReasoningEffort,
 	PROVIDERS,
-	type ProviderCatalogEntry,
 	type SessionSnapshot,
 	type WorkspaceSnapshot,
 } from '../../shared/types';
 import type { LocalAttachment } from '../components/chat-composer/chat-composer-types';
 import {
 	DEFAULT_COMPOSER_MODEL_OPTIONS,
+	defaultProviderForRuntime,
 	modelForProvider,
 	modelOptionsForSubmit,
 	providerCatalogs,
@@ -23,27 +23,8 @@ import { useSessionStore } from '../stores/session-store';
 
 const MAX_ATTACHMENTS = 50;
 
-function providerCatalogSignature(providers: ProviderCatalogEntry[]) {
-	return providers
-		.map((provider) =>
-			[
-				provider.id,
-				provider.defaultModel,
-				provider.models.map((model) => model.id).join(','),
-				provider.efforts.map((effort) => effort.id).join(','),
-			].join(':'),
-		)
-		.join('|');
-}
-
-function defaultProviderFromCatalogs(
-	sessionProvider: AgentProvider | null,
-	providers: ProviderCatalogEntry[],
-) {
-	if (sessionProvider && providers.some((provider) => provider.id === sessionProvider)) {
-		return sessionProvider;
-	}
-	return providers[0]?.id ?? 'claude';
+function providerCatalogSignature(providers: ReturnType<typeof providerCatalogs>) {
+	return JSON.stringify(providers);
 }
 
 interface UseChatComposerArgs {
@@ -84,7 +65,7 @@ export function useChatComposer({
 		return lockedProvider ? [lockedProvider] : availableProviders;
 	}, [availableProviders, sessionProvider]);
 	const resolvedDefaultProvider = useMemo(
-		() => defaultProviderFromCatalogs(sessionProvider, providers),
+		() => defaultProviderForRuntime(sessionProvider, providers),
 		[providers, sessionProvider],
 	);
 	const [provider, setProvider] = useState<AgentProvider>(() => resolvedDefaultProvider);

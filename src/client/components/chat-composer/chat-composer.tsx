@@ -89,10 +89,10 @@ export function ChatComposer({
 										return;
 									}
 
-									if (event.key === 'Enter' && mentions.mentionRange) {
+									const firstMentionOption = mentions.mentionOptions[0];
+									if (event.key === 'Enter' && mentions.mentionRange && firstMentionOption) {
 										event.preventDefault();
-										const firstOption = mentions.mentionOptions[0];
-										if (firstOption) mentions.insertMention(firstOption);
+										mentions.insertMention(firstMentionOption);
 										return;
 									}
 

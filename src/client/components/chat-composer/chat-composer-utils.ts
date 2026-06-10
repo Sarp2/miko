@@ -41,15 +41,21 @@ export function providerCatalogs(sessionSnapshot: SessionSnapshot | null) {
 		: PROVIDERS;
 }
 
-export function defaultProvider(
-	sessionSnapshot: SessionSnapshot | null,
+export function defaultProviderForRuntime(
+	runtimeProvider: AgentProvider | null | undefined,
 	providers: ProviderCatalogEntry[],
 ) {
-	const runtimeProvider = sessionSnapshot?.runtime.provider;
 	if (runtimeProvider && providers.some((provider) => provider.id === runtimeProvider)) {
 		return runtimeProvider;
 	}
 	return providers[0]?.id ?? 'claude';
+}
+
+export function defaultProvider(
+	sessionSnapshot: SessionSnapshot | null,
+	providers: ProviderCatalogEntry[],
+) {
+	return defaultProviderForRuntime(sessionSnapshot?.runtime.provider, providers);
 }
 
 export function modelForProvider(

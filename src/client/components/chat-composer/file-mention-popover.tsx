@@ -12,7 +12,7 @@ export interface FileMentionOption {
 
 interface FileMentionPopoverProps {
 	open: boolean;
-	anchor: React.ReactNode;
+	anchor: React.ReactElement;
 	query: string;
 	options: FileMentionOption[];
 	isLoading?: boolean;
