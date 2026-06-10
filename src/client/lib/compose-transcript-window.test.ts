@@ -95,4 +95,62 @@ describe('composeTranscriptWindow', () => {
 			result: { answers: { choice: ['yes'] } },
 		});
 	});
+
+	test('keeps context window metadata before each assistant turn closer', () => {
+		const messages: HydratedTranscriptMessage[] = [
+			{
+				...base('assistant-1'),
+				kind: 'assistant_text',
+				text: 'First answer',
+			},
+			{
+				...base('context-1'),
+				kind: 'context_window_updated',
+				usage: { usedTokens: 10, maxTokens: 100, compactsAutomatically: false },
+			},
+			{
+				...base('user-1'),
+				kind: 'user_prompt',
+				content: 'Next question',
+			},
+			{
+				...base('assistant-2'),
+				kind: 'assistant_text',
+				text: 'Second answer',
+			},
+			{
+				...base('context-2'),
+				kind: 'context_window_updated',
+				usage: { usedTokens: 20, maxTokens: 100, compactsAutomatically: false },
+			},
+		];
+
+		expect(composeTranscriptWindow(messages).map((message) => message.id)).toEqual([
+			'context-1',
+			'assistant-1',
+			'user-1',
+			'context-2',
+			'assistant-2',
+		]);
+	});
+
+	test('keeps trailing context window metadata before the final assistant message', () => {
+		const messages: HydratedTranscriptMessage[] = [
+			{
+				...base('assistant-1'),
+				kind: 'assistant_text',
+				text: 'Final answer',
+			},
+			{
+				...base('context-1'),
+				kind: 'context_window_updated',
+				usage: { usedTokens: 10, maxTokens: 100, compactsAutomatically: false },
+			},
+		];
+
+		expect(composeTranscriptWindow(messages).map((message) => message.kind)).toEqual([
+			'context_window_updated',
+			'assistant_text',
+		]);
+	});
 });

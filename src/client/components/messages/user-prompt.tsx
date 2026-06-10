@@ -1,13 +1,9 @@
 import { ArrowsOutSimple } from '@phosphor-icons/react';
 import * as React from 'react';
+import type { AttachmentKind, ChatAttachment } from '../../../shared/types';
 import { cn } from '../../lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
-import {
-	AttachmentCard,
-	type AttachmentKind,
-	type ChatAttachment,
-	formatAttachmentSize,
-} from './attachment-card';
+import { AttachmentCard, formatAttachmentSize } from './attachment-card';
 
 export interface UserPromptAttachment {
 	id?: string;
@@ -31,8 +27,6 @@ export interface UserPromptProps {
 	content: string;
 	/** Optional file/image attachments */
 	attachments?: UserPromptAttachment[];
-	/** Optional CSS class */
-	className?: string;
 }
 
 function isTextPreviewType(type: string): boolean {
@@ -72,7 +66,7 @@ function normalizeAttachment(attachment: UserPromptAttachment, index: number): C
  * UserPrompt displays a user message in the transcript.
  * Follows Linear design system with surface-1 background and hairline borders.
  */
-export function UserPrompt({ content, attachments, className }: UserPromptProps) {
+export function UserPrompt({ content, attachments }: UserPromptProps) {
 	const [isOpen, setIsOpen] = React.useState(false);
 	const [openAttachmentId, setOpenAttachmentId] = React.useState<string | null>(null);
 	const [previewTextByUrl, setPreviewTextByUrl] = React.useState<Record<string, string>>({});
@@ -141,50 +135,45 @@ export function UserPrompt({ content, attachments, className }: UserPromptProps)
 
 	return (
 		<>
-			<div className="flex">
-				<div
-					className={cn(
-						'rounded-lg border border-hairline bg-surface-2 p-4 relative inline-block w-fit max-w-[68ch]',
-						className,
-					)}
-				>
-					{isTruncated ? (
-						<button
-							type="button"
-							className={cn(
-								'text-body text-ink whitespace-pre-wrap',
-								'cursor-pointer hover:text-ink-muted transition-colors',
-							)}
-							onClick={() => setIsOpen(true)}
-							aria-label="Click to view full message"
-						>
-							{displayContent}
-						</button>
-					) : (
-						<div className="text-body text-ink whitespace-pre-wrap">{displayContent}</div>
-					)}
+			<div className="relative min-w-0">
+				{isTruncated ? (
+					<button
+						type="button"
+						className={cn(
+							'whitespace-pre-wrap text-[14px] font-normal leading-[1.4] text-ink',
+							'cursor-pointer hover:text-ink-muted transition-colors',
+						)}
+						onClick={() => setIsOpen(true)}
+						aria-label="Click to view full message"
+					>
+						{displayContent}
+					</button>
+				) : (
+					<div className="whitespace-pre-wrap text-[14px] font-normal leading-[1.4] text-ink">
+						{displayContent}
+					</div>
+				)}
 
-					{isTruncated && (
-						<div className="absolute top-2 right-2 pointer-events-none">
-							<ArrowsOutSimple className="size-3 text-ink-subtle" weight="bold" />
-						</div>
-					)}
+				{isTruncated && (
+					<div className="absolute top-2 right-2 pointer-events-none">
+						<ArrowsOutSimple className="size-3 text-ink-subtle" weight="bold" />
+					</div>
+				)}
 
-					{attachments && attachments.length > 0 && (
-						<div className="mt-3 flex flex-wrap gap-2">
-							{normalizedAttachments.map(({ normalized }) => {
-								const attachmentKey = normalized.id;
-								return (
-									<AttachmentCard
-										key={attachmentKey}
-										attachment={normalized}
-										onClick={() => setOpenAttachmentId(attachmentKey)}
-									/>
-								);
-							})}
-						</div>
-					)}
-				</div>
+				{attachments && attachments.length > 0 && (
+					<div className="mt-2.5 flex flex-wrap gap-2">
+						{normalizedAttachments.map(({ normalized }) => {
+							const attachmentKey = normalized.id;
+							return (
+								<AttachmentCard
+									key={attachmentKey}
+									attachment={normalized}
+									onClick={() => setOpenAttachmentId(attachmentKey)}
+								/>
+							);
+						})}
+					</div>
+				)}
 			</div>
 
 			<Dialog open={isOpen} onOpenChange={setIsOpen}>

@@ -40,7 +40,7 @@ export function SystemInit({
 		mcpServers.length > 0;
 
 	return (
-		<div className={cn('flex justify-center', className)}>
+		<div className={cn('flex', className)}>
 			<Collapsible>
 				<CollapsibleTrigger
 					className={cn(

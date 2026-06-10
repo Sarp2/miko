@@ -17,6 +17,44 @@ function attachToolResult(
 	} as HydratedToolCall;
 }
 
+function shouldMoveBeforeFinalAssistant(message: HydratedTranscriptMessage) {
+	return message.kind === 'context_window_updated';
+}
+
+function keepAssistantTextAsTurnCloser(
+	messages: HydratedTranscriptMessage[],
+): HydratedTranscriptMessage[] {
+	const composed: HydratedTranscriptMessage[] = [];
+	let pendingAssistant: HydratedTranscriptMessage | null = null;
+	let metadataBeforePendingAssistant: HydratedTranscriptMessage[] = [];
+
+	const flushPendingAssistant = () => {
+		if (!pendingAssistant) return;
+		composed.push(...metadataBeforePendingAssistant, pendingAssistant);
+		pendingAssistant = null;
+		metadataBeforePendingAssistant = [];
+	};
+
+	for (const message of messages) {
+		if (pendingAssistant && shouldMoveBeforeFinalAssistant(message)) {
+			metadataBeforePendingAssistant.push(message);
+			continue;
+		}
+
+		flushPendingAssistant();
+
+		if (message.kind === 'assistant_text') {
+			pendingAssistant = message;
+			continue;
+		}
+
+		composed.push(message);
+	}
+
+	flushPendingAssistant();
+	return composed;
+}
+
 export function composeTranscriptWindow(
 	messages: HydratedTranscriptMessage[],
 ): HydratedTranscriptMessage[] {
@@ -48,5 +86,5 @@ export function composeTranscriptWindow(
 		composed.push(message);
 	}
 
-	return composed;
+	return keepAssistantTextAsTurnCloser(composed);
 }

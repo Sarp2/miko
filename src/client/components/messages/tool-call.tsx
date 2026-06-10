@@ -7,19 +7,12 @@ import {
 	WarningCircle,
 	Wrench,
 } from '@phosphor-icons/react';
+import type { HydratedTranscriptMessage } from '../../../shared/types';
 import { cn } from '../../lib/utils';
 import { FileContentView } from './file-content-view';
 import { ToolEventRow } from './tool-event-card';
 
-export interface ToolCallData {
-	toolKind: string;
-	toolName: string;
-	toolId: string;
-	input: unknown;
-	hasResult: boolean;
-	result?: unknown;
-	isError?: boolean;
-}
+type ToolCallData = Extract<HydratedTranscriptMessage, { kind: 'tool' }>;
 
 export interface ToolCallProps {
 	tool: ToolCallData;

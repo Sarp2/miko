@@ -1,6 +1,7 @@
+export type { AttachmentKind, ChatAttachment } from '../../../shared/types';
 export { AccountInfo } from './account-info';
 export { AssistantText } from './assistant-text';
-export type { AttachmentIconKind, AttachmentKind, ChatAttachment } from './attachment-card';
+export type { AttachmentIconKind } from './attachment-card';
 export {
 	AttachmentCard,
 	formatAttachmentSize,

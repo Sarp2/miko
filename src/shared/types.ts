@@ -99,7 +99,7 @@ export const CLAUDE_CONTEXT_WINDOW_OPTIONS = [
 ] as const satisfies readonly ProviderContextWindowOption[];
 
 export function isClaudeContextWindow(value: unknown): value is ClaudeContextWindow {
-	return CLAUDE_REASONING_OPTIONS.some((option) => option.id === value);
+	return CLAUDE_CONTEXT_WINDOW_OPTIONS.some((option) => option.id === value);
 }
 
 export interface ProviderCatalogEntry {

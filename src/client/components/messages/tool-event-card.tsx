@@ -15,19 +15,21 @@ export function ToolEventRow({ icon, title, subtitle, className, children }: Too
 	const hasDetails = Boolean(children);
 
 	return (
-		<div className={cn('flex justify-center', className)}>
-			<Collapsible>
+		<div className={cn('flex', className)}>
+			<Collapsible className="inline-flex max-w-full flex-col">
 				<CollapsibleTrigger
 					className={cn(
-						'group inline-flex items-center gap-2 text-caption transition-colors',
+						'group inline-flex max-w-full items-center gap-2 border-0 bg-transparent p-0 text-left text-[14px] font-normal leading-[1.4] transition-colors',
 						hasDetails ? 'hover:text-ink-muted' : 'cursor-default',
 					)}
 					disabled={!hasDetails}
 				>
-					<span className="text-ink-subtle">{icon}</span>
-					<span className="max-w-56 truncate font-medium text-ink">{title}</span>
+					<span className="shrink-0 text-ink-subtle">{icon}</span>
+					<span className="max-w-56 truncate font-normal text-ink">{title}</span>
 					{subtitle && (
-						<span className="max-w-96 truncate font-mono text-ink-subtle">{subtitle}</span>
+						<span className="max-w-96 truncate font-mono text-[12px] text-ink-subtle">
+							{subtitle}
+						</span>
 					)}
 					{hasDetails && (
 						<CaretDown
