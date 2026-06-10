@@ -1,4 +1,4 @@
-import { ArrowElbowDownLeft, Paperclip, StopCircle } from '@phosphor-icons/react';
+import { ArrowUp, Lightning, MapTrifold, Plus, StopCircle } from '@phosphor-icons/react';
 import { useLayoutEffect, useRef } from 'react';
 
 import type { SessionSnapshot, WorkspaceSnapshot } from '../../../shared/types';
@@ -8,8 +8,9 @@ import { cn } from '../../lib/utils';
 import { Button } from '../ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import { AttachmentPill } from './composer-attachments';
+import { ComposerEffortMenu } from './composer-effort-menu';
 import { ComposerModelMenu } from './composer-model-menu';
-import { ComposerOptionsMenu } from './composer-options-menu';
+import { ComposerToggle } from './composer-toggle';
 import { FileMentionPopover } from './file-mention-popover';
 
 const MAX_INPUT_HEIGHT = 220;
@@ -45,7 +46,7 @@ export function ChatComposer({
 	});
 
 	return (
-		<div className="border-t border-hairline bg-canvas px-4 py-3">
+		<div className="bg-canvas px-4 py-3">
 			<div className="mx-auto w-full max-w-4xl">
 				<FileMentionPopover
 					open={mentions.mentionRange !== null}
@@ -102,34 +103,48 @@ export function ChatComposer({
 									}
 								}}
 								disabled={composer.disabled || composer.isStreaming}
-								placeholder="Send a message…"
+								placeholder="Ask to make changes, @mention files"
 								rows={1}
-								className="scrollbar-miko block min-h-11 w-full resize-none bg-transparent px-3 py-3 text-[13px] leading-5 text-ink outline-none placeholder:text-ink-tertiary disabled:cursor-not-allowed"
+								className="scrollbar-miko block min-h-20 w-full resize-none bg-transparent px-3 py-3 text-[13px] leading-5 text-ink outline-none placeholder:text-ink-tertiary disabled:cursor-not-allowed"
 							/>
-							<div className="flex items-center justify-between border-t border-hairline px-2 py-1.5">
+							<div className="flex items-center justify-between px-2 py-1.5">
 								<div className="flex min-w-0 items-center gap-1">
 									<ComposerModelMenu
 										providers={composer.providers}
 										provider={composer.provider}
 										model={composer.model}
+										contextWindow={composer.claudeContextWindow}
 										disabled={composer.disabled || composer.isStreaming}
 										onProviderChange={composer.setProvider}
 										onModelChange={composer.changeModel}
+										onContextWindowChange={composer.setClaudeContextWindow}
 									/>
-									<ComposerOptionsMenu
-										provider={composer.provider}
-										providerCatalog={composer.providerCatalog}
-										model={composer.model}
-										planMode={composer.planMode}
-										claudeReasoningEffort={composer.claudeReasoningEffort}
-										claudeContextWindow={composer.claudeContextWindow}
-										codexFastMode={composer.codexFastMode}
-										disabled={composer.disabled || composer.isStreaming}
-										onPlanModeChange={composer.setPlanMode}
-										onClaudeReasoningEffortChange={composer.setClaudeReasoningEffort}
-										onClaudeContextWindowChange={composer.setClaudeContextWindow}
-										onCodexFastModeChange={composer.setCodexFastMode}
-									/>
+									{composer.provider === 'claude' && composer.providerCatalog.efforts.length > 0 ? (
+										<ComposerEffortMenu
+											efforts={composer.providerCatalog.efforts}
+											value={composer.claudeReasoningEffort}
+											disabled={composer.disabled || composer.isStreaming}
+											onChange={composer.setClaudeReasoningEffort}
+										/>
+									) : null}
+									{composer.providerCatalog.supportsPlanMode ? (
+										<ComposerToggle
+											label="Plan"
+											icon={MapTrifold}
+											active={composer.planMode}
+											disabled={composer.disabled || composer.isStreaming}
+											onToggle={() => composer.setPlanMode(!composer.planMode)}
+										/>
+									) : null}
+									{composer.provider === 'codex' ? (
+										<ComposerToggle
+											label="Fast"
+											icon={Lightning}
+											active={composer.codexFastMode}
+											disabled={composer.disabled || composer.isStreaming}
+											onToggle={() => composer.setCodexFastMode(!composer.codexFastMode)}
+										/>
+									) : null}
 								</div>
 
 								<div className="flex items-center gap-1">
@@ -153,7 +168,7 @@ export function ChatComposer({
 												className="size-7 text-ink-subtle hover:text-ink"
 												onClick={() => fileInputRef.current?.click()}
 											>
-												<Paperclip className="size-3.5" />
+												<Plus className="size-4" />
 											</Button>
 										</TooltipTrigger>
 										<TooltipContent>Attach files</TooltipContent>
@@ -172,13 +187,12 @@ export function ChatComposer({
 									) : (
 										<Button
 											type="button"
-											variant="ghost"
 											size="icon-sm"
 											disabled={!composer.canSubmit}
-											className="size-7 text-ink-subtle hover:text-ink"
+											className="size-7 rounded-md bg-ink text-canvas hover:bg-ink/90 disabled:bg-surface-3 disabled:text-ink-tertiary disabled:opacity-100"
 											onClick={() => void composer.submit()}
 										>
-											<ArrowElbowDownLeft className="size-4" />
+											<ArrowUp className="size-4" weight="bold" />
 										</Button>
 									)}
 								</div>

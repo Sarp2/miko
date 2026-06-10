@@ -1,8 +1,32 @@
 import { cn } from '@/client/lib/utils';
+import type { AgentProvider } from '@/shared/types';
 
 type IconProps = {
 	className?: string;
 };
+
+const PROVIDER_ICON_SRC: Record<AgentProvider, string> = {
+	claude: '/icons/claude.svg',
+	codex: '/icons/openai.svg',
+};
+
+export function ProviderIcon({
+	provider,
+	className,
+}: {
+	provider: AgentProvider;
+	className?: string;
+}) {
+	return (
+		<img
+			src={PROVIDER_ICON_SRC[provider]}
+			alt=""
+			aria-hidden
+			draggable={false}
+			className={cn('size-3.5 shrink-0 select-none', className)}
+		/>
+	);
+}
 
 type ActiveIconProps = IconProps & {
 	ariaLabel?: string;
