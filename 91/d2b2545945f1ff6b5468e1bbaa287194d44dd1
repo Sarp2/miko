@@ -1,0 +1,42 @@
+src/client/components/chat-composer/composer-model-menu.tsx
+  s_de62cd0766543a::t_ebdda6f71ad7ba 5,21-44,49,53,58,62,75,87-109
+  s_de62cd0766543a::t_bb275c45e441d9 74,76
+  s_de62cd0766543a::t_b6ce11547c3df5 83-84
+  s_de62cd0766543a::t_d199ae191dfced 72
+  s_de62cd0766543a::t_71f8129237bb3f 9
+src/client/components/chat-composer/composer-toggle.tsx
+  s_de62cd0766543a::t_f8d36a3192d8ef 28,30-31
+  s_de62cd0766543a::t_f19b72645eeb5f 1-27,29,32-38
+src/client/components/chat-composer/chat-composer.tsx
+  s_de62cd0766543a::t_ad8719522e4e96 110
+  s_de62cd0766543a::t_4801e24160c66f 116,120,122-147
+  s_de62cd0766543a::t_c3c1b6b68b87d4 11,13
+  s_de62cd0766543a::t_5734bb82c11904 108
+  s_de62cd0766543a::t_a898774bf17b2d 1
+  s_de62cd0766543a::t_2c0147afcffd6a 49
+  s_de62cd0766543a::t_4ebc29d436a9b7 171
+  s_de62cd0766543a::t_672f5241d28699 192,195
+  s_de62cd0766543a::t_f72415c64bfefe 106
+src/client/components/chat-composer/composer-effort-menu.tsx
+  s_de62cd0766543a::t_ed853dcf63c281 33
+  s_de62cd0766543a::t_61ace1f9240bed 3,12-14,16,18-19,21,23,35-37,40-41,43-45,47-48,50
+src/client/lib/icons.tsx
+  s_de62cd0766543a::t_0eaca0ddbd9f57 2
+  s_de62cd0766543a::t_0024020b7f4ce3 8-29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "91d2b2545945f1ff6b5468e1bbaa287194d44dd1",
+  "prompts": {},
+  "sessions": {
+    "s_de62cd0766543a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "76e5e1c0-c385-4fa9-98ae-d3985b0d69f3",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
