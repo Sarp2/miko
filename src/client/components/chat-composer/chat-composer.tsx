@@ -81,6 +81,8 @@ export function ChatComposer({
 								onClick={() => mentions.refreshMentionRange(composer.content)}
 								onKeyUp={() => mentions.refreshMentionRange(composer.content)}
 								onKeyDown={(event) => {
+									if (event.nativeEvent.isComposing) return;
+
 									if (event.key === 'Escape' && mentions.mentionRange) {
 										event.preventDefault();
 										mentions.closeMentions();

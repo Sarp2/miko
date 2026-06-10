@@ -1,13 +1,9 @@
 import { ArrowsOutSimple } from '@phosphor-icons/react';
 import * as React from 'react';
+import type { AttachmentKind, ChatAttachment } from '../../../shared/types';
 import { cn } from '../../lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
-import {
-	AttachmentCard,
-	type AttachmentKind,
-	type ChatAttachment,
-	formatAttachmentSize,
-} from './attachment-card';
+import { AttachmentCard, formatAttachmentSize } from './attachment-card';
 
 export interface UserPromptAttachment {
 	id?: string;

@@ -111,10 +111,15 @@ export function useChatComposer({
 		providers.find((entry) => entry.id === provider) ?? providers[0] ?? PROVIDERS[0];
 
 	const model = modelForProvider(providerCatalog, selectedModelByProvider);
+	const sessionStatus = sessionSnapshot?.runtime.status;
 	const isStreaming =
-		sessionSnapshot?.runtime.status === 'running' || sessionSnapshot?.runtime.status === 'starting';
+		sessionStatus === 'running' ||
+		sessionStatus === 'starting' ||
+		sessionStatus === 'waiting_for_user';
 
-	const disabled = workspaceSnapshot.workspace.setupState !== 'ready' || submitting;
+	const sessionLoaded = sessionSnapshot !== null;
+	const disabled =
+		!sessionLoaded || workspaceSnapshot.workspace.setupState !== 'ready' || submitting;
 	const canSubmit =
 		(content.trim().length > 0 || attachments.length > 0) && !disabled && !isStreaming;
 

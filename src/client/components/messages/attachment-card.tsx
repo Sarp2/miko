@@ -8,21 +8,9 @@ import {
 	VideoCamera,
 	X,
 } from '@phosphor-icons/react';
+import type { ChatAttachment } from '../../../shared/types';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/button';
-
-export type AttachmentKind = 'image' | 'file';
-
-export interface ChatAttachment {
-	id: string;
-	kind: AttachmentKind;
-	displayName: string;
-	absolutePath: string;
-	relativePath: string;
-	contentUrl: string;
-	mimeType: string;
-	size: number;
-}
 
 type BaseAttachmentCardProps = {
 	attachment: ChatAttachment;
