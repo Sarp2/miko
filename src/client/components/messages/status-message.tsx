@@ -28,7 +28,7 @@ export function StatusMessage({ status, className }: StatusMessageProps) {
 	const label = normalizeLabel(status);
 
 	return (
-		<div className={cn('flex justify-center', className)}>
+		<div className={cn('flex', className)}>
 			<div className="inline-flex items-center gap-1.5 text-xs text-ink-subtle animate-pulse">
 				<ArrowsInSimple className="size-3" weight="bold" />
 				<span>{label}</span>

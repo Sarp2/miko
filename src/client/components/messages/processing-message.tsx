@@ -1,4 +1,5 @@
-import { CircleNotch, XCircle } from '@phosphor-icons/react';
+import { XCircle } from '@phosphor-icons/react';
+import { Icons } from '../../lib/icons';
 import { cn } from '../../lib/utils';
 
 export interface ProcessingMessageProps {
@@ -26,12 +27,12 @@ export function ProcessingMessage({ status, className }: ProcessingMessageProps)
 	const isFailed = status === 'failed';
 
 	return (
-		<div className={cn('flex justify-center', className)}>
-			<div className="inline-flex items-center gap-1.5 text-sm">
+		<div className={cn('flex', className)}>
+			<div className="inline-flex items-center gap-1.5 text-[13px] leading-5">
 				{isFailed ? (
-					<XCircle className="size-4 text-destructive" weight="fill" />
+					<XCircle className="size-3.5 text-destructive" weight="fill" />
 				) : (
-					<CircleNotch className="size-4 animate-spin text-ink-subtle" weight="bold" />
+					Icons.activeIcon({ ariaLabel: label, className: 'size-3.5 shrink-0' })
 				)}
 				<span
 					className={cn(

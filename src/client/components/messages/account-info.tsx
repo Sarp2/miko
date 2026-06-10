@@ -31,7 +31,7 @@ export function AccountInfo({ accountInfo, className }: AccountInfoProps) {
 	const hasDetails = details.length > 0;
 
 	return (
-		<div className={cn('flex justify-center', className)}>
+		<div className={cn('flex', className)}>
 			<Collapsible>
 				<CollapsibleTrigger
 					className={cn(

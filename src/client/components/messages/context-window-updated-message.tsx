@@ -79,7 +79,7 @@ export function ContextWindowUpdatedMessage({
 	].filter((item): item is { label: string; value: string } => item !== null);
 
 	return (
-		<div className={cn('flex justify-center', className)}>
+		<div className={cn('flex', className)}>
 			<Collapsible>
 				<CollapsibleTrigger className="group inline-flex items-center gap-1.5 text-xs text-ink-subtle hover:text-ink-muted">
 					<span>{summary}</span>

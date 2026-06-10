@@ -1,13 +1,14 @@
-import { useEffect, useMemo } from 'react';
-import type { WorkspaceSnapshot } from '../../shared/types';
+import { type ReactNode, useEffect, useMemo } from 'react';
+import type { MikoStatus, WorkspaceSnapshot } from '../../shared/types';
 import { composeTranscriptWindow } from '../lib/compose-transcript-window';
 import { hydrateTranscriptMessages } from '../lib/hydrate-transcript-messages';
 import { basename, selectFirstSessionId } from '../routes/workspace-route-state';
 import { type ChatWindow, useChatWindowStore } from '../stores/chat-window-store';
 import { useSessionStore } from '../stores/session-store';
 import { useWorkspaceStore } from '../stores/workspace-store';
+import { ChatComposer } from './chat-composer/chat-composer';
 import { EmptyChatIntro } from './chat-empty-state';
-import { TranscriptMessageView } from './transcript-message-view';
+import { TranscriptActivityIndicator, TranscriptMessageView } from './transcript-message-view';
 import { Button } from './ui/button';
 
 interface ChatPageProps {
@@ -19,6 +20,8 @@ interface ChatPageProps {
 export interface ChatPageViewProps extends ChatPageProps {
 	chatWindow: ChatWindow | null;
 	onLoadOlder?: () => void;
+	composer?: ReactNode;
+	sessionStatus?: MikoStatus | null;
 }
 
 function EmptyChatSessionState({ localPath }: { localPath: string }) {
@@ -59,6 +62,8 @@ export function ChatPageView({
 	workspaceSnapshot,
 	chatWindow,
 	onLoadOlder,
+	composer,
+	sessionStatus,
 }: ChatPageViewProps) {
 	const messages = useMemo(() => {
 		return composeTranscriptWindow(hydrateTranscriptMessages(chatWindow?.messages ?? []));
@@ -74,6 +79,7 @@ export function ChatPageView({
 		[workspaceSnapshot.sessions],
 	);
 	const isFirstSession = sessionId === firstSessionId;
+	const showActivityIndicator = sessionStatus === 'starting' || sessionStatus === 'running';
 
 	return (
 		<div data-testid="chat-page" className="flex h-full min-h-0 flex-col bg-canvas text-ink">
@@ -87,16 +93,20 @@ export function ChatPageView({
 				) : visibleMessages.length === 0 && !hasOlderMessages ? (
 					<EmptyChatSessionState localPath={workspaceSnapshot.workspace.localPath} />
 				) : (
-					<div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-5 py-6">
+					<div className="mx-auto flex w-full max-w-4xl flex-col px-5 py-5">
 						{hasOlderMessages ? (
 							<LoadOlderMessagesButton loading={loadingOlder} onLoadOlder={onLoadOlder} />
 						) : null}
 						{visibleMessages.map((message) => (
 							<TranscriptMessageView key={message.id} message={message} />
 						))}
+						{showActivityIndicator ? (
+							<TranscriptActivityIndicator status={sessionStatus ?? undefined} />
+						) : null}
 					</div>
 				)}
 			</div>
+			{composer}
 			<span className="sr-only">Chat page for workspace {workspaceId}</span>
 		</div>
 	);
@@ -104,6 +114,9 @@ export function ChatPageView({
 
 export function ChatPage({ workspaceId, sessionId, workspaceSnapshot }: ChatPageProps) {
 	const chatWindow = useChatWindowStore((state) => state.windowBySessionId.get(sessionId) ?? null);
+	const sessionSnapshot = useSessionStore(
+		(state) => state.snapshotBySessionId.get(sessionId) ?? null,
+	);
 	const loadOlder = () => {
 		void useSessionStore
 			.getState()
@@ -147,6 +160,16 @@ export function ChatPage({ workspaceId, sessionId, workspaceSnapshot }: ChatPage
 			workspaceSnapshot={workspaceSnapshot}
 			chatWindow={chatWindow}
 			onLoadOlder={loadOlder}
+			sessionStatus={sessionSnapshot?.runtime.status ?? null}
+			composer={
+				<ChatComposer
+					key={sessionId}
+					workspaceId={workspaceId}
+					sessionId={sessionId}
+					workspaceSnapshot={workspaceSnapshot}
+					sessionSnapshot={sessionSnapshot}
+				/>
+			}
 		/>
 	);
 }
