@@ -27,7 +27,7 @@ export function CompactSummaryMessage({
 			<Collapsible>
 				<CollapsibleTrigger
 					className={cn(
-						'group inline-flex items-center gap-1.5 text-xs text-ink-subtle',
+						'group inline-flex items-center gap-1.5 text-caption text-ink-subtle',
 						hasDetails && 'hover:text-ink-muted',
 					)}
 					disabled={!hasDetails}
@@ -69,7 +69,7 @@ export function CompactSummaryMessage({
 										</code>
 									),
 									pre: ({ children }) => (
-										<pre className="mb-2 overflow-x-auto rounded-md border border-hairline bg-surface-2 p-2.5 text-caption">
+										<pre className="mb-2 overflow-x-auto rounded-lg border border-hairline bg-surface-2 p-2.5 text-caption">
 											{children}
 										</pre>
 									),

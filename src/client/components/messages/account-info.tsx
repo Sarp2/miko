@@ -35,7 +35,7 @@ export function AccountInfo({ accountInfo, className }: AccountInfoProps) {
 			<Collapsible>
 				<CollapsibleTrigger
 					className={cn(
-						'group inline-flex items-center gap-1.5 text-xs text-ink-subtle',
+						'group inline-flex items-center gap-1.5 text-caption text-ink-subtle',
 						hasDetails && 'hover:text-ink-muted',
 					)}
 					disabled={!hasDetails}
@@ -51,7 +51,7 @@ export function AccountInfo({ accountInfo, className }: AccountInfoProps) {
 
 				{hasDetails && (
 					<CollapsibleContent className="mt-2">
-						<div className="space-y-2 text-xs text-ink-muted">
+						<div className="space-y-2 text-caption text-ink-muted">
 							{details.map((item) => (
 								<div key={item.label} className="flex gap-2">
 									<span className="text-ink-subtle">{item.label}:</span>

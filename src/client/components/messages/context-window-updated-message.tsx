@@ -81,7 +81,7 @@ export function ContextWindowUpdatedMessage({
 	return (
 		<div className={cn('flex', className)}>
 			<Collapsible>
-				<CollapsibleTrigger className="group inline-flex items-center gap-1.5 text-xs text-ink-subtle hover:text-ink-muted">
+				<CollapsibleTrigger className="group inline-flex items-center gap-1.5 text-caption text-ink-subtle hover:text-ink-muted">
 					<span>{summary}</span>
 					<CaretDown
 						className="size-3 transition-transform group-data-[state=open]:rotate-180"
@@ -90,7 +90,7 @@ export function ContextWindowUpdatedMessage({
 				</CollapsibleTrigger>
 
 				<CollapsibleContent className="mt-2">
-					<div className="space-y-2 text-xs text-ink-muted">
+					<div className="space-y-2 text-caption text-ink-muted">
 						{details.map((item) => (
 							<div key={item.label} className="flex gap-2">
 								<span className="text-ink-subtle">{item.label}:</span>
