@@ -83,9 +83,11 @@ export function TurnFooter({
 					<TooltipContent>More actions</TooltipContent>
 				</Tooltip>
 				<DropdownMenuContent className="w-44 rounded-[10px] border-hairline bg-surface-1 p-1 shadow-none">
+					{/* TODO: Wire this to fork the turn into a new tab. */}
 					<DropdownMenuItem className="cursor-pointer rounded-md px-2 py-1.5 text-[12px] font-medium text-ink focus:bg-surface-2 focus:text-ink">
 						Fork to new tab
 					</DropdownMenuItem>
+					{/* TODO: Wire this to fork the turn into a new workspace. */}
 					<DropdownMenuItem className="cursor-pointer rounded-md px-2 py-1.5 text-[12px] font-medium text-ink focus:bg-surface-2 focus:text-ink">
 						Fork to new workspace
 					</DropdownMenuItem>
