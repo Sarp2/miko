@@ -17,6 +17,10 @@ interface ScrollAnchor {
 	scrollHeight: number;
 }
 
+type PendingPrependPosition =
+	| { type: 'item'; anchor: ScrollAnchor }
+	| { type: 'scrollTop'; scrollTop: number };
+
 interface UseChatScrollArgs {
 	sessionId: string;
 	items: TranscriptItem[];
@@ -95,7 +99,7 @@ export function useChatScroll({
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const contentRef = useRef<HTMLDivElement>(null);
 	const anchorRef = useRef<ScrollAnchor | null>(null);
-	const pendingPrependAnchorRef = useRef<ScrollAnchor | null>(null);
+	const pendingPrependPositionRef = useRef<PendingPrependPosition | null>(null);
 	const pinnedToBottomRef = useRef(true);
 	const restoredSessionRef = useRef<string | null>(null);
 	const frameRef = useRef<number | null>(null);
@@ -143,11 +147,9 @@ export function useChatScroll({
 			!olderLoadRequestedRef.current;
 
 		if (!shouldLoadOlder) return;
-		pendingPrependAnchorRef.current = anchorRef.current ?? {
-			itemId: '',
-			top: element.getBoundingClientRect().top,
-			scrollHeight: element.scrollHeight,
-		};
+		pendingPrependPositionRef.current = anchorRef.current
+			? { type: 'item', anchor: anchorRef.current }
+			: { type: 'scrollTop', scrollTop: element.scrollTop };
 		olderLoadRequestedRef.current = true;
 		onLoadOlderRef.current?.();
 	}, []);
@@ -171,11 +173,10 @@ export function useChatScroll({
 		)
 			return;
 
-		pendingPrependAnchorRef.current = captureFirstVisibleAnchor(element) ?? {
-			itemId: '',
-			top: element.getBoundingClientRect().top,
-			scrollHeight: element.scrollHeight,
-		};
+		const anchor = captureFirstVisibleAnchor(element);
+		pendingPrependPositionRef.current = anchor
+			? { type: 'item', anchor }
+			: { type: 'scrollTop', scrollTop: element.scrollTop };
 		olderLoadRequestedRef.current = true;
 		onLoadOlderRef.current?.();
 	}, []);
@@ -209,10 +210,14 @@ export function useChatScroll({
 			return;
 		}
 
-		const pendingPrependAnchor = pendingPrependAnchorRef.current;
-		if (pendingPrependAnchor) {
-			restoreAnchor(element, pendingPrependAnchor);
-			pendingPrependAnchorRef.current = null;
+		const pendingPrependPosition = pendingPrependPositionRef.current;
+		if (pendingPrependPosition) {
+			if (pendingPrependPosition.type === 'item') {
+				restoreAnchor(element, pendingPrependPosition.anchor);
+			} else {
+				element.scrollTop = pendingPrependPosition.scrollTop;
+			}
+			pendingPrependPositionRef.current = null;
 			latestUserItemIdRef.current = latestUserItemId;
 			updateAnchorState();
 			return;
@@ -261,7 +266,7 @@ export function useChatScroll({
 	useEffect(() => {
 		restoredSessionRef.current = null;
 		anchorRef.current = null;
-		pendingPrependAnchorRef.current = null;
+		pendingPrependPositionRef.current = null;
 		pinnedToBottomRef.current = true;
 		latestUserItemIdRef.current = null;
 
