@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { EditorOpenSettings } from '../../shared/protocol';
-import type { WorkspaceSnapshot } from '../../shared/types';
+import type { WorkspaceFileSearchResult, WorkspaceSnapshot } from '../../shared/types';
 import { useWsStore } from './ws-store';
 
 export interface OpenExternalArgs {
@@ -22,6 +22,11 @@ interface WorkspaceStoreState {
 	markRead: (workspaceId: string) => Promise<void>;
 	refreshGit: (workspaceId: string) => Promise<unknown>;
 	refreshPrStage: (workspaceId: string) => Promise<unknown>;
+	searchFiles: (
+		workspaceId: string,
+		query: string,
+		limit?: number,
+	) => Promise<WorkspaceFileSearchResult[]>;
 	renameBranch: (workspaceId: string, branchName: string) => Promise<unknown>;
 	commitAndPush: (workspaceId: string, sessionId: string) => Promise<unknown>;
 	pullLatestMain: (workspaceId: string, sessionId: string) => Promise<unknown>;
@@ -108,6 +113,15 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
 
 	refreshPrStage: (workspaceId) => {
 		return useWsStore.getState().command({ type: 'workspace.refreshPrStage', workspaceId });
+	},
+
+	searchFiles: (workspaceId, query, limit) => {
+		return useWsStore.getState().command<WorkspaceFileSearchResult[]>({
+			type: 'workspace.searchFiles',
+			workspaceId,
+			query,
+			limit,
+		});
 	},
 
 	renameBranch: (workspaceId, branchName) => {

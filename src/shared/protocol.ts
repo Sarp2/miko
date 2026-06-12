@@ -13,6 +13,7 @@ import type {
 	SessionSnapshot,
 	SidebarSnapshot,
 	UpdateSnapshot,
+	WorkspaceFileSearchResult,
 	WorkspaceSnapshot,
 	WorkspaceVisibilityState,
 } from './types';
@@ -83,6 +84,7 @@ export type ClientCommand =
 	| { type: 'workspace.refreshGit'; workspaceId: string }
 	| { type: 'workspace.refreshPrStage'; workspaceId: string }
 	| { type: 'workspace.readDiffPatch'; workspaceId: string; path: string }
+	| { type: 'workspace.searchFiles'; workspaceId: string; query: string; limit?: number }
 	| { type: 'workspace.commitAndPush'; workspaceId: string; sessionId: string }
 	| { type: 'workspace.pullLatestMain'; workspaceId: string; sessionId: string }
 	| { type: 'workspace.createPr'; workspaceId: string; sessionId: string }
@@ -165,7 +167,8 @@ export type ServerEnvelope =
 				| SessionHistoryPage
 				| DirectoryOnboardingResult
 				| GithubPublishInfo
-				| GitHubRepoAvailabilityResult;
+				| GitHubRepoAvailabilityResult
+				| WorkspaceFileSearchResult[];
 	  }
 	| { type: 'error'; id?: string; message: string };
 
