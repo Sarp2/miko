@@ -33,6 +33,7 @@ import {
 import type { ScratchpadManager } from './scratchpad-manager';
 import type { TerminalManager } from './terminal-manager';
 import type { UpdateManager } from './update-manager';
+import { searchWorkspaceFiles } from './workspace-file-search';
 import type { WorkspaceManager, WorkspaceTurnIntent } from './workspace-manager';
 
 const DEFAULT_SESSION_RECENT_LIMIT = 300;
@@ -558,6 +559,16 @@ export function createWsRouter({
 						workspacePath: workspace.localPath,
 						path: command.path,
 					});
+					send(ws, { type: 'ack', id, result });
+					return;
+				}
+				case 'workspace.searchFiles': {
+					const workspace = requireWorkspace(command.workspaceId);
+					const result = await searchWorkspaceFiles(
+						workspace.localPath,
+						command.query,
+						command.limit,
+					);
 					send(ws, { type: 'ack', id, result });
 					return;
 				}

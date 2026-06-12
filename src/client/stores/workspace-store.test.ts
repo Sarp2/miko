@@ -176,6 +176,60 @@ describe('useWorkspaceStore.refreshGit', () => {
 	});
 });
 
+describe('useWorkspaceStore.searchFiles', () => {
+	test('forwards file search and filters malformed response entries', async () => {
+		useWsStore.getState().connect();
+		const socket = FakeWebSocket.instances[0];
+		socket.open();
+
+		const resultPromise = useWorkspaceStore.getState().searchFiles('workspace-1', 'readme', 20);
+		const sent = JSON.parse(socket.sent[0]);
+
+		expect(sent).toMatchObject({
+			type: 'command',
+			command: {
+				type: 'workspace.searchFiles',
+				workspaceId: 'workspace-1',
+				query: 'readme',
+				limit: 20,
+			},
+		});
+
+		socket.receive({
+			type: 'ack',
+			id: sent.id,
+			result: [
+				{ id: 'README.md', name: 'README.md', relativePath: 'README.md' },
+				{ id: 'missing-path', name: 'Missing path' },
+				null,
+				{ relativePath: 'src/client/app.tsx' },
+			],
+		});
+
+		await expect(resultPromise).resolves.toEqual([
+			{ id: 'README.md', name: 'README.md', relativePath: 'README.md' },
+			{
+				id: 'src/client/app.tsx',
+				name: 'app.tsx',
+				relativePath: 'src/client/app.tsx',
+			},
+		]);
+	});
+
+	test('returns an empty array for a non-array file search response', async () => {
+		useWsStore.getState().connect();
+		const socket = FakeWebSocket.instances[0];
+		socket.open();
+
+		const resultPromise = useWorkspaceStore.getState().searchFiles('workspace-1', 'readme');
+		const sent = JSON.parse(socket.sent[0]);
+
+		socket.receive({ type: 'ack', id: sent.id, result: { ok: true } });
+
+		await expect(resultPromise).resolves.toEqual([]);
+	});
+});
+
 describe('useWorkspaceStore.renameBranch', () => {
 	test('forwards branch rename through the websocket command flow', async () => {
 		useWsStore.getState().connect();

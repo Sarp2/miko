@@ -574,6 +574,12 @@ export interface WorkspaceDiffFile {
 	size?: number;
 }
 
+export interface WorkspaceFileSearchResult {
+	id: string;
+	name: string;
+	relativePath: string;
+}
+
 export interface WorkspaceBranchHistoryEntry {
 	sha: string;
 	summary: string;

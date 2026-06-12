@@ -31,6 +31,7 @@ export function ChatComposer({
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const composer = useChatComposer({ workspaceId, sessionId, workspaceSnapshot, sessionSnapshot });
 	const mentions = useFileMentions({
+		workspaceId,
 		content: composer.content,
 		files: workspaceSnapshot.git?.files ?? [],
 		onContentChange: composer.setContent,
@@ -52,6 +53,7 @@ export function ChatComposer({
 					open={mentions.mentionRange !== null}
 					query={mentions.mentionRange?.query ?? ''}
 					options={mentions.mentionOptions}
+					isLoading={mentions.isLoading}
 					onOpenChange={(open) => {
 						if (!open) mentions.closeMentions();
 					}}
@@ -91,9 +93,9 @@ export function ChatComposer({
 									}
 
 									const firstMentionOption = mentions.mentionOptions[0];
-									if (event.key === 'Enter' && mentions.mentionRange && firstMentionOption) {
+									if (event.key === 'Enter' && mentions.mentionRange) {
 										event.preventDefault();
-										mentions.insertMention(firstMentionOption);
+										if (firstMentionOption) mentions.insertMention(firstMentionOption);
 										return;
 									}
 

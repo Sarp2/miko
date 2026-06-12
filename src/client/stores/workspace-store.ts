@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { EditorOpenSettings } from '../../shared/protocol';
-import type { WorkspaceSnapshot } from '../../shared/types';
+import type { WorkspaceFileSearchResult, WorkspaceSnapshot } from '../../shared/types';
+import { basename } from '../routes/workspace-route-state';
 import { useWsStore } from './ws-store';
 
 export interface OpenExternalArgs {
@@ -22,6 +23,11 @@ interface WorkspaceStoreState {
 	markRead: (workspaceId: string) => Promise<void>;
 	refreshGit: (workspaceId: string) => Promise<unknown>;
 	refreshPrStage: (workspaceId: string) => Promise<unknown>;
+	searchFiles: (
+		workspaceId: string,
+		query: string,
+		limit?: number,
+	) => Promise<WorkspaceFileSearchResult[]>;
 	renameBranch: (workspaceId: string, branchName: string) => Promise<unknown>;
 	commitAndPush: (workspaceId: string, sessionId: string) => Promise<unknown>;
 	pullLatestMain: (workspaceId: string, sessionId: string) => Promise<unknown>;
@@ -62,6 +68,28 @@ function syncConnectedWorkspaceSnapshots() {
 function ensureWorkspaceSnapshotSync() {
 	if (unsubscribeFromWsStore) return;
 	unsubscribeFromWsStore = useWsStore.subscribe(syncConnectedWorkspaceSnapshots);
+}
+
+function parseWorkspaceFileSearchResults(value: unknown): WorkspaceFileSearchResult[] {
+	if (!Array.isArray(value)) return [];
+
+	return value.flatMap((entry) => {
+		if (!entry || typeof entry !== 'object') return [];
+		const candidate = entry as Partial<WorkspaceFileSearchResult>;
+		if (typeof candidate.relativePath !== 'string' || !candidate.relativePath.trim()) return [];
+
+		const relativePath = candidate.relativePath;
+		return [
+			{
+				id: typeof candidate.id === 'string' && candidate.id ? candidate.id : relativePath,
+				name:
+					typeof candidate.name === 'string' && candidate.name
+						? candidate.name
+						: basename(relativePath),
+				relativePath,
+			},
+		];
+	});
 }
 
 export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
@@ -108,6 +136,16 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
 
 	refreshPrStage: (workspaceId) => {
 		return useWsStore.getState().command({ type: 'workspace.refreshPrStage', workspaceId });
+	},
+
+	searchFiles: async (workspaceId, query, limit) => {
+		const result = await useWsStore.getState().command<unknown>({
+			type: 'workspace.searchFiles',
+			workspaceId,
+			query,
+			limit,
+		});
+		return parseWorkspaceFileSearchResults(result);
 	},
 
 	renameBranch: (workspaceId, branchName) => {
