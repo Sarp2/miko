@@ -86,6 +86,19 @@ describe('groupTranscriptTurns', () => {
 		expect(item.turn.isComplete).toBe(true);
 	});
 
+	test('uses stable fallback ids for malformed empty message ids', () => {
+		const items = groupTranscriptTurns([
+			{ ...base(''), kind: 'user_prompt', content: 'hi' },
+			toolMessage('', 'call-1'),
+		]);
+
+		expect(items).toHaveLength(2);
+		expect(items[0].id).toBe('user:0');
+		expect(items[1].id).toBe('turn:1');
+		if (items[1].type !== 'turn') throw new Error('expected turn');
+		expect(items[1].turn.id).toBe('turn:1');
+	});
+
 	test('marks a turn without a result as incomplete', () => {
 		const items = groupTranscriptTurns([toolMessage('t1', 'call-1')]);
 		const item = items[0];

@@ -42,7 +42,15 @@ export type TranscriptItem =
 	| { type: 'user'; id: string; message: UserMessage }
 	| { type: 'turn'; id: string; turn: TranscriptTurn };
 
-function buildTurn(messages: Message[], meta: TurnMeta): TranscriptTurn | null {
+function fallbackItemId(kind: 'turn' | 'user', index: number) {
+	return `${kind}:${index}`;
+}
+
+function nonEmptyItemId(id: string | undefined, fallback: string) {
+	return id && id.length > 0 ? id : fallback;
+}
+
+function buildTurn(messages: Message[], meta: TurnMeta, fallbackId: string): TranscriptTurn | null {
 	const tools = messages.filter((message): message is ToolMessage => message.kind === 'tool');
 	const texts = messages.filter(
 		(message): message is AssistantMessage => message.kind === 'assistant_text',
@@ -83,9 +91,10 @@ function buildTurn(messages: Message[], meta: TurnMeta): TranscriptTurn | null {
 	const start = tools[0]?.timestamp ?? texts[0]?.timestamp ?? messages[0]?.timestamp ?? '';
 
 	return {
-		id:
-			messages.find((message) => message.kind === 'tool' || message.kind === 'assistant_text')
-				?.id ?? start,
+		id: nonEmptyItemId(
+			messages.find((message) => message.kind === 'tool' || message.kind === 'assistant_text')?.id,
+			fallbackId,
+		),
 		activity,
 		tools,
 		toolCount: tools.length,
@@ -113,7 +122,7 @@ export function groupTranscriptTurns(messages: Message[]): TranscriptItem[] {
 	let provider: AgentProvider | null = null;
 
 	const flushTurn = () => {
-		const turn = buildTurn(pending, { model, provider });
+		const turn = buildTurn(pending, { model, provider }, fallbackItemId('turn', items.length));
 		pending = [];
 		if (turn) items.push({ type: 'turn', id: turn.id, turn });
 	};
@@ -126,7 +135,11 @@ export function groupTranscriptTurns(messages: Message[]): TranscriptItem[] {
 		}
 		if (message.kind === 'user_prompt') {
 			flushTurn();
-			items.push({ type: 'user', id: message.id, message });
+			items.push({
+				type: 'user',
+				id: nonEmptyItemId(message.id, fallbackItemId('user', items.length)),
+				message,
+			});
 			continue;
 		}
 		pending.push(message);
