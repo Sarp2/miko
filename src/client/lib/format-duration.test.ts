@@ -12,6 +12,11 @@ describe('formatElapsed', () => {
 		expect(formatElapsed(600_000)).toBe('10m, 0.0s');
 	});
 
+	test('rounds before splitting minutes and seconds', () => {
+		expect(formatElapsed(59_950)).toBe('1m, 0.0s');
+		expect(formatElapsed(119_950)).toBe('2m, 0.0s');
+	});
+
 	test('clamps negative durations to zero', () => {
 		expect(formatElapsed(-500)).toBe('0.0s');
 	});
