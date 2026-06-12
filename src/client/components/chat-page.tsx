@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useMemo } from 'react';
 import type { MikoStatus, WorkspaceSnapshot } from '../../shared/types';
+import { useChatScroll } from '../hooks/use-chat-scroll';
 import { composeTranscriptWindow } from '../lib/compose-transcript-window';
 import { groupTranscriptTurns } from '../lib/group-transcript-turns';
 import { hydrateTranscriptMessages } from '../lib/hydrate-transcript-messages';
@@ -86,10 +87,22 @@ export function ChatPageView({
 	);
 	const isFirstSession = sessionId === firstSessionId;
 	const showActivityIndicator = sessionStatus === 'starting' || sessionStatus === 'running';
+	const chatScroll = useChatScroll({
+		sessionId,
+		items,
+		initialized,
+		hasOlder: hasOlderMessages,
+		loadingOlder,
+		onLoadOlder,
+	});
 
 	return (
 		<div data-testid="chat-page" className="flex h-full min-h-0 flex-col bg-canvas text-ink">
-			<div className="scrollbar-miko min-h-0 flex-1 overflow-y-auto">
+			<div
+				ref={chatScroll.scrollRef}
+				onScroll={chatScroll.handleScroll}
+				className="scrollbar-miko min-h-0 flex-1 overflow-y-auto"
+			>
 				{!initialized ? (
 					<div className="flex h-full items-center justify-center text-caption text-ink-tertiary">
 						Loading chat…
@@ -99,9 +112,12 @@ export function ChatPageView({
 				) : visibleMessages.length === 0 && !hasOlderMessages ? (
 					<EmptyChatSessionState localPath={workspaceSnapshot.workspace.localPath} />
 				) : (
-					<div className="mx-auto flex w-full max-w-4xl flex-col px-5 py-5">
+					<div
+						ref={chatScroll.contentRef}
+						className="mx-auto flex w-full max-w-4xl flex-col px-5 py-5"
+					>
 						{hasOlderMessages ? (
-							<LoadOlderMessagesButton loading={loadingOlder} onLoadOlder={onLoadOlder} />
+							<LoadOlderMessagesButton loading={loadingOlder} onLoadOlder={chatScroll.loadOlder} />
 						) : null}
 						{items.map((item) => (
 							<TranscriptItemView
