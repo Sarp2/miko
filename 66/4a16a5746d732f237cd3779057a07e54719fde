@@ -1,0 +1,24 @@
+src/client/components/chat-composer/chat-composer-utils.test.ts
+  s_27135fa660dc77::t_b0849cebeccded 74-76,166-169
+  s_27135fa660dc77::t_c02771def216b8 54,56
+  s_27135fa660dc77::t_c545caf665df1b 1-53,55,57-73,77-146,148-165,170-171,173-187,189-196
+  s_27135fa660dc77::t_60882a3a237e11 147,172,188
+src/client/lib/utils.test.ts
+  s_27135fa660dc77::t_c545caf665df1b 1-14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "664a16a5746d732f237cd3779057a07e54719fde",
+  "prompts": {},
+  "sessions": {
+    "s_27135fa660dc77": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ebb44-e4b3-7021-8c6b-393f5015311b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
