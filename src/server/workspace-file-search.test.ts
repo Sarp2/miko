@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import path from 'node:path';
 
 import { runGit } from './diff-store';
-import { searchWorkspaceFiles } from './workspace-file-search';
+import { clearWorkspaceFileSearchCache, searchWorkspaceFiles } from './workspace-file-search';
 
 const roots: string[] = [];
 
@@ -21,6 +21,7 @@ async function writeRepoFile(repoPath: string, relativePath: string, content = '
 }
 
 afterEach(async () => {
+	clearWorkspaceFileSearchCache();
 	await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
 
@@ -53,5 +54,40 @@ describe('searchWorkspaceFiles', () => {
 			'src/file.ts',
 			'src/client/components/file-mention.tsx',
 		]);
+	});
+
+	test('reuses the cached file list for repeated workspace searches', async () => {
+		const repoPath = await createRepo();
+		await writeRepoFile(repoPath, 'README.md');
+
+		expect(await searchWorkspaceFiles(repoPath, 'readme')).toHaveLength(1);
+
+		await writeRepoFile(repoPath, 'docs/README.md');
+
+		expect(
+			(await searchWorkspaceFiles(repoPath, 'readme')).map((result) => result.relativePath),
+		).toEqual(['README.md']);
+
+		clearWorkspaceFileSearchCache(repoPath);
+
+		expect(
+			(await searchWorkspaceFiles(repoPath, 'readme')).map((result) => result.relativePath),
+		).toEqual(['README.md', 'docs/README.md']);
+	});
+
+	test('caches empty file lists', async () => {
+		const repoPath = await createRepo();
+
+		expect(await searchWorkspaceFiles(repoPath, 'readme')).toEqual([]);
+
+		await writeRepoFile(repoPath, 'README.md');
+
+		expect(await searchWorkspaceFiles(repoPath, 'readme')).toEqual([]);
+
+		clearWorkspaceFileSearchCache(repoPath);
+
+		expect(
+			(await searchWorkspaceFiles(repoPath, 'readme')).map((result) => result.relativePath),
+		).toEqual(['README.md']);
 	});
 });

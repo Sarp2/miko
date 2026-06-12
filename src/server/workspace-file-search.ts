@@ -5,6 +5,38 @@ import { runGit } from './diff-store';
 
 const DEFAULT_FILE_SEARCH_LIMIT = 20;
 const MAX_FILE_SEARCH_LIMIT = 50;
+const FILE_LIST_CACHE_TTL_MS = 15_000;
+const MAX_FILE_LIST_CACHE_ENTRIES = 50;
+
+interface FileListCacheEntry {
+	expiresAt: number;
+	paths: string[];
+	pending?: Promise<string[]>;
+}
+
+const fileListCacheByWorkspacePath = new Map<string, FileListCacheEntry>();
+
+function pruneWorkspaceFileListCache(now = Date.now()) {
+	for (const [workspacePath, entry] of fileListCacheByWorkspacePath.entries()) {
+		if (!entry.pending && entry.expiresAt <= now)
+			fileListCacheByWorkspacePath.delete(workspacePath);
+	}
+
+	while (fileListCacheByWorkspacePath.size > MAX_FILE_LIST_CACHE_ENTRIES) {
+		let oldestWorkspacePath: string | null = null;
+		let oldestExpiresAt = Number.POSITIVE_INFINITY;
+
+		for (const [workspacePath, entry] of fileListCacheByWorkspacePath.entries()) {
+			if (entry.pending) continue;
+			if (entry.expiresAt >= oldestExpiresAt) continue;
+			oldestWorkspacePath = workspacePath;
+			oldestExpiresAt = entry.expiresAt;
+		}
+
+		if (!oldestWorkspacePath) return;
+		fileListCacheByWorkspacePath.delete(oldestWorkspacePath);
+	}
+}
 
 function normalizeFilePath(filePath: string) {
 	return filePath.replace(/\\/g, '/').trim();
@@ -54,6 +86,55 @@ function uniqueFilePaths(stdout: string) {
 	return paths;
 }
 
+async function loadWorkspaceFileList(workspacePath: string) {
+	const result = await runGit(['ls-files', '-co', '--exclude-standard'], workspacePath);
+
+	if (result.exitCode !== 0) {
+		const detail = [result.stderr.trim(), result.stdout.trim()].filter(Boolean).join('\n');
+		throw new Error(detail || 'Unable to search workspace files');
+	}
+
+	return uniqueFilePaths(result.stdout);
+}
+
+async function getWorkspaceFileList(workspacePath: string) {
+	const now = Date.now();
+	pruneWorkspaceFileListCache(now);
+	const cached = fileListCacheByWorkspacePath.get(workspacePath);
+	if (cached && !cached.pending && cached.expiresAt > now) return cached.paths;
+	if (cached?.pending) return cached.pending;
+
+	const pending = loadWorkspaceFileList(workspacePath)
+		.then((paths) => {
+			fileListCacheByWorkspacePath.set(workspacePath, {
+				paths,
+				expiresAt: Date.now() + FILE_LIST_CACHE_TTL_MS,
+			});
+			pruneWorkspaceFileListCache();
+			return paths;
+		})
+		.catch((error) => {
+			fileListCacheByWorkspacePath.delete(workspacePath);
+			throw error;
+		});
+
+	fileListCacheByWorkspacePath.set(workspacePath, {
+		paths: cached?.paths ?? [],
+		expiresAt: cached?.expiresAt ?? 0,
+		pending,
+	});
+
+	return pending;
+}
+
+export function clearWorkspaceFileSearchCache(workspacePath?: string) {
+	if (workspacePath) {
+		fileListCacheByWorkspacePath.delete(workspacePath);
+		return;
+	}
+	fileListCacheByWorkspacePath.clear();
+}
+
 export async function searchWorkspaceFiles(
 	workspacePath: string,
 	query: string,
@@ -62,14 +143,9 @@ export async function searchWorkspaceFiles(
 	const normalizedQuery = normalizeQuery(query);
 	const requestedLimit = Number.isFinite(limit) ? Math.trunc(limit) : DEFAULT_FILE_SEARCH_LIMIT;
 	const safeLimit = Math.max(1, Math.min(requestedLimit, MAX_FILE_SEARCH_LIMIT));
-	const result = await runGit(['ls-files', '-co', '--exclude-standard'], workspacePath);
+	const filePaths = await getWorkspaceFileList(workspacePath);
 
-	if (result.exitCode !== 0) {
-		const detail = [result.stderr.trim(), result.stdout.trim()].filter(Boolean).join('\n');
-		throw new Error(detail || 'Unable to search workspace files');
-	}
-
-	return uniqueFilePaths(result.stdout)
+	return filePaths
 		.map((relativePath) => {
 			const score = scorePath(relativePath, normalizedQuery);
 			return score === null ? null : { relativePath, score };
