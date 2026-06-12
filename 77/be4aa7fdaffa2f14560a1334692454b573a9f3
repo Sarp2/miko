@@ -1,0 +1,21 @@
+src/client/lib/turn-changed-files.ts
+  s_de62cd0766543a::t_90160eeb443972 45-46
+src/client/lib/turn-changed-files.test.ts
+  s_de62cd0766543a::t_04d9d24d235217 43-48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "77be4aa7fdaffa2f14560a1334692454b573a9f3",
+  "prompts": {},
+  "sessions": {
+    "s_de62cd0766543a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "76e5e1c0-c385-4fa9-98ae-d3985b0d69f3",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
