@@ -10,6 +10,12 @@ describe('toRelativePath', () => {
 		expect(toRelativePath('/other/app.ts', '/home/dev/repo')).toBe('/other/app.ts');
 	});
 
+	test('returns the original path for sibling directories with the same prefix', () => {
+		expect(toRelativePath('/home/dev/repo-v2/src/app.ts', '/home/dev/repo')).toBe(
+			'/home/dev/repo-v2/src/app.ts',
+		);
+	});
+
 	test('returns the original path when the root is empty or equal', () => {
 		expect(toRelativePath('/home/dev/repo/a.ts', '')).toBe('/home/dev/repo/a.ts');
 		expect(toRelativePath('/home/dev/repo', '/home/dev/repo')).toBe('/home/dev/repo');
