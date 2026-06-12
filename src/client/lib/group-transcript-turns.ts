@@ -57,6 +57,9 @@ function buildTurn(messages: Message[], meta: TurnMeta): TranscriptTurn | null {
 	const usage =
 		[...messages].reverse().find((message) => message.kind === 'context_window_updated')?.usage ??
 		null;
+	// A cancelled turn ends with an `interrupted` entry instead of a `result`;
+	// treat it as terminal so the turn stops showing the running timer.
+	const interrupted = messages.some((message) => message.kind === 'interrupted');
 
 	const finalText = texts.at(-1) ?? null;
 	const activity = messages.filter(
@@ -80,7 +83,7 @@ function buildTurn(messages: Message[], meta: TurnMeta): TranscriptTurn | null {
 		durationMs: result ? result.durationMs : null,
 		errorText: errorMessage || null,
 		startTimestamp: start,
-		isComplete: result !== null,
+		isComplete: result !== null || interrupted,
 		model: meta.model,
 		provider: meta.provider,
 		usage,

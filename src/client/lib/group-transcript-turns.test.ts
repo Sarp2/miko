@@ -81,4 +81,15 @@ describe('groupTranscriptTurns', () => {
 		expect(item.turn.isComplete).toBe(false);
 		expect(item.turn.durationMs).toBeNull();
 	});
+
+	test('treats an interrupted (cancelled) turn as complete', () => {
+		const items = groupTranscriptTurns([
+			toolMessage('t1', 'call-1'),
+			{ ...base('int'), kind: 'interrupted' },
+		]);
+		const item = items[0];
+		if (item.type !== 'turn') throw new Error('expected turn');
+		expect(item.turn.isComplete).toBe(true);
+		expect(item.turn.durationMs).toBeNull();
+	});
 });
