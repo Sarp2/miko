@@ -1,0 +1,21 @@
+src/client/lib/relative-path.ts
+  s_59efac9519a05d::t_5d8c1d77597e63 3-9
+src/client/lib/relative-path.test.ts
+  s_59efac9519a05d::t_5d8c1d77597e63 13-18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "ae742e53e629dd34e5c0836c4452eb397e2f603f",
+  "prompts": {},
+  "sessions": {
+    "s_59efac9519a05d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eb537-8e85-7c13-b9e1-e10968e35592",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
