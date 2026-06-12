@@ -1,0 +1,27 @@
+src/server/workspace-file-search.test.ts
+  s_82e93de1bb8ac8::t_c7328cbf2cda32 6,24,58-66,70-72
+  s_82e93de1bb8ac8::t_b6fb41a7faafbe 89-91
+  s_82e93de1bb8ac8::t_e57689e25ac9a9 67-69,73-75
+  s_82e93de1bb8ac8::t_9c451fd6f3ec3c 77-88,92
+src/server/workspace-file-search.ts
+  s_82e93de1bb8ac8::t_f47b234aaf95be 8,10-17,89-101,103,105-112,114-137,146,148
+  s_82e93de1bb8ac8::t_2b4a4aa954aa69 104
+  s_82e93de1bb8ac8::t_d856c4c72849c1 21-22
+  s_82e93de1bb8ac8::t_af9754d091138e 9,19-20,23-39,102,113
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "f867a937259c97eb345a61ee85f31d0a7370149d",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
