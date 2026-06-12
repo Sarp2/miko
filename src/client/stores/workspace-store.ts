@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { EditorOpenSettings } from '../../shared/protocol';
 import type { WorkspaceFileSearchResult, WorkspaceSnapshot } from '../../shared/types';
+import { basename } from '../routes/workspace-route-state';
 import { useWsStore } from './ws-store';
 
 export interface OpenExternalArgs {
@@ -69,6 +70,28 @@ function ensureWorkspaceSnapshotSync() {
 	unsubscribeFromWsStore = useWsStore.subscribe(syncConnectedWorkspaceSnapshots);
 }
 
+function parseWorkspaceFileSearchResults(value: unknown): WorkspaceFileSearchResult[] {
+	if (!Array.isArray(value)) return [];
+
+	return value.flatMap((entry) => {
+		if (!entry || typeof entry !== 'object') return [];
+		const candidate = entry as Partial<WorkspaceFileSearchResult>;
+		if (typeof candidate.relativePath !== 'string' || !candidate.relativePath.trim()) return [];
+
+		const relativePath = candidate.relativePath;
+		return [
+			{
+				id: typeof candidate.id === 'string' && candidate.id ? candidate.id : relativePath,
+				name:
+					typeof candidate.name === 'string' && candidate.name
+						? candidate.name
+						: basename(relativePath),
+				relativePath,
+			},
+		];
+	});
+}
+
 export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
 	snapshotByWorkspaceId: new Map(),
 	connectedWorkspaceIds: new Set(),
@@ -115,13 +138,14 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
 		return useWsStore.getState().command({ type: 'workspace.refreshPrStage', workspaceId });
 	},
 
-	searchFiles: (workspaceId, query, limit) => {
-		return useWsStore.getState().command<WorkspaceFileSearchResult[]>({
+	searchFiles: async (workspaceId, query, limit) => {
+		const result = await useWsStore.getState().command<unknown>({
 			type: 'workspace.searchFiles',
 			workspaceId,
 			query,
 			limit,
 		});
+		return parseWorkspaceFileSearchResults(result);
 	},
 
 	renameBranch: (workspaceId, branchName) => {
