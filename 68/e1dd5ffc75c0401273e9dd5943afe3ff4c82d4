@@ -1,0 +1,44 @@
+src/server/workspace-file-search.test.ts
+  s_82e93de1bb8ac8::t_2b160967ee645b 1
+  s_82e93de1bb8ac8::t_de9db44f808e2f 2-36,42-53,55-57
+  s_82e93de1bb8ac8::t_f80a77ae399913 37-41,54
+src/client/components/chat-composer/chat-composer.tsx
+  s_82e93de1bb8ac8::t_e411d368c9b5e7 34,56
+src/client/components/chat-composer/file-mention-popover.tsx
+  s_82e93de1bb8ac8::t_2711ca393f1728 1,58,93
+  s_82e93de1bb8ac8::t_616011a2a9ea81 5
+  s_82e93de1bb8ac8::t_3affd3f0431bee 48
+src/server/ws-router.ts
+  s_82e93de1bb8ac8::t_78220052e084d5 36,565-571
+src/server/workspace-file-search.ts
+  s_82e93de1bb8ac8::t_33cde662f8eb12 63-64
+  s_82e93de1bb8ac8::t_0e76fb4bf667c6 1-62,65-91
+src/client/hooks/use-file-mentions.ts
+  s_82e93de1bb8ac8::t_f22223c818f1c7 32,49,66,71,85-91,129
+  s_82e93de1bb8ac8::t_3dcc2fe035b45b 35,46,83
+  s_82e93de1bb8ac8::t_390a7f73afceae 1,10-13,16,22-27,29,31,33-34,36-37,39-40,42-45,47-48,50-65,67-70,72-80,82,84,128
+  s_82e93de1bb8ac8::t_410ee9935d7aa8 81
+src/shared/protocol.ts
+  s_82e93de1bb8ac8::t_0c784f85aeb9d1 16,87,170-171
+src/shared/types.ts
+  s_82e93de1bb8ac8::t_ff64f15457f954 577-582
+src/client/stores/workspace-store.ts
+  s_82e93de1bb8ac8::t_bbc2bc112fa80b 3,25-29,118
+  s_82e93de1bb8ac8::t_80a483741da804 119-124
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "68e1dd5ffc75c0401273e9dd5943afe3ff4c82d4",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
