@@ -1,0 +1,19 @@
+src/client/components/transcript-turn-footer.tsx
+  s_59efac9519a05d::t_dbd0ac0518ea3e 86,90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "61af3e4291535f96032ec65d2420350dd50f17bb",
+  "prompts": {},
+  "sessions": {
+    "s_59efac9519a05d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eb537-8e85-7c13-b9e1-e10968e35592",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
