@@ -417,6 +417,31 @@ describe('fileChangeToToolCalls', () => {
 		});
 	});
 
+	test('converts a delete change into a delete tool call', () => {
+		const item: FileChangeItem = {
+			type: 'fileChange',
+			id: 'del-1',
+			status: 'completed',
+			changes: [
+				{
+					path: 'src/gone.ts',
+					kind: 'delete',
+					diff: ['--- a/src/gone.ts', '+++ /dev/null', '@@ -1 +0,0 @@', '-const x = 1;'].join('\n'),
+				},
+			],
+		};
+
+		expect(fileChangeToToolCalls(item)[0]).toMatchObject({
+			kind: 'tool_call',
+			tool: {
+				toolKind: 'delete_file',
+				toolName: 'Delete',
+				toolId: 'del-1',
+				input: { filePath: 'src/gone.ts', oldString: 'const x = 1;' },
+			},
+		});
+	});
+
 	test('keeps move changes as generic FileChange tool calls', () => {
 		const item: FileChangeItem = {
 			type: 'fileChange',

@@ -40,6 +40,19 @@ describe('turnChangedFiles', () => {
 		expect(file).toMatchObject({ additions: 2, deletions: 0, before: '', after: 'x\ny' });
 	});
 
+	test('derives deletions from a delete', () => {
+		const [file] = turnChangedFiles([
+			tool('delete_file', { filePath: 'src/gone.ts', oldString: 'a\nb\nc' }),
+		]);
+		expect(file).toMatchObject({
+			name: 'gone.ts',
+			additions: 0,
+			deletions: 3,
+			before: 'a\nb\nc',
+			after: '',
+		});
+	});
+
 	test('skips errored file tools', () => {
 		const failed = tool('edit_file', { filePath: 'src/a.ts', oldString: 'x', newString: 'y' });
 		failed.isError = true;

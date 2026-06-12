@@ -4,6 +4,7 @@ import {
 	MagnifyingGlass,
 	PencilSimple,
 	TerminalWindow,
+	Trash,
 	User,
 	WarningCircle,
 	Wrench,
@@ -53,6 +54,8 @@ export function toolLabel(tool: ToolMessage): string {
 			return input.filePath ? `Write ${input.filePath}` : 'Write file';
 		case 'edit_file':
 			return input.filePath ? `Edit ${input.filePath}` : 'Edit file';
+		case 'delete_file':
+			return input.filePath ? `Delete ${input.filePath}` : 'Delete file';
 		case 'subagent_task':
 			return input.subagentType || 'Run subagent task';
 		default:
@@ -74,6 +77,8 @@ export function ToolKindIcon({ kind, className }: { kind: ToolKind; className?: 
 		case 'edit_file':
 		case 'write_file':
 			return <PencilSimple className={cls} weight="bold" />;
+		case 'delete_file':
+			return <Trash className={cls} weight="bold" />;
 		case 'subagent_task':
 			return <User className={cls} weight="bold" />;
 		default:

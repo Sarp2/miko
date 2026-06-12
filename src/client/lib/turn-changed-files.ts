@@ -41,23 +41,31 @@ export function turnChangedFiles(tools: ToolMessage[]): TurnChangedFile[] {
 	const byPath = new Map<string, FileAccumulator>();
 
 	for (const tool of tools) {
-		if (tool.toolKind !== 'edit_file' && tool.toolKind !== 'write_file') continue;
-		// A failed edit/write left the file unchanged, so skip it.
+		if (
+			tool.toolKind !== 'edit_file' &&
+			tool.toolKind !== 'write_file' &&
+			tool.toolKind !== 'delete_file'
+		)
+			continue;
+		// A failed edit/write/delete left the file unchanged, so skip it.
 		if (tool.isError) continue;
 		const input = asRecord(tool.input);
 		const path = typeof input.filePath === 'string' ? input.filePath : '';
 		if (!path) continue;
 
-		const before =
-			tool.toolKind === 'edit_file' && typeof input.oldString === 'string' ? input.oldString : '';
-		const after =
-			tool.toolKind === 'edit_file'
-				? typeof input.newString === 'string'
-					? input.newString
-					: ''
-				: typeof input.content === 'string'
-					? input.content
-					: '';
+		const oldString = typeof input.oldString === 'string' ? input.oldString : '';
+		const content = typeof input.content === 'string' ? input.content : '';
+		// before = removed content, after = resulting content.
+		let before = '';
+		let after = '';
+		if (tool.toolKind === 'edit_file') {
+			before = oldString;
+			after = typeof input.newString === 'string' ? input.newString : '';
+		} else if (tool.toolKind === 'write_file') {
+			after = content;
+		} else {
+			before = oldString;
+		}
 
 		const accumulator = byPath.get(path) ?? {
 			path,
