@@ -1,0 +1,121 @@
+src/client/lib/group-transcript-turns.ts
+  s_de62cd0766543a::t_65dcd1957679b0 1-5,12-16
+  s_59efac9519a05d::t_6ff69dc36a3137 78
+  s_de62cd0766543a::t_43ee7bd47c2732 6-11,17-35,39-44,46-49,51-53,61-62,65,67-71,75-77,79-83,87-97,100-101,103-108,113-123
+  s_de62cd0766543a::t_d8389005526967 54-56,63-64,72-74
+  s_de62cd0766543a::t_d89038331f0c8e 58-59
+  s_de62cd0766543a::t_870b9361d665af 98-99,102,109-112
+  s_de62cd0766543a::t_e7ea574f61b0b2 45,57,84-86
+  s_de62cd0766543a::t_f6cb9be8b56eb7 50,60,66
+  s_de62cd0766543a::t_93ffd9fb9db4c1 36-38
+bun.lock
+  s_de62cd0766543a::t_6e0541e2046220 13,312
+src/client/components/messages/index.ts
+  s_de62cd0766543a::t_c3fc0feef5540a 3
+src/client/lib/turn-changed-files.test.ts
+  s_de62cd0766543a::t_5f8e5284d2974e 37-39
+  s_de62cd0766543a::t_9a18bbd6671b78 1-36,40-53
+package.json
+  s_59efac9519a05d::t_831c34c8b24c46 30
+src/vite-env.d.ts
+  s_59efac9519a05d::t_d540601e88445a 1
+src/client/lib/format-duration.test.ts
+  s_de62cd0766543a::t_3e8dc5b2e14de9 1-18
+src/client/components/messages/tool-line.tsx
+  s_59efac9519a05d::t_9f399e3d0b7607 71,93,97-101
+  s_de62cd0766543a::t_db05c8c98216da 3,5,14-15,37-38,63-65,67,72-76,78,80,84-90,92,95,102
+src/client/components/transcript-message-view.test.tsx
+  s_de62cd0766543a::t_d8389005526967 4
+  s_de62cd0766543a::t_59c799874931f6 13
+  s_de62cd0766543a::t_b0127acebf742f 58
+  s_59efac9519a05d::t_6ff69dc36a3137 62
+  s_de62cd0766543a::t_2fd78a9c50fb6d 5,8,11-12,14,17-37,43-57,59-61,67-77
+src/client/lib/turn-changed-files.ts
+  s_de62cd0766543a::t_844f08e03e76f3 11-14,17-25,31-32,36-38,41,48-58,60-72,75-82
+  s_de62cd0766543a::t_7476f03550c79f 1-10,15-16,26-30,33-35,39-40,42-47,59,73-74,83
+src/client/lib/relative-path.ts
+  s_de62cd0766543a::t_a5f27c7ab5a8be 1-8
+src/client/lib/turn-summary.ts
+  s_de62cd0766543a::t_c3b32c9608ce74 1-22
+src/client/lib/turn-summary.test.ts
+  s_de62cd0766543a::t_ca3b3ff0c959bd 1-27
+src/client/components/chat-page.tsx
+  s_de62cd0766543a::t_ac85d98b91f401 113
+  s_de62cd0766543a::t_a67fdd4918b2bd 4,12
+  s_de62cd0766543a::t_744cfa23ada1af 75-79
+  s_de62cd0766543a::t_1532bc844cac34 106
+  s_de62cd0766543a::t_5279411061de82 107-111
+src/client/components/transcript-turn.tsx
+  s_de62cd0766543a::t_8e4a55fce9ef09 3,5-6,9-10,68,70-79
+  s_de62cd0766543a::t_14cbae4333e3b8 26,36-37,43,55,65,80,82-84
+  s_de62cd0766543a::t_fa84f5c3c30316 81
+  s_de62cd0766543a::t_98042414002d65 58-64
+  s_de62cd0766543a::t_b78445e122d538 1-2,4,7-8,24-25,27-34,38-42,44-54,69
+  s_de62cd0766543a::t_7d1e11a098fbe4 11-21
+src/client/components/icons/file-icon-map.ts
+  s_de62cd0766543a::t_4c7a44b5a0e02c 1-56,78-113,125-126,177-178,206,230-254,259,263-264
+  s_de62cd0766543a::t_5f8e5284d2974e 57-77,114-124,127-176,179-205,207-229
+  s_de62cd0766543a::t_e6f5f30477230c 255-258,260-262
+src/client/components/icons/file-icon-map.test.ts
+  s_de62cd0766543a::t_5c58b57eafd366 1-24
+src/client/components/transcript-running-timer.tsx
+  s_de62cd0766543a::t_31563e9f1b2c07 1-3,5-11,14-17,19-22
+src/client/lib/relative-path.test.ts
+  s_de62cd0766543a::t_a38f6cb5b536a5 1-2,4-7,9-11,13-17
+src/client/components/changed-file-chip.tsx
+  s_de62cd0766543a::t_f8530564c4c16e 1-5,8-9,11-31,34-48
+src/client/lib/group-transcript-turns.test.ts
+  s_de62cd0766543a::t_d06a6cb619e220 1-84
+src/client/components/transcript-message-view.tsx
+  s_de62cd0766543a::t_634d44f12264c1 2,6,9
+  s_de62cd0766543a::t_c79ce77e9942ab 18-24,37
+  s_de62cd0766543a::t_a8aef04ff9dd32 3-4
+  s_de62cd0766543a::t_27e5287b06d1a0 1,8,14-17,25,27-31,36,38
+src/client/components/transcript-turn-meta.tsx
+  s_de62cd0766543a::t_3ab087112d0f21 1,3-6,9-17,20-22,24-29,31,33-43,46-64
+src/client/components/transcript-turn-footer.tsx
+  s_de62cd0766543a::t_0094bed0aaa5ee 1-14,16,18-32,34-38,41-51,53-108
+src/client/lib/format-duration.ts
+  s_de62cd0766543a::t_a41c1fab901c42 1-8
+src/client/components/icons/file-name-icon.tsx
+  s_59efac9519a05d::t_4fb079c23c6fc2 128-130,143-144,146-149
+  s_59efac9519a05d::t_45ef4cc59ef8f7 1-50,54
+  s_de62cd0766543a::t_5f8e5284d2974e 133-139
+  s_de62cd0766543a::t_f130e654973bf0 51,75,126,140
+  s_59efac9519a05d::t_3ed87544ec1851 76-125
+  s_59efac9519a05d::t_45bb7ae67db6c8 52
+  s_59efac9519a05d::t_d540601e88445a 53,55-74,127,141-142,145,150-152
+  s_59efac9519a05d::t_11fd88e2f94e64 131-132
+src/client/components/messages/changed-file-diff.tsx
+  s_de62cd0766543a::t_4cb9a624aeed7d 87,92,103,106-113
+  s_de62cd0766543a::t_1f73d2307cc4c7 64-74,76-77,79
+  s_de62cd0766543a::t_4264db2129e872 2,82-84,86,88-91,93-100
+  s_59efac9519a05d::t_2fb1bfbcea791f 3,104-105
+  s_de62cd0766543a::t_161eca8b4b69e5 78
+  s_de62cd0766543a::t_17a025e24aad10 1,5-43,48,53,56-60,62-63,75
+  s_de62cd0766543a::t_72c94333de2d1e 44-47,49-52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "3f089d15ee18c6637c4ad41d8517a0ed8f692a2e",
+  "prompts": {},
+  "sessions": {
+    "s_59efac9519a05d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eb537-8e85-7c13-b9e1-e10968e35592",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    },
+    "s_de62cd0766543a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "76e5e1c0-c385-4fa9-98ae-d3985b0d69f3",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
