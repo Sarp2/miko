@@ -27,6 +27,7 @@
     "@fontsource-variable/jetbrains-mono": "^5.2.8",
     "@phosphor-icons/react": "^2.1.10",
     "@pierre/diffs": "^1.1.12",
+    "@pierre/vscode-icons": "^0.0.9",
     "@radix-ui/react-context-menu": "^2.2.16",
     "@radix-ui/react-hover-card": "^1.1.15",
     "@radix-ui/react-scroll-area": "^1.2.10",

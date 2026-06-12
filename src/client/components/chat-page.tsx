@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useMemo } from 'react';
 import type { MikoStatus, WorkspaceSnapshot } from '../../shared/types';
 import { composeTranscriptWindow } from '../lib/compose-transcript-window';
+import { groupTranscriptTurns } from '../lib/group-transcript-turns';
 import { hydrateTranscriptMessages } from '../lib/hydrate-transcript-messages';
 import { basename, selectFirstSessionId } from '../routes/workspace-route-state';
 import { type ChatWindow, useChatWindowStore } from '../stores/chat-window-store';
@@ -8,7 +9,7 @@ import { useSessionStore } from '../stores/session-store';
 import { useWorkspaceStore } from '../stores/workspace-store';
 import { ChatComposer } from './chat-composer/chat-composer';
 import { EmptyChatIntro } from './chat-empty-state';
-import { TranscriptActivityIndicator, TranscriptMessageView } from './transcript-message-view';
+import { TranscriptActivityIndicator, TranscriptItemView } from './transcript-message-view';
 import { Button } from './ui/button';
 
 interface ChatPageProps {
@@ -71,6 +72,11 @@ export function ChatPageView({
 	const visibleMessages = useMemo(() => {
 		return messages.filter((message) => !message.hidden);
 	}, [messages]);
+	const items = useMemo(() => groupTranscriptTurns(visibleMessages), [visibleMessages]);
+	const hasOpenTurn = useMemo(() => {
+		const last = items.at(-1);
+		return last?.type === 'turn' && !last.turn.isComplete;
+	}, [items]);
 	const initialized = chatWindow?.initialized === true;
 	const hasOlderMessages = chatWindow?.hasOlder === true;
 	const loadingOlder = chatWindow?.loadingOlder === true;
@@ -97,12 +103,14 @@ export function ChatPageView({
 						{hasOlderMessages ? (
 							<LoadOlderMessagesButton loading={loadingOlder} onLoadOlder={onLoadOlder} />
 						) : null}
-						{visibleMessages.map((message) => (
-							<TranscriptMessageView key={message.id} message={message} />
+						{items.map((item) => (
+							<TranscriptItemView
+								key={item.id}
+								item={item}
+								workspaceRoot={workspaceSnapshot.workspace.localPath}
+							/>
 						))}
-						{showActivityIndicator ? (
-							<TranscriptActivityIndicator status={sessionStatus ?? undefined} />
-						) : null}
+						{showActivityIndicator && !hasOpenTurn ? <TranscriptActivityIndicator /> : null}
 					</div>
 				)}
 			</div>
