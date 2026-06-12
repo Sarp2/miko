@@ -1,0 +1,21 @@
+src/client/lib/group-transcript-turns.ts
+  s_de62cd0766543a::t_29d95aa4418368 64-75
+src/client/lib/group-transcript-turns.test.ts
+  s_de62cd0766543a::t_025ad98ad38d60 47-58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "e39cc005dc6785fee44c59224c9db40edd1bd475",
+  "prompts": {},
+  "sessions": {
+    "s_de62cd0766543a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "76e5e1c0-c385-4fa9-98ae-d3985b0d69f3",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
