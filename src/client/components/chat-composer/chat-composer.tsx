@@ -93,9 +93,9 @@ export function ChatComposer({
 									}
 
 									const firstMentionOption = mentions.mentionOptions[0];
-									if (event.key === 'Enter' && mentions.mentionRange && firstMentionOption) {
+									if (event.key === 'Enter' && mentions.mentionRange) {
 										event.preventDefault();
-										mentions.insertMention(firstMentionOption);
+										if (firstMentionOption) mentions.insertMention(firstMentionOption);
 										return;
 									}
 
