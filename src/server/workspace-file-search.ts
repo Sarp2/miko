@@ -106,15 +106,19 @@ async function getWorkspaceFileList(workspacePath: string) {
 
 	const pending = loadWorkspaceFileList(workspacePath)
 		.then((paths) => {
-			fileListCacheByWorkspacePath.set(workspacePath, {
-				paths,
-				expiresAt: Date.now() + FILE_LIST_CACHE_TTL_MS,
-			});
-			pruneWorkspaceFileListCache();
+			const current = fileListCacheByWorkspacePath.get(workspacePath);
+			if (current?.pending === pending) {
+				fileListCacheByWorkspacePath.set(workspacePath, {
+					paths,
+					expiresAt: Date.now() + FILE_LIST_CACHE_TTL_MS,
+				});
+				pruneWorkspaceFileListCache();
+			}
 			return paths;
 		})
 		.catch((error) => {
-			fileListCacheByWorkspacePath.delete(workspacePath);
+			const current = fileListCacheByWorkspacePath.get(workspacePath);
+			if (current?.pending === pending) fileListCacheByWorkspacePath.delete(workspacePath);
 			throw error;
 		});
 
