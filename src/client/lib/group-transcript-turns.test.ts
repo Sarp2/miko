@@ -44,6 +44,18 @@ describe('groupTranscriptTurns', () => {
 		expect(item.turn.messageCount).toBe(1);
 	});
 
+	test('keeps a pre-tool preamble in activity instead of surfacing it as the reply', () => {
+		const items = groupTranscriptTurns([
+			{ ...base('a1'), kind: 'assistant_text', text: "I'll inspect" },
+			toolMessage('t1', 'call-1'),
+		]);
+
+		const item = items[0];
+		if (item.type !== 'turn') throw new Error('expected turn');
+		expect(item.turn.finalText).toBeNull();
+		expect(item.turn.activity.map((message) => message.id)).toEqual(['a1', 't1']);
+	});
+
 	test('captures model/provider from system_init and usage, dropping diagnostics', () => {
 		const items = groupTranscriptTurns([
 			{

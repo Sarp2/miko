@@ -61,7 +61,18 @@ function buildTurn(messages: Message[], meta: TurnMeta): TranscriptTurn | null {
 	// treat it as terminal so the turn stops showing the running timer.
 	const interrupted = messages.some((message) => message.kind === 'interrupted');
 
-	const finalText = texts.at(-1) ?? null;
+	// The final reply is the last assistant text that comes *after* the last tool
+	// call. A pre-tool preamble (e.g. "I'll inspect…") stays with the work instead
+	// of being surfaced as the answer.
+	let finalText: AssistantMessage | null = null;
+	for (let index = messages.length - 1; index >= 0; index--) {
+		const message = messages[index];
+		if (message.kind === 'tool') break;
+		if (message.kind === 'assistant_text') {
+			finalText = message;
+			break;
+		}
+	}
 	const activity = messages.filter(
 		(message) =>
 			message.kind === 'tool' || (message.kind === 'assistant_text' && message !== finalText),
