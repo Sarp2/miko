@@ -54,19 +54,21 @@ export function TurnFooter({
 				)
 			) : null}
 
-			<Tooltip>
-				<TooltipTrigger asChild>
-					<button
-						type="button"
-						onClick={copyMessage}
-						className="rounded p-0.5 text-ink-tertiary transition-colors hover:text-ink-muted"
-						aria-label="Copy final message"
-					>
-						<Copy className="size-3.5" />
-					</button>
-				</TooltipTrigger>
-				<TooltipContent>Copy final message</TooltipContent>
-			</Tooltip>
+			{turn.finalText ? (
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<button
+							type="button"
+							onClick={copyMessage}
+							className="rounded p-0.5 text-ink-tertiary transition-colors hover:text-ink-muted"
+							aria-label="Copy final message"
+						>
+							<Copy className="size-3.5" />
+						</button>
+					</TooltipTrigger>
+					<TooltipContent>Copy final message</TooltipContent>
+				</Tooltip>
+			) : null}
 
 			<DropdownMenu modal={false}>
 				<Tooltip>
