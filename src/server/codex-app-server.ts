@@ -506,6 +506,22 @@ export function fileChangeToToolCalls(
 			});
 		}
 
+		if (normalizedKind.type === 'delete') {
+			const oldString =
+				typeof change.diff === 'string' ? parseUnifiedDiff(change.diff).oldString : '';
+			return timestamped({
+				kind: 'tool_call',
+				tool: {
+					kind: 'tool',
+					toolKind: 'delete_file',
+					toolName: 'Delete',
+					toolId,
+					input: oldString ? { filePath: change.path, oldString } : { filePath: change.path },
+					rawInput: payload,
+				},
+			});
+		}
+
 		if (typeof change.diff === 'string') {
 			const { oldString, newString } = parseUnifiedDiff(change.diff);
 

@@ -461,6 +461,9 @@ export interface WriteFileToolCall
 export interface EditFileToolCall
 	extends ToolCallBase<'edit_file', { filePath: string; oldString: string; newString: string }> {}
 
+export interface DeleteFileToolCall
+	extends ToolCallBase<'delete_file', { filePath: string; oldString?: string }> {}
+
 export interface SubAgentTaskToolCall
 	extends ToolCallBase<'subagent_task', { subagentType?: string }> {}
 
@@ -485,6 +488,7 @@ export type NormalizedToolCall =
 	| ReadFileToolCall
 	| WriteFileToolCall
 	| EditFileToolCall
+	| DeleteFileToolCall
 	| SubAgentTaskToolCall
 	| McpGenericToolCall
 	| UnknownToolCall;
@@ -905,6 +909,12 @@ export type HydratedEditFileToolCall = HydratedToolCallBase<
 	unknown
 >;
 
+export type HydratedDeleteFileToolCall = HydratedToolCallBase<
+	'delete_file',
+	DeleteFileToolCall['input'],
+	unknown
+>;
+
 export type HydratedSubagentTaskToolCall = HydratedToolCallBase<
 	'subagent_task',
 	SubAgentTaskToolCall['input'],
@@ -935,6 +945,7 @@ export type HydratedToolCall =
 	| HydratedReadFileToolCall
 	| HydratedWriteFileToolCall
 	| HydratedEditFileToolCall
+	| HydratedDeleteFileToolCall
 	| HydratedSubagentTaskToolCall
 	| HydratedMcpGenericToolCall
 	| HydratedUnknownToolCall;
