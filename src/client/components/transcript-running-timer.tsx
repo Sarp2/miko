@@ -13,7 +13,7 @@ function useLiveElapsed(startMs: number): number {
 
 /** Live streaming indicator: animated mark + ticking elapsed time. */
 export function RunningTimer({ startMs }: { startMs?: number }) {
-	const startRef = useRef(startMs && !Number.isNaN(startMs) ? startMs : Date.now());
+const startRef = useRef(startMs !== undefined && !Number.isNaN(startMs) ? startMs : Date.now());
 	const elapsed = useLiveElapsed(startRef.current);
 	return (
 		<span className="inline-flex items-center gap-1.5 text-caption text-ink-tertiary">
