@@ -245,23 +245,13 @@ export function useChatScroll({
 		});
 	}, [maintainScrollPosition]);
 
-	const updateScrollStateFromEvent = useCallback(() => {
-		const element = scrollRef.current;
-		if (!element || !initialized) return;
-
-		pinnedToBottomRef.current = isPinnedToBottom(element);
-		anchorRef.current = captureFirstVisibleAnchor(element);
-		saveMemory();
-		requestOlderPageIfNearTop(element);
-	}, [initialized, requestOlderPageIfNearTop, saveMemory]);
-
 	const handleScroll = useCallback(() => {
 		if (typeof window === 'undefined' || scrollFrameRef.current !== null) return;
 		scrollFrameRef.current = window.requestAnimationFrame(() => {
 			scrollFrameRef.current = null;
-			updateScrollStateFromEvent();
+			updateAnchorState();
 		});
-	}, [updateScrollStateFromEvent]);
+	}, [updateAnchorState]);
 
 	useEffect(() => {
 		restoredSessionRef.current = null;
