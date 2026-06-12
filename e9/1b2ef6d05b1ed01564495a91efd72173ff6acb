@@ -1,0 +1,34 @@
+src/server/codex-app-server.ts
+  s_de62cd0766543a::t_23814441438e6b 509-524
+src/client/components/messages/tool-line.tsx
+  s_de62cd0766543a::t_9d7eb97933dbc8 57-58
+  s_de62cd0766543a::t_b9ad3978012988 80-81
+  s_de62cd0766543a::t_c35aae69b8bd8f 7
+src/server/codex-app-server.test.ts
+  s_de62cd0766543a::t_e6310c04a3a347 420-444
+src/client/lib/turn-changed-files.ts
+  s_de62cd0766543a::t_3da3d30c2c851b 44-50,56-68
+src/client/lib/turn-changed-files.test.ts
+  s_de62cd0766543a::t_2c722b54232bec 43-55
+src/shared/types.ts
+  s_de62cd0766543a::t_65ff4fb4affdb2 948
+  s_de62cd0766543a::t_4f3f470741c459 464-466
+  s_de62cd0766543a::t_0f66406830fb1d 912-917
+  s_de62cd0766543a::t_d511386f086aad 491
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "e91b2ef6d05b1ed01564495a91efd72173ff6acb",
+  "prompts": {},
+  "sessions": {
+    "s_de62cd0766543a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "76e5e1c0-c385-4fa9-98ae-d3985b0d69f3",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
