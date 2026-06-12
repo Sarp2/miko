@@ -42,6 +42,8 @@ export function turnChangedFiles(tools: ToolMessage[]): TurnChangedFile[] {
 
 	for (const tool of tools) {
 		if (tool.toolKind !== 'edit_file' && tool.toolKind !== 'write_file') continue;
+		// A failed edit/write left the file unchanged, so skip it.
+		if (tool.isError) continue;
 		const input = asRecord(tool.input);
 		const path = typeof input.filePath === 'string' ? input.filePath : '';
 		if (!path) continue;

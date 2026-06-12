@@ -40,6 +40,12 @@ describe('turnChangedFiles', () => {
 		expect(file).toMatchObject({ additions: 2, deletions: 0, before: '', after: 'x\ny' });
 	});
 
+	test('skips errored file tools', () => {
+		const failed = tool('edit_file', { filePath: 'src/a.ts', oldString: 'x', newString: 'y' });
+		failed.isError = true;
+		expect(turnChangedFiles([failed])).toEqual([]);
+	});
+
 	test('aggregates multiple edits to the same file and ignores other tools', () => {
 		const files = turnChangedFiles([
 			tool('edit_file', { filePath: 'src/a.ts', oldString: 'a', newString: 'a\nb' }),
