@@ -1,0 +1,19 @@
+src/server/workspace-file-search.ts
+  s_82e93de1bb8ac8::t_0e858bcb0d7acc 109-116,120-121
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "2ec186e2e8d44be351c7c532819138d66cfc79a2",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
