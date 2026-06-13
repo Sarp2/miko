@@ -574,6 +574,22 @@ export interface WorkspaceDiffFile {
 	size?: number;
 }
 
+export interface WorkspaceDiffPatchResult {
+	path: string;
+	patch: string;
+	patchDigest: string;
+}
+
+export interface WorkspaceFileContentsResult {
+	path: string;
+	name: string;
+	contents: string;
+	mimeType: string;
+	size: number;
+	encoding: 'utf-8';
+	cacheKey: string;
+}
+
 export interface WorkspaceFileSearchResult {
 	id: string;
 	name: string;

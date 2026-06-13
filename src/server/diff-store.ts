@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { rm, stat } from 'node:fs/promises';
+import { realpath, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import type {
 	BranchActionFailure,
@@ -11,6 +11,8 @@ import type {
 	WorkspaceBranchHistoryEntry,
 	WorkspaceBranchHistorySnapshot,
 	WorkspaceDiffFile,
+	WorkspaceDiffPatchResult,
+	WorkspaceFileContentsResult,
 	WorkspaceGitSnapshot,
 } from '../shared/types';
 import { inferWorkspaceFileContentType } from './uploads';
@@ -30,6 +32,8 @@ interface DirtyPathEntry {
 	changeType: WorkspaceDiffFile['changeType'];
 	isUntracked: boolean;
 }
+
+const MAX_WORKSPACE_FILE_CONTENT_BYTES = 2 * 1024 * 1024;
 
 export interface GitHubBackedRepoInspection {
 	ok: boolean;
@@ -529,6 +533,40 @@ export async function findDirtyPath(repoRoot: string, relativePath: string) {
 	return dirtyPaths.find((entry) => stripTrailingSlash(entry.path) === normalizedPath) ?? null;
 }
 
+function hashPatch(patch: string) {
+	return createHash('sha256').update(patch).digest('hex');
+}
+
+function hashFileContents(relativePath: string, contents: string) {
+	return createHash('sha256').update(`${relativePath}\0${contents}`).digest('hex');
+}
+
+function isPreviewableTextMimeType(mimeType: string) {
+	const normalized = mimeType.toLowerCase();
+	return (
+		normalized.startsWith('text/') ||
+		normalized === 'application/json' ||
+		normalized.startsWith('application/json;')
+	);
+}
+
+async function resolveWorkspaceFilePath(repoRoot: string, relativePath: string) {
+	const absolutePath = path.join(repoRoot, relativePath);
+	const [repoRootRealPath, targetRealPath] = await Promise.all([
+		realpath(repoRoot),
+		realpath(absolutePath),
+	]);
+
+	if (
+		targetRealPath !== repoRootRealPath &&
+		!targetRealPath.startsWith(`${repoRootRealPath}${path.sep}`)
+	) {
+		throw new Error('Path must stay inside the repository');
+	}
+
+	return targetRealPath;
+}
+
 export async function readPatchForEntry(
 	repoRoot: string,
 	baseCommit: string | null,
@@ -587,7 +625,7 @@ export async function computeCurrentFiles(repoRoot: string, baseCommit: string |
 				isUntracked: entry.isUntracked,
 				additions,
 				deletions,
-				patchDigest: createHash('sha256').update(patch).digest('hex'),
+				patchDigest: hashPatch(patch),
 				mimeType: exists ? inferWorkspaceFileContentType(entry.path) : undefined,
 				size,
 			} satisfies WorkspaceDiffFile;
@@ -1008,15 +1046,59 @@ export class DiffStore {
 		};
 	}
 
-	async readPatch(args: { workspacePath: string; path: string }) {
+	async readPatch(args: {
+		workspacePath: string;
+		path: string;
+	}): Promise<WorkspaceDiffPatchResult> {
 		const relativePath = normalizeRepoRelativePath(args.path);
 		const repo = await resolveRepo(args.workspacePath);
 		if (!repo) throw new Error('Workspace is not in a git repository');
 
 		const entry = await findDirtyPath(repo.repoRoot, relativePath);
 		if (!entry) throw new Error(`File is no longer changed: ${relativePath}`);
+		const patch = await readPatchForEntry(repo.repoRoot, repo.baseCommit, entry);
 
-		return { patch: await readPatchForEntry(repo.repoRoot, repo.baseCommit, entry) };
+		return { path: entry.path, patch, patchDigest: hashPatch(patch) };
+	}
+
+	async readFileContents(args: {
+		workspacePath: string;
+		path: string;
+	}): Promise<WorkspaceFileContentsResult> {
+		const relativePath = stripTrailingSlash(normalizeRepoRelativePath(args.path));
+		const repo = await resolveRepo(args.workspacePath);
+		if (!repo) throw new Error('Workspace is not in a git repository');
+
+		const filePath = await resolveWorkspaceFilePath(repo.repoRoot, relativePath).catch((error) => {
+			if (error instanceof Error && error.message === 'Path must stay inside the repository') {
+				throw error;
+			}
+			throw new Error(`File does not exist: ${relativePath}`);
+		});
+
+		const info = await stat(filePath);
+		if (!info.isFile()) throw new Error(`Path is not a file: ${relativePath}`);
+		if (info.size > MAX_WORKSPACE_FILE_CONTENT_BYTES) {
+			throw new Error(`File is too large to preview: ${relativePath}`);
+		}
+
+		const mimeType = inferWorkspaceFileContentType(relativePath);
+		if (!isPreviewableTextMimeType(mimeType)) {
+			throw new Error(`File is not previewable as text: ${relativePath}`);
+		}
+
+		const contents = await Bun.file(filePath).text();
+		const contentDigest = hashFileContents(relativePath, contents);
+
+		return {
+			path: relativePath,
+			name: path.basename(relativePath),
+			contents,
+			mimeType,
+			size: info.size,
+			encoding: 'utf-8',
+			cacheKey: `${relativePath}:${contentDigest}`,
+		};
 	}
 
 	async refreshWorkspaceGitSnapshot(workspaceId: string, workspacePath: string) {

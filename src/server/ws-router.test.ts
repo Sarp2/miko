@@ -113,7 +113,16 @@ async function createRouter(overrides: Record<string, unknown> = {}) {
 		inspectGitHubBackedRepo: async () => ({ ok: true, githubOwner: 'sarp', githubRepo: 'miko' }),
 		discardFile: async () => ({ snapshotChanged: true }),
 		ignoreFile: async () => ({ snapshotChanged: true }),
-		readPatch: async () => ({ patch: 'diff' }),
+		readPatch: async () => ({ path: 'app.txt', patch: 'diff', patchDigest: 'digest' }),
+		readFileContents: async () => ({
+			path: 'app.txt',
+			name: 'app.txt',
+			contents: 'hello',
+			mimeType: 'text/plain; charset=utf-8',
+			size: 5,
+			encoding: 'utf-8' as const,
+			cacheKey: 'app.txt:digest',
+		}),
 	};
 
 	const workspaceManager = {
@@ -521,7 +530,16 @@ describe('createWsRouter.handleCommand', () => {
 				},
 				discardFile: async () => ({ snapshotChanged: true }),
 				ignoreFile: async () => ({ snapshotChanged: true }),
-				readPatch: async () => ({ patch: 'diff' }),
+				readPatch: async () => ({ path: 'app.txt', patch: 'diff', patchDigest: 'digest' }),
+				readFileContents: async () => ({
+					path: 'app.txt',
+					name: 'app.txt',
+					contents: 'hello',
+					mimeType: 'text/plain; charset=utf-8',
+					size: 5,
+					encoding: 'utf-8' as const,
+					cacheKey: 'app.txt:digest',
+				}),
 			},
 		});
 		const ws = new FakeWebSocket();
@@ -568,7 +586,16 @@ describe('createWsRouter.handleCommand', () => {
 				}),
 				discardFile: async () => ({ snapshotChanged: true }),
 				ignoreFile: async () => ({ snapshotChanged: true }),
-				readPatch: async () => ({ patch: 'diff' }),
+				readPatch: async () => ({ path: 'app.txt', patch: 'diff', patchDigest: 'digest' }),
+				readFileContents: async () => ({
+					path: 'app.txt',
+					name: 'app.txt',
+					contents: 'hello',
+					mimeType: 'text/plain; charset=utf-8',
+					size: 5,
+					encoding: 'utf-8' as const,
+					cacheKey: 'app.txt:digest',
+				}),
 			},
 		});
 		const ws = new FakeWebSocket();
@@ -617,7 +644,16 @@ describe('createWsRouter.handleCommand', () => {
 				}),
 				discardFile: async () => ({ snapshotChanged: true }),
 				ignoreFile: async () => ({ snapshotChanged: true }),
-				readPatch: async () => ({ patch: 'diff' }),
+				readPatch: async () => ({ path: 'app.txt', patch: 'diff', patchDigest: 'digest' }),
+				readFileContents: async () => ({
+					path: 'app.txt',
+					name: 'app.txt',
+					contents: 'hello',
+					mimeType: 'text/plain; charset=utf-8',
+					size: 5,
+					encoding: 'utf-8' as const,
+					cacheKey: 'app.txt:digest',
+				}),
 			},
 		});
 		const ws = new FakeWebSocket();
@@ -653,7 +689,43 @@ describe('createWsRouter.handleCommand', () => {
 			}),
 		);
 
-		expect(ws.sent).toEqual([{ type: 'ack', id: 'patch-1', result: { patch: 'diff' } }]);
+		expect(ws.sent).toEqual([
+			{
+				type: 'ack',
+				id: 'patch-1',
+				result: { path: 'app.txt', patch: 'diff', patchDigest: 'digest' },
+			},
+		]);
+	});
+
+	test('reads workspace file contents', async () => {
+		const { router, workspaceId } = await createRouter();
+		const ws = new FakeWebSocket();
+
+		await router.handleMessage(
+			ws as never,
+			JSON.stringify({
+				type: 'command',
+				id: 'file-1',
+				command: { type: 'workspace.readFile', workspaceId, path: 'app.txt' },
+			}),
+		);
+
+		expect(ws.sent).toEqual([
+			{
+				type: 'ack',
+				id: 'file-1',
+				result: {
+					path: 'app.txt',
+					name: 'app.txt',
+					contents: 'hello',
+					mimeType: 'text/plain; charset=utf-8',
+					size: 5,
+					encoding: 'utf-8',
+					cacheKey: 'app.txt:digest',
+				},
+			},
+		]);
 	});
 
 	test('normalizes refresh PR stage command results', async () => {

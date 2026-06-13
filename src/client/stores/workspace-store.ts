@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import type { EditorOpenSettings } from '../../shared/protocol';
-import type { WorkspaceFileSearchResult, WorkspaceSnapshot } from '../../shared/types';
+import type {
+	WorkspaceDiffPatchResult,
+	WorkspaceFileContentsResult,
+	WorkspaceFileSearchResult,
+	WorkspaceSnapshot,
+} from '../../shared/types';
 import { basename } from '../routes/workspace-route-state';
 import { useWsStore } from './ws-store';
 
@@ -23,6 +28,8 @@ interface WorkspaceStoreState {
 	markRead: (workspaceId: string) => Promise<void>;
 	refreshGit: (workspaceId: string) => Promise<unknown>;
 	refreshPrStage: (workspaceId: string) => Promise<unknown>;
+	readDiffPatch: (workspaceId: string, path: string) => Promise<WorkspaceDiffPatchResult>;
+	readFileContents: (workspaceId: string, path: string) => Promise<WorkspaceFileContentsResult>;
 	searchFiles: (
 		workspaceId: string,
 		query: string,
@@ -92,6 +99,57 @@ function parseWorkspaceFileSearchResults(value: unknown): WorkspaceFileSearchRes
 	});
 }
 
+function parseWorkspaceDiffPatchResult(value: unknown): WorkspaceDiffPatchResult {
+	if (!value || typeof value !== 'object') throw new Error('Invalid workspace diff response');
+	const candidate = value as Partial<WorkspaceDiffPatchResult>;
+	if (
+		typeof candidate.path !== 'string' ||
+		!candidate.path ||
+		typeof candidate.patch !== 'string' ||
+		typeof candidate.patchDigest !== 'string' ||
+		!candidate.patchDigest
+	) {
+		throw new Error('Invalid workspace diff response');
+	}
+
+	return {
+		path: candidate.path,
+		patch: candidate.patch,
+		patchDigest: candidate.patchDigest,
+	};
+}
+
+function parseWorkspaceFileContentsResult(value: unknown): WorkspaceFileContentsResult {
+	if (!value || typeof value !== 'object') throw new Error('Invalid workspace file response');
+	const candidate = value as Partial<WorkspaceFileContentsResult>;
+	if (
+		typeof candidate.path !== 'string' ||
+		!candidate.path ||
+		typeof candidate.name !== 'string' ||
+		!candidate.name ||
+		typeof candidate.contents !== 'string' ||
+		typeof candidate.mimeType !== 'string' ||
+		!candidate.mimeType ||
+		typeof candidate.size !== 'number' ||
+		!Number.isFinite(candidate.size) ||
+		candidate.encoding !== 'utf-8' ||
+		typeof candidate.cacheKey !== 'string' ||
+		!candidate.cacheKey
+	) {
+		throw new Error('Invalid workspace file response');
+	}
+
+	return {
+		path: candidate.path,
+		name: candidate.name,
+		contents: candidate.contents,
+		mimeType: candidate.mimeType,
+		size: candidate.size,
+		encoding: 'utf-8',
+		cacheKey: candidate.cacheKey,
+	};
+}
+
 export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
 	snapshotByWorkspaceId: new Map(),
 	connectedWorkspaceIds: new Set(),
@@ -136,6 +194,24 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
 
 	refreshPrStage: (workspaceId) => {
 		return useWsStore.getState().command({ type: 'workspace.refreshPrStage', workspaceId });
+	},
+
+	readDiffPatch: async (workspaceId, path) => {
+		const result = await useWsStore.getState().command<unknown>({
+			type: 'workspace.readDiffPatch',
+			workspaceId,
+			path,
+		});
+		return parseWorkspaceDiffPatchResult(result);
+	},
+
+	readFileContents: async (workspaceId, path) => {
+		const result = await useWsStore.getState().command<unknown>({
+			type: 'workspace.readFile',
+			workspaceId,
+			path,
+		});
+		return parseWorkspaceFileContentsResult(result);
 	},
 
 	searchFiles: async (workspaceId, query, limit) => {
