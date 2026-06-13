@@ -19,7 +19,8 @@ interface ScrollAnchor {
 
 type PendingPrependPosition =
 	| { type: 'item'; anchor: ScrollAnchor }
-	| { type: 'scrollTop'; scrollTop: number };
+	| { type: 'scrollTop'; scrollTop: number }
+	| { type: 'heightDelta'; scrollHeight: number };
 
 interface UseChatScrollArgs {
 	sessionId: string;
@@ -88,6 +89,15 @@ function restoreAnchor(element: HTMLElement, anchor: ScrollAnchor) {
 	element.scrollTop += element.scrollHeight - anchor.scrollHeight;
 }
 
+function capturePrependPosition(element: HTMLElement): PendingPrependPosition {
+	const anchor = captureFirstVisibleAnchor(element);
+	if (anchor) return { type: 'item', anchor };
+
+	return transcriptItemElements(element).length > 0
+		? { type: 'heightDelta', scrollHeight: element.scrollHeight }
+		: { type: 'scrollTop', scrollTop: element.scrollTop };
+}
+
 export function useChatScroll({
 	sessionId,
 	items,
@@ -147,9 +157,7 @@ export function useChatScroll({
 			!olderLoadRequestedRef.current;
 
 		if (!shouldLoadOlder) return;
-		pendingPrependPositionRef.current = anchorRef.current
-			? { type: 'item', anchor: anchorRef.current }
-			: { type: 'scrollTop', scrollTop: element.scrollTop };
+		pendingPrependPositionRef.current = capturePrependPosition(element);
 		olderLoadRequestedRef.current = true;
 		onLoadOlderRef.current?.();
 	}, []);
@@ -173,10 +181,7 @@ export function useChatScroll({
 		)
 			return;
 
-		const anchor = captureFirstVisibleAnchor(element);
-		pendingPrependPositionRef.current = anchor
-			? { type: 'item', anchor }
-			: { type: 'scrollTop', scrollTop: element.scrollTop };
+		pendingPrependPositionRef.current = capturePrependPosition(element);
 		olderLoadRequestedRef.current = true;
 		onLoadOlderRef.current?.();
 	}, []);
@@ -214,6 +219,8 @@ export function useChatScroll({
 		if (pendingPrependPosition) {
 			if (pendingPrependPosition.type === 'item') {
 				restoreAnchor(element, pendingPrependPosition.anchor);
+			} else if (pendingPrependPosition.type === 'heightDelta') {
+				element.scrollTop += element.scrollHeight - pendingPrependPosition.scrollHeight;
 			} else {
 				element.scrollTop = pendingPrependPosition.scrollTop;
 			}
