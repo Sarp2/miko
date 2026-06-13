@@ -4,6 +4,7 @@ import {
 	type Query,
 	query,
 	type SDKUserMessage,
+	type SdkBeta,
 } from '@anthropic-ai/claude-agent-sdk';
 import type { ClientCommand } from '../shared/protocol';
 import { normalizeToolCall } from '../shared/tools';
@@ -11,13 +12,13 @@ import type {
 	AccountInfo,
 	AgentProvider,
 	ChatAttachment,
+	ClaudeContextWindow,
 	ContextWindowUsageSnapshot,
 	MikoStatus,
 	NormalizedToolCall,
 	PendingToolSnapshot,
 	TranscriptEntry,
 } from '../shared/types';
-import { resolveClaudeApiModelId } from '../shared/types';
 import { CodexAppServerManager } from './codex-app-server';
 import type { EventStore } from './event-store';
 import {
@@ -52,6 +53,15 @@ const CLAUDE_TOOLSET = [
 	'EnterPlanMode',
 	'ExitPlanMode',
 ] as const;
+
+// 1M context is a session-level beta; the model id no longer carries a `[1m]` suffix. The beta is
+// only ever reached for models the catalog marks 1M-capable, since normalizeClaudeContextWindow
+// downgrades `1m` to `200k` for any model without a `1m` contextWindowOption.
+const CLAUDE_1M_CONTEXT_BETA: SdkBeta = 'context-1m-2025-08-07';
+
+function claudeBetasForContextWindow(contextWindow?: ClaudeContextWindow): SdkBeta[] | undefined {
+	return contextWindow === '1m' ? [CLAUDE_1M_CONTEXT_BETA] : undefined;
+}
 
 interface PendingToolRequest {
 	toolUseId: string;
@@ -93,6 +103,7 @@ interface ClaudeSessionState {
 	localPath: string;
 	model: string;
 	effort?: string;
+	contextWindow?: ClaudeContextWindow;
 	planMode: boolean;
 	sessionToken: string | null;
 	accountInfoLoaded: boolean;
@@ -111,6 +122,7 @@ interface AgentCoordinatorArgs {
 		localPath: string;
 		model: string;
 		effort?: string;
+		contextWindow?: ClaudeContextWindow;
 		planMode: boolean;
 		sessionToken: string | null;
 		onToolRequest: (request: HarnessToolRequest) => Promise<unknown>;
@@ -540,6 +552,7 @@ export async function startClaudeSession(
 		localPath: string;
 		model: string;
 		effort?: string;
+		contextWindow?: ClaudeContextWindow;
 		planMode: boolean;
 		sessionToken: string | null;
 		onToolRequest: (request: HarnessToolRequest) => Promise<unknown>;
@@ -612,6 +625,7 @@ export async function startClaudeSession(
 			cwd: args.localPath,
 			model: args.model,
 			effort: args.effort as 'low' | 'medium' | 'high' | 'max' | undefined,
+			betas: claudeBetasForContextWindow(args.contextWindow),
 			resume: args.sessionToken ?? undefined,
 			permissionMode: args.planMode ? 'plan' : 'acceptEdits',
 			canUseTool,
@@ -761,8 +775,9 @@ export class AgentCoordinator {
 			const modelOptions = normalizeClaudeModelOptions(model, command.modelOptions, command.effort);
 
 			return {
-				model: resolveClaudeApiModelId(model, modelOptions.contextWindow),
+				model,
 				effort: modelOptions.reasoningEffort,
+				contextWindow: modelOptions.contextWindow,
 				serviceTier: undefined,
 				planMode: catalog.supportsPlanMode ? Boolean(command.planMode) : false,
 			};
@@ -772,6 +787,7 @@ export class AgentCoordinator {
 		return {
 			model: normalizeServerModel(provider, command.model),
 			effort: modelOptions.reasoningEffort,
+			contextWindow: undefined,
 			serviceTier: codexServiceTierFromModelOptions(modelOptions),
 			planMode: catalog.supportsPlanMode ? Boolean(command.planMode) : false,
 		};
@@ -784,6 +800,7 @@ export class AgentCoordinator {
 		attachments: ChatAttachment[];
 		model: string;
 		effort?: string;
+		contextWindow?: ClaudeContextWindow;
 		serviceTier?: 'fast';
 		planMode: boolean;
 		appendUserPrompt: boolean;
@@ -865,6 +882,7 @@ export class AgentCoordinator {
 				localPath: workspace.localPath,
 				model: args.model,
 				effort: args.effort,
+				contextWindow: args.contextWindow,
 				planMode: args.planMode,
 				sessionToken: session.sessionToken,
 				onToolRequest,
@@ -949,13 +967,21 @@ export class AgentCoordinator {
 		localPath: string;
 		model: string;
 		effort?: string;
+		contextWindow?: ClaudeContextWindow;
 		planMode: boolean;
 		sessionToken: string | null;
 		onToolRequest: (request: HarnessToolRequest) => Promise<unknown>;
 	}): Promise<HarnessTurn> {
 		let session = this.claudeSessions.get(args.sessionId);
 
-		if (!session || session.localPath !== args.localPath || session.effort !== args.effort) {
+		// The 1M context beta is fixed when the query is created, so a context-window change forces
+		// a fresh session just like effort does.
+		if (
+			!session ||
+			session.localPath !== args.localPath ||
+			session.effort !== args.effort ||
+			session.contextWindow !== args.contextWindow
+		) {
 			if (session) {
 				session.session.close();
 				this.claudeSessions.delete(args.sessionId);
@@ -965,6 +991,7 @@ export class AgentCoordinator {
 				localPath: args.localPath,
 				model: args.model,
 				effort: args.effort,
+				contextWindow: args.contextWindow,
 				planMode: args.planMode,
 				sessionToken: args.sessionToken,
 				onToolRequest: args.onToolRequest,
@@ -976,6 +1003,7 @@ export class AgentCoordinator {
 				localPath: args.localPath,
 				model: args.model,
 				effort: args.effort,
+				contextWindow: args.contextWindow,
 				planMode: args.planMode,
 				sessionToken: args.sessionToken,
 				accountInfoLoaded: false,
@@ -1028,6 +1056,7 @@ export class AgentCoordinator {
 			attachments: command.attachments ?? [],
 			model: settings.model,
 			effort: settings.effort,
+			contextWindow: settings.contextWindow,
 			serviceTier: settings.serviceTier,
 			planMode: settings.planMode,
 			appendUserPrompt: true,

@@ -24,6 +24,7 @@ export interface ProviderModelOption {
 	label: string;
 	supportsEffort: boolean;
 	contextWindowOptions?: readonly ProviderContextWindowOption[];
+	badge?: 'NEW';
 }
 
 export interface ProviderEffortOption {
@@ -116,35 +117,45 @@ export const PROVIDERS: ProviderCatalogEntry[] = [
 	{
 		id: 'claude',
 		label: 'Claude',
-		defaultModel: 'sonnet',
+		defaultModel: 'claude-sonnet-4-6',
 		defaultEffort: 'high',
 		supportsPlanMode: true,
+		// `id` values are runtime model ids accepted by the installed Claude Code harness.
+		// 1M context is a session beta (`context-1m-2025-08-07`); models that support it expose
+		// `contextWindowOptions` so the composer can offer a 1M variant row.
 		models: [
+			{ id: 'claude-fable-5', label: 'Fable 5', supportsEffort: true, badge: 'NEW' },
 			{
-				id: 'opus',
-				label: 'Opus',
+				id: 'claude-opus-4-8',
+				label: 'Opus 4.8',
+				supportsEffort: true,
+				badge: 'NEW',
+				contextWindowOptions: [...CLAUDE_CONTEXT_WINDOW_OPTIONS],
+			},
+			{
+				id: 'claude-opus-4-6',
+				label: 'Opus 4.6',
 				supportsEffort: true,
 				contextWindowOptions: [...CLAUDE_CONTEXT_WINDOW_OPTIONS],
 			},
 			{
-				id: 'sonnet',
-				label: 'Sonnet',
+				id: 'claude-sonnet-4-6',
+				label: 'Sonnet 4.6',
 				supportsEffort: true,
 				contextWindowOptions: [...CLAUDE_CONTEXT_WINDOW_OPTIONS],
 			},
-			{ id: 'haiku', label: 'Haiku', supportsEffort: true },
+			{ id: 'claude-haiku-4-5', label: 'Haiku 4.5', supportsEffort: true },
 		],
 		efforts: [...CLAUDE_REASONING_OPTIONS],
 	},
 	{
 		id: 'codex',
 		label: 'Codex',
-		defaultModel: 'gpt-4',
+		defaultModel: 'gpt-5.5',
 		supportsPlanMode: true,
 		models: [
+			{ id: 'gpt-5.5', label: 'GPT-5.5', supportsEffort: false },
 			{ id: 'gpt-5.4', label: 'GPT-5.4', supportsEffort: false },
-			{ id: 'gpt-5.3-codex', label: 'GPT-5.3 Codex', supportsEffort: false },
-			{ id: 'gpt-5.3-codex-spark', label: 'GPT-5.3 Codex Spark', supportsEffort: false },
 		],
 		efforts: [],
 	},
@@ -178,13 +189,6 @@ export function normalizeClaudeContextWindow(
 	return options.some((option) => option.id === contextWindow)
 		? (contextWindow as ClaudeContextWindow)
 		: DEFAULT_CLAUDE_MODEL_OPTIONS.contextWindow;
-}
-
-export function resolveClaudeApiModelId(
-	modelId: string,
-	contextWindow?: ClaudeContextWindow,
-): string {
-	return contextWindow === '1m' ? `${modelId}[1m]` : modelId;
 }
 
 export function resolveClaudeContextWindowTokens(contextWindow: ClaudeContextWindow): number {

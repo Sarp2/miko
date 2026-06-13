@@ -4,6 +4,7 @@ import {
 	codexServiceTierFromModelOptions,
 	normalizeClaudeModelOptions,
 	normalizeCodexModelOptions,
+	normalizeServerModel,
 	SERVER_PROVIDERS,
 } from './provider-catalog';
 
@@ -13,13 +14,24 @@ describe('SERVER_PROVIDERS', () => {
 			(model) => model.id,
 		);
 
-		expect(codexModelIds).toEqual(['gpt-5.4', 'gpt-5.3-codex', 'gpt-5.3-codex-spark']);
+		expect(codexModelIds).toEqual(['gpt-5.5', 'gpt-5.4']);
+	});
+});
+
+describe('normalizeServerModel', () => {
+	test('accepts every catalog model id and falls back for unknown ids', () => {
+		for (const provider of SERVER_PROVIDERS) {
+			for (const model of provider.models) {
+				expect(normalizeServerModel(provider.id, model.id)).toBe(model.id);
+			}
+			expect(normalizeServerModel(provider.id, 'not-a-real-model')).toBe(provider.defaultModel);
+		}
 	});
 });
 
 describe('normalizeClaudeModelOptions', () => {
 	test('falls back to legacy effort argument when modelOptions is missing', () => {
-		expect(normalizeClaudeModelOptions('opus', undefined, 'max')).toEqual({
+		expect(normalizeClaudeModelOptions('claude-opus-4-8', undefined, 'max')).toEqual({
 			reasoningEffort: 'max',
 			contextWindow: '200k',
 		});
@@ -30,7 +42,7 @@ describe('normalizeClaudeModelOptions', () => {
 			claude: { reasoningEffort: 'medium', contextWindow: '1m' },
 		};
 
-		const normalized = normalizeClaudeModelOptions('sonnet', modelOptions);
+		const normalized = normalizeClaudeModelOptions('claude-sonnet-4-6', modelOptions);
 
 		expect(normalized).toEqual({
 			reasoningEffort: 'medium',
@@ -38,12 +50,12 @@ describe('normalizeClaudeModelOptions', () => {
 		});
 	});
 
-	test('drops unsupported context windows back to the default', () => {
+	test('drops the 1m context window for models that do not support it', () => {
 		const modelOptions: ModelOptions = {
 			claude: { reasoningEffort: 'medium', contextWindow: '1m' },
 		};
 
-		const normalized = normalizeClaudeModelOptions('haiku', modelOptions);
+		const normalized = normalizeClaudeModelOptions('claude-haiku-4-5', modelOptions);
 
 		expect(normalized).toEqual({
 			reasoningEffort: 'medium',
