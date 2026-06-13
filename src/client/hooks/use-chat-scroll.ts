@@ -19,8 +19,8 @@ interface ScrollAnchor {
 
 type PendingPrependPosition =
 	| { type: 'item'; anchor: ScrollAnchor }
-	| { type: 'scrollTop'; scrollTop: number }
-	| { type: 'heightDelta'; scrollHeight: number };
+	| { type: 'boundary'; itemId: string; top: number; scrollTop: number }
+	| { type: 'scrollTop'; scrollTop: number };
 
 interface UseChatScrollArgs {
 	sessionId: string;
@@ -93,9 +93,18 @@ function capturePrependPosition(element: HTMLElement): PendingPrependPosition {
 	const anchor = captureFirstVisibleAnchor(element);
 	if (anchor) return { type: 'item', anchor };
 
-	return transcriptItemElements(element).length > 0
-		? { type: 'heightDelta', scrollHeight: element.scrollHeight }
-		: { type: 'scrollTop', scrollTop: element.scrollTop };
+	const boundaryItem = transcriptItemElements(element).at(-1);
+	const boundaryItemId = boundaryItem?.dataset.transcriptItemId;
+	if (boundaryItem && boundaryItemId) {
+		return {
+			type: 'boundary',
+			itemId: boundaryItemId,
+			top: boundaryItem.getBoundingClientRect().top,
+			scrollTop: element.scrollTop,
+		};
+	}
+
+	return { type: 'scrollTop', scrollTop: element.scrollTop };
 }
 
 export function useChatScroll({
@@ -219,8 +228,13 @@ export function useChatScroll({
 		if (pendingPrependPosition) {
 			if (pendingPrependPosition.type === 'item') {
 				restoreAnchor(element, pendingPrependPosition.anchor);
-			} else if (pendingPrependPosition.type === 'heightDelta') {
-				element.scrollTop += element.scrollHeight - pendingPrependPosition.scrollHeight;
+			} else if (pendingPrependPosition.type === 'boundary') {
+				const item = transcriptItemElements(element).find(
+					(candidate) => candidate.dataset.transcriptItemId === pendingPrependPosition.itemId,
+				);
+				if (item)
+					element.scrollTop += item.getBoundingClientRect().top - pendingPrependPosition.top;
+				else element.scrollTop = pendingPrependPosition.scrollTop;
 			} else {
 				element.scrollTop = pendingPrependPosition.scrollTop;
 			}
