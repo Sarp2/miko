@@ -24,7 +24,7 @@ export function TranscriptItemView({
 }) {
 	if (item.type === 'user') {
 		return (
-			<div className="mb-5 flex justify-end">
+			<div data-transcript-item-id={item.id} className="mb-5 flex justify-end">
 				<div className="inline-flex max-w-[80%] flex-col rounded-lg border border-hairline bg-surface-1 px-[15px] py-[11px]">
 					<UserPrompt content={item.message.content} attachments={item.message.attachments} />
 				</div>
@@ -33,7 +33,7 @@ export function TranscriptItemView({
 	}
 
 	return (
-		<div className="mb-5">
+		<div data-transcript-item-id={item.id} className="mb-5">
 			<TranscriptTurnView turn={item.turn} workspaceRoot={workspaceRoot} />
 		</div>
 	);

@@ -38,6 +38,7 @@ describe('TranscriptItemView', () => {
 
 		expect(html).toContain('Please inspect this file');
 		expect(html).toContain('notes.md');
+		expect(html).toContain('data-transcript-item-id="user-1"');
 	});
 
 	test('groups tool calls under a turn and surfaces the final reply', () => {
@@ -59,6 +60,7 @@ describe('TranscriptItemView', () => {
 		]);
 
 		expect(html).toContain('1 tool call');
+		expect(html).toContain('data-transcript-item-id="tool-1"');
 		expect(html).not.toContain('1 message');
 		expect(html).toContain('<strong');
 		expect(html).toContain('Done');
