@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { mkdir, mkdtemp, realpath, rm, stat } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, stat, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import {
@@ -403,8 +403,10 @@ describe('readPatchForEntry', () => {
 			isUntracked: true,
 		});
 
+		expect(patch).toContain('diff --git a/notes.txt b/notes.txt');
 		expect(patch).toContain('--- /dev/null');
-		expect(patch).toContain('notes.txt');
+		expect(patch).toContain('+++ b/notes.txt');
+		expect(patch).not.toContain(repoRoot);
 		expect(patch).toContain('+hello');
 		expect(patch).toContain('+world');
 	});
@@ -586,8 +588,95 @@ describe('DiffStore.readPatch', () => {
 
 		const result = await store.readPatch({ workspacePath: repoRoot, path: './README.md' });
 
+		expect(result.path).toBe('README.md');
 		expect(result.patch).toContain('diff --git a/README.md b/README.md');
 		expect(result.patch).toContain('+second line');
+		expect(result.patchDigest).toMatch(/^[a-f0-9]{64}$/u);
+	});
+});
+
+describe('DiffStore.readFileContents', () => {
+	test('returns text file contents for a safe repository path', async () => {
+		const repoRoot = await createRepoWithInitialCommit();
+		await mkdir(path.join(repoRoot, 'src'), { recursive: true });
+		await Bun.write(path.join(repoRoot, 'src', 'index.css'), 'body { color: red; }\n');
+		const store = new DiffStore(repoRoot);
+
+		const result = await store.readFileContents({
+			workspacePath: repoRoot,
+			path: './src/index.css',
+		});
+
+		expect(result).toMatchObject({
+			path: 'src/index.css',
+			name: 'index.css',
+			contents: 'body { color: red; }\n',
+			encoding: 'utf-8',
+		});
+		expect(result.mimeType).toContain('text/');
+		expect(result.cacheKey).toMatch(/^src\/index\.css:[a-f0-9]{64}$/u);
+	});
+
+	test('returns sniffed text contents for extensionless repo files', async () => {
+		const repoRoot = await createRepoWithInitialCommit();
+		await Bun.write(path.join(repoRoot, 'Dockerfile'), 'FROM oven/bun:latest\n');
+		const store = new DiffStore(repoRoot);
+
+		const result = await store.readFileContents({ workspacePath: repoRoot, path: 'Dockerfile' });
+
+		expect(result).toMatchObject({
+			path: 'Dockerfile',
+			name: 'Dockerfile',
+			contents: 'FROM oven/bun:latest\n',
+			mimeType: 'text/plain; charset=utf-8',
+			encoding: 'utf-8',
+		});
+	});
+
+	test('rejects paths outside the repository', async () => {
+		const repoRoot = await createRepoWithInitialCommit();
+		const store = new DiffStore(repoRoot);
+
+		await expect(
+			store.readFileContents({ workspacePath: repoRoot, path: '../outside.txt' }),
+		).rejects.toThrow('Path must stay inside the repository');
+	});
+
+	test('rejects symlinks that escape the repository', async () => {
+		const repoRoot = await createRepoWithInitialCommit();
+		const outsidePath = path.join(await createTempDir(), 'outside.txt');
+		await Bun.write(outsidePath, 'secret\n');
+		await symlink(outsidePath, path.join(repoRoot, 'escape.txt'));
+		const store = new DiffStore(repoRoot);
+
+		await expect(
+			store.readFileContents({ workspacePath: repoRoot, path: 'escape.txt' }),
+		).rejects.toThrow('Path must stay inside the repository');
+	});
+
+	test('rejects symlinks to binary files even when the link has a text extension', async () => {
+		const repoRoot = await createRepoWithInitialCommit();
+		await mkdir(path.join(repoRoot, 'target'), { recursive: true });
+		await Bun.write(
+			path.join(repoRoot, 'target', 'module.wasm'),
+			new Uint8Array([0, 97, 115, 109]),
+		);
+		await symlink(path.join(repoRoot, 'target', 'module.wasm'), path.join(repoRoot, 'config.ts'));
+		const store = new DiffStore(repoRoot);
+
+		await expect(
+			store.readFileContents({ workspacePath: repoRoot, path: 'config.ts' }),
+		).rejects.toThrow('File is not previewable as text: config.ts');
+	});
+
+	test('rejects non-text files', async () => {
+		const repoRoot = await createRepoWithInitialCommit();
+		await Bun.write(path.join(repoRoot, 'asset.bin'), new Uint8Array([0, 1, 2]));
+		const store = new DiffStore(repoRoot);
+
+		await expect(
+			store.readFileContents({ workspacePath: repoRoot, path: 'asset.bin' }),
+		).rejects.toThrow('File is not previewable as text: asset.bin');
 	});
 });
 

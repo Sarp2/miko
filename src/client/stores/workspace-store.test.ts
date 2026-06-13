@@ -230,6 +230,116 @@ describe('useWorkspaceStore.searchFiles', () => {
 	});
 });
 
+describe('useWorkspaceStore.readDiffPatch', () => {
+	test('forwards diff reads and validates the response shape', async () => {
+		useWsStore.getState().connect();
+		const socket = FakeWebSocket.instances[0];
+		socket.open();
+
+		const resultPromise = useWorkspaceStore.getState().readDiffPatch('workspace-1', 'README.md');
+		const sent = JSON.parse(socket.sent[0]);
+
+		expect(sent).toMatchObject({
+			type: 'command',
+			command: {
+				type: 'workspace.readDiffPatch',
+				workspaceId: 'workspace-1',
+				path: 'README.md',
+			},
+		});
+
+		socket.receive({
+			type: 'ack',
+			id: sent.id,
+			result: { path: 'README.md', patch: 'diff', patchDigest: 'digest' },
+		});
+
+		await expect(resultPromise).resolves.toEqual({
+			path: 'README.md',
+			patch: 'diff',
+			patchDigest: 'digest',
+		});
+	});
+
+	test('rejects malformed diff read responses', async () => {
+		useWsStore.getState().connect();
+		const socket = FakeWebSocket.instances[0];
+		socket.open();
+
+		const resultPromise = useWorkspaceStore.getState().readDiffPatch('workspace-1', 'README.md');
+		const sent = JSON.parse(socket.sent[0]);
+
+		socket.receive({ type: 'ack', id: sent.id, result: { patch: 'diff' } });
+
+		await expect(resultPromise).rejects.toThrow('Invalid workspace diff response');
+	});
+});
+
+describe('useWorkspaceStore.readFileContents', () => {
+	test('forwards file reads and validates the response shape', async () => {
+		useWsStore.getState().connect();
+		const socket = FakeWebSocket.instances[0];
+		socket.open();
+
+		const resultPromise = useWorkspaceStore
+			.getState()
+			.readFileContents('workspace-1', 'src/index.css');
+		const sent = JSON.parse(socket.sent[0]);
+
+		expect(sent).toMatchObject({
+			type: 'command',
+			command: {
+				type: 'workspace.readFile',
+				workspaceId: 'workspace-1',
+				path: 'src/index.css',
+			},
+		});
+
+		socket.receive({
+			type: 'ack',
+			id: sent.id,
+			result: {
+				path: 'src/index.css',
+				name: 'index.css',
+				contents: 'body {}',
+				mimeType: 'text/plain; charset=utf-8',
+				size: 7,
+				encoding: 'utf-8',
+				cacheKey: 'src/index.css:digest',
+			},
+		});
+
+		await expect(resultPromise).resolves.toEqual({
+			path: 'src/index.css',
+			name: 'index.css',
+			contents: 'body {}',
+			mimeType: 'text/plain; charset=utf-8',
+			size: 7,
+			encoding: 'utf-8',
+			cacheKey: 'src/index.css:digest',
+		});
+	});
+
+	test('rejects malformed file read responses', async () => {
+		useWsStore.getState().connect();
+		const socket = FakeWebSocket.instances[0];
+		socket.open();
+
+		const resultPromise = useWorkspaceStore
+			.getState()
+			.readFileContents('workspace-1', 'src/index.css');
+		const sent = JSON.parse(socket.sent[0]);
+
+		socket.receive({
+			type: 'ack',
+			id: sent.id,
+			result: { path: 'src/index.css', contents: 'body {}' },
+		});
+
+		await expect(resultPromise).rejects.toThrow('Invalid workspace file response');
+	});
+});
+
 describe('useWorkspaceStore.renameBranch', () => {
 	test('forwards branch rename through the websocket command flow', async () => {
 		useWsStore.getState().connect();

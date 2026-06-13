@@ -58,6 +58,7 @@ interface CreateWsRouterArgs {
 		| 'discardFile'
 		| 'ignoreFile'
 		| 'readPatch'
+		| 'readFileContents'
 	>;
 	workspaceManager: WorkspaceManager;
 	prManager: PrManager;
@@ -556,6 +557,15 @@ export function createWsRouter({
 				case 'workspace.readDiffPatch': {
 					const workspace = requireWorkspace(command.workspaceId);
 					const result = await diffStore.readPatch({
+						workspacePath: workspace.localPath,
+						path: command.path,
+					});
+					send(ws, { type: 'ack', id, result });
+					return;
+				}
+				case 'workspace.readFile': {
+					const workspace = requireWorkspace(command.workspaceId);
+					const result = await diffStore.readFileContents({
 						workspacePath: workspace.localPath,
 						path: command.path,
 					});
