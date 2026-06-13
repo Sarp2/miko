@@ -636,6 +636,21 @@ describe('DiffStore.readFileContents', () => {
 		).rejects.toThrow('Path must stay inside the repository');
 	});
 
+	test('rejects symlinks to binary files even when the link has a text extension', async () => {
+		const repoRoot = await createRepoWithInitialCommit();
+		await mkdir(path.join(repoRoot, 'target'), { recursive: true });
+		await Bun.write(
+			path.join(repoRoot, 'target', 'module.wasm'),
+			new Uint8Array([0, 97, 115, 109]),
+		);
+		await symlink(path.join(repoRoot, 'target', 'module.wasm'), path.join(repoRoot, 'config.ts'));
+		const store = new DiffStore(repoRoot);
+
+		await expect(
+			store.readFileContents({ workspacePath: repoRoot, path: 'config.ts' }),
+		).rejects.toThrow('File is not previewable as text: config.ts');
+	});
+
 	test('rejects non-text files', async () => {
 		const repoRoot = await createRepoWithInitialCommit();
 		await Bun.write(path.join(repoRoot, 'asset.bin'), new Uint8Array([0, 1, 2]));

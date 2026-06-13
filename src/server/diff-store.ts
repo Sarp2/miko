@@ -34,6 +34,7 @@ interface DirtyPathEntry {
 }
 
 const MAX_WORKSPACE_FILE_CONTENT_BYTES = 2 * 1024 * 1024;
+const MAX_TEXT_SNIFF_BYTES = 8192;
 
 export interface GitHubBackedRepoInspection {
 	ok: boolean;
@@ -550,6 +551,13 @@ function isPreviewableTextMimeType(mimeType: string) {
 	);
 }
 
+class RepositoryPathEscapeError extends Error {
+	constructor() {
+		super('Path must stay inside the repository');
+		this.name = 'RepositoryPathEscapeError';
+	}
+}
+
 async function resolveWorkspaceFilePath(repoRoot: string, relativePath: string) {
 	const absolutePath = path.join(repoRoot, relativePath);
 	const [repoRootRealPath, targetRealPath] = await Promise.all([
@@ -561,10 +569,19 @@ async function resolveWorkspaceFilePath(repoRoot: string, relativePath: string) 
 		targetRealPath !== repoRootRealPath &&
 		!targetRealPath.startsWith(`${repoRootRealPath}${path.sep}`)
 	) {
-		throw new Error('Path must stay inside the repository');
+		throw new RepositoryPathEscapeError();
 	}
 
 	return targetRealPath;
+}
+
+async function readPreviewableTextFile(filePath: string, relativePath: string) {
+	const file = Bun.file(filePath);
+	const sniffBuffer = await file.slice(0, MAX_TEXT_SNIFF_BYTES).arrayBuffer();
+	if (new Uint8Array(sniffBuffer).includes(0)) {
+		throw new Error(`File is not previewable as text: ${relativePath}`);
+	}
+	return await file.text();
 }
 
 export async function readPatchForEntry(
@@ -1070,9 +1087,7 @@ export class DiffStore {
 		if (!repo) throw new Error('Workspace is not in a git repository');
 
 		const filePath = await resolveWorkspaceFilePath(repo.repoRoot, relativePath).catch((error) => {
-			if (error instanceof Error && error.message === 'Path must stay inside the repository') {
-				throw error;
-			}
+			if (error instanceof RepositoryPathEscapeError) throw error;
 			throw new Error(`File does not exist: ${relativePath}`);
 		});
 
@@ -1082,12 +1097,12 @@ export class DiffStore {
 			throw new Error(`File is too large to preview: ${relativePath}`);
 		}
 
-		const mimeType = inferWorkspaceFileContentType(relativePath);
+		const mimeType = inferWorkspaceFileContentType(filePath);
 		if (!isPreviewableTextMimeType(mimeType)) {
 			throw new Error(`File is not previewable as text: ${relativePath}`);
 		}
 
-		const contents = await Bun.file(filePath).text();
+		const contents = await readPreviewableTextFile(filePath, relativePath);
 		const contentDigest = hashFileContents(relativePath, contents);
 
 		return {
