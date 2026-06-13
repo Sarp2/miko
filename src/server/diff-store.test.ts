@@ -617,6 +617,22 @@ describe('DiffStore.readFileContents', () => {
 		expect(result.cacheKey).toMatch(/^src\/index\.css:[a-f0-9]{64}$/u);
 	});
 
+	test('returns sniffed text contents for extensionless repo files', async () => {
+		const repoRoot = await createRepoWithInitialCommit();
+		await Bun.write(path.join(repoRoot, 'Dockerfile'), 'FROM oven/bun:latest\n');
+		const store = new DiffStore(repoRoot);
+
+		const result = await store.readFileContents({ workspacePath: repoRoot, path: 'Dockerfile' });
+
+		expect(result).toMatchObject({
+			path: 'Dockerfile',
+			name: 'Dockerfile',
+			contents: 'FROM oven/bun:latest\n',
+			mimeType: 'text/plain; charset=utf-8',
+			encoding: 'utf-8',
+		});
+	});
+
 	test('rejects paths outside the repository', async () => {
 		const repoRoot = await createRepoWithInitialCommit();
 		const store = new DiffStore(repoRoot);
