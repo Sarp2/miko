@@ -5,7 +5,6 @@ import {
 	type AgentProvider,
 	type ClaudeContextWindow,
 	type ClaudeReasoningEffort,
-	type CodexReasoningEffort,
 	PROVIDERS,
 	type SessionSnapshot,
 	type WorkspaceSnapshot,
@@ -13,12 +12,15 @@ import {
 import type { LocalAttachment } from '../components/chat-composer/chat-composer-types';
 import {
 	DEFAULT_COMPOSER_MODEL_OPTIONS,
-	defaultProviderForRuntime,
 	modelForProvider,
 	modelOptionsForSubmit,
 	providerCatalogs,
+	resolvePreferredClaudeContextWindow,
+	resolvePreferredModelByProvider,
+	resolvePreferredProvider,
 	uploadAttachments,
 } from '../components/chat-composer/chat-composer-utils';
+import { useComposerPreferencesStore } from '../stores/composer-preferences-store';
 import { useSessionStore } from '../stores/session-store';
 
 const MAX_ATTACHMENTS = 50;
@@ -64,34 +66,56 @@ export function useChatComposer({
 		const lockedProvider = availableProviders.find((entry) => entry.id === sessionProvider);
 		return lockedProvider ? [lockedProvider] : availableProviders;
 	}, [availableProviders, sessionProvider]);
-	const resolvedDefaultProvider = useMemo(
-		() => defaultProviderForRuntime(sessionProvider, providers),
-		[providers, sessionProvider],
-	);
-	const [provider, setProvider] = useState<AgentProvider>(() => resolvedDefaultProvider);
-	const [selectedModelByProvider, setSelectedModelByProvider] = useState<Record<string, string>>(
-		() => Object.fromEntries(providers.map((entry) => [entry.id, entry.defaultModel])),
-	);
-	const [planMode, setPlanMode] = useState(sessionPlanMode);
-	const [claudeReasoningEffort, setClaudeReasoningEffort] = useState<ClaudeReasoningEffort>(
-		DEFAULT_COMPOSER_MODEL_OPTIONS.claudeReasoningEffort,
-	);
-	const [claudeContextWindow, setClaudeContextWindow] = useState<ClaudeContextWindow>(
-		DEFAULT_COMPOSER_MODEL_OPTIONS.claudeContextWindow,
-	);
-	const [codexReasoningEffort] = useState<CodexReasoningEffort>(
-		DEFAULT_COMPOSER_MODEL_OPTIONS.codexReasoningEffort,
-	);
-	const [codexFastMode, setCodexFastMode] = useState<boolean>(
-		DEFAULT_COMPOSER_MODEL_OPTIONS.codexFastMode,
-	);
 
-	const providerWasChangedByUserRef = useRef(false);
-	const previousSessionIdRef = useRef(sessionId);
+	// Model controls are sourced from the persisted preference store so they survive
+	// refresh and workspace/session switches, while existing sessions stay locked to
+	// their backend runtime provider.
+	const providerPreference = useComposerPreferencesStore((state) => state.provider);
+	const modelPreference = useComposerPreferencesStore((state) => state.selectedModelByProvider);
+	const claudeReasoningEffortPreference = useComposerPreferencesStore(
+		(state) => state.claudeReasoningEffort,
+	);
+	const claudeContextWindowPreference = useComposerPreferencesStore(
+		(state) => state.claudeContextWindow,
+	);
+	const codexReasoningEffortPreference = useComposerPreferencesStore(
+		(state) => state.codexReasoningEffort,
+	);
+	const codexFastModePreference = useComposerPreferencesStore((state) => state.codexFastMode);
+	const planModePreference = useComposerPreferencesStore((state) => state.planMode);
+
+	const provider = sessionProvider ?? resolvePreferredProvider(providerPreference, providers);
+	const selectedModelByProvider = useMemo(
+		() => resolvePreferredModelByProvider(modelPreference, providers),
+		[modelPreference, providers],
+	);
 	const providerCatalog =
 		providers.find((entry) => entry.id === provider) ?? providers[0] ?? PROVIDERS[0];
-
 	const model = modelForProvider(providerCatalog, selectedModelByProvider);
+
+	const claudeReasoningEffort =
+		claudeReasoningEffortPreference ?? DEFAULT_COMPOSER_MODEL_OPTIONS.claudeReasoningEffort;
+	const claudeContextWindow = useMemo(
+		() =>
+			resolvePreferredClaudeContextWindow(
+				provider === 'claude' ? model : null,
+				claudeContextWindowPreference,
+			),
+		[provider, model, claudeContextWindowPreference],
+	);
+	const codexReasoningEffort =
+		codexReasoningEffortPreference ?? DEFAULT_COMPOSER_MODEL_OPTIONS.codexReasoningEffort;
+	const codexFastMode = codexFastModePreference ?? DEFAULT_COMPOSER_MODEL_OPTIONS.codexFastMode;
+
+	// Plan mode stays local because it tracks the active session's backend runtime
+	// rather than acting as a pure preference: existing sessions follow runtime, and
+	// new sessions seed from the persisted default.
+	const [planMode, setPlanMode] = useState(() =>
+		sessionProvider ? sessionPlanMode : (planModePreference ?? false),
+	);
+
+	const previousSessionIdRef = useRef(sessionId);
+
 	const sessionStatus = sessionSnapshot?.runtime.status;
 	const isStreaming =
 		sessionStatus === 'running' ||
@@ -111,36 +135,14 @@ export function useChatComposer({
 		setContent('');
 		setAttachments([]);
 		setSubmitting(false);
-		providerWasChangedByUserRef.current = false;
-		setProvider(resolvedDefaultProvider);
-		setSelectedModelByProvider(
-			Object.fromEntries(providers.map((entry) => [entry.id, entry.defaultModel])),
-		);
-		setPlanMode(sessionPlanMode);
-	}, [providers, resolvedDefaultProvider, sessionId, sessionPlanMode]);
+		setPlanMode(sessionProvider ? sessionPlanMode : (planModePreference ?? false));
+	}, [sessionId, sessionProvider, sessionPlanMode, planModePreference]);
 
+	// Existing sessions mirror backend plan mode; new sessions keep the seeded default
+	// so localStorage never silently overrides an existing session's runtime state.
 	useEffect(() => {
-		setPlanMode(sessionPlanMode);
-	}, [sessionPlanMode]);
-
-	useEffect(() => {
-		setSelectedModelByProvider((current) => ({
-			...Object.fromEntries(providers.map((entry) => [entry.id, entry.defaultModel])),
-			...current,
-		}));
-	}, [providers]);
-
-	useEffect(() => {
-		const providerIsAvailable = providers.some((entry) => entry.id === provider);
-		if (sessionProvider) {
-			if (provider !== sessionProvider) setProvider(sessionProvider);
-		} else if (
-			!providerIsAvailable ||
-			(!providerWasChangedByUserRef.current && provider !== resolvedDefaultProvider)
-		) {
-			setProvider(resolvedDefaultProvider);
-		}
-	}, [provider, providers, resolvedDefaultProvider, sessionProvider]);
+		if (sessionProvider) setPlanMode(sessionPlanMode);
+	}, [sessionProvider, sessionPlanMode]);
 
 	const addFiles = useCallback((files: File[]) => {
 		setAttachments((current) => {
@@ -166,17 +168,30 @@ export function useChatComposer({
 	const changeProvider = useCallback(
 		(nextProvider: AgentProvider) => {
 			if (sessionProvider) return;
-			providerWasChangedByUserRef.current = true;
-			setProvider(nextProvider);
+			useComposerPreferencesStore.getState().setProviderPreference(nextProvider);
 		},
 		[sessionProvider],
 	);
 
 	const changeModel = useCallback((nextProvider: AgentProvider, modelId: string) => {
-		setSelectedModelByProvider((current) => ({
-			...current,
-			[nextProvider]: modelId,
-		}));
+		useComposerPreferencesStore.getState().setModelPreference(nextProvider, modelId);
+	}, []);
+
+	const changeClaudeReasoningEffort = useCallback((value: ClaudeReasoningEffort) => {
+		useComposerPreferencesStore.getState().setClaudeReasoningEffortPreference(value);
+	}, []);
+
+	const changeClaudeContextWindow = useCallback((value: ClaudeContextWindow) => {
+		useComposerPreferencesStore.getState().setClaudeContextWindowPreference(value);
+	}, []);
+
+	const changeCodexFastMode = useCallback((value: boolean) => {
+		useComposerPreferencesStore.getState().setCodexFastModePreference(value);
+	}, []);
+
+	const changePlanMode = useCallback((value: boolean) => {
+		setPlanMode(value);
+		useComposerPreferencesStore.getState().setPlanModePreference(value);
 	}, []);
 
 	const submit = useCallback(async () => {
@@ -243,13 +258,13 @@ export function useChatComposer({
 		providerCatalog,
 		model,
 		planMode,
-		setPlanMode,
+		setPlanMode: changePlanMode,
 		claudeReasoningEffort,
-		setClaudeReasoningEffort,
+		setClaudeReasoningEffort: changeClaudeReasoningEffort,
 		claudeContextWindow,
-		setClaudeContextWindow,
+		setClaudeContextWindow: changeClaudeContextWindow,
 		codexFastMode,
-		setCodexFastMode,
+		setCodexFastMode: changeCodexFastMode,
 		isStreaming,
 		disabled,
 		canSubmit,

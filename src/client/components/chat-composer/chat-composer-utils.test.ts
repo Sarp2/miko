@@ -13,8 +13,16 @@ import {
 	modelForProvider,
 	modelOptionsForSubmit,
 	providerCatalogs,
+	resolvePreferredClaudeContextWindow,
+	resolvePreferredModelByProvider,
+	resolvePreferredProvider,
 	uploadAttachments,
 } from './chat-composer-utils';
+
+const CLAUDE_CONTEXT_WINDOWS = [
+	{ id: '200k', label: '200k' },
+	{ id: '1m', label: '1M' },
+] as const;
 
 const originalFetch = globalThis.fetch;
 
@@ -97,6 +105,45 @@ describe('provider and model helpers', () => {
 		expect(modelForProvider(catalog, { claude: 'opus' })?.id).toBe('opus');
 		expect(modelForProvider(catalog, { claude: 'missing' })?.id).toBe('sonnet');
 		expect(modelForProvider(provider('claude', []), {})).toBeNull();
+	});
+});
+
+describe('preference resolvers', () => {
+	test('resolvePreferredProvider uses a preference only when present in the catalog', () => {
+		const providers = [provider('claude'), provider('codex')];
+
+		expect(resolvePreferredProvider('codex', providers)).toBe('codex');
+		expect(resolvePreferredProvider('codex', [provider('claude')])).toBe('claude');
+		expect(resolvePreferredProvider(null, [])).toBe('claude');
+	});
+
+	test('resolvePreferredModelByProvider prefers valid models and falls back to defaults', () => {
+		const claude = provider('claude', [
+			{ id: 'sonnet', label: 'Sonnet', supportsEffort: true },
+			{ id: 'opus', label: 'Opus', supportsEffort: true },
+		]);
+
+		expect(resolvePreferredModelByProvider({ claude: 'opus' }, [claude])).toEqual({
+			claude: 'opus',
+		});
+		expect(resolvePreferredModelByProvider({ claude: 'missing' }, [claude])).toEqual({
+			claude: 'sonnet',
+		});
+		expect(resolvePreferredModelByProvider({}, [claude])).toEqual({ claude: 'sonnet' });
+	});
+
+	test('resolvePreferredClaudeContextWindow keeps 1m only for supporting models', () => {
+		const withOneMillion = {
+			id: 'opus',
+			label: 'Opus',
+			supportsEffort: true,
+			contextWindowOptions: CLAUDE_CONTEXT_WINDOWS,
+		};
+		const withoutOneMillion = { id: 'haiku', label: 'Haiku', supportsEffort: true };
+
+		expect(resolvePreferredClaudeContextWindow(withOneMillion, '1m')).toBe('1m');
+		expect(resolvePreferredClaudeContextWindow(withoutOneMillion, '1m')).toBe('200k');
+		expect(resolvePreferredClaudeContextWindow(null, '1m')).toBe('200k');
 	});
 });
 

@@ -59,6 +59,41 @@ export function modelForProvider(
 	return provider.models.find((model) => model.id === selected) ?? provider.models[0] ?? null;
 }
 
+export function resolvePreferredProvider(
+	preferred: AgentProvider | null,
+	providers: ProviderCatalogEntry[],
+): AgentProvider {
+	if (preferred && providers.some((entry) => entry.id === preferred)) return preferred;
+	return providers[0]?.id ?? 'claude';
+}
+
+export function resolvePreferredModelByProvider(
+	preferred: Partial<Record<AgentProvider, string>>,
+	providers: ProviderCatalogEntry[],
+): Record<string, string> {
+	const result: Record<string, string> = {};
+	for (const entry of providers) {
+		const preferredModel = preferred[entry.id];
+		const usePreferred =
+			preferredModel !== undefined && entry.models.some((model) => model.id === preferredModel);
+		const fallback = entry.models.some((model) => model.id === entry.defaultModel)
+			? entry.defaultModel
+			: entry.models[0]?.id;
+		const resolved = usePreferred ? preferredModel : fallback;
+		if (resolved !== undefined) result[entry.id] = resolved;
+	}
+	return result;
+}
+
+export function resolvePreferredClaudeContextWindow(
+	model: ProviderModelOption | null,
+	preferred: ClaudeContextWindow | null,
+): ClaudeContextWindow {
+	const options = model?.contextWindowOptions ?? [];
+	if (preferred && options.some((option) => option.id === preferred)) return preferred;
+	return DEFAULT_CLAUDE_MODEL_OPTIONS.contextWindow;
+}
+
 export function mentionOptionsFromGitFiles(files: WorkspaceDiffFile[] = []): FileMentionOption[] {
 	return files.map((file) => ({
 		id: file.path,
