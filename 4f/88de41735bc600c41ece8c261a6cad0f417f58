@@ -1,0 +1,79 @@
+src/client/routes/workspace-route.tsx
+  s_82e93de1bb8ac8::t_a961f834223613 1
+  s_82e93de1bb8ac8::t_1d6c68c01b0e5a 124-127,179-183
+  s_82e93de1bb8ac8::t_5d85547c9b9a40 4,8-9,32-41,43-50,90-93,128-137,177-178,184-188
+  s_82e93de1bb8ac8::t_d82af4697a379f 42
+src/client/stores/ui-store.ts
+  s_82e93de1bb8ac8::t_a0ad3bb15f6178 113
+  s_82e93de1bb8ac8::t_c22062ee4c8704 125
+src/client/stores/workspace-file-store.test.ts
+  s_82e93de1bb8ac8::t_23f85910defe13 2-5,11-44,49-63,84-89,91-110,121,138-156
+  s_82e93de1bb8ac8::t_c9728ecf226994 64-83,111-120,122-137
+  s_82e93de1bb8ac8::t_d82af4697a379f 90
+  s_82e93de1bb8ac8::t_eed5e3b8ee47eb 1,6-10,45-48
+src/client/components/transcript-turn.tsx
+  s_82e93de1bb8ac8::t_a525477b0c0ed1 60,64,83-88
+src/client/lib/miko-diff-renderer.ts
+  s_82e93de1bb8ac8::t_ee0d8c14bbf614 1-79
+src/client/components/transcript-message-view.tsx
+  s_82e93de1bb8ac8::t_a525477b0c0ed1 20,24
+  s_82e93de1bb8ac8::t_c903e72531791a 39-43
+src/client/components/workspace-file-page.tsx
+  s_82e93de1bb8ac8::t_227ea024dd0216 9-10
+  s_82e93de1bb8ac8::t_d82af4697a379f 20
+  s_82e93de1bb8ac8::t_1d6c68c01b0e5a 59
+  s_82e93de1bb8ac8::t_14e69430381770 44
+  s_82e93de1bb8ac8::t_18a9b7c5b73af0 11,23
+  s_82e93de1bb8ac8::t_36b66eadf736c2 3,40-43,45-50,84
+  s_82e93de1bb8ac8::t_65402a55710ff4 1,4-8,12-19,21-22,24-39,51-58,60-83,85-116
+  s_82e93de1bb8ac8::t_1e1563595bf60d 2
+src/client/lib/middle-tabs.test.ts
+  s_82e93de1bb8ac8::t_5844341494a399 32,34
+src/client/components/changed-file-chip.tsx
+  s_82e93de1bb8ac8::t_c0a2f197e43960 27
+  s_82e93de1bb8ac8::t_a525477b0c0ed1 1,4,15,19,22-26,28-31,35-39,63
+src/client/components/chat-page.tsx
+  s_82e93de1bb8ac8::t_a525477b0c0ed1 126
+src/client/components/workspace-code-path-header.tsx
+  s_82e93de1bb8ac8::t_18a9b7c5b73af0 1-10
+src/client/components/workspace-diff-page.tsx
+  s_82e93de1bb8ac8::t_14e69430381770 50
+  s_82e93de1bb8ac8::t_d82af4697a379f 20
+  s_82e93de1bb8ac8::t_491cbbcd02124f 57-61,68
+  s_82e93de1bb8ac8::t_227ea024dd0216 9
+  s_82e93de1bb8ac8::t_1e1563595bf60d 2
+  s_82e93de1bb8ac8::t_18a9b7c5b73af0 10,23-29
+  s_82e93de1bb8ac8::t_36b66eadf736c2 3,46-49,51-56,85
+  s_82e93de1bb8ac8::t_1d6c68c01b0e5a 17,69
+  s_82e93de1bb8ac8::t_65402a55710ff4 1,4-8,11-16,18-19,21-22,30-45,62-67,70-84,86-113
+src/client/stores/ui-store.test.ts
+  s_82e93de1bb8ac8::t_a0ad3bb15f6178 181
+  s_82e93de1bb8ac8::t_5844341494a399 165,169
+src/client/components/transcript-turn-footer.tsx
+  s_82e93de1bb8ac8::t_a525477b0c0ed1 22,27,100-105
+src/client/components/transcript-message-view.test.tsx
+  s_82e93de1bb8ac8::t_5539ef94d480e7 13-17
+src/client/stores/workspace-file-store.ts
+  s_82e93de1bb8ac8::t_1d6c68c01b0e5a 31-35,75,78-79,118,121-127
+  s_82e93de1bb8ac8::t_491cbbcd02124f 26-30
+  s_82e93de1bb8ac8::t_ce25c379cf6197 1-25,36-55,57-74,76-77,80-117,119-120,128-170
+  s_82e93de1bb8ac8::t_488e43f93ac6f9 56
+src/client/components/messages/changed-file-diff.tsx
+  s_82e93de1bb8ac8::t_ee0d8c14bbf614 1,3-8,10,42-43
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "4f88de41735bc600c41ece8c261a6cad0f417f58",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": null
+    }
+  }
+}
