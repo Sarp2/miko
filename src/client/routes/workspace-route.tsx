@@ -1,9 +1,12 @@
-import { lazy, Suspense, useEffect, useMemo } from 'react';
+import { lazy, type ReactNode, Suspense, useEffect, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import type { SessionSummary } from '../../shared/types';
+import { ChatComposer } from '../components/chat-composer/chat-composer';
 import { ChatPage } from '../components/chat-page';
 import { ErrorBoundary } from '../components/error-boundary';
 import { MiddleTabs } from '../components/middle-tabs';
+import { WorkspaceDiffPage } from '../components/workspace-diff-page';
+import { WorkspaceFilePage } from '../components/workspace-file-page';
 import { WorkspaceHeader } from '../components/workspace-header/workspace-header';
 import { useScratchpadStore } from '../stores/scratchpad-store';
 import { useSessionStore } from '../stores/session-store';
@@ -25,6 +28,29 @@ interface WorkspaceRouteProps {
 const ScratchpadPage = lazy(() =>
 	import('../components/scratchpad-page').then((module) => ({ default: module.ScratchpadPage })),
 );
+
+function selectComposerSessionId(sessions: SessionSummary[], preferredSessionId?: string | null) {
+	if (preferredSessionId && sessions.some((session) => session.id === preferredSessionId)) {
+		return preferredSessionId;
+	}
+
+	return (
+		sessions.toSorted((a, b) => {
+			const left = a.lastMessageAt ?? a.updatedAt ?? a.createdAt;
+			const right = b.lastMessageAt ?? b.updatedAt ?? b.createdAt;
+			return right - left;
+		})[0]?.id ?? null
+	);
+}
+
+function PageWithComposer({ children, composer }: { children: ReactNode; composer: ReactNode }) {
+	return (
+		<div className="flex h-full min-h-0 flex-col">
+			<div className="min-h-0 flex-1 overflow-hidden">{children}</div>
+			{composer}
+		</div>
+	);
+}
 
 export function WorkspaceRoute({ kind }: WorkspaceRouteProps) {
 	const navigate = useNavigate();
@@ -65,6 +91,14 @@ export function WorkspaceRoute({ kind }: WorkspaceRouteProps) {
 		if (page?.type !== 'chat') return null;
 		return selectSessionRouteTarget(sessions, page.sessionId);
 	}, [page, sessions]);
+	const sourceSessionId = page?.type === 'diff' ? page.sourceSessionId : null;
+	const composerSessionId = useMemo(
+		() => selectComposerSessionId(sessions, sourceSessionId),
+		[sessions, sourceSessionId],
+	);
+	const composerSessionSnapshot = useSessionStore((state) =>
+		composerSessionId ? (state.snapshotBySessionId.get(composerSessionId) ?? null) : null,
+	);
 
 	useEffect(() => {
 		if (!workspaceId || kind !== 'workspace' || !firstSessionId) return;
@@ -95,6 +129,25 @@ export function WorkspaceRoute({ kind }: WorkspaceRouteProps) {
 	const scratchpadActive = page?.type === 'file' && page.source === 'scratchpad';
 	const chatActive = page?.type === 'chat';
 	const chatSessionIsReady = chatActive && sessionRouteTargetId === page.sessionId;
+	const activeDiffFile =
+		page?.type === 'diff' && page.path
+			? (workspaceSnapshot?.git?.files.find((file) => file.path === page.path) ?? null)
+			: null;
+	const activeFileRevisionKey =
+		page?.type === 'file' && page.path && workspaceSnapshot?.git
+			? (workspaceSnapshot.git.files.find((file) => file.path === page.path)?.patchDigest ??
+				workspaceSnapshot.git.files.map((file) => `${file.path}:${file.patchDigest}`).join('\n'))
+			: null;
+	const composer =
+		workspaceSnapshot && composerSessionId ? (
+			<ChatComposer
+				key={composerSessionId}
+				workspaceId={workspaceId}
+				sessionId={composerSessionId}
+				workspaceSnapshot={workspaceSnapshot}
+				sessionSnapshot={composerSessionSnapshot}
+			/>
+		) : null;
 
 	return (
 		<section
@@ -134,6 +187,22 @@ export function WorkspaceRoute({ kind }: WorkspaceRouteProps) {
 					<div className="flex h-full items-center justify-center text-caption text-ink-tertiary">
 						{sessionRouteTargetId ? 'Opening chat…' : 'Chat not found.'}
 					</div>
+				) : page?.type === 'diff' && workspaceSnapshot ? (
+					<PageWithComposer composer={composer}>
+						<WorkspaceDiffPage
+							workspaceId={workspaceId}
+							path={page.path}
+							expectedPatchDigest={activeDiffFile?.patchDigest}
+						/>
+					</PageWithComposer>
+				) : page?.type === 'file' && page.source === 'workspace_file' && workspaceSnapshot ? (
+					<PageWithComposer composer={composer}>
+						<WorkspaceFilePage
+							workspaceId={workspaceId}
+							page={page}
+							revisionKey={activeFileRevisionKey}
+						/>
+					</PageWithComposer>
 				) : (
 					<div className="h-full overflow-auto p-3 text-ink-muted">
 						{page ? <pre data-testid="workspace-page">{JSON.stringify(page)}</pre> : null}

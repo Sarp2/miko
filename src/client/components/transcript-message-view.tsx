@@ -17,9 +17,13 @@ export function TranscriptActivityIndicator() {
  */
 export function TranscriptItemView({
 	item,
+	sessionId,
+	workspaceId,
 	workspaceRoot,
 }: {
 	item: TranscriptItem;
+	sessionId: string;
+	workspaceId: string;
 	workspaceRoot: string;
 }) {
 	if (item.type === 'user') {
@@ -34,7 +38,12 @@ export function TranscriptItemView({
 
 	return (
 		<div data-transcript-item-id={item.id} className="mb-5">
-			<TranscriptTurnView turn={item.turn} workspaceRoot={workspaceRoot} />
+			<TranscriptTurnView
+				turn={item.turn}
+				sessionId={sessionId}
+				workspaceId={workspaceId}
+				workspaceRoot={workspaceRoot}
+			/>
 		</div>
 	);
 }

@@ -1,0 +1,211 @@
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import type { WorkspaceDiffPatchResult, WorkspaceFileContentsResult } from '../../shared/types';
+import { useWorkspaceFileStore } from './workspace-file-store';
+import { useWorkspaceStore } from './workspace-store';
+
+const originalWorkspaceFileCommands = {
+	readFileContents: useWorkspaceStore.getState().readFileContents,
+	readDiffPatch: useWorkspaceStore.getState().readDiffPatch,
+};
+
+function fileResult(path = 'src/index.css'): WorkspaceFileContentsResult {
+	return {
+		path,
+		name: 'index.css',
+		contents: 'body {}',
+		mimeType: 'text/plain; charset=utf-8',
+		size: 7,
+		encoding: 'utf-8',
+		cacheKey: `${path}:digest`,
+	};
+}
+
+function diffResult(path = 'src/index.css'): WorkspaceDiffPatchResult {
+	return {
+		path,
+		patch: 'diff --git a/src/index.css b/src/index.css',
+		patchDigest: 'digest',
+	};
+}
+
+function deferred<T>() {
+	let resolve!: (value: T) => void;
+	const promise = new Promise<T>((nextResolve) => {
+		resolve = nextResolve;
+	});
+	return { promise, resolve };
+}
+
+beforeEach(() => {
+	useWorkspaceFileStore.getState().resetForTests();
+	useWorkspaceStore.setState({
+		readFileContents: async () => fileResult(),
+		readDiffPatch: async () => diffResult(),
+	});
+});
+
+afterEach(() => {
+	useWorkspaceStore.setState(originalWorkspaceFileCommands);
+});
+
+describe('useWorkspaceFileStore.loadFileContents', () => {
+	test('loads and caches workspace file contents', async () => {
+		await useWorkspaceFileStore.getState().loadFileContents('workspace-1', 'src/index.css');
+
+		expect(
+			useWorkspaceFileStore.getState().getFileResource('workspace-1', 'src/index.css'),
+		).toMatchObject({
+			status: 'ready',
+			data: fileResult(),
+			error: null,
+		});
+	});
+
+	test('force refetches ready file contents', async () => {
+		let version = 0;
+		useWorkspaceStore.setState({
+			readFileContents: async () => {
+				version += 1;
+				return { ...fileResult(), contents: `body { color: ${version}; }` };
+			},
+		});
+
+		await useWorkspaceFileStore.getState().loadFileContents('workspace-1', 'src/index.css');
+		await useWorkspaceFileStore
+			.getState()
+			.loadFileContents('workspace-1', 'src/index.css', { force: true });
+
+		expect(
+			useWorkspaceFileStore.getState().getFileResource('workspace-1', 'src/index.css').data
+				?.contents,
+		).toBe('body { color: 2; }');
+	});
+
+	test('does not resurrect file resources after reset', async () => {
+		const pending = deferred<WorkspaceFileContentsResult>();
+		useWorkspaceStore.setState({
+			readFileContents: async () => pending.promise,
+		});
+
+		const load = useWorkspaceFileStore.getState().loadFileContents('workspace-1', 'src/index.css');
+		useWorkspaceFileStore.getState().resetForTests();
+		pending.resolve(fileResult());
+		await load;
+
+		expect(
+			useWorkspaceFileStore.getState().getFileResource('workspace-1', 'src/index.css').status,
+		).toBe('idle');
+	});
+});
+
+describe('useWorkspaceFileStore.loadDiffPatch', () => {
+	test('loads and caches workspace diff patches', async () => {
+		await useWorkspaceFileStore.getState().loadDiffPatch('workspace-1', 'src/index.css');
+
+		expect(
+			useWorkspaceFileStore.getState().getDiffResource('workspace-1', 'src/index.css'),
+		).toMatchObject({
+			status: 'ready',
+			data: diffResult(),
+			error: null,
+		});
+	});
+
+	test('refetches ready diffs when the expected digest changes', async () => {
+		let version = 0;
+		useWorkspaceStore.setState({
+			readDiffPatch: async () => {
+				version += 1;
+				return { ...diffResult(), patch: `diff ${version}`, patchDigest: `digest-${version}` };
+			},
+		});
+
+		await useWorkspaceFileStore
+			.getState()
+			.loadDiffPatch('workspace-1', 'src/index.css', { expectedPatchDigest: 'digest-1' });
+		await useWorkspaceFileStore
+			.getState()
+			.loadDiffPatch('workspace-1', 'src/index.css', { expectedPatchDigest: 'digest-1' });
+		await useWorkspaceFileStore
+			.getState()
+			.loadDiffPatch('workspace-1', 'src/index.css', { expectedPatchDigest: 'digest-2' });
+
+		const resource = useWorkspaceFileStore
+			.getState()
+			.getDiffResource('workspace-1', 'src/index.css');
+		expect(resource.data?.patch).toBe('diff 2');
+		expect(version).toBe(2);
+	});
+
+	test('refetches ready diffs when the expected digest becomes unavailable', async () => {
+		let calls = 0;
+		useWorkspaceStore.setState({
+			readDiffPatch: async () => {
+				calls += 1;
+				if (calls === 1) return { ...diffResult(), patchDigest: 'digest-1' };
+				throw new Error('File is no longer changed');
+			},
+		});
+
+		await useWorkspaceFileStore
+			.getState()
+			.loadDiffPatch('workspace-1', 'src/index.css', { expectedPatchDigest: 'digest-1' });
+		await useWorkspaceFileStore.getState().loadDiffPatch('workspace-1', 'src/index.css');
+
+		expect(
+			useWorkspaceFileStore.getState().getDiffResource('workspace-1', 'src/index.css'),
+		).toMatchObject({
+			status: 'error',
+			error: 'File is no longer changed',
+			expectedPatchDigest: null,
+		});
+		expect(calls).toBe(2);
+	});
+
+	test('lets changed diff expectations supersede in-flight requests', async () => {
+		const first = deferred<WorkspaceDiffPatchResult>();
+		const second = deferred<WorkspaceDiffPatchResult>();
+		let calls = 0;
+		useWorkspaceStore.setState({
+			readDiffPatch: async () => {
+				calls += 1;
+				return calls === 1 ? first.promise : second.promise;
+			},
+		});
+
+		const firstLoad = useWorkspaceFileStore
+			.getState()
+			.loadDiffPatch('workspace-1', 'src/index.css', { expectedPatchDigest: 'digest-1' });
+		const secondLoad = useWorkspaceFileStore
+			.getState()
+			.loadDiffPatch('workspace-1', 'src/index.css', { expectedPatchDigest: 'digest-2' });
+
+		second.resolve({ ...diffResult(), patch: 'diff 2', patchDigest: 'digest-2' });
+		await secondLoad;
+		first.resolve({ ...diffResult(), patch: 'diff 1', patchDigest: 'digest-1' });
+		await firstLoad;
+
+		const resource = useWorkspaceFileStore
+			.getState()
+			.getDiffResource('workspace-1', 'src/index.css');
+		expect(resource.data?.patch).toBe('diff 2');
+		expect(resource.expectedPatchDigest).toBe('digest-2');
+	});
+
+	test('stores diff load errors', async () => {
+		useWorkspaceStore.setState({
+			readDiffPatch: async () => {
+				throw new Error('File is no longer changed');
+			},
+		});
+
+		await useWorkspaceFileStore.getState().loadDiffPatch('workspace-1', 'src/index.css');
+
+		expect(
+			useWorkspaceFileStore.getState().getDiffResource('workspace-1', 'src/index.css'),
+		).toMatchObject({
+			status: 'error',
+			error: 'File is no longer changed',
+		});
+	});
+});

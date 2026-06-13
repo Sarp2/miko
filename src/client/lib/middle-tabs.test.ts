@@ -29,9 +29,9 @@ describe('middleTabTitle', () => {
 	test('uses stable titles for diff and files', () => {
 		expect(
 			middleTabTitle(
-				tab({ fallbackTitle: 'All changes', page: { type: 'diff', path: 'src/server/foo.ts' } }),
+				tab({ fallbackTitle: 'foo.ts', page: { type: 'diff', path: 'src/server/foo.ts' } }),
 			),
-		).toBe('All changes');
+		).toBe('foo.ts');
 		expect(
 			middleTabTitle(
 				tab({
@@ -57,6 +57,13 @@ describe('workspacePagePath', () => {
 		expect(workspacePagePath('ws1', { type: 'diff', path: 'src/a.ts' })).toBe(
 			'/workspaces/ws1/diff?path=src%2Fa.ts',
 		);
+		expect(
+			workspacePagePath('ws1', {
+				type: 'diff',
+				path: 'src/a.ts',
+				sourceSessionId: 'session-1',
+			}),
+		).toBe('/workspaces/ws1/diff?path=src%2Fa.ts&sessionId=session-1');
 		expect(
 			workspacePagePath('ws1', {
 				type: 'file',

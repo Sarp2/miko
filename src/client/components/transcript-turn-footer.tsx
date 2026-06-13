@@ -19,10 +19,14 @@ const MAX_VISIBLE_FILES = 4;
 export function TurnFooter({
 	turn,
 	durationMs,
+	sessionId,
+	workspaceId,
 	workspaceRoot,
 }: {
 	turn: TranscriptTurn;
 	durationMs: number | null;
+	sessionId: string;
+	workspaceId: string;
 	workspaceRoot: string;
 }) {
 	const files = useMemo(() => turnChangedFiles(turn.tools), [turn.tools]);
@@ -95,7 +99,13 @@ export function TurnFooter({
 			</DropdownMenu>
 
 			{visible.map((file) => (
-				<ChangedFileChip key={file.path} file={file} workspaceRoot={workspaceRoot} />
+				<ChangedFileChip
+					key={file.path}
+					file={file}
+					sourceSessionId={sessionId}
+					workspaceId={workspaceId}
+					workspaceRoot={workspaceRoot}
+				/>
 			))}
 			{overflow.length > 0 ? (
 				<ChangedFileChip

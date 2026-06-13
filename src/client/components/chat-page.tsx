@@ -123,6 +123,8 @@ export function ChatPageView({
 							<TranscriptItemView
 								key={item.id}
 								item={item}
+								sessionId={sessionId}
+								workspaceId={workspaceId}
 								workspaceRoot={workspaceSnapshot.workspace.localPath}
 							/>
 						))}
