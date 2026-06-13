@@ -1,0 +1,22 @@
+src/server/diff-store.ts
+  s_82e93de1bb8ac8::t_2ca79cfd32d511 37,554-560,572,578-586,1090,1100,1105
+src/server/diff-store.test.ts
+  s_82e93de1bb8ac8::t_02cdc6849c2d2a 639-641,646-653
+  s_82e93de1bb8ac8::t_d70865706a5f63 642-645
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "bda07e17dfe940e1681f25e001489cdb82ba7c1f",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
