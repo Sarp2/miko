@@ -1,0 +1,40 @@
+src/client/stores/workspace-store.ts
+  s_82e93de1bb8ac8::t_4517c5ed0dc58d 3-8,31-32,102-152,199-214
+src/server/ws-router.ts
+  s_82e93de1bb8ac8::t_a1aabb292d948e 61,566-568
+src/server/ws-router.test.ts
+  s_82e93de1bb8ac8::t_07d1fef5adcc81 116-125,692-728
+  s_82e93de1bb8ac8::t_70a7d98fafd6f5 533-542,589-598,647-656
+src/shared/types.ts
+  s_82e93de1bb8ac8::t_947c1bcfa9b3cb 583-589,591-592
+  s_82e93de1bb8ac8::t_5137ade0355359 577-582,590
+src/server/diff-store.ts
+  s_82e93de1bb8ac8::t_5182478f213c96 628
+  s_82e93de1bb8ac8::t_6a45d2842ee521 536-569
+  s_82e93de1bb8ac8::t_d488347dbd62d8 2,14-15
+  s_82e93de1bb8ac8::t_fe84a37bb7579c 1049-1052
+  s_82e93de1bb8ac8::t_e771ae83b27ec5 1059-1091,1093-1101
+  s_82e93de1bb8ac8::t_45a2705ceb507c 36-37
+src/server/diff-store.test.ts
+  s_82e93de1bb8ac8::t_6070f0640732ca 2,589,592-646
+src/shared/protocol.ts
+  s_82e93de1bb8ac8::t_947c1bcfa9b3cb 87
+src/client/stores/workspace-store.test.ts
+  s_82e93de1bb8ac8::t_7eace99cb66328 233-342
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "6ea82bc47b25b1c1ca37b33507ba9e6c7dee4356",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
