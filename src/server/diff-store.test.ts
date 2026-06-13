@@ -403,8 +403,10 @@ describe('readPatchForEntry', () => {
 			isUntracked: true,
 		});
 
+		expect(patch).toContain('diff --git a/notes.txt b/notes.txt');
 		expect(patch).toContain('--- /dev/null');
-		expect(patch).toContain('notes.txt');
+		expect(patch).toContain('+++ b/notes.txt');
+		expect(patch).not.toContain(repoRoot);
 		expect(patch).toContain('+hello');
 		expect(patch).toContain('+world');
 	});

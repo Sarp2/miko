@@ -538,6 +538,20 @@ function hashPatch(patch: string) {
 	return createHash('sha256').update(patch).digest('hex');
 }
 
+function normalizeNoIndexPatchHeaders(patch: string, relativePath: string) {
+	const normalizedPath = stripTrailingSlash(relativePath);
+	const absolutePathPattern = /[^\s]+/u;
+	return patch
+		.replace(
+			new RegExp(
+				`^diff --git a/${absolutePathPattern.source} b/${absolutePathPattern.source}$`,
+				'mu',
+			),
+			`diff --git a/${normalizedPath} b/${normalizedPath}`,
+		)
+		.replace(/^(\+\+\+) b\/.*$/mu, `+++ b/${normalizedPath}`);
+}
+
 function hashFileContents(relativePath: string, contents: string) {
 	return createHash('sha256').update(`${relativePath}\0${contents}`).digest('hex');
 }
@@ -597,7 +611,7 @@ export async function readPatchForEntry(
 			['diff', '--no-index', '--no-color', '--', '/dev/null', absolutePath],
 			repoRoot,
 		);
-		return result.stdout;
+		return normalizeNoIndexPatchHeaders(result.stdout, targetPath);
 	}
 
 	const diffArgs = ['diff', '--no-ext-diff', '--no-color', '--find-renames'];
