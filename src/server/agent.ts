@@ -1118,7 +1118,12 @@ export class AgentCoordinator {
 				await this.notifyActiveTurnSettled(active, 'failed');
 			}
 		} finally {
-			this.claudeSessions.delete(session.sessionId);
+			// Only retire this session if the map still points at it. A 200k<->1M (or effort/cwd)
+			// switch may have already replaced it under the same sessionId, and that replacement
+			// must survive this older loop finishing.
+			if (this.claudeSessions.get(session.sessionId) === session) {
+				this.claudeSessions.delete(session.sessionId);
+			}
 			const active = this.activeTurns.get(session.sessionId);
 			if (active?.provider === 'claude') {
 				if (active.cancelRequested && !active.cancelRecorded) {

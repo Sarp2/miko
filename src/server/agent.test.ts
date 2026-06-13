@@ -514,6 +514,47 @@ describe('AgentCoordinator.closeSession', () => {
 	});
 });
 
+describe('AgentCoordinator.runClaudeSession', () => {
+	function emptyStreamSession(sessionId: string): ClaudeSessionFixture {
+		return {
+			sessionId,
+			session: {
+				stream: (async function* () {})(),
+				close: () => {},
+			},
+		} as unknown as ClaudeSessionFixture;
+	}
+
+	function runClaudeSession(coordinator: AgentCoordinator, session: ClaudeSessionFixture) {
+		return (
+			coordinator as unknown as {
+				runClaudeSession: (session: ClaudeSessionFixture) => Promise<void>;
+			}
+		).runClaudeSession(session);
+	}
+
+	test('keeps a replacement session registered under the same id', async () => {
+		const coordinator = createCoordinator();
+		const replacement = emptyStreamSession('session-1');
+		// Simulate a 200k<->1M switch having already swapped in a fresh handle.
+		coordinator.claudeSessions.set('session-1', replacement);
+
+		await runClaudeSession(coordinator, emptyStreamSession('session-1'));
+
+		expect(coordinator.claudeSessions.get('session-1')).toBe(replacement);
+	});
+
+	test('evicts its own session when it is still the active handle', async () => {
+		const coordinator = createCoordinator();
+		const session = emptyStreamSession('session-2');
+		coordinator.claudeSessions.set('session-2', session);
+
+		await runClaudeSession(coordinator, session);
+
+		expect(coordinator.claudeSessions.has('session-2')).toBe(false);
+	});
+});
+
 describe('AgentCoordinator.send', () => {
 	test('throws when creating a new session without workspaceId', async () => {
 		const coordinator = createCoordinator();
