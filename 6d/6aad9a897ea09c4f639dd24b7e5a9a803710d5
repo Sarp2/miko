@@ -1,0 +1,20 @@
+src/client/hooks/use-chat-scroll.ts
+  s_82e93de1bb8ac8::t_327c8b0805c2cd 23,96-102,104-107,231-236
+  s_82e93de1bb8ac8::t_ed0893caab1a26 22,103,237
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "6d6aad9a897ea09c4f639dd24b7e5a9a803710d5",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
