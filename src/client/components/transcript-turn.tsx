@@ -57,9 +57,13 @@ function TurnActivity({ turn }: { turn: TranscriptTurn }) {
 
 export function TranscriptTurnView({
 	turn,
+	sessionId,
+	workspaceId,
 	workspaceRoot,
 }: {
 	turn: TranscriptTurn;
+	sessionId: string;
+	workspaceId: string;
 	workspaceRoot: string;
 }) {
 	const start = Date.parse(turn.startTimestamp);
@@ -78,7 +82,13 @@ export function TranscriptTurnView({
 			) : null}
 
 			{turn.isComplete ? (
-				<TurnFooter turn={turn} durationMs={turn.durationMs} workspaceRoot={workspaceRoot} />
+				<TurnFooter
+					turn={turn}
+					durationMs={turn.durationMs}
+					sessionId={sessionId}
+					workspaceId={workspaceId}
+					workspaceRoot={workspaceRoot}
+				/>
 			) : (
 				<RunningTimer startMs={Number.isNaN(start) ? undefined : start} />
 			)}

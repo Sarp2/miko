@@ -15,7 +15,7 @@ export type WorkspaceFileSource =
 
 export type WorkspacePage =
 	| { type: 'chat'; sessionId: string }
-	| { type: 'diff'; path?: string }
+	| { type: 'diff'; path?: string; sourceSessionId?: string }
 	| {
 			type: 'file';
 			path?: string;
@@ -110,7 +110,7 @@ export function scratchpadTabId(workspaceId: string) {
 
 export function pageTabId(page: WorkspacePage) {
 	if (page.type === 'chat') return `chat:${page.sessionId}`;
-	if (page.type === 'diff') return page.path ? `diff:${page.path}` : 'diff:all_changes';
+	if (page.type === 'diff') return page.path ? `diff:${page.path}` : 'diff:placeholder';
 
 	const identity = page.sourceId ?? page.path ?? page.title;
 	return `file:${page.source}:${identity}`;
@@ -122,7 +122,7 @@ function basename(path: string) {
 
 export function fallbackTitleForPage(page: WorkspacePage) {
 	if (page.type === 'chat') return undefined;
-	if (page.type === 'diff') return 'All changes';
+	if (page.type === 'diff') return page.path ? basename(page.path) : 'Select a changed file';
 
 	if (page.source === 'scratchpad') return 'Scratchpad';
 	if (page.source === 'workspace_file') return page.path ? basename(page.path) : page.title;

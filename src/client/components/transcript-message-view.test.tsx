@@ -10,7 +10,16 @@ function base(id: string) {
 
 function renderMessages(messages: HydratedTranscriptMessage[]) {
 	return groupTranscriptTurns(messages)
-		.map((item) => renderToStaticMarkup(<TranscriptItemView item={item} workspaceRoot="" />))
+		.map((item) =>
+			renderToStaticMarkup(
+				<TranscriptItemView
+					item={item}
+					sessionId="session-1"
+					workspaceId="workspace-1"
+					workspaceRoot=""
+				/>,
+			),
+		)
 		.join('');
 }
 

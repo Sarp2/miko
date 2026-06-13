@@ -62,7 +62,12 @@ export function deriveWorkspaceRoutePage({
 
 	if (kind === 'diff') {
 		const path = searchParams.get('path')?.trim();
-		return path ? { type: 'diff', path } : { type: 'diff' };
+		const sourceSessionId = searchParams.get('sessionId')?.trim() || undefined;
+		return {
+			type: 'diff',
+			...(path ? { path } : {}),
+			...(sourceSessionId ? { sourceSessionId } : {}),
+		};
 	}
 
 	const path = searchParams.get('path')?.trim() || null;

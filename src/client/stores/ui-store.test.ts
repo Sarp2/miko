@@ -162,11 +162,11 @@ describe('useUiStore.openMiddleTab', () => {
 			'Scratchpad',
 			undefined,
 			'foo.ts',
-			'All changes',
+			'foo.ts',
 		]);
 	});
 
-	test('uses specific fallback titles for all-changes diffs and PR comments', () => {
+	test('uses specific fallback titles for empty diff placeholders and PR comments', () => {
 		useUiStore.getState().openMiddleTab('workspace-1', { type: 'diff' });
 		useUiStore.getState().openMiddleTab('workspace-1', {
 			type: 'file',
@@ -178,7 +178,7 @@ describe('useUiStore.openMiddleTab', () => {
 		const tabs = useUiStore.getState().getMiddleTabs('workspace-1');
 		expect(tabs.map((tab) => [tab.id, tab.fallbackTitle])).toEqual([
 			['scratchpad:workspace-1', 'Scratchpad'],
-			['diff:all_changes', 'All changes'],
+			['diff:placeholder', 'Select a changed file'],
 			['file:pr_comment:comment-1', 'Comment by CodeRabbit'],
 		]);
 	});
