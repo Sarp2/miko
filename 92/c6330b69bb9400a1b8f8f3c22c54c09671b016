@@ -1,0 +1,76 @@
+src/client/stores/ui-store.test.ts
+  s_82e93de1bb8ac8::t_80385ebb4f1d66 63-89
+  s_82e93de1bb8ac8::t_ea39976a393d5d 52-62,90-92
+src/client/lib/middle-tabs.ts
+  s_82e93de1bb8ac8::t_08a639311f04f6 41
+src/client/stores/workspace-file-store.ts
+  s_82e93de1bb8ac8::t_50606606ccee02 55-57,60-75,113,122,134,170,185,198
+  s_82e93de1bb8ac8::t_88ad006432e0ea 35,143-147,150
+src/client/stores/workspace-file-store.test.ts
+  s_82e93de1bb8ac8::t_55c4b7d278ac6c 134-157
+  s_82e93de1bb8ac8::t_64a21af67f8233 84-103,239-256
+src/client/lib/middle-tabs.test.ts
+  s_82e93de1bb8ac8::t_ea39976a393d5d 70-75
+src/client/components/workspace-diff-comment.tsx
+  s_82e93de1bb8ac8::t_5387384423c364 1-128
+src/client/lib/diff-selection.ts
+  s_82e93de1bb8ac8::t_329b386a472d19 60-63,76-78
+  s_82e93de1bb8ac8::t_d056c6693d803b 1-59,64-75,79-96
+src/client/components/workspace-code-toolbar.tsx
+  s_82e93de1bb8ac8::t_21fcae105033a9 1-9,56-57,59-63,146-148,153-154,156-158,160-168,182,199
+  s_82e93de1bb8ac8::t_e44217b7d8b441 116-121
+  s_82e93de1bb8ac8::t_00485dd634e785 10,100-115,122-123,126,128-129,131
+  s_82e93de1bb8ac8::t_ef3fceed6714b7 11-13,15-22,24-43,45-55,64-69,71-78,80-87,89,93-94,96-99,124-125,127,130,132-135,145,150,152,170-181,183-188,190-196,198,200-219,223-224,226-230,232-234
+  s_82e93de1bb8ac8::t_f90e954d010e56 23,70,88
+  s_82e93de1bb8ac8::t_80385ebb4f1d66 136-144,149,151
+  s_82e93de1bb8ac8::t_27c337d17f096d 44,58,79,90-92,95,155,159,169,189,197,222,225,231
+src/client/components/workspace-file-page.tsx
+  s_82e93de1bb8ac8::t_f90e954d010e56 11,21-29,32,66-69,72,75-76,78,80,85,97,120,128,138
+  s_82e93de1bb8ac8::t_de9eea449eb32e 70-71,77,114-118
+  s_82e93de1bb8ac8::t_27c337d17f096d 41-43
+  s_82e93de1bb8ac8::t_24dbb4a0216c85 2,65,73-74,79,81-84
+src/client/routes/workspace-route-state.ts
+  s_82e93de1bb8ac8::t_08a639311f04f6 77,85
+src/client/components/workspace-diff-page.tsx
+  s_82e93de1bb8ac8::t_7e4e99b005cd3d 1,4-5,14,41-42,95-96,108,111,120-122,124,126-127,131-132,147,150-168,170-174,286,328-329
+  s_82e93de1bb8ac8::t_de9eea449eb32e 123,125,128-130,133,139-140,146,220-260,262-267,298-302,330-331
+  s_82e93de1bb8ac8::t_16a68a23966aee 3
+  s_82e93de1bb8ac8::t_226e1cee561ba2 110,269-273,277-284
+  s_82e93de1bb8ac8::t_d056c6693d803b 6-7
+  s_82e93de1bb8ac8::t_24dbb4a0216c85 134,142-143,148-149,176-183
+  s_82e93de1bb8ac8::t_f90e954d010e56 15,17-19,21-24,40,94,101,106-107,135-138,141,144-145,175,184-186,188,200-204,206-213,304,312,322
+  s_82e93de1bb8ac8::t_7dd1dbfa378301 116-119,169,268
+  s_82e93de1bb8ac8::t_e44217b7d8b441 261
+  s_82e93de1bb8ac8::t_9df41174836898 45-53,57,71-73
+  s_82e93de1bb8ac8::t_ba4e29b5bb0f81 274-276,285
+  s_82e93de1bb8ac8::t_80385ebb4f1d66 102-105,187,189-192
+  s_82e93de1bb8ac8::t_5387384423c364 25-32
+  s_82e93de1bb8ac8::t_f3b32340aa4763 112-115
+  s_82e93de1bb8ac8::t_21fcae105033a9 20,193-197,199
+  s_82e93de1bb8ac8::t_88ad006432e0ea 198
+  s_82e93de1bb8ac8::t_00485dd634e785 205
+  s_82e93de1bb8ac8::t_3d7b0014f6ddf1 109
+src/client/routes/workspace-route.tsx
+  s_82e93de1bb8ac8::t_08a639311f04f6 94-95,198
+  s_82e93de1bb8ac8::t_d907c9a0523f35 194,199-200
+src/client/stores/ui-store.ts
+  s_82e93de1bb8ac8::t_ef3fceed6714b7 7,61,67-68,194,201-213,217-218,220,227,231-235,479-482,506
+  s_82e93de1bb8ac8::t_80385ebb4f1d66 62,69-75,195,214-216,219,221-226,228-230,483-484,507
+  s_82e93de1bb8ac8::t_08a639311f04f6 26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "92c6330b69bb9400a1b8f8f3c22c54c09671b016",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
