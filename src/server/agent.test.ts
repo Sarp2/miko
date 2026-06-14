@@ -100,16 +100,33 @@ function createCoordinator(
 		| {
 				onStateChange?: () => void;
 				store?: unknown;
+				codexManager?: unknown;
+				generateTitle?: (messageContent: string) => Promise<unknown>;
+				renameWorkspaceBranch?: (args: {
+					workspaceId: string;
+					branchName: string;
+					expectedCurrentBranchName?: string;
+				}) => Promise<{ branchName: string; changed: boolean }>;
 		  }
 		| (() => void) = {},
 ) {
 	const normalized =
 		typeof options === 'function' ? { onStateChange: options, store: {} as unknown } : options;
-	const { onStateChange = () => {}, store = {} } = normalized;
+	const {
+		onStateChange = () => {},
+		store = {},
+		codexManager = {} as CodexAppServerManager,
+		generateTitle,
+		renameWorkspaceBranch,
+	} = normalized;
 	return new AgentCoordinator({
 		store: store as EventStore,
 		onStateChange,
-		codexManager: {} as CodexAppServerManager,
+		codexManager: codexManager as CodexAppServerManager,
+		generateTitle: generateTitle as ConstructorParameters<
+			typeof AgentCoordinator
+		>[0]['generateTitle'],
+		renameWorkspaceBranch,
 	});
 }
 
@@ -624,6 +641,198 @@ describe('AgentCoordinator.send', () => {
 			attachments: [],
 			appendUserPrompt: true,
 		});
+	});
+
+	test('renames the workspace branch from the first prompt title', async () => {
+		const session: {
+			id: string;
+			workspaceId: string;
+			provider: 'claude' | 'codex' | null;
+			title: string;
+		} = {
+			id: 'session-1',
+			workspaceId: 'workspace-1',
+			provider: null,
+			title: 'Untitled',
+		};
+		const workspace = {
+			id: 'workspace-1',
+			localPath: '/repo/miko/atlas',
+			branchName: 'atlas',
+		};
+		const renamedSessions: string[] = [];
+		const renamedBranches: Array<{
+			workspaceId: string;
+			branchName: string;
+			expectedCurrentBranchName?: string;
+		}> = [];
+		let resolveBranchRenamed!: () => void;
+		const branchRenamed = new Promise<void>((resolve) => {
+			resolveBranchRenamed = resolve;
+		});
+
+		const store = {
+			requireSession: () => session,
+			setSessionProvider: async (_sessionId: string, provider: 'claude' | 'codex') => {
+				session.provider = provider;
+			},
+			setPlanMode: async () => {},
+			getWorkspace: () => workspace,
+			getMessages: () => [],
+			renameSession: async (_sessionId: string, title: string) => {
+				renamedSessions.push(title);
+				session.title = title;
+			},
+			appendMessage: async () => {},
+			recordTurnStarted: async () => {},
+		};
+		const codexManager = {
+			startSession: async () => {},
+			startTurn: async () => ({
+				provider: 'codex',
+				stream: (async function* () {})(),
+				interrupt: async () => {},
+				close: () => {},
+			}),
+		};
+
+		let stateChanges = 0;
+		const coordinator = createCoordinator({
+			store,
+			codexManager,
+			onStateChange: () => {
+				stateChanges += 1;
+			},
+			generateTitle: async () => ({ title: null, usedFallback: true, failureMessage: null }),
+			renameWorkspaceBranch: async (args) => {
+				renamedBranches.push(args);
+				workspace.branchName = 'ship-login-flow';
+				resolveBranchRenamed();
+				return { branchName: workspace.branchName, changed: true };
+			},
+		});
+
+		await (
+			coordinator as unknown as {
+				startTurnForSession: (args: {
+					sessionId: string;
+					provider: 'codex';
+					content: string;
+					attachments: ChatAttachment[];
+					model: string;
+					planMode: boolean;
+					appendUserPrompt: boolean;
+				}) => Promise<void>;
+			}
+		).startTurnForSession({
+			sessionId: 'session-1',
+			provider: 'codex',
+			content: 'Ship login flow',
+			attachments: [],
+			model: 'gpt-5.1-codex',
+			planMode: false,
+			appendUserPrompt: true,
+		});
+		await branchRenamed;
+
+		expect(renamedSessions).toEqual(['Ship login flow']);
+		expect(renamedBranches).toEqual([
+			{
+				workspaceId: 'workspace-1',
+				branchName: 'Ship login flow',
+				expectedCurrentBranchName: 'atlas',
+			},
+		]);
+		expect(stateChanges).toBeGreaterThan(0);
+	});
+
+	test('does not fail first prompt when automatic branch rename is rejected', async () => {
+		const session: {
+			id: string;
+			workspaceId: string;
+			provider: 'claude' | 'codex' | null;
+			title: string;
+		} = {
+			id: 'session-1',
+			workspaceId: 'workspace-1',
+			provider: null,
+			title: 'Untitled',
+		};
+		const workspace = {
+			id: 'workspace-1',
+			localPath: '/repo/miko/atlas',
+			branchName: 'atlas',
+		};
+		const errors: string[] = [];
+		let promptAppended = false;
+		let resolveBackgroundError!: () => void;
+		const backgroundErrorReported = new Promise<void>((resolve) => {
+			resolveBackgroundError = resolve;
+		});
+
+		const store = {
+			requireSession: () => session,
+			setSessionProvider: async (_sessionId: string, provider: 'claude' | 'codex') => {
+				session.provider = provider;
+			},
+			setPlanMode: async () => {},
+			getWorkspace: () => workspace,
+			getMessages: () => [],
+			renameSession: async (_sessionId: string, title: string) => {
+				session.title = title;
+			},
+			appendMessage: async () => {
+				promptAppended = true;
+			},
+			recordTurnStarted: async () => {},
+		};
+		const codexManager = {
+			startSession: async () => {},
+			startTurn: async () => ({
+				provider: 'codex',
+				stream: (async function* () {})(),
+				interrupt: async () => {},
+				close: () => {},
+			}),
+		};
+		const coordinator = createCoordinator({
+			store,
+			codexManager,
+			generateTitle: async () => ({ title: null, usedFallback: true, failureMessage: null }),
+			renameWorkspaceBranch: async () => {
+				throw new Error('Cannot rename a workspace branch after it has been pushed');
+			},
+		});
+		coordinator.setBackgroundErrorReporter((message) => {
+			errors.push(message);
+			resolveBackgroundError();
+		});
+
+		await (
+			coordinator as unknown as {
+				startTurnForSession: (args: {
+					sessionId: string;
+					provider: 'codex';
+					content: string;
+					attachments: ChatAttachment[];
+					model: string;
+					planMode: boolean;
+					appendUserPrompt: boolean;
+				}) => Promise<void>;
+			}
+		).startTurnForSession({
+			sessionId: 'session-1',
+			provider: 'codex',
+			content: 'Ship login flow',
+			attachments: [],
+			model: 'gpt-5.1-codex',
+			planMode: false,
+			appendUserPrompt: true,
+		});
+		await backgroundErrorReported;
+
+		expect(promptAppended).toBe(true);
+		expect(errors[0]).toContain('[branch-rename] workspace workspace-1 failed');
 	});
 });
 
