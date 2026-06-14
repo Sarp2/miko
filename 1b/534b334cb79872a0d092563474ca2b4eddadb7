@@ -1,0 +1,24 @@
+src/client/stores/persist-storage.ts
+  s_82e93de1bb8ac8::t_30c6c130b79dd0 1-18
+src/client/stores/ui-store.ts
+  s_82e93de1bb8ac8::t_30c6c130b79dd0 2-3
+src/client/stores/composer-preferences-store.ts
+  s_82e93de1bb8ac8::t_30c6c130b79dd0 2
+  s_82e93de1bb8ac8::t_f23bec6f0b6b46 14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "1b534b334cb79872a0d092563474ca2b4eddadb7",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
