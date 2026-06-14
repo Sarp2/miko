@@ -494,40 +494,38 @@ function WorkspaceRow({
 
 	return (
 		<ContextMenu.Root>
-			<WorkspaceHoverMeta workspace={workspace}>
-				<ContextMenu.Trigger asChild>
-					<div
-						className={cn(
-							'group grid h-[30px] w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-1 rounded-md px-2 transition-colors',
-							isActive
-								? 'bg-surface-3 text-ink'
-								: 'text-ink-muted hover:bg-surface-2 hover:text-ink',
-						)}
-					>
+			<div className="group relative">
+				<WorkspaceHoverMeta workspace={workspace}>
+					<ContextMenu.Trigger asChild>
 						<button
 							type="button"
-							className="grid min-w-0 grid-cols-[16px_minmax(0,1fr)] items-center gap-2 text-left outline-none focus-visible:ring-1 focus-visible:ring-primary"
+							className={cn(
+								'grid h-[30px] w-full cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-1 rounded-md px-2 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-primary',
+								isActive
+									? 'bg-surface-3 text-ink'
+									: 'text-ink-muted hover:bg-surface-2 hover:text-ink',
+							)}
 							onClick={onSelect}
 						>
-							<WorkspaceIndicatorIcon
-								indicator={workspace.indicator}
-								className="justify-self-center"
-							/>
-							<span
-								className={cn(
-									'min-w-0 truncate text-[13px] leading-5 tracking-[0]',
-									titleClassName,
-								)}
-							>
-								{workspace.displayName}
+							<span className="grid min-w-0 grid-cols-[16px_minmax(0,1fr)] items-center gap-2">
+								<WorkspaceIndicatorIcon
+									indicator={workspace.indicator}
+									className="justify-self-center"
+								/>
+								<span
+									className={cn(
+										'min-w-0 truncate text-[13px] leading-5 tracking-[0]',
+										titleClassName,
+									)}
+								>
+									{workspace.displayName}
+								</span>
 							</span>
-						</button>
 
-						<div className="flex min-w-[56px] items-center justify-end gap-1.5">
 							<span
 								className={cn(
-									'flex items-center justify-end gap-1.5',
-									hasHoverArchive && 'group-hover:hidden',
+									'flex min-w-[56px] items-center justify-end gap-1.5',
+									hasHoverArchive && 'group-hover:opacity-0',
 								)}
 							>
 								{hasDiffStats ? (
@@ -538,30 +536,33 @@ function WorkspaceRow({
 									</span>
 								) : null}
 							</span>
+						</button>
+					</ContextMenu.Trigger>
+				</WorkspaceHoverMeta>
 
-							{hasHoverArchive && (
-								<span className="hidden items-center justify-end group-hover:flex">
-									<Tooltip>
-										<TooltipTrigger asChild>
-											<Button
-												type="button"
-												variant="ghost"
-												size="icon-sm"
-												className="size-6 text-ink-subtle hover:bg-transparent hover:text-ink"
-												aria-label="Archive workspace"
-												onClick={onArchive}
-											>
-												<Archive className="size-3.5" />
-											</Button>
-										</TooltipTrigger>
-										<TooltipContent>Archive</TooltipContent>
-									</Tooltip>
-								</span>
-							)}
-						</div>
-					</div>
-				</ContextMenu.Trigger>
-			</WorkspaceHoverMeta>
+				{hasHoverArchive && (
+					<span className="pointer-events-none absolute top-1/2 right-2 hidden -translate-y-1/2 items-center justify-end group-hover:flex">
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<Button
+									type="button"
+									variant="ghost"
+									size="icon-sm"
+									className="pointer-events-auto size-6 text-ink-subtle hover:bg-transparent hover:text-ink"
+									aria-label="Archive workspace"
+									onClick={(event) => {
+										event.stopPropagation();
+										void onArchive?.();
+									}}
+								>
+									<Archive className="size-3.5" />
+								</Button>
+							</TooltipTrigger>
+							<TooltipContent>Archive</TooltipContent>
+						</Tooltip>
+					</span>
+				)}
+			</div>
 			<WorkspaceRowContextMenu
 				isPinned={isPinned}
 				onPinToggle={onPinToggle}
