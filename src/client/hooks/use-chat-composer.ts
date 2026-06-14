@@ -1,24 +1,29 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
-import {
-	type AgentProvider,
-	type ClaudeContextWindow,
-	type ClaudeReasoningEffort,
-	type CodexReasoningEffort,
-	PROVIDERS,
-	type SessionSnapshot,
-	type WorkspaceSnapshot,
+import type {
+	AgentProvider,
+	ClaudeContextWindow,
+	ClaudeReasoningEffort,
+	SessionSnapshot,
+	WorkspaceSnapshot,
 } from '../../shared/types';
 import type { LocalAttachment } from '../components/chat-composer/chat-composer-types';
 import {
-	DEFAULT_COMPOSER_MODEL_OPTIONS,
-	defaultProviderForRuntime,
 	modelForProvider,
 	modelOptionsForSubmit,
+	preferredClaudeContextWindowForComposer,
+	preferredClaudeReasoningEffortForComposer,
+	preferredCodexFastModeForComposer,
+	preferredCodexReasoningEffortForComposer,
+	preferredModelByProviderForComposer,
+	preferredPlanModeForComposer,
+	preferredProviderForComposer,
 	providerCatalogs,
+	runtimePlanModeForComposer,
 	uploadAttachments,
 } from '../components/chat-composer/chat-composer-utils';
+import { useComposerPreferencesStore } from '../stores/composer-preferences-store';
 import { useSessionStore } from '../stores/session-store';
 
 const MAX_ATTACHMENTS = 50;
@@ -57,41 +62,35 @@ export function useChatComposer({
 	}
 
 	const availableProviders = stableAvailableProvidersRef.current.providers;
+	const preferences = useComposerPreferencesStore();
 	const sessionProvider = sessionSnapshot?.runtime.provider ?? null;
-	const sessionPlanMode = sessionSnapshot?.runtime.planMode ?? false;
+	const sessionPlanMode = runtimePlanModeForComposer(sessionSnapshot);
 	const providers = useMemo(() => {
 		if (!sessionProvider) return availableProviders;
 		const lockedProvider = availableProviders.find((entry) => entry.id === sessionProvider);
 		return lockedProvider ? [lockedProvider] : availableProviders;
 	}, [availableProviders, sessionProvider]);
-	const resolvedDefaultProvider = useMemo(
-		() => defaultProviderForRuntime(sessionProvider, providers),
-		[providers, sessionProvider],
+	const provider = useMemo(
+		() =>
+			preferredProviderForComposer({ preferences, providers, runtimeProvider: sessionProvider }),
+		[preferences, providers, sessionProvider],
 	);
-	const [provider, setProvider] = useState<AgentProvider>(() => resolvedDefaultProvider);
-	const [selectedModelByProvider, setSelectedModelByProvider] = useState<Record<string, string>>(
-		() => Object.fromEntries(providers.map((entry) => [entry.id, entry.defaultModel])),
+	const selectedModelByProvider = useMemo(
+		() => preferredModelByProviderForComposer({ preferences, providers }),
+		[preferences, providers],
 	);
-	const [planMode, setPlanMode] = useState(sessionPlanMode);
-	const [claudeReasoningEffort, setClaudeReasoningEffort] = useState<ClaudeReasoningEffort>(
-		DEFAULT_COMPOSER_MODEL_OPTIONS.claudeReasoningEffort,
-	);
-	const [claudeContextWindow, setClaudeContextWindow] = useState<ClaudeContextWindow>(
-		DEFAULT_COMPOSER_MODEL_OPTIONS.claudeContextWindow,
-	);
-	const [codexReasoningEffort] = useState<CodexReasoningEffort>(
-		DEFAULT_COMPOSER_MODEL_OPTIONS.codexReasoningEffort,
-	);
-	const [codexFastMode, setCodexFastMode] = useState<boolean>(
-		DEFAULT_COMPOSER_MODEL_OPTIONS.codexFastMode,
-	);
+	const planMode = preferredPlanModeForComposer({
+		preferences,
+		runtimePlanMode: sessionPlanMode,
+	});
+	const claudeReasoningEffort = preferredClaudeReasoningEffortForComposer(preferences);
+	const codexReasoningEffort = preferredCodexReasoningEffortForComposer(preferences);
+	const codexFastMode = preferredCodexFastModeForComposer(preferences);
 
-	const providerWasChangedByUserRef = useRef(false);
 	const previousSessionIdRef = useRef(sessionId);
-	const providerCatalog =
-		providers.find((entry) => entry.id === provider) ?? providers[0] ?? PROVIDERS[0];
-
-	const model = modelForProvider(providerCatalog, selectedModelByProvider);
+	const providerCatalog = providers.find((entry) => entry.id === provider) ?? providers[0];
+	const model = providerCatalog ? modelForProvider(providerCatalog, selectedModelByProvider) : null;
+	const claudeContextWindow = preferredClaudeContextWindowForComposer({ model, preferences });
 	const sessionStatus = sessionSnapshot?.runtime.status;
 	const isStreaming =
 		sessionStatus === 'running' ||
@@ -111,36 +110,7 @@ export function useChatComposer({
 		setContent('');
 		setAttachments([]);
 		setSubmitting(false);
-		providerWasChangedByUserRef.current = false;
-		setProvider(resolvedDefaultProvider);
-		setSelectedModelByProvider(
-			Object.fromEntries(providers.map((entry) => [entry.id, entry.defaultModel])),
-		);
-		setPlanMode(sessionPlanMode);
-	}, [providers, resolvedDefaultProvider, sessionId, sessionPlanMode]);
-
-	useEffect(() => {
-		setPlanMode(sessionPlanMode);
-	}, [sessionPlanMode]);
-
-	useEffect(() => {
-		setSelectedModelByProvider((current) => ({
-			...Object.fromEntries(providers.map((entry) => [entry.id, entry.defaultModel])),
-			...current,
-		}));
-	}, [providers]);
-
-	useEffect(() => {
-		const providerIsAvailable = providers.some((entry) => entry.id === provider);
-		if (sessionProvider) {
-			if (provider !== sessionProvider) setProvider(sessionProvider);
-		} else if (
-			!providerIsAvailable ||
-			(!providerWasChangedByUserRef.current && provider !== resolvedDefaultProvider)
-		) {
-			setProvider(resolvedDefaultProvider);
-		}
-	}, [provider, providers, resolvedDefaultProvider, sessionProvider]);
+	}, [sessionId]);
 
 	const addFiles = useCallback((files: File[]) => {
 		setAttachments((current) => {
@@ -166,17 +136,29 @@ export function useChatComposer({
 	const changeProvider = useCallback(
 		(nextProvider: AgentProvider) => {
 			if (sessionProvider) return;
-			providerWasChangedByUserRef.current = true;
-			setProvider(nextProvider);
+			useComposerPreferencesStore.getState().setProviderPreference(nextProvider);
 		},
 		[sessionProvider],
 	);
 
 	const changeModel = useCallback((nextProvider: AgentProvider, modelId: string) => {
-		setSelectedModelByProvider((current) => ({
-			...current,
-			[nextProvider]: modelId,
-		}));
+		useComposerPreferencesStore.getState().setModelPreference(nextProvider, modelId);
+	}, []);
+
+	const setPlanMode = useCallback((nextPlanMode: boolean) => {
+		useComposerPreferencesStore.getState().setPlanModePreference(nextPlanMode);
+	}, []);
+
+	const setClaudeReasoningEffort = useCallback((nextEffort: ClaudeReasoningEffort) => {
+		useComposerPreferencesStore.getState().setClaudeReasoningEffortPreference(nextEffort);
+	}, []);
+
+	const setClaudeContextWindow = useCallback((nextContextWindow: ClaudeContextWindow) => {
+		useComposerPreferencesStore.getState().setClaudeContextWindowPreference(nextContextWindow);
+	}, []);
+
+	const setCodexFastMode = useCallback((nextFastMode: boolean) => {
+		useComposerPreferencesStore.getState().setCodexFastModePreference(nextFastMode);
 	}, []);
 
 	const submit = useCallback(async () => {

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware';
+import { createJSONStorage, persist } from 'zustand/middleware';
+import { getLocalStorage } from './persist-storage';
 
 export const UI_STORAGE_KEY = 'miko:v1';
 
@@ -99,23 +100,6 @@ interface UiStoreState extends PersistedUiState {
 const DEFAULT_LEFT_SIDEBAR_WIDTH = 292;
 const DEFAULT_TERMINAL_HEIGHT = 260;
 const DEFAULT_EXTERNAL_OPEN_APP: ExternalOpenApp = 'finder';
-
-const memoryStorage = new Map<string, string>();
-
-const fallbackStorage: StateStorage = {
-	getItem: (name) => memoryStorage.get(name) ?? null,
-	setItem: (name, value) => {
-		memoryStorage.set(name, value);
-	},
-	removeItem: (name) => {
-		memoryStorage.delete(name);
-	},
-};
-
-function getLocalStorage(): StateStorage {
-	if (typeof window === 'undefined') return fallbackStorage;
-	return window.localStorage;
-}
 
 export function scratchpadTabId(workspaceId: string) {
 	return `scratchpad:${workspaceId}`;
