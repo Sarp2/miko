@@ -67,6 +67,15 @@ describe('workspacePagePath', () => {
 		expect(
 			workspacePagePath('ws1', {
 				type: 'file',
+				path: 'src/a.ts',
+				title: 'a.ts',
+				source: 'workspace_file',
+				sourceSessionId: 'session-1',
+			}),
+		).toBe('/workspaces/ws1/file?path=src%2Fa.ts&sessionId=session-1&title=a.ts');
+		expect(
+			workspacePagePath('ws1', {
+				type: 'file',
 				source: 'pr_comment',
 				sourceId: 'c1',
 				title: 'Comment by CodeRabbit',

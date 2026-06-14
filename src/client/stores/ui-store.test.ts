@@ -49,6 +49,47 @@ describe('useUiStore.setRightSidebarTab', () => {
 	});
 });
 
+describe('useUiStore.diff review preferences', () => {
+	test('stores diff view mode per workspace', () => {
+		expect(useUiStore.getState().getDiffViewMode('workspace-1')).toBe('unified');
+
+		useUiStore.getState().setDiffViewMode('workspace-1', 'split');
+		useUiStore.getState().setDiffViewMode('workspace-2', 'unified');
+
+		expect(useUiStore.getState().getDiffViewMode('workspace-1')).toBe('split');
+		expect(useUiStore.getState().getDiffViewMode('workspace-2')).toBe('unified');
+	});
+
+	test('stores viewed diff digests per workspace and path', () => {
+		expect(useUiStore.getState().isDiffPathViewed('workspace-1', 'src/a.ts', 'digest-1')).toBe(
+			false,
+		);
+
+		useUiStore.getState().setDiffPathViewed('workspace-1', 'src/a.ts', 'digest-1', true);
+		useUiStore.getState().setDiffPathViewed('workspace-2', 'src/a.ts', 'digest-1', true);
+		useUiStore.getState().setDiffPathViewed('workspace-1', 'src/b.ts', 'digest-2', true);
+
+		expect(useUiStore.getState().isDiffPathViewed('workspace-1', 'src/a.ts', 'digest-1')).toBe(
+			true,
+		);
+		expect(useUiStore.getState().isDiffPathViewed('workspace-1', 'src/a.ts', 'digest-2')).toBe(
+			false,
+		);
+		expect(useUiStore.getState().isDiffPathViewed('workspace-1', 'src/b.ts', 'digest-2')).toBe(
+			true,
+		);
+		expect(useUiStore.getState().isDiffPathViewed('workspace-2', 'src/a.ts', 'digest-1')).toBe(
+			true,
+		);
+
+		useUiStore.getState().setDiffPathViewed('workspace-1', 'src/a.ts', 'digest-1', false);
+
+		expect(useUiStore.getState().isDiffPathViewed('workspace-1', 'src/a.ts', 'digest-1')).toBe(
+			false,
+		);
+	});
+});
+
 describe('useUiStore.setLeftSidebarCollapsed', () => {
 	test('stores whether the left sidebar is collapsed', () => {
 		useUiStore.getState().setLeftSidebarCollapsed(true);

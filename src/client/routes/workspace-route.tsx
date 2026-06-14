@@ -91,7 +91,8 @@ export function WorkspaceRoute({ kind }: WorkspaceRouteProps) {
 		if (page?.type !== 'chat') return null;
 		return selectSessionRouteTarget(sessions, page.sessionId);
 	}, [page, sessions]);
-	const sourceSessionId = page?.type === 'diff' ? page.sourceSessionId : null;
+	const sourceSessionId =
+		page?.type === 'diff' || page?.type === 'file' ? page.sourceSessionId : null;
 	const composerSessionId = useMemo(
 		() => selectComposerSessionId(sessions, sourceSessionId),
 		[sessions, sourceSessionId],
@@ -190,9 +191,13 @@ export function WorkspaceRoute({ kind }: WorkspaceRouteProps) {
 				) : page?.type === 'diff' && workspaceSnapshot ? (
 					<PageWithComposer composer={composer}>
 						<WorkspaceDiffPage
+							key={page.path ?? 'diff'}
 							workspaceId={workspaceId}
 							path={page.path}
 							expectedPatchDigest={activeDiffFile?.patchDigest}
+							sourceSessionId={page.sourceSessionId}
+							composerSessionId={composerSessionId}
+							composerSessionSnapshot={composerSessionSnapshot}
 						/>
 					</PageWithComposer>
 				) : page?.type === 'file' && page.source === 'workspace_file' && workspaceSnapshot ? (

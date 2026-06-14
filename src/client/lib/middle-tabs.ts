@@ -38,6 +38,7 @@ export function workspacePagePath(workspaceId: string, page: WorkspacePage) {
 	if (page.path) params.set('path', page.path);
 	if (page.source !== 'workspace_file') params.set('source', page.source);
 	if (page.sourceId) params.set('sourceId', page.sourceId);
+	if (page.sourceSessionId) params.set('sessionId', page.sourceSessionId);
 	if (page.title) params.set('title', page.title);
 	const query = params.toString();
 	return `${base}/file${query ? `?${query}` : ''}`;

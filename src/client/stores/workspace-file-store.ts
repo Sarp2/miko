@@ -32,7 +32,7 @@ interface WorkspaceFileStoreState {
 	loadDiffPatch: (
 		workspaceId: string,
 		path: string,
-		options?: { expectedPatchDigest?: string },
+		options?: { expectedPatchDigest?: string; force?: boolean },
 	) => Promise<void>;
 	resetForTests: () => void;
 }
@@ -52,7 +52,26 @@ const IDLE_DIFF_RESOURCE: WorkspaceDiffResource = {
 	expectedPatchDigest: null,
 };
 
+const MAX_CACHED_FILE_RESOURCES = 120;
+const MAX_CACHED_DIFF_RESOURCES = 120;
+
 let nextRequestId = 1;
+
+function pruneResourceMap<TKey, TValue extends { status: WorkspaceResourceStatus }>(
+	resources: Map<TKey, TValue>,
+	maxSize: number,
+) {
+	if (resources.size <= maxSize) return resources;
+
+	const pruned = new Map(resources);
+	for (const [key, resource] of pruned) {
+		if (pruned.size <= maxSize) break;
+		if (resource.status === 'loading') continue;
+		pruned.delete(key);
+	}
+
+	return pruned;
+}
 
 function resourceKey(workspaceId: string, path: string) {
 	return JSON.stringify([workspaceId, path]);
@@ -91,7 +110,7 @@ export const useWorkspaceFileStore = create<WorkspaceFileStoreState>((set, get) 
 				error: null,
 				requestId,
 			});
-			return { fileByKey };
+			return { fileByKey: pruneResourceMap(fileByKey, MAX_CACHED_FILE_RESOURCES) };
 		});
 
 		try {
@@ -100,7 +119,7 @@ export const useWorkspaceFileStore = create<WorkspaceFileStoreState>((set, get) 
 				if (state.fileByKey.get(key)?.requestId !== requestId) return state;
 				const fileByKey = new Map(state.fileByKey);
 				fileByKey.set(key, { status: 'ready', data, error: null, requestId: null });
-				return { fileByKey };
+				return { fileByKey: pruneResourceMap(fileByKey, MAX_CACHED_FILE_RESOURCES) };
 			});
 		} catch (error) {
 			set((state) => {
@@ -112,7 +131,7 @@ export const useWorkspaceFileStore = create<WorkspaceFileStoreState>((set, get) 
 					error: errorMessage(error),
 					requestId: null,
 				});
-				return { fileByKey };
+				return { fileByKey: pruneResourceMap(fileByKey, MAX_CACHED_FILE_RESOURCES) };
 			});
 		}
 	},
@@ -121,9 +140,14 @@ export const useWorkspaceFileStore = create<WorkspaceFileStoreState>((set, get) 
 		const key = resourceKey(workspaceId, path);
 		const current = get().diffByKey.get(key);
 		const expectedPatchDigest = options.expectedPatchDigest ?? null;
-		if (current?.status === 'loading' && current.expectedPatchDigest === expectedPatchDigest)
+		if (
+			!options.force &&
+			current?.status === 'loading' &&
+			current.expectedPatchDigest === expectedPatchDigest
+		)
 			return;
 		if (
+			!options.force &&
 			current?.status === 'ready' &&
 			current.expectedPatchDigest === expectedPatchDigest &&
 			current.data?.patchDigest === expectedPatchDigest
@@ -143,7 +167,7 @@ export const useWorkspaceFileStore = create<WorkspaceFileStoreState>((set, get) 
 				requestId,
 				expectedPatchDigest,
 			});
-			return { diffByKey };
+			return { diffByKey: pruneResourceMap(diffByKey, MAX_CACHED_DIFF_RESOURCES) };
 		});
 
 		try {
@@ -158,7 +182,7 @@ export const useWorkspaceFileStore = create<WorkspaceFileStoreState>((set, get) 
 					requestId: null,
 					expectedPatchDigest,
 				});
-				return { diffByKey };
+				return { diffByKey: pruneResourceMap(diffByKey, MAX_CACHED_DIFF_RESOURCES) };
 			});
 		} catch (error) {
 			set((state) => {
@@ -171,7 +195,7 @@ export const useWorkspaceFileStore = create<WorkspaceFileStoreState>((set, get) 
 					requestId: null,
 					expectedPatchDigest,
 				});
-				return { diffByKey };
+				return { diffByKey: pruneResourceMap(diffByKey, MAX_CACHED_DIFF_RESOURCES) };
 			});
 		}
 	},
