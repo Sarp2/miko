@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware';
+import { createJSONStorage, persist } from 'zustand/middleware';
 import type {
 	AgentProvider,
 	ClaudeContextWindow,
@@ -11,6 +11,7 @@ import {
 	isClaudeReasoningEffort,
 	isCodexReasoningEffort,
 } from '../../shared/types';
+import { getLocalStorage } from './persist-storage';
 
 export const COMPOSER_PREFERENCES_STORAGE_KEY = 'miko:v1:composer-preferences';
 
@@ -33,23 +34,6 @@ interface ComposerPreferencesState extends ComposerPreferencesSnapshot {
 	setCodexFastModePreference: (value: boolean) => void;
 	setPlanModePreference: (value: boolean) => void;
 	resetComposerPreferences: () => void;
-}
-
-const memoryStorage = new Map<string, string>();
-
-const fallbackStorage: StateStorage = {
-	getItem: (name) => memoryStorage.get(name) ?? null,
-	setItem: (name, value) => {
-		memoryStorage.set(name, value);
-	},
-	removeItem: (name) => {
-		memoryStorage.delete(name);
-	},
-};
-
-function getLocalStorage(): StateStorage {
-	if (typeof window === 'undefined') return fallbackStorage;
-	return window.localStorage;
 }
 
 const DEFAULT_COMPOSER_PREFERENCES: ComposerPreferencesSnapshot = {
