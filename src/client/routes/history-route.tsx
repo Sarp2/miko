@@ -114,6 +114,7 @@ function HistoryWorkspaceRowView({
 }) {
 	const prNumber = row.workspace.pullRequest?.number;
 	const isArchived = row.workspace.visibilityState === 'archived';
+	const showBranchName = row.label !== row.workspace.branchName;
 
 	return (
 		<button
@@ -133,9 +134,11 @@ function HistoryWorkspaceRowView({
 				<span className="text-[16px] leading-none text-ink-tertiary">›</span>
 				<span className="min-w-0 truncate">
 					<span className="font-medium text-ink group-hover:text-ink">{row.label}</span>
-					<span className="ml-1.5 font-mono text-[11px] font-normal text-ink-subtle">
-						{row.workspace.branchName}
-					</span>
+					{showBranchName ? (
+						<span className="ml-1.5 font-mono text-[11px] font-normal text-ink-subtle">
+							{row.workspace.branchName}
+						</span>
+					) : null}
 				</span>
 			</span>
 
