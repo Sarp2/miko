@@ -12,7 +12,37 @@ const fallbackStorage: StateStorage = {
 	},
 };
 
+function safeBrowserStorage(storage: Storage): StateStorage {
+	return {
+		getItem: (name) => {
+			try {
+				return storage.getItem(name);
+			} catch {
+				return fallbackStorage.getItem(name);
+			}
+		},
+		setItem: (name, value) => {
+			try {
+				storage.setItem(name, value);
+			} catch {
+				fallbackStorage.setItem(name, value);
+			}
+		},
+		removeItem: (name) => {
+			try {
+				storage.removeItem(name);
+			} catch {
+				fallbackStorage.removeItem(name);
+			}
+		},
+	};
+}
+
 export function getLocalStorage(): StateStorage {
 	if (typeof window === 'undefined') return fallbackStorage;
-	return window.localStorage;
+	try {
+		return safeBrowserStorage(window.localStorage);
+	} catch {
+		return fallbackStorage;
+	}
 }
