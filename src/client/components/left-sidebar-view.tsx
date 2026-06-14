@@ -68,6 +68,7 @@ export interface SidebarProps {
 	pinnedWorkspaces?: SidebarWorkspaceRow[];
 	pinnedWorkspaceIds?: string[];
 	activeWorkspaceId?: string;
+	historyActive?: boolean;
 	expandedDirectoryIds?: string[];
 	collapsed?: boolean;
 	width?: number;
@@ -84,7 +85,7 @@ export interface SidebarProps {
 	onCreateWorkspace?: (directoryId: string) => void;
 	onCreateWorkspaceError?: (error: unknown) => void;
 	onAddDirectory?: () => void;
-	onOpenArchive?: () => void;
+	onOpenHistory?: () => void;
 	onOpenSettings?: () => void;
 	className?: string;
 }
@@ -821,6 +822,7 @@ export function Sidebar({
 	pinnedWorkspaces = [],
 	pinnedWorkspaceIds = [],
 	activeWorkspaceId,
+	historyActive = false,
 	expandedDirectoryIds,
 	collapsed,
 	width,
@@ -837,7 +839,7 @@ export function Sidebar({
 	onCreateWorkspace,
 	onCreateWorkspaceError,
 	onAddDirectory,
-	onOpenArchive,
+	onOpenHistory,
 	onOpenSettings,
 	className,
 }: SidebarProps) {
@@ -946,8 +948,13 @@ export function Sidebar({
 							<div className="px-2 pt-0 pb-1.5">
 								<button
 									type="button"
-									className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] font-medium leading-5 text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
-									onClick={onOpenArchive}
+									className={cn(
+										'flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] font-medium leading-5 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary',
+										historyActive
+											? 'bg-surface-3 text-ink'
+											: 'text-ink-muted hover:bg-surface-2 hover:text-ink',
+									)}
+									onClick={onOpenHistory}
 								>
 									<ClockCounterClockwise className="size-4 shrink-0 text-ink-subtle" />
 									<span className="truncate">History</span>
