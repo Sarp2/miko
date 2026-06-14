@@ -161,6 +161,32 @@ describe('useUiStore.toggleDirectoryExpanded', () => {
 	});
 });
 
+describe('useUiStore.workspace pinning', () => {
+	test('stores pinned workspace ids without duplicates', () => {
+		expect(useUiStore.getState().isWorkspacePinned('workspace-1')).toBe(false);
+
+		useUiStore.getState().setWorkspacePinned('workspace-1', true);
+		useUiStore.getState().setWorkspacePinned('workspace-1', true);
+		useUiStore.getState().setWorkspacePinned('workspace-2', true);
+
+		expect(useUiStore.getState().pinnedWorkspaceIds).toEqual(['workspace-1', 'workspace-2']);
+		expect(useUiStore.getState().isWorkspacePinned('workspace-1')).toBe(true);
+
+		useUiStore.getState().toggleWorkspacePinned('workspace-1');
+
+		expect(useUiStore.getState().pinnedWorkspaceIds).toEqual(['workspace-2']);
+	});
+
+	test('removes pinned state with workspace ui cleanup', () => {
+		useUiStore.getState().setWorkspacePinned('workspace-1', true);
+		useUiStore.getState().setWorkspacePinned('workspace-2', true);
+
+		useUiStore.getState().removeWorkspaceUi('workspace-1');
+
+		expect(useUiStore.getState().pinnedWorkspaceIds).toEqual(['workspace-2']);
+	});
+});
+
 describe('useUiStore.ensureScratchpadTab', () => {
 	test('creates a pinned scratchpad tab as the first middle tab', () => {
 		useUiStore.getState().ensureScratchpadTab('workspace-1');

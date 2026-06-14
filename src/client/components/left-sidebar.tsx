@@ -37,6 +37,35 @@ function sortSidebarGroups(
 		.toSorted((a, b) => sortTimestamp(b, directorySort) - sortTimestamp(a, directorySort));
 }
 
+function pinnedWorkspacesFromGroups(
+	directoryGroups: SidebarDirectoryGroup[],
+	pinnedWorkspaceIds: string[],
+) {
+	const workspaceById = new Map<string, SidebarDirectoryGroup['workspaces'][number]>();
+	for (const directory of directoryGroups) {
+		for (const workspace of directory.workspaces) {
+			workspaceById.set(workspace.workspaceId, workspace);
+		}
+	}
+
+	return pinnedWorkspaceIds
+		.map((workspaceId) => workspaceById.get(workspaceId))
+		.filter((workspace): workspace is SidebarDirectoryGroup['workspaces'][number] =>
+			Boolean(workspace),
+		);
+}
+
+function withoutPinnedWorkspaces(
+	directoryGroups: SidebarDirectoryGroup[],
+	pinnedWorkspaceIds: string[],
+) {
+	const pinnedIds = new Set(pinnedWorkspaceIds);
+	return directoryGroups.map((directory) => ({
+		...directory,
+		workspaces: directory.workspaces.filter((workspace) => !pinnedIds.has(workspace.workspaceId)),
+	}));
+}
+
 function useActiveWorkspaceId() {
 	const { workspaceId } = useParams();
 	return workspaceId;
@@ -57,10 +86,14 @@ export function LeftSidebar() {
 	const setLeftSidebarCollapsed = useUiStore((state) => state.setLeftSidebarCollapsed);
 	const setLeftSidebarWidth = useUiStore((state) => state.setLeftSidebarWidth);
 	const setDirectoryExpanded = useUiStore((state) => state.setDirectoryExpanded);
+	const pinnedWorkspaceIds = useUiStore((state) => state.pinnedWorkspaceIds);
+	const toggleWorkspacePinned = useUiStore((state) => state.toggleWorkspacePinned);
+	const removeWorkspaceUi = useUiStore((state) => state.removeWorkspaceUi);
+	const setWorkspaceVisibility = useSidebarStore((state) => state.setWorkspaceVisibility);
 
 	const [workspaceCreateError, setWorkspaceCreateError] = useState<string | null>(null);
 	const [addDirectoryOpen, setAddDirectoryOpen] = useState(false);
-	const directoryGroups = useMemo(
+	const allDirectoryGroups = useMemo(
 		() =>
 			sortSidebarGroups(
 				snapshot?.directoryGroups ?? [],
@@ -69,11 +102,21 @@ export function LeftSidebar() {
 			),
 		[snapshot, sidebarDirectorySort, sidebarWorkspaceSort],
 	);
+	const pinnedWorkspaces = useMemo(
+		() => pinnedWorkspacesFromGroups(allDirectoryGroups, pinnedWorkspaceIds),
+		[allDirectoryGroups, pinnedWorkspaceIds],
+	);
+	const directoryGroups = useMemo(
+		() => withoutPinnedWorkspaces(allDirectoryGroups, pinnedWorkspaceIds),
+		[allDirectoryGroups, pinnedWorkspaceIds],
+	);
 
 	return (
 		<>
 			<Sidebar
 				directoryGroups={directoryGroups}
+				pinnedWorkspaces={pinnedWorkspaces}
+				pinnedWorkspaceIds={pinnedWorkspaceIds}
 				activeWorkspaceId={activeWorkspaceId}
 				expandedDirectoryIds={expandedDirectoryIds}
 				collapsed={leftSidebarCollapsed}
@@ -86,6 +129,18 @@ export function LeftSidebar() {
 				onDirectorySortChange={setSidebarDirectorySort}
 				onWorkspaceSortChange={setSidebarWorkspaceSort}
 				onWorkspaceSelect={(workspaceId) => navigate(`/workspaces/${workspaceId}`)}
+				onWorkspacePinToggle={toggleWorkspacePinned}
+				onWorkspaceArchive={async (workspaceId) => {
+					setWorkspaceCreateError(null);
+					try {
+						await setWorkspaceVisibility(workspaceId, 'archived');
+						removeWorkspaceUi(workspaceId);
+						if (workspaceId === activeWorkspaceId) navigate('/');
+					} catch (error) {
+						const message = error instanceof Error ? error.message : 'Failed to archive workspace';
+						setWorkspaceCreateError(message);
+					}
+				}}
 				onCreateWorkspace={async (directoryId) => {
 					setWorkspaceCreateError(null);
 					const wasExpanded = expandedDirectoryIds.includes(directoryId);
