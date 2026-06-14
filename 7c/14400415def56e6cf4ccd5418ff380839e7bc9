@@ -1,0 +1,32 @@
+src/client/stores/composer-preferences-store.ts
+  s_82e93de1bb8ac8::t_d5e68158e1a292 1-16,18-26,28-54,56-77,79-141,143-157
+  s_82e93de1bb8ac8::t_e6fed88b2c3c22 17,27,55,78,142
+src/client/hooks/use-chat-composer.ts
+  s_82e93de1bb8ac8::t_7cebdc81368e78 15-21,25,64,67,73-76,78-80,82-83,85-87,90-92,143,149-166
+  s_82e93de1bb8ac8::t_7542059ba05281 4-9,65,112-113,116
+src/client/components/chat-composer/chat-composer-utils.ts
+  s_82e93de1bb8ac8::t_e6fed88b2c3c22 17
+  s_82e93de1bb8ac8::t_045656826e84db 57,60-128
+src/client/stores/composer-preferences-store.test.ts
+  s_82e93de1bb8ac8::t_485a5a55e22450 91-118
+  s_82e93de1bb8ac8::t_d5e68158e1a292 1-86,90,119
+  s_82e93de1bb8ac8::t_8001400652823c 87-89
+src/client/components/chat-composer/chat-composer-utils.test.ts
+  s_82e93de1bb8ac8::t_fda5d890cdbe43 15-18,25-34,105,112-114,117-201
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "7c14400415def56e6cf4ccd5418ff380839e7bc9",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
