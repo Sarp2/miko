@@ -217,6 +217,18 @@ export async function startServer(options: StartServerOptions = {}) {
 			const result = await workspaceManager.handleWorkspaceTurnSettled({ sessionId });
 			if (result.changed) await router.broadcastSnapshots();
 		},
+		renameWorkspaceBranch: async ({ workspaceId, branchName, expectedCurrentBranchName }) => {
+			const currentBranchName = store.requireWorkspace(workspaceId).branchName;
+			if (expectedCurrentBranchName && currentBranchName !== expectedCurrentBranchName) {
+				return { branchName: currentBranchName, changed: false };
+			}
+
+			const workspace = await workspaceManager.renameWorkspaceBranch(workspaceId, branchName);
+			return {
+				branchName: workspace.branchName,
+				changed: workspace.branchName !== currentBranchName,
+			};
+		},
 	});
 
 	router = createWsRouter({

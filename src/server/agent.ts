@@ -112,6 +112,17 @@ interface ClaudeSessionState {
 	accountInfoLoaded: boolean;
 }
 
+interface AutoRenameWorkspaceBranchArgs {
+	workspaceId: string;
+	branchName: string;
+	expectedCurrentBranchName?: string;
+}
+
+interface AutoRenameWorkspaceBranchResult {
+	branchName: string;
+	changed: boolean;
+}
+
 interface AgentCoordinatorArgs {
 	store: EventStore;
 	onStateChange: () => void;
@@ -121,6 +132,9 @@ interface AgentCoordinatorArgs {
 	}) => void | Promise<void>;
 	codexManager?: CodexAppServerManager;
 	generateTitle?: (messageContent: string) => Promise<GenerateSessionTitleResult>;
+	renameWorkspaceBranch?: (
+		args: AutoRenameWorkspaceBranchArgs,
+	) => Promise<AutoRenameWorkspaceBranchResult>;
 	startClaudeSession?: (args: {
 		localPath: string;
 		model: string;
@@ -684,6 +698,7 @@ export class AgentCoordinator {
 	private readonly onTurnSettled: NonNullable<AgentCoordinatorArgs['onTurnSettled']> | null;
 	private readonly codexManager: CodexAppServerManager;
 	private readonly generateTitle: (messageContent: string) => Promise<GenerateSessionTitleResult>;
+	private readonly renameWorkspaceBranch: AgentCoordinatorArgs['renameWorkspaceBranch'];
 	private readonly startClaudeSessionFn: NonNullable<AgentCoordinatorArgs['startClaudeSession']>;
 	private reportBackgroundError: ((message: string) => void) | null = null;
 	readonly activeTurns = new Map<string, ActiveTurn>();
@@ -696,6 +711,7 @@ export class AgentCoordinator {
 		this.onTurnSettled = args.onTurnSettled ?? null;
 		this.codexManager = args.codexManager ?? new CodexAppServerManager();
 		this.generateTitle = args.generateTitle ?? generateTitleForSessionDetailed;
+		this.renameWorkspaceBranch = args.renameWorkspaceBranch;
 		this.startClaudeSessionFn = args.startClaudeSession ?? startClaudeSession;
 	}
 
@@ -721,6 +737,22 @@ export class AgentCoordinator {
 		if (active.settled) return;
 		active.settled = true;
 		await this.notifyTurnSettled(active.sessionId, outcome);
+	}
+
+	private async autoRenameWorkspaceBranchFromTitle(args: AutoRenameWorkspaceBranchArgs) {
+		if (!this.renameWorkspaceBranch) return null;
+
+		try {
+			const result = await this.renameWorkspaceBranch(args);
+			if (result.changed) this.onStateChange();
+			return result.branchName;
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			this.reportBackgroundError?.(
+				`[branch-rename] workspace ${args.workspaceId} failed automatic branch rename: ${message}`,
+			);
+			return null;
+		}
 	}
 
 	getActiveStatuses() {
@@ -826,19 +858,25 @@ export class AgentCoordinator {
 
 		await this.store.setPlanMode(args.sessionId, args.planMode);
 
+		const workspace = this.store.getWorkspace(session.workspaceId);
+		if (!workspace) {
+			throw new Error('Workspace not found');
+		}
+
 		const existingMessages = this.store.getMessages(args.sessionId);
 		const shouldGenerateTitle =
 			args.appendUserPrompt && session.title === 'Untitled' && existingMessages.length === 0;
 
 		const optimisticTitle = shouldGenerateTitle ? fallbackTitleFromMessage(args.content) : null;
+		let optimisticBranchRename: Promise<string | null> = Promise.resolve(null);
 
 		if (optimisticTitle) {
 			await this.store.renameSession(args.sessionId, optimisticTitle);
-		}
-
-		const workspace = this.store.getWorkspace(session.workspaceId);
-		if (!workspace) {
-			throw new Error('Workspace not found');
+			optimisticBranchRename = this.autoRenameWorkspaceBranchFromTitle({
+				workspaceId: workspace.id,
+				branchName: optimisticTitle,
+				expectedCurrentBranchName: workspace.branchName,
+			});
 		}
 
 		if (args.appendUserPrompt) {
@@ -857,6 +895,8 @@ export class AgentCoordinator {
 				args.content,
 				workspace.localPath,
 				optimisticTitle ?? 'Untitled',
+				workspace.branchName,
+				optimisticBranchRename,
 			);
 		}
 
@@ -1147,6 +1187,8 @@ export class AgentCoordinator {
 		messageContent: string,
 		_cwd: string,
 		expectedCurrentTitle: string,
+		initialBranchName: string,
+		optimisticBranchRename: Promise<string | null>,
 	) {
 		try {
 			const result = await this.generateTitle(messageContent);
@@ -1162,6 +1204,12 @@ export class AgentCoordinator {
 			if (session.title !== expectedCurrentTitle) return;
 
 			await this.store.renameSession(sessionId, result.title);
+			const expectedCurrentBranchName = (await optimisticBranchRename) ?? initialBranchName;
+			await this.autoRenameWorkspaceBranchFromTitle({
+				workspaceId: session.workspaceId,
+				branchName: result.title,
+				expectedCurrentBranchName,
+			});
 			this.onStateChange();
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
