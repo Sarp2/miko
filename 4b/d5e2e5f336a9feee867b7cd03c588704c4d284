@@ -1,0 +1,21 @@
+src/server/agent.test.ts
+  s_9cc7c03cc56055::t_7ccf26b1d30c27 536,539-540,542,547,550,554,559
+src/server/agent.ts
+  s_9cc7c03cc56055::t_ee07038e8c20e1 1121-1137
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "4bd5e2e5f336a9feee867b7cd03c588704c4d284",
+  "prompts": {},
+  "sessions": {
+    "s_9cc7c03cc56055": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "24197eee-4ea7-4dae-a8e6-4aacc8c8b78a",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
