@@ -1,0 +1,39 @@
+src/client/stores/ui-store.ts
+  s_82e93de1bb8ac8::t_b2793696f96b47 505
+  s_82e93de1bb8ac8::t_5eee034bb2ddeb 54,86-88,174,268-284,493
+src/client/components/left-sidebar.tsx
+  s_82e93de1bb8ac8::t_4242d94f0f1662 134-142
+  s_82e93de1bb8ac8::t_307409d21b128d 62
+  s_82e93de1bb8ac8::t_b2793696f96b47 40-52,56-61,63-68,89-92,96,105-112,118-119,132-133,143
+  s_82e93de1bb8ac8::t_9cd40d3518fbe6 53-55
+src/client/stores/ui-store.test.ts
+  s_82e93de1bb8ac8::t_9caad60b8236cb 164-189
+src/client/components/left-sidebar-view.tsx
+  s_82e93de1bb8ac8::t_b3154d9433cb2f 7,946-953,1006
+  s_82e93de1bb8ac8::t_4380fa6107dabc 516,521
+  s_82e93de1bb8ac8::t_25c00c1098c172 14-15,68-69,82-83,288-306,477,479-480,485,487-488,491,494,505,523,541,581-582,591-592,656,661-662,820-821,834-835
+  s_82e93de1bb8ac8::t_3ba9e1ad5b7c19 12,19,307-311,313-330,332-335,337-351,353-370,493,496-504,506-515,522,524-540,542-568,570-571
+  s_82e93de1bb8ac8::t_b50bd5caaaff50 945
+  s_82e93de1bb8ac8::t_0ad33624bbd8c9 492,519
+  s_82e93de1bb8ac8::t_cc490aad53cb59 39,41,43-50,52,312,331,336,352,481,489,569,583,593,663,679,687,708,713-729,736-814,850,853-867,869-887,889-901,903-944,956-966,968-1005,1014-1015,1017,1020,1022,1024-1034,1036-1040
+  s_82e93de1bb8ac8::t_b9e6efd0b850b3 517-518,520
+  s_82e93de1bb8ac8::t_c8510dd4716b84 22-29,730-735,868
+  s_82e93de1bb8ac8::t_36f817294abf1f 902
+  s_82e93de1bb8ac8::t_4242d94f0f1662 672-678,680-686,688-707,709-712,815-817,1035
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "45b2d6d587e93afd4471725d9029cf35f0e5e637",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
