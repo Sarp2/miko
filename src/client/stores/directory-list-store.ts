@@ -44,6 +44,8 @@ export const useDirectoryListStore = create<DirectoryListStoreState>((set) => ({
 
 	disconnectDirectoryList: () => {
 		useWsStore.getState().unsubscribeTopic(DIRECTORY_LIST_SUBSCRIPTION_ID);
+		unsubscribeFromWsStore?.();
+		unsubscribeFromWsStore = null;
 		set({ isSubscribed: false, snapshot: null });
 	},
 }));

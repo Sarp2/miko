@@ -213,6 +213,7 @@ export function HistoryRoute() {
 					<MagnifyingGlass className="size-4.5 shrink-0 text-ink-tertiary" />
 					<input
 						type="search"
+						aria-label="Filter workspaces"
 						value={query}
 						onChange={(event) => setQuery(event.target.value)}
 						placeholder="Filter workspaces…"
