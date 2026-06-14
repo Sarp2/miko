@@ -73,6 +73,9 @@ interface ActiveTurn {
 	sessionId: string;
 	provider: AgentProvider;
 	turn: HarnessTurn;
+	// The Claude session that owns this turn, so a stale session loop only tears down its own turn
+	// (never a replacement registered under the same sessionId after a 200k<->1M/effort/cwd switch).
+	claudeSession?: ClaudeSessionState;
 	model: string;
 	effort?: string;
 	serviceTier?: 'fast';
@@ -911,6 +914,8 @@ export class AgentCoordinator {
 			sessionId: args.sessionId,
 			provider: args.provider,
 			turn,
+			claudeSession:
+				args.provider === 'claude' ? this.claudeSessions.get(args.sessionId) : undefined,
 			model: args.model,
 			effort: args.effort,
 			serviceTier: args.serviceTier,
@@ -1119,23 +1124,18 @@ export class AgentCoordinator {
 			}
 		} finally {
 			// A 200k<->1M (or effort/cwd) switch can swap a fresh session and turn in under the same
-			// sessionId. If a *different* live session now owns the id, that replacement is responsible
-			// for its own session/turn teardown and this older loop must not touch either map. An
-			// absent entry (normal close via closeSession) still falls through so cancel bookkeeping runs.
-			const current = this.claudeSessions.get(session.sessionId);
-			const superseded = current !== undefined && current !== session;
-			if (!superseded) {
-				if (current === session) {
-					this.claudeSessions.delete(session.sessionId);
+			// sessionId. Only retire map entries this loop actually owns so the replacement survives:
+			// the session entry by identity, and the active turn by its back-reference to this session.
+			if (this.claudeSessions.get(session.sessionId) === session) {
+				this.claudeSessions.delete(session.sessionId);
+			}
+			const active = this.activeTurns.get(session.sessionId);
+			if (active?.provider === 'claude' && active.claudeSession === session) {
+				if (active.cancelRequested && !active.cancelRecorded) {
+					await this.store.recordTurnCancelled(session.sessionId);
+					await this.notifyActiveTurnSettled(active, 'cancelled');
 				}
-				const active = this.activeTurns.get(session.sessionId);
-				if (active?.provider === 'claude') {
-					if (active.cancelRequested && !active.cancelRecorded) {
-						await this.store.recordTurnCancelled(session.sessionId);
-						await this.notifyActiveTurnSettled(active, 'cancelled');
-					}
-					this.activeTurns.delete(session.sessionId);
-				}
+				this.activeTurns.delete(session.sessionId);
 			}
 			session.session.close();
 			this.onStateChange();
