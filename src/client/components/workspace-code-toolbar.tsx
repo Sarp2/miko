@@ -34,11 +34,7 @@ function ToolbarIconButton({
 	return (
 		<Tooltip>
 			<TooltipTrigger asChild>
-				<span
-					aria-label={disabled ? ariaLabel : undefined}
-					className="inline-flex rounded-md"
-					tabIndex={disabled ? 0 : undefined}
-				>
+				<span className="inline-flex rounded-md" tabIndex={disabled ? 0 : undefined}>
 					<button
 						type="button"
 						aria-label={ariaLabel}
