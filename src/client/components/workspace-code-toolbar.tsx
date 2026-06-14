@@ -34,19 +34,25 @@ function ToolbarIconButton({
 	return (
 		<Tooltip>
 			<TooltipTrigger asChild>
-				<button
-					type="button"
-					aria-label={ariaLabel}
-					aria-pressed={active || undefined}
-					disabled={disabled}
-					onClick={onClick}
-					className={cn(
-						'inline-flex size-7 items-center justify-center rounded-md border border-transparent text-ink-subtle transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary disabled:pointer-events-none disabled:opacity-45',
-						active && 'border-hairline bg-surface-2 text-ink',
-					)}
+				<span
+					aria-label={disabled ? ariaLabel : undefined}
+					className="inline-flex rounded-md"
+					tabIndex={disabled ? 0 : undefined}
 				>
-					{children}
-				</button>
+					<button
+						type="button"
+						aria-label={ariaLabel}
+						aria-pressed={active || undefined}
+						disabled={disabled}
+						onClick={onClick}
+						className={cn(
+							'inline-flex size-7 items-center justify-center rounded-md border border-transparent text-ink-subtle transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary disabled:pointer-events-none disabled:opacity-45',
+							active && 'border-hairline bg-surface-2 text-ink',
+						)}
+					>
+						{children}
+					</button>
+				</span>
 			</TooltipTrigger>
 			<TooltipContent>{tooltip}</TooltipContent>
 		</Tooltip>
