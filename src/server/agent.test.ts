@@ -514,6 +514,71 @@ describe('AgentCoordinator.closeSession', () => {
 	});
 });
 
+describe('AgentCoordinator.runClaudeSession', () => {
+	function emptyStreamSession(sessionId: string): ClaudeSessionFixture {
+		return {
+			sessionId,
+			session: {
+				stream: (async function* () {})(),
+				close: () => {},
+			},
+		} as unknown as ClaudeSessionFixture;
+	}
+
+	function runClaudeSession(coordinator: AgentCoordinator, session: ClaudeSessionFixture) {
+		return (
+			coordinator as unknown as {
+				runClaudeSession: (session: ClaudeSessionFixture) => Promise<void>;
+			}
+		).runClaudeSession(session);
+	}
+
+	test('keeps a replacement session and its active turn under the same id', async () => {
+		const coordinator = createCoordinator();
+		const replacement = emptyStreamSession('session-1');
+		const newTurn = activeTurnFixture({ provider: 'claude', claudeSession: replacement });
+		// Simulate a 200k<->1M switch having already swapped in a fresh session and turn.
+		coordinator.claudeSessions.set('session-1', replacement);
+		coordinator.activeTurns.set('session-1', newTurn);
+
+		await runClaudeSession(coordinator, emptyStreamSession('session-1'));
+
+		expect(coordinator.claudeSessions.get('session-1')).toBe(replacement);
+		expect(coordinator.activeTurns.get('session-1')).toBe(newTurn);
+	});
+
+	test('evicts its own session and active turn when it is still the active handle', async () => {
+		const coordinator = createCoordinator();
+		const session = emptyStreamSession('session-2');
+		coordinator.claudeSessions.set('session-2', session);
+		coordinator.activeTurns.set(
+			'session-2',
+			activeTurnFixture({ provider: 'claude', claudeSession: session }),
+		);
+
+		await runClaudeSession(coordinator, session);
+
+		expect(coordinator.claudeSessions.has('session-2')).toBe(false);
+		expect(coordinator.activeTurns.has('session-2')).toBe(false);
+	});
+
+	test('does not clear a replacement turn once its own session entry is gone', async () => {
+		const coordinator = createCoordinator();
+		const session = emptyStreamSession('session-3');
+		// closeSession already removed the map entry, and a replacement turn (owned by a different
+		// session) is now live under the same id; the stale loop must not evict it.
+		const replacementTurn = activeTurnFixture({
+			provider: 'claude',
+			claudeSession: emptyStreamSession('session-3'),
+		});
+		coordinator.activeTurns.set('session-3', replacementTurn);
+
+		await runClaudeSession(coordinator, session);
+
+		expect(coordinator.activeTurns.get('session-3')).toBe(replacementTurn);
+	});
+});
+
 describe('AgentCoordinator.send', () => {
 	test('throws when creating a new session without workspaceId', async () => {
 		const coordinator = createCoordinator();

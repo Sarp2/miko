@@ -1,4 +1,4 @@
-import { CaretDown, Check } from '@phosphor-icons/react';
+import { ArrowUpRight, CaretDown, Check } from '@phosphor-icons/react';
 
 import type {
 	AgentProvider,
@@ -22,17 +22,21 @@ interface ModelRow {
 	modelId: string;
 	label: string;
 	contextWindow: ClaudeContextWindow | null;
+	badge?: 'NEW';
 }
 
 function modelRows(model: ProviderModelOption): ModelRow[] {
 	const options = model.contextWindowOptions ?? [];
 	if (options.length === 0) {
-		return [{ modelId: model.id, label: model.label, contextWindow: null }];
+		return [{ modelId: model.id, label: model.label, contextWindow: null, badge: model.badge }];
 	}
-	return options.map((option) => ({
+	// Larger context variants (e.g. 1M) render above the base 200k row to match the reference menu.
+	const ordered = [...options].sort((a, b) => Number(b.id !== '200k') - Number(a.id !== '200k'));
+	return ordered.map((option) => ({
 		modelId: model.id,
 		label: option.id === '200k' ? model.label : `${model.label} ${option.label}`,
 		contextWindow: option.id,
+		badge: model.badge,
 	}));
 }
 
@@ -93,7 +97,7 @@ export function ComposerModelMenu({
 								return (
 									<DropdownMenuItem
 										key={`${entry.id}:${row.modelId}:${row.contextWindow ?? 'default'}`}
-										className="cursor-pointer rounded-md px-2 py-1.5 text-[12px] font-medium text-ink focus:bg-surface-2 focus:text-ink"
+										className="flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1.5 text-[12px] font-medium text-ink focus:bg-surface-2 focus:text-ink"
 										onSelect={() => {
 											onProviderChange(entry.id);
 											onModelChange(entry.id, row.modelId);
@@ -101,8 +105,15 @@ export function ComposerModelMenu({
 											else if (entry.id === 'claude') onContextWindowChange('200k');
 										}}
 									>
-										<span className="min-w-0 flex-1 truncate">{row.label}</span>
-										{selected ? <Check className="size-3.5 text-ink-muted" /> : null}
+										<span className="min-w-0 truncate">{row.label}</span>
+										<ArrowUpRight aria-hidden className="size-3 shrink-0 text-ink-subtle/60" />
+										{row.badge ? (
+											<span className="rounded bg-surface-3 px-1 py-px text-[9px] font-semibold uppercase tracking-wide text-ink-muted">
+												{row.badge}
+											</span>
+										) : null}
+										<span className="flex-1" />
+										{selected ? <Check className="size-3.5 shrink-0 text-ink-muted" /> : null}
 									</DropdownMenuItem>
 								);
 							}),
