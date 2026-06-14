@@ -1,0 +1,39 @@
+src/client/components/left-sidebar.tsx
+  s_82e93de1bb8ac8::t_0b457153a8bc76 166
+  s_82e93de1bb8ac8::t_b31ae41f26d8c5 2,76,122
+src/client/stores/directory-list-store.test.ts
+  s_82e93de1bb8ac8::t_b061a3c6d93b98 1-80,82-122,124-134,136-138
+  s_82e93de1bb8ac8::t_a1e2d54bae25f7 81,123,135
+src/client/stores/directory-list-store.ts
+  s_82e93de1bb8ac8::t_c694dba370d01c 1-49
+src/client/components/left-sidebar-view.tsx
+  s_82e93de1bb8ac8::t_b31ae41f26d8c5 71,825,951-956
+  s_82e93de1bb8ac8::t_0b457153a8bc76 88,842,957
+src/client/routes/app-shell.tsx
+  s_82e93de1bb8ac8::t_0b457153a8bc76 2,7-9,24-31
+src/client/app.tsx
+  s_82e93de1bb8ac8::t_0b457153a8bc76 5,30
+src/client/routes/history-route.tsx
+  s_82e93de1bb8ac8::t_feacd97d19f0e8 135,159,164,190,192,194-196,199
+  s_82e93de1bb8ac8::t_a1e2d54bae25f7 110,113,122,252
+  s_82e93de1bb8ac8::t_2171d041696906 1,116,121,124-130,133,136,142,147,208-210,216,229,240,242-243,247
+  s_82e93de1bb8ac8::t_1c738163361173 52-54,144-146,204-207
+  s_82e93de1bb8ac8::t_c694dba370d01c 2-51,55-109,111-112,114-115,117-120,123,131-132,134,137-141,143,148-158,160-163,165-189,191,193,197-198,200-203,211-215,217-228,230-232,238-239,241,244-246,248-251,253-263
+  s_82e93de1bb8ac8::t_6e28e098e8941a 233-237
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "d9088500549d08ce4c8a47460206d54a3919bbf2",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
