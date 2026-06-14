@@ -74,6 +74,7 @@ export function deriveWorkspaceRoutePage({
 	const source = parseFileSource(searchParams.get('source'), path);
 	const title = searchParams.get('title')?.trim() || fallbackFileTitle(source, path);
 	const sourceId = searchParams.get('sourceId')?.trim() || undefined;
+	const sourceSessionId = searchParams.get('sessionId')?.trim() || undefined;
 
 	return {
 		type: 'file',
@@ -81,5 +82,6 @@ export function deriveWorkspaceRoutePage({
 		title,
 		source,
 		...(sourceId ? { sourceId } : {}),
+		...(sourceSessionId ? { sourceSessionId } : {}),
 	};
 }

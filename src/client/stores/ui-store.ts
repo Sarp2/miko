@@ -4,6 +4,7 @@ import { createJSONStorage, persist, type StateStorage } from 'zustand/middlewar
 export const UI_STORAGE_KEY = 'miko:v1';
 
 export type RightSidebarTab = 'all_files' | 'changes' | 'checks';
+export type DiffViewMode = 'unified' | 'split';
 export type SidebarSortField = 'updated' | 'created';
 export type ExternalOpenApp = 'finder' | 'cursor' | 'warp' | 'terminal' | 'antigravity';
 export type WorkspaceFileSource =
@@ -22,6 +23,7 @@ export type WorkspacePage =
 			title: string;
 			source: WorkspaceFileSource;
 			sourceId?: string;
+			sourceSessionId?: string;
 	  };
 
 export interface MiddleTabDescriptor {
@@ -56,10 +58,21 @@ interface PersistedUiState {
 	terminalPanelByWorkspaceId: Record<string, TerminalPanelState>;
 	terminalTabsByWorkspaceId: Record<string, TerminalTabDescriptor[]>;
 	activeTerminalIdByWorkspaceId: Record<string, string>;
+	diffViewModeByWorkspaceId: Record<string, DiffViewMode>;
+	viewedDiffDigestByWorkspaceId: Record<string, Record<string, string>>;
 }
 
 interface UiStoreState extends PersistedUiState {
 	getRightSidebarTab: (workspaceId: string) => RightSidebarTab;
+	getDiffViewMode: (workspaceId: string) => DiffViewMode;
+	setDiffViewMode: (workspaceId: string, mode: DiffViewMode) => void;
+	isDiffPathViewed: (workspaceId: string, path: string, patchDigest?: string | null) => boolean;
+	setDiffPathViewed: (
+		workspaceId: string,
+		path: string,
+		patchDigest: string,
+		viewed: boolean,
+	) => void;
 	setRightSidebarTab: (workspaceId: string, tab: RightSidebarTab) => void;
 	setLeftSidebarCollapsed: (collapsed: boolean) => void;
 	setLeftSidebarWidth: (width: number) => void;
@@ -178,9 +191,46 @@ export const useUiStore = create<UiStoreState>()(
 			terminalPanelByWorkspaceId: {},
 			terminalTabsByWorkspaceId: {},
 			activeTerminalIdByWorkspaceId: {},
+			diffViewModeByWorkspaceId: {},
+			viewedDiffDigestByWorkspaceId: {},
 
 			getRightSidebarTab: (workspaceId) => {
 				return get().rightSidebarTabByWorkspaceId[workspaceId] ?? 'all_files';
+			},
+
+			getDiffViewMode: (workspaceId) => {
+				return get().diffViewModeByWorkspaceId[workspaceId] ?? 'unified';
+			},
+
+			setDiffViewMode: (workspaceId, mode) => {
+				set((state) => ({
+					diffViewModeByWorkspaceId: {
+						...state.diffViewModeByWorkspaceId,
+						[workspaceId]: mode,
+					},
+				}));
+			},
+
+			isDiffPathViewed: (workspaceId, path, patchDigest) => {
+				if (!patchDigest) return false;
+				return get().viewedDiffDigestByWorkspaceId[workspaceId]?.[path] === patchDigest;
+			},
+
+			setDiffPathViewed: (workspaceId, path, patchDigest, viewed) => {
+				set((state) => {
+					const workspaceViewedDiffs = {
+						...(state.viewedDiffDigestByWorkspaceId[workspaceId] ?? {}),
+					};
+					if (viewed) workspaceViewedDiffs[path] = patchDigest;
+					else delete workspaceViewedDiffs[path];
+
+					return {
+						viewedDiffDigestByWorkspaceId: {
+							...state.viewedDiffDigestByWorkspaceId,
+							[workspaceId]: workspaceViewedDiffs,
+						},
+					};
+				});
 			},
 
 			setRightSidebarTab: (workspaceId, tab) => {
@@ -426,6 +476,14 @@ export const useUiStore = create<UiStoreState>()(
 						state.activeTerminalIdByWorkspaceId,
 						workspaceId,
 					),
+					diffViewModeByWorkspaceId: removeWorkspaceKey(
+						state.diffViewModeByWorkspaceId,
+						workspaceId,
+					),
+					viewedDiffDigestByWorkspaceId: removeWorkspaceKey(
+						state.viewedDiffDigestByWorkspaceId,
+						workspaceId,
+					),
 				}));
 			},
 		}),
@@ -445,6 +503,8 @@ export const useUiStore = create<UiStoreState>()(
 				terminalPanelByWorkspaceId: state.terminalPanelByWorkspaceId,
 				terminalTabsByWorkspaceId: state.terminalTabsByWorkspaceId,
 				activeTerminalIdByWorkspaceId: state.activeTerminalIdByWorkspaceId,
+				diffViewModeByWorkspaceId: state.diffViewModeByWorkspaceId,
+				viewedDiffDigestByWorkspaceId: state.viewedDiffDigestByWorkspaceId,
 			}),
 		},
 	),
