@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import { Toaster } from './components/ui/sonner';
 import { AppShell } from './routes/app-shell';
-import { ArchiveRoute } from './routes/archive-route';
+import { HistoryRoute } from './routes/history-route';
 import { HomeRoute } from './routes/home-route';
 import { NotFoundRoute } from './routes/not-found-route';
 import { SettingsRoute } from './routes/settings-route';
@@ -27,8 +27,8 @@ export function App() {
 					/>
 					<Route path="workspaces/:workspaceId/diff" element={<WorkspaceRoute kind="diff" />} />
 					<Route path="workspaces/:workspaceId/file" element={<WorkspaceRoute kind="file" />} />
+					<Route path="history" element={<HistoryRoute />} />
 				</Route>
-				<Route path="archive" element={<ArchiveRoute />} />
 				<Route path="settings" element={<SettingsRoute />} />
 				<Route path="*" element={<NotFoundRoute />} />
 			</Routes>

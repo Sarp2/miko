@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import type { SidebarDirectoryGroup } from '../../shared/types';
 import { useSidebarStore } from '../stores/sidebar-store';
 import { type SidebarSortField, useUiStore } from '../stores/ui-store';
@@ -73,6 +73,7 @@ function useActiveWorkspaceId() {
 
 export function LeftSidebar() {
 	const navigate = useNavigate();
+	const location = useLocation();
 	const activeWorkspaceId = useActiveWorkspaceId();
 	const snapshot = useSidebarStore((state) => state.snapshot);
 	const createWorkspace = useSidebarStore((state) => state.createWorkspace);
@@ -118,6 +119,7 @@ export function LeftSidebar() {
 				pinnedWorkspaces={pinnedWorkspaces}
 				pinnedWorkspaceIds={pinnedWorkspaceIds}
 				activeWorkspaceId={activeWorkspaceId}
+				historyActive={location.pathname === '/history'}
 				expandedDirectoryIds={expandedDirectoryIds}
 				collapsed={leftSidebarCollapsed}
 				width={leftSidebarWidth}
@@ -161,7 +163,7 @@ export function LeftSidebar() {
 					setWorkspaceCreateError(message);
 				}}
 				onAddDirectory={() => setAddDirectoryOpen(true)}
-				onOpenArchive={() => navigate('/archive')}
+				onOpenHistory={() => navigate('/history')}
 				onOpenSettings={() => navigate('/settings')}
 			/>
 			<AddDirectoryDialog open={addDirectoryOpen} onOpenChange={setAddDirectoryOpen} />
