@@ -12,11 +12,25 @@ import {
 	mentionOptionsFromGitFiles,
 	modelForProvider,
 	modelOptionsForSubmit,
+	preferredClaudeContextWindowForComposer,
+	preferredModelByProviderForComposer,
+	preferredPlanModeForComposer,
+	preferredProviderForComposer,
 	providerCatalogs,
 	uploadAttachments,
 } from './chat-composer-utils';
 
 const originalFetch = globalThis.fetch;
+
+const emptyPreferences = {
+	provider: null,
+	selectedModelByProvider: {},
+	claudeReasoningEffort: null,
+	claudeContextWindow: null,
+	codexReasoningEffort: null,
+	codexFastMode: null,
+	planMode: null,
+};
 
 afterEach(() => {
 	globalThis.fetch = originalFetch;
@@ -88,15 +102,103 @@ describe('provider and model helpers', () => {
 		expect(defaultProviderForRuntime(null, [])).toBe('claude');
 	});
 
-	test('resolves selected models and falls back to the first available model', () => {
+	test('resolves selected models and falls back to provider default before first model', () => {
 		const catalog = provider('claude', [
 			{ id: 'sonnet', label: 'Sonnet', supportsEffort: true },
 			{ id: 'opus', label: 'Opus', supportsEffort: true },
 		]);
 
 		expect(modelForProvider(catalog, { claude: 'opus' })?.id).toBe('opus');
-		expect(modelForProvider(catalog, { claude: 'missing' })?.id).toBe('sonnet');
+		expect(modelForProvider({ ...catalog, defaultModel: 'opus' }, { claude: 'missing' })?.id).toBe(
+			'opus',
+		);
 		expect(modelForProvider(provider('claude', []), {})).toBeNull();
+	});
+	test('resolves composer provider preferences against the available catalog', () => {
+		const providers = [provider('claude'), provider('codex')];
+
+		expect(
+			preferredProviderForComposer({
+				preferences: { ...emptyPreferences, provider: 'codex' },
+				providers,
+			}),
+		).toBe('codex');
+		expect(
+			preferredProviderForComposer({
+				preferences: { ...emptyPreferences, provider: 'codex' },
+				providers: [provider('claude')],
+			}),
+		).toBe('claude');
+		expect(
+			preferredProviderForComposer({
+				preferences: { ...emptyPreferences, provider: 'codex' },
+				providers,
+				runtimeProvider: 'claude',
+			}),
+		).toBe('claude');
+	});
+
+	test('resolves composer model preferences against provider catalogs', () => {
+		const providers = [
+			provider('claude', [
+				{ id: 'sonnet', label: 'Sonnet', supportsEffort: true },
+				{ id: 'opus', label: 'Opus', supportsEffort: true },
+			]),
+			provider('codex', [
+				{ id: 'gpt-5.5', label: 'GPT-5.5', supportsEffort: false },
+				{ id: 'gpt-5.4', label: 'GPT-5.4', supportsEffort: false },
+			]),
+		];
+
+		expect(
+			preferredModelByProviderForComposer({
+				preferences: {
+					...emptyPreferences,
+					selectedModelByProvider: { claude: 'opus', codex: 'missing' },
+				},
+				providers,
+			}),
+		).toEqual({ claude: 'opus', codex: 'gpt-5.5' });
+	});
+
+	test('uses Claude 1m context only when the selected model supports it', () => {
+		const supportsOneMillion = {
+			id: 'opus',
+			label: 'Opus',
+			supportsEffort: true,
+			contextWindowOptions: [
+				{ id: '200k', label: '200k' },
+				{ id: '1m', label: '1M' },
+			],
+		} as const;
+		const standardContext = { id: 'haiku', label: 'Haiku', supportsEffort: true } as const;
+
+		expect(
+			preferredClaudeContextWindowForComposer({
+				model: supportsOneMillion,
+				preferences: { ...emptyPreferences, claudeContextWindow: '1m' },
+			}),
+		).toBe('1m');
+		expect(
+			preferredClaudeContextWindowForComposer({
+				model: standardContext,
+				preferences: { ...emptyPreferences, claudeContextWindow: '1m' },
+			}),
+		).toBe('200k');
+	});
+
+	test('uses backend runtime plan mode before local default preference', () => {
+		expect(
+			preferredPlanModeForComposer({
+				preferences: { ...emptyPreferences, planMode: true },
+				runtimePlanMode: false,
+			}),
+		).toBe(false);
+		expect(
+			preferredPlanModeForComposer({
+				preferences: { ...emptyPreferences, planMode: true },
+			}),
+		).toBe(true);
 	});
 });
 

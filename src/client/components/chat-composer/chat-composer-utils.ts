@@ -14,6 +14,7 @@ import {
 	type WorkspaceDiffFile,
 } from '../../../shared/types';
 import { basename } from '../../routes/workspace-route-state';
+import type { ComposerPreferencesSnapshot } from '../../stores/composer-preferences-store';
 import type { LocalAttachment, UploadResponse } from './chat-composer-types';
 import type { FileMentionOption } from './file-mention-popover';
 
@@ -53,10 +54,78 @@ export function defaultProviderForRuntime(
 
 export function modelForProvider(
 	provider: ProviderCatalogEntry,
-	selectedModelByProvider: Record<string, string>,
+	selectedModelByProvider: Record<string, string | undefined>,
 ): ProviderModelOption | null {
 	const selected = selectedModelByProvider[provider.id];
-	return provider.models.find((model) => model.id === selected) ?? provider.models[0] ?? null;
+	return (
+		provider.models.find((model) => model.id === selected) ??
+		provider.models.find((model) => model.id === provider.defaultModel) ??
+		provider.models[0] ??
+		null
+	);
+}
+
+export function preferredProviderForComposer(args: {
+	preferences: ComposerPreferencesSnapshot;
+	providers: ProviderCatalogEntry[];
+	runtimeProvider?: AgentProvider | null;
+}) {
+	if (args.runtimeProvider && args.providers.some((entry) => entry.id === args.runtimeProvider)) {
+		return args.runtimeProvider;
+	}
+	if (
+		args.preferences.provider &&
+		args.providers.some((entry) => entry.id === args.preferences.provider)
+	) {
+		return args.preferences.provider;
+	}
+	return defaultProviderForRuntime(null, args.providers);
+}
+
+export function preferredModelByProviderForComposer(args: {
+	preferences: ComposerPreferencesSnapshot;
+	providers: ProviderCatalogEntry[];
+}) {
+	return Object.fromEntries(
+		args.providers.map((provider) => {
+			const model = modelForProvider(provider, args.preferences.selectedModelByProvider);
+			return [provider.id, model?.id ?? provider.defaultModel];
+		}),
+	) as Record<AgentProvider, string>;
+}
+
+export function preferredClaudeReasoningEffortForComposer(
+	preferences: ComposerPreferencesSnapshot,
+) {
+	return preferences.claudeReasoningEffort ?? DEFAULT_COMPOSER_MODEL_OPTIONS.claudeReasoningEffort;
+}
+
+export function preferredCodexReasoningEffortForComposer(preferences: ComposerPreferencesSnapshot) {
+	return preferences.codexReasoningEffort ?? DEFAULT_COMPOSER_MODEL_OPTIONS.codexReasoningEffort;
+}
+
+export function preferredCodexFastModeForComposer(preferences: ComposerPreferencesSnapshot) {
+	return preferences.codexFastMode ?? DEFAULT_COMPOSER_MODEL_OPTIONS.codexFastMode;
+}
+
+export function preferredPlanModeForComposer(args: {
+	preferences: ComposerPreferencesSnapshot;
+	runtimePlanMode?: boolean | null;
+}) {
+	return args.runtimePlanMode ?? args.preferences.planMode ?? false;
+}
+
+export function preferredClaudeContextWindowForComposer(args: {
+	model: ProviderModelOption | null;
+	preferences: ComposerPreferencesSnapshot;
+}) {
+	const preferred =
+		args.preferences.claudeContextWindow ?? DEFAULT_COMPOSER_MODEL_OPTIONS.claudeContextWindow;
+	const contextWindowOptions = args.model?.contextWindowOptions ?? [];
+	if (contextWindowOptions.length === 0) return DEFAULT_COMPOSER_MODEL_OPTIONS.claudeContextWindow;
+	return contextWindowOptions.some((option) => option.id === preferred)
+		? preferred
+		: DEFAULT_COMPOSER_MODEL_OPTIONS.claudeContextWindow;
 }
 
 export function mentionOptionsFromGitFiles(files: WorkspaceDiffFile[] = []): FileMentionOption[] {
