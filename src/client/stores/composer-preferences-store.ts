@@ -10,6 +10,7 @@ import {
 	isClaudeContextWindow,
 	isClaudeReasoningEffort,
 	isCodexReasoningEffort,
+	PROVIDERS,
 } from '../../shared/types';
 import { getLocalStorage } from './persist-storage';
 
@@ -46,16 +47,21 @@ const DEFAULT_COMPOSER_PREFERENCES: ComposerPreferencesSnapshot = {
 	planMode: null,
 };
 
+const AGENT_PROVIDERS: readonly AgentProvider[] = PROVIDERS.map((provider) => provider.id);
+
 function isAgentProvider(value: unknown): value is AgentProvider {
-	return value === 'claude' || value === 'codex';
+	return AGENT_PROVIDERS.includes(value as AgentProvider);
 }
 
 function normalizeSelectedModelByProvider(value: unknown) {
 	if (!value || typeof value !== 'object') return {};
 	const candidate = value as Record<string, unknown>;
 	const selectedModelByProvider: Partial<Record<AgentProvider, string>> = {};
-	if (typeof candidate.claude === 'string') selectedModelByProvider.claude = candidate.claude;
-	if (typeof candidate.codex === 'string') selectedModelByProvider.codex = candidate.codex;
+	for (const provider of AGENT_PROVIDERS) {
+		if (typeof candidate[provider] === 'string') {
+			selectedModelByProvider[provider] = candidate[provider];
+		}
+	}
 	return selectedModelByProvider;
 }
 

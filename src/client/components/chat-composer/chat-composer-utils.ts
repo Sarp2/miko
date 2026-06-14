@@ -108,6 +108,11 @@ export function preferredCodexFastModeForComposer(preferences: ComposerPreferenc
 	return preferences.codexFastMode ?? DEFAULT_COMPOSER_MODEL_OPTIONS.codexFastMode;
 }
 
+export function runtimePlanModeForComposer(sessionSnapshot: SessionSnapshot | null) {
+	if (!sessionSnapshot?.runtime.provider) return null;
+	return sessionSnapshot.runtime.planMode;
+}
+
 export function preferredPlanModeForComposer(args: {
 	preferences: ComposerPreferencesSnapshot;
 	runtimePlanMode?: boolean | null;

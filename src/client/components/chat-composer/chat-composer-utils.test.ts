@@ -17,6 +17,7 @@ import {
 	preferredPlanModeForComposer,
 	preferredProviderForComposer,
 	providerCatalogs,
+	runtimePlanModeForComposer,
 	uploadAttachments,
 } from './chat-composer-utils';
 
@@ -187,16 +188,26 @@ describe('provider and model helpers', () => {
 		).toBe('200k');
 	});
 
-	test('uses backend runtime plan mode before local default preference', () => {
+	test('uses backend runtime plan mode only after a provider is established', () => {
+		const unlockedSession = {
+			runtime: { provider: null, planMode: false },
+		} as SessionSnapshot;
+		const lockedSession = {
+			runtime: { provider: 'claude', planMode: false },
+		} as SessionSnapshot;
+
+		expect(runtimePlanModeForComposer(unlockedSession)).toBeNull();
+		expect(runtimePlanModeForComposer(lockedSession)).toBe(false);
 		expect(
 			preferredPlanModeForComposer({
 				preferences: { ...emptyPreferences, planMode: true },
-				runtimePlanMode: false,
+				runtimePlanMode: runtimePlanModeForComposer(lockedSession),
 			}),
 		).toBe(false);
 		expect(
 			preferredPlanModeForComposer({
 				preferences: { ...emptyPreferences, planMode: true },
+				runtimePlanMode: runtimePlanModeForComposer(unlockedSession),
 			}),
 		).toBe(true);
 	});

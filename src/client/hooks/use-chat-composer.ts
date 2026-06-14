@@ -20,6 +20,7 @@ import {
 	preferredPlanModeForComposer,
 	preferredProviderForComposer,
 	providerCatalogs,
+	runtimePlanModeForComposer,
 	uploadAttachments,
 } from '../components/chat-composer/chat-composer-utils';
 import { useComposerPreferencesStore } from '../stores/composer-preferences-store';
@@ -62,9 +63,8 @@ export function useChatComposer({
 
 	const availableProviders = stableAvailableProvidersRef.current.providers;
 	const preferences = useComposerPreferencesStore();
-	const preferredPlanMode = preferences.planMode;
 	const sessionProvider = sessionSnapshot?.runtime.provider ?? null;
-	const sessionPlanMode = sessionSnapshot?.runtime.planMode ?? null;
+	const sessionPlanMode = runtimePlanModeForComposer(sessionSnapshot);
 	const providers = useMemo(() => {
 		if (!sessionProvider) return availableProviders;
 		const lockedProvider = availableProviders.find((entry) => entry.id === sessionProvider);
@@ -79,9 +79,10 @@ export function useChatComposer({
 		() => preferredModelByProviderForComposer({ preferences, providers }),
 		[preferences, providers],
 	);
-	const [planMode, setPlanModeState] = useState(() =>
-		preferredPlanModeForComposer({ preferences, runtimePlanMode: sessionPlanMode }),
-	);
+	const planMode = preferredPlanModeForComposer({
+		preferences,
+		runtimePlanMode: sessionPlanMode,
+	});
 	const claudeReasoningEffort = preferredClaudeReasoningEffortForComposer(preferences);
 	const codexReasoningEffort = preferredCodexReasoningEffortForComposer(preferences);
 	const codexFastMode = preferredCodexFastModeForComposer(preferences);
@@ -109,12 +110,7 @@ export function useChatComposer({
 		setContent('');
 		setAttachments([]);
 		setSubmitting(false);
-		setPlanModeState(sessionPlanMode ?? preferredPlanMode ?? false);
-	}, [preferredPlanMode, sessionId, sessionPlanMode]);
-
-	useEffect(() => {
-		setPlanModeState(sessionPlanMode ?? useComposerPreferencesStore.getState().planMode ?? false);
-	}, [sessionPlanMode]);
+	}, [sessionId]);
 
 	const addFiles = useCallback((files: File[]) => {
 		setAttachments((current) => {
@@ -150,7 +146,6 @@ export function useChatComposer({
 	}, []);
 
 	const setPlanMode = useCallback((nextPlanMode: boolean) => {
-		setPlanModeState(nextPlanMode);
 		useComposerPreferencesStore.getState().setPlanModePreference(nextPlanMode);
 	}, []);
 
