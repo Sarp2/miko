@@ -533,25 +533,30 @@ describe('AgentCoordinator.runClaudeSession', () => {
 		).runClaudeSession(session);
 	}
 
-	test('keeps a replacement session registered under the same id', async () => {
+	test('keeps a replacement session and its active turn under the same id', async () => {
 		const coordinator = createCoordinator();
 		const replacement = emptyStreamSession('session-1');
-		// Simulate a 200k<->1M switch having already swapped in a fresh handle.
+		const newTurn = activeTurnFixture({ provider: 'claude' });
+		// Simulate a 200k<->1M switch having already swapped in a fresh session and turn.
 		coordinator.claudeSessions.set('session-1', replacement);
+		coordinator.activeTurns.set('session-1', newTurn);
 
 		await runClaudeSession(coordinator, emptyStreamSession('session-1'));
 
 		expect(coordinator.claudeSessions.get('session-1')).toBe(replacement);
+		expect(coordinator.activeTurns.get('session-1')).toBe(newTurn);
 	});
 
-	test('evicts its own session when it is still the active handle', async () => {
+	test('evicts its own session and active turn when it is still the active handle', async () => {
 		const coordinator = createCoordinator();
 		const session = emptyStreamSession('session-2');
 		coordinator.claudeSessions.set('session-2', session);
+		coordinator.activeTurns.set('session-2', activeTurnFixture({ provider: 'claude' }));
 
 		await runClaudeSession(coordinator, session);
 
 		expect(coordinator.claudeSessions.has('session-2')).toBe(false);
+		expect(coordinator.activeTurns.has('session-2')).toBe(false);
 	});
 });
 

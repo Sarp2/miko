@@ -1118,19 +1118,24 @@ export class AgentCoordinator {
 				await this.notifyActiveTurnSettled(active, 'failed');
 			}
 		} finally {
-			// Only retire this session if the map still points at it. A 200k<->1M (or effort/cwd)
-			// switch may have already replaced it under the same sessionId, and that replacement
-			// must survive this older loop finishing.
-			if (this.claudeSessions.get(session.sessionId) === session) {
-				this.claudeSessions.delete(session.sessionId);
-			}
-			const active = this.activeTurns.get(session.sessionId);
-			if (active?.provider === 'claude') {
-				if (active.cancelRequested && !active.cancelRecorded) {
-					await this.store.recordTurnCancelled(session.sessionId);
-					await this.notifyActiveTurnSettled(active, 'cancelled');
+			// A 200k<->1M (or effort/cwd) switch can swap a fresh session and turn in under the same
+			// sessionId. If a *different* live session now owns the id, that replacement is responsible
+			// for its own session/turn teardown and this older loop must not touch either map. An
+			// absent entry (normal close via closeSession) still falls through so cancel bookkeeping runs.
+			const current = this.claudeSessions.get(session.sessionId);
+			const superseded = current !== undefined && current !== session;
+			if (!superseded) {
+				if (current === session) {
+					this.claudeSessions.delete(session.sessionId);
 				}
-				this.activeTurns.delete(session.sessionId);
+				const active = this.activeTurns.get(session.sessionId);
+				if (active?.provider === 'claude') {
+					if (active.cancelRequested && !active.cancelRecorded) {
+						await this.store.recordTurnCancelled(session.sessionId);
+						await this.notifyActiveTurnSettled(active, 'cancelled');
+					}
+					this.activeTurns.delete(session.sessionId);
+				}
 			}
 			session.session.close();
 			this.onStateChange();
