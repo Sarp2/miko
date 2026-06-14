@@ -51,6 +51,7 @@ interface PersistedUiState {
 	leftSidebarWidth: number;
 	externalOpenApp: ExternalOpenApp;
 	expandedDirectoryIds: string[];
+	pinnedWorkspaceIds: string[];
 	sidebarDirectorySort: SidebarSortField;
 	sidebarWorkspaceSort: SidebarSortField;
 	rightSidebarTabByWorkspaceId: Record<string, RightSidebarTab>;
@@ -82,6 +83,9 @@ interface UiStoreState extends PersistedUiState {
 	setSidebarDirectorySort: (sort: SidebarSortField) => void;
 	setSidebarWorkspaceSort: (sort: SidebarSortField) => void;
 	toggleDirectoryExpanded: (directoryId: string) => void;
+	isWorkspacePinned: (workspaceId: string) => boolean;
+	setWorkspacePinned: (workspaceId: string, pinned: boolean) => void;
+	toggleWorkspacePinned: (workspaceId: string) => void;
 	getMiddleTabs: (workspaceId: string) => MiddleTabDescriptor[];
 	ensureScratchpadTab: (workspaceId: string) => void;
 	openMiddleTab: (workspaceId: string, page: WorkspacePage, fallbackTitle?: string) => string;
@@ -167,6 +171,7 @@ export const useUiStore = create<UiStoreState>()(
 			leftSidebarWidth: DEFAULT_LEFT_SIDEBAR_WIDTH,
 			externalOpenApp: DEFAULT_EXTERNAL_OPEN_APP,
 			expandedDirectoryIds: [],
+			pinnedWorkspaceIds: [],
 			sidebarDirectorySort: 'updated',
 			sidebarWorkspaceSort: 'updated',
 			rightSidebarTabByWorkspaceId: {},
@@ -258,6 +263,23 @@ export const useUiStore = create<UiStoreState>()(
 			toggleDirectoryExpanded: (directoryId) => {
 				const expanded = get().expandedDirectoryIds.includes(directoryId);
 				get().setDirectoryExpanded(directoryId, !expanded);
+			},
+
+			isWorkspacePinned: (workspaceId) => {
+				return get().pinnedWorkspaceIds.includes(workspaceId);
+			},
+
+			setWorkspacePinned: (workspaceId, pinned) => {
+				set((state) => {
+					const ids = new Set(state.pinnedWorkspaceIds);
+					if (pinned) ids.add(workspaceId);
+					else ids.delete(workspaceId);
+					return { pinnedWorkspaceIds: [...ids] };
+				});
+			},
+
+			toggleWorkspacePinned: (workspaceId) => {
+				get().setWorkspacePinned(workspaceId, !get().isWorkspacePinned(workspaceId));
 			},
 
 			getMiddleTabs: (workspaceId) => {
@@ -468,6 +490,7 @@ export const useUiStore = create<UiStoreState>()(
 						state.viewedDiffDigestByWorkspaceId,
 						workspaceId,
 					),
+					pinnedWorkspaceIds: state.pinnedWorkspaceIds.filter((id) => id !== workspaceId),
 				}));
 			},
 		}),
@@ -479,6 +502,7 @@ export const useUiStore = create<UiStoreState>()(
 				leftSidebarWidth: state.leftSidebarWidth,
 				externalOpenApp: state.externalOpenApp,
 				expandedDirectoryIds: state.expandedDirectoryIds,
+				pinnedWorkspaceIds: state.pinnedWorkspaceIds,
 				sidebarDirectorySort: state.sidebarDirectorySort,
 				sidebarWorkspaceSort: state.sidebarWorkspaceSort,
 				rightSidebarTabByWorkspaceId: state.rightSidebarTabByWorkspaceId,
