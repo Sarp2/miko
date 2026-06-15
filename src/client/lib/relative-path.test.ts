@@ -1,5 +1,16 @@
 import { describe, expect, test } from 'bun:test';
-import { toRelativePath } from './relative-path';
+import { basename, toRelativePath } from './relative-path';
+
+describe('basename', () => {
+	test('returns the final path segment', () => {
+		expect(basename('/home/dev/repo/src/app.ts')).toBe('app.ts');
+	});
+
+	test('ignores trailing slashes and falls back to the original path', () => {
+		expect(basename('/home/dev/repo/')).toBe('repo');
+		expect(basename('')).toBe('');
+	});
+});
 
 describe('toRelativePath', () => {
 	test('strips the root prefix and leading slash', () => {

@@ -13,7 +13,7 @@ import {
 	type SessionSnapshot,
 	type WorkspaceDiffFile,
 } from '../../../shared/types';
-import { basename } from '../../routes/workspace-route-state';
+import { basename } from '../../lib/relative-path';
 import type { ComposerPreferencesSnapshot } from '../../stores/composer-preferences-store';
 import type { LocalAttachment, UploadResponse } from './chat-composer-types';
 import type { FileMentionOption } from './file-mention-popover';

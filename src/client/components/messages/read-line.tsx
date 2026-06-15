@@ -2,9 +2,8 @@ import { FileText, WarningCircle } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router-dom';
 import type { HydratedTranscriptMessage } from '../../../shared/types';
 import { Icons } from '../../lib/icons';
-import { toRelativePath } from '../../lib/relative-path';
+import { basename, toRelativePath } from '../../lib/relative-path';
 import { cn } from '../../lib/utils';
-import { basename } from '../../routes/workspace-route-state';
 import { FileNameIcon } from '../icons/file-name-icon';
 import type { ChangedFileLineContext } from './changed-file-line';
 
@@ -18,7 +17,7 @@ function ReadStatusIcon({ tool }: { tool: ReadMessage }) {
 }
 
 /** Number of lines in the read result, or 0 if no readable content is present. */
-function readLineCount(tool: ReadMessage): number {
+export function readLineCount(tool: ReadMessage): number {
 	const result = tool.result;
 	const content = typeof result === 'string' ? result : (result?.content ?? '');
 	if (!content) return 0;
