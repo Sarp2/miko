@@ -1,4 +1,4 @@
-import { stat } from 'node:fs/promises';
+import { realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { APP_NAME, getRuntimeProfile } from '../shared/branding';
 import type { ChatAttachment } from '../shared/types';
@@ -26,6 +26,7 @@ import { type ClientState, createWsRouter } from './ws-router';
 
 const MAX_UPLOAD_FILES = 50;
 const MAX_UPLOAD_SIZE_BYTES = 100 * 1024 * 1024;
+const MAX_WORKSPACE_FILE_CONTENT_BYTES = 2 * 1024 * 1024;
 
 function safeDecodePathSegment(segment: string): string | null {
 	try {
@@ -490,24 +491,42 @@ export async function handleWorkspaceFileContent(req: Request, url: URL, store: 
 
 	const filePath = path.resolve(workspace.localPath, relativePath);
 	const workspaceRoot = path.resolve(workspace.localPath);
-
 	if (filePath !== workspaceRoot && !filePath.startsWith(`${workspaceRoot}${path.sep}`)) {
 		return Response.json({ error: 'Invalid workspace file path' }, { status: 400 });
 	}
 
-	const file = Bun.file(filePath);
+	let targetRealPath: string;
 	try {
-		const info = await stat(filePath);
+		const [workspaceRootRealPath, fileRealPath] = await Promise.all([
+			realpath(workspaceRoot),
+			realpath(filePath),
+		]);
+		if (
+			fileRealPath !== workspaceRootRealPath &&
+			!fileRealPath.startsWith(`${workspaceRootRealPath}${path.sep}`)
+		) {
+			return Response.json({ error: 'Invalid workspace file path' }, { status: 400 });
+		}
+
+		targetRealPath = fileRealPath;
+		const info = await stat(targetRealPath);
 		if (!info.isFile()) {
 			return Response.json({ error: 'File not found' }, { status: 404 });
+		}
+
+		if (info.size > MAX_WORKSPACE_FILE_CONTENT_BYTES) {
+			return Response.json({ error: 'File is too large to preview' }, { status: 413 });
 		}
 	} catch {
 		return Response.json({ error: 'File not found' }, { status: 404 });
 	}
 
+	const file = Bun.file(targetRealPath);
 	return new Response(file, {
 		headers: {
-			'Content-Type': inferWorkspaceFileContentType(relativePath, file.type),
+			'Content-Type': inferWorkspaceFileContentType(targetRealPath, file.type),
+			'Content-Disposition': 'inline',
+			'X-Content-Type-Options': 'nosniff',
 		},
 	});
 }

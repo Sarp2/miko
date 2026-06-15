@@ -14,7 +14,16 @@ const TEXT_CONTENT_TYPE_BY_EXTENSION = new Map<string, string>([
 	['.json', 'application/json; charset=utf-8'],
 	['.jsonc', TEXT_PLAIN_CONTENT_TYPE],
 	['.md', 'text/markdown; charset=utf-8'],
+	['.svg', 'text/plain; charset=utf-8'],
 	['.tsv', 'text/tab-separated-values; charset=utf-8'],
+]);
+
+const IMAGE_CONTENT_TYPE_BY_EXTENSION = new Map<string, string>([
+	['.gif', 'image/gif'],
+	['.jpeg', 'image/jpeg'],
+	['.jpg', 'image/jpeg'],
+	['.png', 'image/png'],
+	['.webp', 'image/webp'],
 ]);
 
 const TEXT_LIKE_EXTENSIONS = new Set([
@@ -138,6 +147,11 @@ export function inferAttachmentContentType(fileName: string, fallbackType?: stri
 	const mappedType = TEXT_CONTENT_TYPE_BY_EXTENSION.get(extension);
 	if (mappedType) {
 		return mappedType;
+	}
+
+	const mappedImageType = IMAGE_CONTENT_TYPE_BY_EXTENSION.get(extension);
+	if (mappedImageType) {
+		return mappedImageType;
 	}
 
 	if (TEXT_LIKE_EXTENSIONS.has(extension)) {

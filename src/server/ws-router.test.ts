@@ -115,6 +115,7 @@ async function createRouter(overrides: Record<string, unknown> = {}) {
 		ignoreFile: async () => ({ snapshotChanged: true }),
 		readPatch: async () => ({ path: 'app.txt', patch: 'diff', patchDigest: 'digest' }),
 		readFileContents: async () => ({
+			kind: 'text' as const,
 			path: 'app.txt',
 			name: 'app.txt',
 			contents: 'hello',
@@ -532,6 +533,7 @@ describe('createWsRouter.handleCommand', () => {
 				ignoreFile: async () => ({ snapshotChanged: true }),
 				readPatch: async () => ({ path: 'app.txt', patch: 'diff', patchDigest: 'digest' }),
 				readFileContents: async () => ({
+					kind: 'text' as const,
 					path: 'app.txt',
 					name: 'app.txt',
 					contents: 'hello',
@@ -588,6 +590,7 @@ describe('createWsRouter.handleCommand', () => {
 				ignoreFile: async () => ({ snapshotChanged: true }),
 				readPatch: async () => ({ path: 'app.txt', patch: 'diff', patchDigest: 'digest' }),
 				readFileContents: async () => ({
+					kind: 'text' as const,
 					path: 'app.txt',
 					name: 'app.txt',
 					contents: 'hello',
@@ -646,6 +649,7 @@ describe('createWsRouter.handleCommand', () => {
 				ignoreFile: async () => ({ snapshotChanged: true }),
 				readPatch: async () => ({ path: 'app.txt', patch: 'diff', patchDigest: 'digest' }),
 				readFileContents: async () => ({
+					kind: 'text' as const,
 					path: 'app.txt',
 					name: 'app.txt',
 					contents: 'hello',
@@ -716,6 +720,7 @@ describe('createWsRouter.handleCommand', () => {
 				type: 'ack',
 				id: 'file-1',
 				result: {
+					kind: 'text',
 					path: 'app.txt',
 					name: 'app.txt',
 					contents: 'hello',

@@ -10,6 +10,7 @@ const originalWorkspaceFileCommands = {
 
 function fileResult(path = 'src/index.css'): WorkspaceFileContentsResult {
 	return {
+		kind: 'text',
 		path,
 		name: 'index.css',
 		contents: 'body {}',
@@ -76,9 +77,11 @@ describe('useWorkspaceFileStore.loadFileContents', () => {
 			.loadFileContents('workspace-1', 'src/index.css', { force: true });
 
 		expect(
-			useWorkspaceFileStore.getState().getFileResource('workspace-1', 'src/index.css').data
-				?.contents,
-		).toBe('body { color: 2; }');
+			useWorkspaceFileStore.getState().getFileResource('workspace-1', 'src/index.css').data,
+		).toMatchObject({
+			kind: 'text',
+			contents: 'body { color: 2; }',
+		});
 	});
 
 	test('bounds cached file resources', async () => {

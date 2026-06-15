@@ -603,11 +603,13 @@ describe('DiffStore.readFileContents', () => {
 		const store = new DiffStore(repoRoot);
 
 		const result = await store.readFileContents({
+			workspaceId: 'workspace-1',
 			workspacePath: repoRoot,
 			path: './src/index.css',
 		});
 
 		expect(result).toMatchObject({
+			kind: 'text',
 			path: 'src/index.css',
 			name: 'index.css',
 			contents: 'body { color: red; }\n',
@@ -622,9 +624,14 @@ describe('DiffStore.readFileContents', () => {
 		await Bun.write(path.join(repoRoot, 'Dockerfile'), 'FROM oven/bun:latest\n');
 		const store = new DiffStore(repoRoot);
 
-		const result = await store.readFileContents({ workspacePath: repoRoot, path: 'Dockerfile' });
+		const result = await store.readFileContents({
+			workspaceId: 'workspace-1',
+			workspacePath: repoRoot,
+			path: 'Dockerfile',
+		});
 
 		expect(result).toMatchObject({
+			kind: 'text',
 			path: 'Dockerfile',
 			name: 'Dockerfile',
 			contents: 'FROM oven/bun:latest\n',
@@ -638,7 +645,11 @@ describe('DiffStore.readFileContents', () => {
 		const store = new DiffStore(repoRoot);
 
 		await expect(
-			store.readFileContents({ workspacePath: repoRoot, path: '../outside.txt' }),
+			store.readFileContents({
+				workspaceId: 'workspace-1',
+				workspacePath: repoRoot,
+				path: '../outside.txt',
+			}),
 		).rejects.toThrow('Path must stay inside the repository');
 	});
 
@@ -650,11 +661,15 @@ describe('DiffStore.readFileContents', () => {
 		const store = new DiffStore(repoRoot);
 
 		await expect(
-			store.readFileContents({ workspacePath: repoRoot, path: 'escape.txt' }),
+			store.readFileContents({
+				workspaceId: 'workspace-1',
+				workspacePath: repoRoot,
+				path: 'escape.txt',
+			}),
 		).rejects.toThrow('Path must stay inside the repository');
 	});
 
-	test('rejects symlinks to binary files even when the link has a text extension', async () => {
+	test('returns binary metadata for symlinks to binary files', async () => {
 		const repoRoot = await createRepoWithInitialCommit();
 		await mkdir(path.join(repoRoot, 'target'), { recursive: true });
 		await Bun.write(
@@ -664,19 +679,80 @@ describe('DiffStore.readFileContents', () => {
 		await symlink(path.join(repoRoot, 'target', 'module.wasm'), path.join(repoRoot, 'config.ts'));
 		const store = new DiffStore(repoRoot);
 
-		await expect(
-			store.readFileContents({ workspacePath: repoRoot, path: 'config.ts' }),
-		).rejects.toThrow('File is not previewable as text: config.ts');
+		const result = await store.readFileContents({
+			workspaceId: 'workspace-1',
+			workspacePath: repoRoot,
+			path: 'config.ts',
+		});
+
+		expect(result).toMatchObject({
+			kind: 'binary',
+			path: 'config.ts',
+			name: 'config.ts',
+			size: 4,
+		});
 	});
 
-	test('rejects non-text files', async () => {
+	test('returns binary metadata for non-text files', async () => {
 		const repoRoot = await createRepoWithInitialCommit();
 		await Bun.write(path.join(repoRoot, 'asset.bin'), new Uint8Array([0, 1, 2]));
 		const store = new DiffStore(repoRoot);
 
-		await expect(
-			store.readFileContents({ workspacePath: repoRoot, path: 'asset.bin' }),
-		).rejects.toThrow('File is not previewable as text: asset.bin');
+		const result = await store.readFileContents({
+			workspaceId: 'workspace-1',
+			workspacePath: repoRoot,
+			path: 'asset.bin',
+		});
+
+		expect(result).toMatchObject({
+			kind: 'binary',
+			path: 'asset.bin',
+			name: 'asset.bin',
+			mimeType: 'application/octet-stream',
+			size: 3,
+		});
+	});
+
+	test('returns image metadata with a workspace file content URL', async () => {
+		const repoRoot = await createRepoWithInitialCommit();
+		await Bun.write(path.join(repoRoot, 'avatar.png'), new Uint8Array([137, 80, 78, 71]));
+		const store = new DiffStore(repoRoot);
+
+		const result = await store.readFileContents({
+			workspaceId: 'workspace-1',
+			workspacePath: repoRoot,
+			path: 'avatar.png',
+		});
+
+		expect(result).toMatchObject({
+			kind: 'image',
+			path: 'avatar.png',
+			name: 'avatar.png',
+			contentUrl: '/api/workspaces/workspace-1/files/avatar.png/content',
+			mimeType: 'image/png',
+			size: 4,
+		});
+	});
+
+	test('returns svg files as text instead of previewable images', async () => {
+		const repoRoot = await createRepoWithInitialCommit();
+		await Bun.write(path.join(repoRoot, 'icon.svg'), '<svg onload="alert(1)"></svg>');
+		const store = new DiffStore(repoRoot);
+
+		const result = await store.readFileContents({
+			workspaceId: 'workspace-1',
+			workspacePath: repoRoot,
+			path: 'icon.svg',
+		});
+
+		expect(result).toMatchObject({
+			kind: 'text',
+			path: 'icon.svg',
+			name: 'icon.svg',
+			contents: '<svg onload="alert(1)"></svg>',
+			mimeType: 'text/plain; charset=utf-8',
+			encoding: 'utf-8',
+		});
 	});
 });
 

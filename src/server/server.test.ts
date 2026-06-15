@@ -507,6 +507,7 @@ describe('handleWorkspaceFileContent', () => {
 			);
 			expect(response?.status).toBe(200);
 			expect(response?.headers.get('Content-Type')).toBe('text/markdown; charset=utf-8');
+			expect(response?.headers.get('X-Content-Type-Options')).toBe('nosniff');
 			expect(await response?.text()).toBe('# workspace file');
 		} finally {
 			await rm(localPath, { recursive: true, force: true });

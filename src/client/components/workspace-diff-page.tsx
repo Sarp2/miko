@@ -136,7 +136,7 @@ export function WorkspaceDiffPage({
 		try {
 			await useWorkspaceFileStore.getState().loadFileContents(workspaceId, path);
 			const latest = useWorkspaceFileStore.getState().getFileResource(workspaceId, path);
-			if (latest.status !== 'ready' || !latest.data) {
+			if (latest.status !== 'ready' || !latest.data || latest.data.kind !== 'text') {
 				throw new Error('File content is not ready to copy.');
 			}
 			if (!navigator.clipboard) throw new Error('Clipboard is not available.');
