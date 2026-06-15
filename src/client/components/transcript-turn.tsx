@@ -3,16 +3,22 @@ import { useState } from 'react';
 import type { TranscriptTurn } from '../lib/group-transcript-turns';
 import { distinctToolKinds, summarizeTurn } from '../lib/turn-summary';
 import { AssistantText } from './messages/assistant-text';
-import { ToolKindIcon, ToolLine } from './messages/tool-line';
+import { ToolKindIcon, ToolLine, type ToolLineContext } from './messages/tool-line';
 import { RunningTimer } from './transcript-running-timer';
 import { TurnFooter } from './transcript-turn-footer';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 
-function ActivityList({ activity }: { activity: TranscriptTurn['activity'] }) {
+function ActivityList({
+	activity,
+	context,
+}: {
+	activity: TranscriptTurn['activity'];
+	context: ToolLineContext;
+}) {
 	return (
 		<>
 			{activity.map((item) => {
-				if (item.kind === 'tool') return <ToolLine key={item.id} tool={item} />;
+				if (item.kind === 'tool') return <ToolLine key={item.id} tool={item} context={context} />;
 				if (item.kind === 'assistant_text')
 					return <AssistantText key={item.id} text={item.text} mode="markdown" className="py-1" />;
 				return null;
@@ -21,7 +27,7 @@ function ActivityList({ activity }: { activity: TranscriptTurn['activity'] }) {
 	);
 }
 
-function TurnActivity({ turn }: { turn: TranscriptTurn }) {
+function TurnActivity({ turn, context }: { turn: TranscriptTurn; context: ToolLineContext }) {
 	const [open, setOpen] = useState(false);
 
 	// While a turn is running, tool calls stream inline; once complete they
@@ -29,7 +35,7 @@ function TurnActivity({ turn }: { turn: TranscriptTurn }) {
 	if (!turn.isComplete) {
 		return (
 			<div className="flex flex-col">
-				<ActivityList activity={turn.activity} />
+				<ActivityList activity={turn.activity} context={context} />
 			</div>
 		);
 	}
@@ -49,7 +55,7 @@ function TurnActivity({ turn }: { turn: TranscriptTurn }) {
 				</span>
 			</CollapsibleTrigger>
 			<CollapsibleContent className="mt-1.5 ml-[7px] flex flex-col border-l border-hairline pl-3">
-				<ActivityList activity={turn.activity} />
+				<ActivityList activity={turn.activity} context={context} />
 			</CollapsibleContent>
 		</Collapsible>
 	);
@@ -67,10 +73,11 @@ export function TranscriptTurnView({
 	workspaceRoot: string;
 }) {
 	const start = Date.parse(turn.startTimestamp);
+	const context: ToolLineContext = { sessionId, workspaceId, workspaceRoot };
 
 	return (
 		<div className="flex flex-col gap-2">
-			{turn.activity.length > 0 ? <TurnActivity turn={turn} /> : null}
+			{turn.activity.length > 0 ? <TurnActivity turn={turn} context={context} /> : null}
 
 			{turn.finalText ? <AssistantText text={turn.finalText.text} mode="markdown" /> : null}
 

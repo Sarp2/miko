@@ -6,7 +6,7 @@ import type {
 	WorkspaceFileSearchResult,
 	WorkspaceSnapshot,
 } from '../../shared/types';
-import { basename } from '../routes/workspace-route-state';
+import { basename } from '../lib/relative-path';
 import { useWsStore } from './ws-store';
 
 export interface OpenExternalArgs {

@@ -1,3 +1,8 @@
+/** Returns the final path segment, or the original path when there is none. */
+export function basename(path: string): string {
+	return path.split('/').filter(Boolean).at(-1) ?? path;
+}
+
 /** Returns `path` relative to `root`, or the original path when it is not under `root`. */
 export function toRelativePath(path: string, root: string): string {
 	const normalizedRoot = root.replace(/\/+$/, '');
