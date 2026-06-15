@@ -1,0 +1,47 @@
+src/shared/types.ts
+  s_82e93de1bb8ac8::t_95dbe22c07a326 587-588,598-620
+src/client/components/workspace-diff-page.tsx
+  s_82e93de1bb8ac8::t_3b21abdb6d918e 139
+src/client/components/workspace-file-page.tsx
+  s_82e93de1bb8ac8::t_85881b8b197ea6 1,3,66-109,120,190
+  s_82e93de1bb8ac8::t_141e8a97bfb3e0 61-65,130-136
+src/client/stores/workspace-store.ts
+  s_82e93de1bb8ac8::t_979a49d7f73e1d 125-141,149-151,153-154,157,160,162,165-167,170,174-179,185-188
+  s_82e93de1bb8ac8::t_6d6287a7319d3f 142-147,155-156,158-159,161,168-169,171-173,180-184
+src/server/ws-router.ts
+  s_82e93de1bb8ac8::t_120eb7a12993ab 569
+src/client/stores/workspace-store.test.ts
+  s_82e93de1bb8ac8::t_1d8852b38f6d97 302,314
+src/server/diff-store.ts
+  s_82e93de1bb8ac8::t_ca236667ebb592 560-563,577-580,1130,1150-1177,1186
+src/server/ws-router.test.ts
+  s_82e93de1bb8ac8::t_bd719df98175c5 723
+  s_82e93de1bb8ac8::t_8b67e52a004787 118,536,593,652
+src/server/uploads.ts
+  s_82e93de1bb8ac8::t_09a3e26effec48 20-28,152-154
+src/server/diff-store.test.ts
+  s_82e93de1bb8ac8::t_3c31c63cd6178c 606
+  s_82e93de1bb8ac8::t_9e9bf00f13ddb0 612,634,672,682-693,696,701-734
+  s_82e93de1bb8ac8::t_141e8a97bfb3e0 627-631,648-652,664-668
+src/server/server.ts
+  s_82e93de1bb8ac8::t_b1796eceb9c327 1,29,498,500-512,516-519,524,527
+src/client/stores/workspace-file-store.test.ts
+  s_82e93de1bb8ac8::t_36dcadabf8b81b 13
+  s_82e93de1bb8ac8::t_752709c56f195e 80-84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "5b51d46209b5aeeb0d069dd3f558f17290424d82",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
