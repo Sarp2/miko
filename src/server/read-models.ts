@@ -32,6 +32,12 @@ function getWorkspaceLastActivityAt(state: StoreState, workspace: WorkspaceRecor
 	}, workspace.updatedAt);
 }
 
+function getWorkspaceLatestSession(state: StoreState, workspace: WorkspaceRecord) {
+	return [...state.sessionsById.values()]
+		.filter((session) => session.workspaceId === workspace.id && !session.removedAt)
+		.toSorted((a, b) => getSessionActivityTimestamp(b) - getSessionActivityTimestamp(a))[0];
+}
+
 function getWorkspaceDiffStats(git: WorkspaceGitSnapshot | null | undefined) {
 	return (git?.files ?? []).reduce(
 		(stats, file) => ({
@@ -103,6 +109,7 @@ export function deriveSidebarSnapshot(args: {
 
 				const git = args.gitSnapshots?.get(workspace.id) ?? null;
 				const github = args.githubSnapshots?.get(workspace.id) ?? null;
+				const latestSession = getWorkspaceLatestSession(args.state, workspace);
 
 				return {
 					_id: workspace.id,
@@ -123,11 +130,18 @@ export function deriveSidebarSnapshot(args: {
 					hasActiveSession,
 					localPath: workspace.localPath,
 					branchName: workspace.branchName,
+					githubOwner: directory.githubOwner,
+					githubRepo: directory.githubRepo,
+					defaultBranchName: directory.defaultBranchName,
 					prNumber: workspace.pullRequest?.number,
 					prUrl: workspace.pullRequest?.url,
 					prCreatedAt: workspace.pullRequest?.createdAt,
 					diffStats: getWorkspaceDiffStats(git),
 					lastActivityAt: getWorkspaceLastActivityAt(args.state, workspace),
+					lastSessionId: latestSession?.id,
+					lastSessionTitle:
+						latestSession && latestSession.title !== 'Untitled' ? latestSession.title : undefined,
+					lastPromptPreview: latestSession?.lastPromptPreview,
 				};
 			});
 

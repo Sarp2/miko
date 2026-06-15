@@ -266,6 +266,7 @@ export interface SessionSummary {
 	planMode: boolean;
 	sessionToken: string | null;
 	lastMessageAt?: number;
+	lastPromptPreview?: string;
 	lastTurnOutcome: 'success' | 'failed' | 'cancelled' | null;
 }
 
@@ -295,11 +296,17 @@ export interface SidebarWorkspaceRow {
 	hasActiveSession: boolean;
 	localPath: string;
 	branchName: string;
+	githubOwner: string;
+	githubRepo: string;
+	defaultBranchName: 'main';
 	prNumber?: number;
 	prUrl?: string;
 	prCreatedAt?: number;
 	diffStats: { additions: number; deletions: number };
 	lastActivityAt?: number;
+	lastSessionId?: string;
+	lastSessionTitle?: string;
+	lastPromptPreview?: string;
 }
 
 export interface SidebarDirectoryGroup {

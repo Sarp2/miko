@@ -148,6 +148,9 @@ describe('deriveSidebarSnapshot', () => {
 			indicator: 'agent_active',
 			hasActiveSession: true,
 			hasUnreadAgentResult: true,
+			githubOwner: 'sarp',
+			githubRepo: 'miko',
+			defaultBranchName: 'main',
 		});
 	});
 
@@ -281,6 +284,38 @@ describe('deriveSidebarSnapshot', () => {
 		expect(
 			sidebar.directoryGroups[0]?.workspaces.map((workspace) => workspace.workspaceId),
 		).toEqual(['workspace-2', 'workspace-1']);
+	});
+
+	test('projects latest session title and prompt preview onto sidebar workspace rows', () => {
+		const state = addDirectoryWorkspaceAndSession();
+		const firstSession = state.sessionsById.get('session-1');
+		expect(firstSession).toBeDefined();
+		if (!firstSession) throw new Error('session missing');
+		firstSession.lastMessageAt = 100;
+		firstSession.lastPromptPreview = 'Older prompt';
+
+		state.sessionsById.set('session-2', {
+			id: 'session-2',
+			workspaceId: 'workspace-1',
+			title: 'Read pasted text files',
+			createdAt: 4,
+			updatedAt: 4,
+			lastMessageAt: 500,
+			lastPromptPreview: 'Updated the workspace condition model to include diff stats.',
+			provider: null,
+			planMode: false,
+			sessionToken: null,
+			lastTurnOutcome: null,
+		});
+
+		const sidebar = deriveSidebarSnapshot({ state, activeStatuses: new Map() });
+
+		expect(sidebar.directoryGroups[0]?.workspaces[0]).toMatchObject({
+			lastSessionId: 'session-2',
+			lastSessionTitle: 'Read pasted text files',
+			lastPromptPreview: 'Updated the workspace condition model to include diff stats.',
+			lastActivityAt: 500,
+		});
 	});
 });
 

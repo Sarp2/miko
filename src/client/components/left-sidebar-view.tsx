@@ -7,7 +7,6 @@ import {
 	ClockCounterClockwise,
 	FolderSimplePlus,
 	Gear,
-	GitMerge,
 	GitPullRequest,
 	PencilSimple,
 	Plus,
@@ -37,6 +36,7 @@ import { MAX_WIDTH, MIN_WIDTH, useSidebarResize } from '../hooks/use-sidebar-res
 import { Icons } from '../lib/icons';
 import { cn } from '../lib/utils';
 import { validateBranchName } from '../lib/validate-branch-name';
+import { deriveSidebarWorkspaceCondition } from '../lib/workspace-condition';
 import type { SidebarSortField } from '../stores/ui-store';
 import { useWorkspaceStore } from '../stores/workspace-store';
 import { Button } from './ui/button';
@@ -62,6 +62,7 @@ import {
 	useSidebar as useSidebarPrimitive,
 } from './ui/sidebar';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
+import { WorkspaceActionButton } from './workspace-action-button';
 
 export interface SidebarProps {
 	directoryGroups: SidebarDirectoryGroup[];
@@ -215,6 +216,10 @@ function indicatorTextClass(indicator: WorkspaceSidebarIndicator) {
 	return 'text-ink-tertiary';
 }
 
+function manualCreatePrUrl(workspace: SidebarWorkspaceRow) {
+	return `https://github.com/${workspace.githubOwner}/${workspace.githubRepo}/compare/${workspace.defaultBranchName}...${encodeURIComponent(workspace.branchName)}?body=&expand=1`;
+}
+
 function WorkspaceIndicatorIcon({
 	indicator,
 	className,
@@ -246,7 +251,6 @@ function WorkspaceIndicatorIcon({
 
 	return Icons.idleIcon({
 		className: iconClassName,
-		muted: indicator === 'none',
 	});
 }
 
@@ -269,23 +273,6 @@ function workspaceTimeAt(workspace: SidebarWorkspaceRow) {
 		: (workspace.prCreatedAt ?? workspace.lastActivityAt);
 }
 
-function workspaceSubtitle(workspace: SidebarWorkspaceRow) {
-	if (workspace.prNumber) return `Created PR #${workspace.prNumber}`;
-	if (workspace.indicator === 'commit_and_push') return 'Local changes are ready to commit.';
-	if (workspace.indicator === 'create_pr') return 'Branch has pushed commits.';
-	if (workspace.indicator === 'agent_active') return 'Agent is working in this workspace.';
-	return workspace.localPath;
-}
-
-function workspaceActionLabel(workspace: SidebarWorkspaceRow) {
-	if (workspace.reviewState === 'done' || workspace.reviewState === 'closed') return 'Archive';
-	if (workspace.indicator === 'ci_failed') return 'Fix CI';
-	if (workspace.reviewState === 'in_review') return 'Merge';
-	if (workspace.indicator === 'create_pr') return 'Create PR';
-	if (workspace.indicator === 'commit_and_push') return 'Commit';
-	return null;
-}
-
 function formatDiffStat(value: number) {
 	if (value < 1000) return String(value);
 	const compact = (value / 1000).toFixed(value >= 10_000 ? 0 : 1).replace(/\.0$/, '');
@@ -298,9 +285,9 @@ function WorkspaceDiffStats({ workspace }: { workspace: SidebarWorkspaceRow }) {
 	if (additions <= 0 && deletions <= 0) return null;
 
 	return (
-		<span className="flex shrink-0 items-center justify-end gap-1 font-mono text-[11px] font-medium leading-4 tabular-nums">
-			{additions > 0 && <span className="text-success">+{formatDiffStat(additions)}</span>}
-			{deletions > 0 && <span className="text-destructive">-{formatDiffStat(deletions)}</span>}
+		<span className="flex shrink-0 items-center justify-end gap-1 text-[11px] font-medium leading-4 tabular-nums">
+			{additions > 0 && <span className="text-[#3ee87f]">+{formatDiffStat(additions)}</span>}
+			{deletions > 0 && <span className="text-[#ff6b7a]">-{formatDiffStat(deletions)}</span>}
 		</span>
 	);
 }
@@ -369,38 +356,6 @@ function WorkspaceRowContextMenu({
 	);
 }
 
-function WorkspaceActionPill({ workspace }: { workspace: SidebarWorkspaceRow }) {
-	const label = workspaceActionLabel(workspace);
-	if (!label) return null;
-
-	const isArchive = label === 'Archive';
-	const isMerge = label === 'Merge';
-	const isCreatePr = label === 'Create PR';
-	const isFix = label === 'Fix CI';
-
-	return (
-		<span
-			className={cn(
-				'inline-flex h-6 items-center gap-1 rounded-md border px-1.5 text-[11px] font-medium leading-4',
-				isArchive && 'border-transparent bg-primary text-primary-foreground',
-				isMerge && 'border-transparent bg-success text-white',
-				isCreatePr && 'border-hairline bg-surface-2 text-ink',
-				isFix && 'border-transparent bg-destructive text-white',
-				!isArchive && !isMerge && !isCreatePr && !isFix && 'border-hairline bg-surface-2 text-ink',
-			)}
-		>
-			{isArchive ? (
-				<Archive className="size-3" />
-			) : isMerge ? (
-				<GitMerge className="size-3" />
-			) : isCreatePr ? (
-				<GitPullRequest className="size-3" />
-			) : null}
-			{label}
-		</span>
-	);
-}
-
 function WorkspaceHoverMeta({
 	workspace,
 	children,
@@ -408,13 +363,20 @@ function WorkspaceHoverMeta({
 	workspace: SidebarWorkspaceRow;
 	children: React.ReactElement;
 }) {
+	const createPr = useWorkspaceStore((state) => state.createPr);
 	const hasDetails =
 		workspace.localPath || workspace.branchName || workspace.prNumber || workspace.lastActivityAt;
 	if (!hasDetails) return children;
 
-	const hasDiffStats = workspace.diffStats.additions > 0 || workspace.diffStats.deletions > 0;
+	const condition = deriveSidebarWorkspaceCondition(workspace);
+	const hasDiffStats = condition.diffStats.additions > 0 || condition.diffStats.deletions > 0;
 	const relativeTime = formatRelativeTime(workspaceTimeAt(workspace));
-	const subtitle = workspaceSubtitle(workspace);
+	const isPrStage =
+		workspace.reviewState === 'in_review' ||
+		workspace.reviewState === 'done' ||
+		workspace.reviewState === 'closed';
+	const titleText = isPrStage ? workspace.displayName : workspace.lastSessionTitle;
+	const bodyText = isPrStage ? null : workspace.lastPromptPreview;
 
 	return (
 		<HoverCard openDelay={140} closeDelay={80}>
@@ -422,48 +384,79 @@ function WorkspaceHoverMeta({
 			<HoverCardContent
 				side="right"
 				align="start"
-				sideOffset={8}
-				className="w-[286px] rounded-lg border-hairline bg-surface-1 p-0 shadow-none"
+				sideOffset={6}
+				className="w-[276px] rounded-md border-hairline bg-surface-1 p-0 shadow-none"
 			>
 				<div className="flex flex-col gap-2 px-3 py-2.5">
-					<div className="flex items-start justify-between gap-2">
+					<div className="flex items-start justify-between gap-1.5">
 						<div className="flex min-w-0 items-center gap-1.5 font-mono text-[11px] leading-4 text-ink-muted">
 							<span className="truncate">{workspace.branchName}</span>
 							{hasDiffStats && (
-								<span className="flex shrink-0 items-center gap-1 tabular-nums">
-									<span className="text-success">+{workspace.diffStats.additions}</span>
-									<span className="text-destructive">-{workspace.diffStats.deletions}</span>
+								<span className="flex shrink-0 items-center gap-1 font-sans font-medium tabular-nums">
+									{condition.diffStats.additions > 0 && (
+										<span className="text-[#3ee87f]">
+											+{formatDiffStat(condition.diffStats.additions)}
+										</span>
+									)}
+									{condition.diffStats.deletions > 0 && (
+										<span className="text-[#ff6b7a]">
+											-{formatDiffStat(condition.diffStats.deletions)}
+										</span>
+									)}
 								</span>
 							)}
 						</div>
-						<WorkspaceIndicatorIcon indicator={workspace.indicator} className="size-3.5 shrink-0" />
+						<WorkspaceIndicatorIcon indicator={workspace.indicator} className="size-3 shrink-0" />
 					</div>
 
-					<div className="min-w-0">
-						<p
-							className="truncate text-[12px] font-medium leading-4 text-ink"
-							title={workspace.displayName}
-						>
-							{workspace.displayName}
-						</p>
-						<p className="mt-0.5 truncate text-[11px] leading-4 text-ink-subtle" title={subtitle}>
-							{subtitle}
-						</p>
-					</div>
-
-					<div className="flex min-w-0 items-center justify-between gap-1.5">
-						<div className="flex min-w-0 items-center gap-1.5">
-							<WorkspaceActionPill workspace={workspace} />
-							{workspace.prNumber && (
-								<span className="flex min-w-0 items-center gap-1 font-mono text-[11px] leading-4 text-ink-subtle">
-									<GitPullRequest className="size-3" />#{workspace.prNumber}
-								</span>
+					{(titleText || bodyText) && (
+						<div className="min-w-0 space-y-0.5">
+							{titleText && (
+								<p
+									className="truncate text-[12.5px] font-semibold leading-5 text-ink"
+									title={titleText}
+								>
+									{titleText}
+								</p>
+							)}
+							{bodyText && (
+								<p
+									className="line-clamp-2 text-[11.5px] leading-4 text-ink-subtle"
+									title={bodyText}
+								>
+									{bodyText}
+								</p>
 							)}
 						</div>
-						{relativeTime && (
-							<span className="shrink-0 text-[11px] leading-4 text-ink-subtle tabular-nums">
-								{relativeTime}
+					)}
+
+					<div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5">
+						<div className="min-w-0">
+							<WorkspaceActionButton
+								action={condition.primaryAction}
+								manualCreatePrUrl={manualCreatePrUrl(workspace)}
+								onPrimaryAction={async (action) => {
+									if (action.kind !== 'create_pr') return;
+									if (!workspace.lastSessionId) {
+										console.warn('Cannot create PR without a workspace session id');
+										return;
+									}
+									await createPr(workspace.workspaceId, workspace.lastSessionId);
+								}}
+							/>
+						</div>
+						{isPrStage && workspace.prNumber ? (
+							<span className="flex min-w-0 items-center justify-self-end font-mono text-[11px] leading-4 text-ink-subtle tabular-nums">
+								<GitPullRequest className="mr-1 size-3" />
+								<span>#{workspace.prNumber}</span>
+								{workspace.prUrl && <span className="ml-1 text-[10px]">↗</span>}
 							</span>
+						) : (
+							relativeTime && (
+								<span className="justify-self-end text-[11px] leading-4 text-ink-subtle tabular-nums">
+									{relativeTime}
+								</span>
+							)
 						)}
 					</div>
 				</div>
@@ -491,7 +484,7 @@ function WorkspaceRow({
 }) {
 	const hasDiffStats = workspace.diffStats.additions > 0 || workspace.diffStats.deletions > 0;
 	const titleClassName = workspace.hasUnreadAgentResult ? 'font-semibold text-ink' : 'font-normal';
-	const hasHoverArchive = isActive && Boolean(onArchive);
+	const hasHoverArchive = Boolean(onArchive);
 
 	return (
 		<ContextMenu.Root>
