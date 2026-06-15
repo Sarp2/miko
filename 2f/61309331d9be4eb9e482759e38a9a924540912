@@ -1,0 +1,41 @@
+src/client/lib/turn-changed-files.ts
+  s_4abace7291ca5d::t_52fdb7f3a937eb 2
+src/client/components/messages/read-line.test.ts
+  s_4abace7291ca5d::t_43de6e53f839bf 1-31
+src/client/components/icons/file-icon-map.ts
+  s_4abace7291ca5d::t_0f8267ba0bc7e6 1
+src/client/routes/workspace-route-state.ts
+  s_4abace7291ca5d::t_9b8f3f9972f5d6 2
+src/client/stores/workspace-store.ts
+  s_4abace7291ca5d::t_89fd48f18cd32d 9
+src/client/components/chat-composer/chat-composer-utils.ts
+  s_4abace7291ca5d::t_caf6d5e99c39ea 16
+src/client/lib/relative-path.test.ts
+  s_4abace7291ca5d::t_48d4db53659f57 2-13
+src/client/components/messages/tool-line.test.ts
+  s_4abace7291ca5d::t_10110d427ee1d4 1-21,26-39
+  s_4abace7291ca5d::t_65d97d48584668 22-25
+src/client/components/messages/read-line.tsx
+  s_4abace7291ca5d::t_63f89fa77bdd9c 20
+  s_4abace7291ca5d::t_b7847bb283bb2f 5
+src/client/lib/relative-path.ts
+  s_4abace7291ca5d::t_dc444b4fddafaf 1-5
+src/client/components/chat-page.tsx
+  s_4abace7291ca5d::t_b9d63f7da223d2 7-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "2f61309331d9be4eb9e482759e38a9a924540912",
+  "prompts": {},
+  "sessions": {
+    "s_4abace7291ca5d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d0f4ec80-7246-40c4-a34a-b57360193cc3",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
