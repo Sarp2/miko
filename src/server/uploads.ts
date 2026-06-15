@@ -17,6 +17,15 @@ const TEXT_CONTENT_TYPE_BY_EXTENSION = new Map<string, string>([
 	['.tsv', 'text/tab-separated-values; charset=utf-8'],
 ]);
 
+const IMAGE_CONTENT_TYPE_BY_EXTENSION = new Map<string, string>([
+	['.gif', 'image/gif'],
+	['.jpeg', 'image/jpeg'],
+	['.jpg', 'image/jpeg'],
+	['.png', 'image/png'],
+	['.svg', 'image/svg+xml'],
+	['.webp', 'image/webp'],
+]);
+
 const TEXT_LIKE_EXTENSIONS = new Set([
 	'.c',
 	'.cc',
@@ -138,6 +147,11 @@ export function inferAttachmentContentType(fileName: string, fallbackType?: stri
 	const mappedType = TEXT_CONTENT_TYPE_BY_EXTENSION.get(extension);
 	if (mappedType) {
 		return mappedType;
+	}
+
+	const mappedImageType = IMAGE_CONTENT_TYPE_BY_EXTENSION.get(extension);
+	if (mappedImageType) {
+		return mappedImageType;
 	}
 
 	if (TEXT_LIKE_EXTENSIONS.has(extension)) {

@@ -299,6 +299,7 @@ describe('useWorkspaceStore.readFileContents', () => {
 			type: 'ack',
 			id: sent.id,
 			result: {
+				kind: 'text',
 				path: 'src/index.css',
 				name: 'index.css',
 				contents: 'body {}',
@@ -310,6 +311,7 @@ describe('useWorkspaceStore.readFileContents', () => {
 		});
 
 		await expect(resultPromise).resolves.toEqual({
+			kind: 'text',
 			path: 'src/index.css',
 			name: 'index.css',
 			contents: 'body {}',

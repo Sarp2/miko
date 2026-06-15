@@ -584,7 +584,8 @@ export interface WorkspaceDiffPatchResult {
 	patchDigest: string;
 }
 
-export interface WorkspaceFileContentsResult {
+export interface WorkspaceTextFilePreviewResult {
+	kind: 'text';
 	path: string;
 	name: string;
 	contents: string;
@@ -593,6 +594,30 @@ export interface WorkspaceFileContentsResult {
 	encoding: 'utf-8';
 	cacheKey: string;
 }
+
+export interface WorkspaceImageFilePreviewResult {
+	kind: 'image';
+	path: string;
+	name: string;
+	contentUrl: string;
+	mimeType: string;
+	size: number;
+	cacheKey: string;
+}
+
+export interface WorkspaceBinaryFilePreviewResult {
+	kind: 'binary';
+	path: string;
+	name: string;
+	mimeType: string;
+	size: number;
+	cacheKey: string;
+}
+
+export type WorkspaceFileContentsResult =
+	| WorkspaceTextFilePreviewResult
+	| WorkspaceImageFilePreviewResult
+	| WorkspaceBinaryFilePreviewResult;
 
 export interface WorkspaceFileSearchResult {
 	id: string;

@@ -1,5 +1,6 @@
-import { File } from '@pierre/diffs/react';
+import { File as PierreFile } from '@pierre/diffs/react';
 import { type ReactNode, useCallback, useEffect } from 'react';
+import type { WorkspaceFileContentsResult } from '../../shared/types';
 import { Icons } from '../lib/icons';
 import {
 	ensureMikoDiffTheme,
@@ -57,6 +58,55 @@ function WorkspaceCodePageLoading() {
 	);
 }
 
+function WorkspaceImagePreview({
+	file,
+}: {
+	file: Extract<WorkspaceFileContentsResult, { kind: 'image' }>;
+}) {
+	return (
+		<div className="flex h-full items-center justify-center p-6">
+			<img
+				src={file.contentUrl}
+				alt={file.name}
+				className="max-h-full max-w-full rounded-md border border-hairline bg-surface-1 object-contain shadow-sm"
+			/>
+		</div>
+	);
+}
+
+function WorkspaceBinaryPreview({
+	file,
+}: {
+	file: Extract<WorkspaceFileContentsResult, { kind: 'binary' }>;
+}) {
+	return (
+		<WorkspaceCodePageState
+			title="File format is binary"
+			message={`${file.name} cannot be opened in the file viewer.`}
+		/>
+	);
+}
+
+function WorkspaceFilePreview({ file }: { file: WorkspaceFileContentsResult }) {
+	if (file.kind === 'image') return <WorkspaceImagePreview file={file} />;
+	if (file.kind === 'binary') return <WorkspaceBinaryPreview file={file} />;
+
+	return (
+		<div className="min-w-max">
+			<PierreFile
+				file={{
+					name: file.name,
+					contents: file.contents,
+					cacheKey: file.cacheKey,
+				}}
+				disableWorkerPool
+				style={MIKO_CODE_FONT_VARS}
+				options={MIKO_FILE_OPTIONS}
+			/>
+		</div>
+	);
+}
+
 export function WorkspaceFilePage({ workspaceId, page, revisionKey }: WorkspaceFilePageProps) {
 	const path = page.path;
 	const resource = useWorkspaceFileStore((state) =>
@@ -67,7 +117,7 @@ export function WorkspaceFilePage({ workspaceId, page, revisionKey }: WorkspaceF
 		try {
 			await useWorkspaceFileStore.getState().loadFileContents(workspaceId, path);
 			const latest = useWorkspaceFileStore.getState().getFileResource(workspaceId, path);
-			if (latest.status !== 'ready' || !latest.data) {
+			if (latest.status !== 'ready' || !latest.data || latest.data.kind !== 'text') {
 				throw new Error('File content is not ready to copy.');
 			}
 			if (!navigator.clipboard) throw new Error('Clipboard is not available.');
@@ -77,12 +127,13 @@ export function WorkspaceFilePage({ workspaceId, page, revisionKey }: WorkspaceF
 			throw error;
 		}
 	}, [path, workspaceId]);
-	const toolbarActions = path ? (
-		<CopyFileButton
-			disabled={resource?.status === 'loading' && !resource.data}
-			onCopy={copyFileContents}
-		/>
-	) : null;
+	const toolbarActions =
+		path && page.source === 'workspace_file' ? (
+			<CopyFileButton
+				disabled={resource?.status === 'loading' && !resource.data}
+				onCopy={copyFileContents}
+			/>
+		) : null;
 
 	useEffect(() => {
 		// The revision key is a workspace-snapshot freshness signal; when it changes,
@@ -136,18 +187,7 @@ export function WorkspaceFilePage({ workspaceId, page, revisionKey }: WorkspaceF
 
 	return (
 		<WorkspaceCodePageShell path={resource.data.path} actions={toolbarActions}>
-			<div className="min-w-max">
-				<File
-					file={{
-						name: resource.data.name,
-						contents: resource.data.contents,
-						cacheKey: resource.data.cacheKey,
-					}}
-					disableWorkerPool
-					style={MIKO_CODE_FONT_VARS}
-					options={MIKO_FILE_OPTIONS}
-				/>
-			</div>
+			<WorkspaceFilePreview file={resource.data} />
 		</WorkspaceCodePageShell>
 	);
 }

@@ -557,6 +557,10 @@ function hashFileContents(relativePath: string, contents: string) {
 	return createHash('sha256').update(`${relativePath}\0${contents}`).digest('hex');
 }
 
+function hashFileMetadata(relativePath: string, size: number, mtimeMs: number) {
+	return createHash('sha256').update(`${relativePath}\0${size}\0${mtimeMs}`).digest('hex');
+}
+
 function isPreviewableTextMimeType(mimeType: string) {
 	const normalized = mimeType.toLowerCase();
 	return (
@@ -568,6 +572,10 @@ function isPreviewableTextMimeType(mimeType: string) {
 
 function isDefaultBinaryMimeType(mimeType: string) {
 	return mimeType.toLowerCase() === DEFAULT_BINARY_MIME_TYPE;
+}
+
+function isPreviewableImageMimeType(mimeType: string) {
+	return mimeType.toLowerCase().startsWith('image/');
 }
 
 function hasSuspiciousControlCharacters(value: string) {
@@ -1119,6 +1127,7 @@ export class DiffStore {
 	}
 
 	async readFileContents(args: {
+		workspaceId: string;
 		workspacePath: string;
 		path: string;
 	}): Promise<WorkspaceFileContentsResult> {
@@ -1138,17 +1147,43 @@ export class DiffStore {
 		}
 
 		let mimeType = inferWorkspaceFileContentType(filePath);
-		if (!isPreviewableTextMimeType(mimeType) && !isDefaultBinaryMimeType(mimeType)) {
-			throw new Error(`File is not previewable as text: ${relativePath}`);
+		const metadataDigest = hashFileMetadata(relativePath, info.size, info.mtimeMs);
+
+		if (isPreviewableImageMimeType(mimeType)) {
+			return {
+				kind: 'image',
+				path: relativePath,
+				name: path.basename(relativePath),
+				contentUrl: `/api/workspaces/${encodeURIComponent(args.workspaceId)}/files/${encodeURIComponent(relativePath)}/content`,
+				mimeType,
+				size: info.size,
+				cacheKey: `${relativePath}:${metadataDigest}`,
+			};
 		}
 
-		const contents = await readPreviewableTextFile(filePath, relativePath);
+		let contents: string | null = null;
+		if (isPreviewableTextMimeType(mimeType) || isDefaultBinaryMimeType(mimeType)) {
+			contents = await readPreviewableTextFile(filePath, relativePath).catch(() => null);
+		}
+
+		if (contents === null) {
+			return {
+				kind: 'binary',
+				path: relativePath,
+				name: path.basename(relativePath),
+				mimeType,
+				size: info.size,
+				cacheKey: `${relativePath}:${metadataDigest}`,
+			};
+		}
+
 		if (isDefaultBinaryMimeType(mimeType)) {
 			mimeType = TEXT_PLAIN_CONTENT_TYPE;
 		}
 		const contentDigest = hashFileContents(relativePath, contents);
 
 		return {
+			kind: 'text',
 			path: relativePath,
 			name: path.basename(relativePath),
 			contents,

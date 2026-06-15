@@ -566,6 +566,7 @@ export function createWsRouter({
 				case 'workspace.readFile': {
 					const workspace = requireWorkspace(command.workspaceId);
 					const result = await diffStore.readFileContents({
+						workspaceId: workspace.id,
 						workspacePath: workspace.localPath,
 						path: command.path,
 					});

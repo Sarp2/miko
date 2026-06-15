@@ -122,32 +122,70 @@ function parseWorkspaceDiffPatchResult(value: unknown): WorkspaceDiffPatchResult
 function parseWorkspaceFileContentsResult(value: unknown): WorkspaceFileContentsResult {
 	if (!value || typeof value !== 'object') throw new Error('Invalid workspace file response');
 	const candidate = value as Partial<WorkspaceFileContentsResult>;
-	if (
-		typeof candidate.path !== 'string' ||
-		!candidate.path ||
-		typeof candidate.name !== 'string' ||
-		!candidate.name ||
-		typeof candidate.contents !== 'string' ||
-		typeof candidate.mimeType !== 'string' ||
-		!candidate.mimeType ||
-		typeof candidate.size !== 'number' ||
-		!Number.isFinite(candidate.size) ||
-		candidate.encoding !== 'utf-8' ||
-		typeof candidate.cacheKey !== 'string' ||
-		!candidate.cacheKey
-	) {
+
+	const baseValid =
+		typeof candidate.path === 'string' &&
+		Boolean(candidate.path) &&
+		typeof candidate.name === 'string' &&
+		Boolean(candidate.name) &&
+		typeof candidate.mimeType === 'string' &&
+		Boolean(candidate.mimeType) &&
+		typeof candidate.size === 'number' &&
+		Number.isFinite(candidate.size) &&
+		typeof candidate.cacheKey === 'string' &&
+		Boolean(candidate.cacheKey);
+
+	if (!baseValid) {
 		throw new Error('Invalid workspace file response');
 	}
 
-	return {
-		path: candidate.path,
-		name: candidate.name,
-		contents: candidate.contents,
-		mimeType: candidate.mimeType,
-		size: candidate.size,
-		encoding: 'utf-8',
-		cacheKey: candidate.cacheKey,
-	};
+	const path = candidate.path as string;
+	const name = candidate.name as string;
+	const mimeType = candidate.mimeType as string;
+	const size = candidate.size as number;
+	const cacheKey = candidate.cacheKey as string;
+
+	if (
+		candidate.kind === 'text' &&
+		typeof candidate.contents === 'string' &&
+		candidate.encoding === 'utf-8'
+	) {
+		return {
+			kind: 'text',
+			path,
+			name,
+			contents: candidate.contents,
+			mimeType,
+			size,
+			encoding: 'utf-8',
+			cacheKey,
+		};
+	}
+
+	if (candidate.kind === 'image' && typeof candidate.contentUrl === 'string') {
+		return {
+			kind: 'image',
+			path,
+			name,
+			contentUrl: candidate.contentUrl,
+			mimeType,
+			size,
+			cacheKey,
+		};
+	}
+
+	if (candidate.kind === 'binary') {
+		return {
+			kind: 'binary',
+			path,
+			name,
+			mimeType,
+			size,
+			cacheKey,
+		};
+	}
+
+	throw new Error('Invalid workspace file response');
 }
 
 export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
