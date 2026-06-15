@@ -14,6 +14,7 @@ const TEXT_CONTENT_TYPE_BY_EXTENSION = new Map<string, string>([
 	['.json', 'application/json; charset=utf-8'],
 	['.jsonc', TEXT_PLAIN_CONTENT_TYPE],
 	['.md', 'text/markdown; charset=utf-8'],
+	['.svg', 'text/plain; charset=utf-8'],
 	['.tsv', 'text/tab-separated-values; charset=utf-8'],
 ]);
 
@@ -22,7 +23,6 @@ const IMAGE_CONTENT_TYPE_BY_EXTENSION = new Map<string, string>([
 	['.jpeg', 'image/jpeg'],
 	['.jpg', 'image/jpeg'],
 	['.png', 'image/png'],
-	['.svg', 'image/svg+xml'],
 	['.webp', 'image/webp'],
 ]);
 

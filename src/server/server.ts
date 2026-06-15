@@ -525,6 +525,8 @@ export async function handleWorkspaceFileContent(req: Request, url: URL, store: 
 	return new Response(file, {
 		headers: {
 			'Content-Type': inferWorkspaceFileContentType(targetRealPath, file.type),
+			'Content-Disposition': 'inline',
+			'X-Content-Type-Options': 'nosniff',
 		},
 	});
 }

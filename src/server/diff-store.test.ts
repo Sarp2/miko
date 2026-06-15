@@ -733,6 +733,27 @@ describe('DiffStore.readFileContents', () => {
 			size: 4,
 		});
 	});
+
+	test('returns svg files as text instead of previewable images', async () => {
+		const repoRoot = await createRepoWithInitialCommit();
+		await Bun.write(path.join(repoRoot, 'icon.svg'), '<svg onload="alert(1)"></svg>');
+		const store = new DiffStore(repoRoot);
+
+		const result = await store.readFileContents({
+			workspaceId: 'workspace-1',
+			workspacePath: repoRoot,
+			path: 'icon.svg',
+		});
+
+		expect(result).toMatchObject({
+			kind: 'text',
+			path: 'icon.svg',
+			name: 'icon.svg',
+			contents: '<svg onload="alert(1)"></svg>',
+			mimeType: 'text/plain; charset=utf-8',
+			encoding: 'utf-8',
+		});
+	});
 });
 
 describe('DiffStore.refreshWorkspaceGitSnapshot', () => {

@@ -127,12 +127,10 @@ export function WorkspaceFilePage({ workspaceId, page, revisionKey }: WorkspaceF
 			throw error;
 		}
 	}, [path, workspaceId]);
+	const canCopyTextFile = resource?.status === 'ready' && resource.data?.kind === 'text';
 	const toolbarActions =
-		path && page.source === 'workspace_file' ? (
-			<CopyFileButton
-				disabled={resource?.status === 'loading' && !resource.data}
-				onCopy={copyFileContents}
-			/>
+		path && page.source === 'workspace_file' && canCopyTextFile ? (
+			<CopyFileButton disabled={false} onCopy={copyFileContents} />
 		) : null;
 
 	useEffect(() => {
