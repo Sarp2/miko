@@ -340,6 +340,61 @@ describe('useWorkspaceStore.readFileContents', () => {
 
 		await expect(resultPromise).rejects.toThrow('Invalid workspace file response');
 	});
+
+	test('rejects file read responses with invalid sizes', async () => {
+		useWsStore.getState().connect();
+		const socket = FakeWebSocket.instances[0];
+		socket.open();
+
+		const resultPromise = useWorkspaceStore
+			.getState()
+			.readFileContents('workspace-1', 'src/index.css');
+		const sent = JSON.parse(socket.sent[0]);
+
+		socket.receive({
+			type: 'ack',
+			id: sent.id,
+			result: {
+				kind: 'text',
+				path: 'src/index.css',
+				name: 'index.css',
+				contents: 'body {}',
+				mimeType: 'text/plain; charset=utf-8',
+				size: -1,
+				encoding: 'utf-8',
+				cacheKey: 'src/index.css:digest',
+			},
+		});
+
+		await expect(resultPromise).rejects.toThrow('Invalid workspace file response');
+	});
+
+	test('rejects image file read responses with blank content URLs', async () => {
+		useWsStore.getState().connect();
+		const socket = FakeWebSocket.instances[0];
+		socket.open();
+
+		const resultPromise = useWorkspaceStore
+			.getState()
+			.readFileContents('workspace-1', 'avatar.png');
+		const sent = JSON.parse(socket.sent[0]);
+
+		socket.receive({
+			type: 'ack',
+			id: sent.id,
+			result: {
+				kind: 'image',
+				path: 'avatar.png',
+				name: 'avatar.png',
+				contentUrl: '   ',
+				mimeType: 'image/png',
+				size: 7,
+				cacheKey: 'avatar.png:digest',
+			},
+		});
+
+		await expect(resultPromise).rejects.toThrow('Invalid workspace file response');
+	});
 });
 
 describe('useWorkspaceStore.renameBranch', () => {

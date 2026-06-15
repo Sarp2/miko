@@ -132,6 +132,8 @@ function parseWorkspaceFileContentsResult(value: unknown): WorkspaceFileContents
 		Boolean(candidate.mimeType) &&
 		typeof candidate.size === 'number' &&
 		Number.isFinite(candidate.size) &&
+		Number.isSafeInteger(candidate.size) &&
+		candidate.size >= 0 &&
 		typeof candidate.cacheKey === 'string' &&
 		Boolean(candidate.cacheKey);
 
@@ -162,7 +164,11 @@ function parseWorkspaceFileContentsResult(value: unknown): WorkspaceFileContents
 		};
 	}
 
-	if (candidate.kind === 'image' && typeof candidate.contentUrl === 'string') {
+	if (
+		candidate.kind === 'image' &&
+		typeof candidate.contentUrl === 'string' &&
+		candidate.contentUrl.trim()
+	) {
 		return {
 			kind: 'image',
 			path,

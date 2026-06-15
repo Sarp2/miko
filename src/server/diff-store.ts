@@ -575,7 +575,8 @@ function isDefaultBinaryMimeType(mimeType: string) {
 }
 
 function isPreviewableImageMimeType(mimeType: string) {
-	return mimeType.toLowerCase().startsWith('image/');
+	const normalized = mimeType.toLowerCase();
+	return normalized.startsWith('image/') && normalized !== 'image/svg+xml';
 }
 
 function hasSuspiciousControlCharacters(value: string) {
