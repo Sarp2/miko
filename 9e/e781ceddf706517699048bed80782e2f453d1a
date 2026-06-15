@@ -1,0 +1,54 @@
+src/client/components/messages/read-line.tsx
+  s_4abace7291ca5d::t_c2c3f4dcfa46cf 8,20-27,30-32,46-53,61,81,85,90-91
+  s_4abace7291ca5d::t_29785ebd4533ec 1-7,9-19,28-29,33-45,54-60,62-80,82-84,86-89,92-95
+src/client/components/transcript-turn.tsx
+  s_4abace7291ca5d::t_6a172377bd1870 21
+  s_4abace7291ca5d::t_bc742009de4235 76,80
+  s_4abace7291ca5d::t_9ab6643af6513b 30,38
+  s_4abace7291ca5d::t_2d7d54a4554a72 6
+  s_4abace7291ca5d::t_f158af16df3a2c 11-17
+  s_4abace7291ca5d::t_e1d5d5e4c4afc1 58
+src/client/components/messages/changed-file-line.tsx
+  s_4abace7291ca5d::t_ec2ff83a1b6c64 3-4,7,10,18-26,28-31,36-38,40-42,44-45,48,83-88,113,118-121
+  s_4abace7291ca5d::t_38f33592b39b7f 110-112,115-117
+  s_4abace7291ca5d::t_4e42c00ea5d588 2,5-6,8-9,11-17,32-35,39,43,46-47,49-82,90-109,114
+  s_4abace7291ca5d::t_e67a54cd549e65 1
+  s_4abace7291ca5d::t_8d8f79d8930c51 27
+  s_4abace7291ca5d::t_c5deb67bee125e 89
+src/client/components/messages/index.ts
+  s_4abace7291ca5d::t_06f8441e6d88ff 4
+  s_4abace7291ca5d::t_3559171589ca6e 5
+  s_4abace7291ca5d::t_e2d16aba0c934f 3
+src/client/components/messages/bash-line.tsx
+  s_4abace7291ca5d::t_d9d9e217a4be94 1-29,31-38
+  s_4abace7291ca5d::t_5cf1c2a264f9de 30
+src/client/components/messages/tool-line.tsx
+  s_4abace7291ca5d::t_56e763feacf7ea 14
+  s_4abace7291ca5d::t_5483fed6ac552e 111,115
+  s_4abace7291ca5d::t_295a0d4d664fb3 113
+  s_4abace7291ca5d::t_867baf06bf9a4f 102-110,114
+  s_4abace7291ca5d::t_5bed906482d1da 116-118
+  s_4abace7291ca5d::t_4459d6c1ee1651 15,17-19
+  s_4abace7291ca5d::t_c2e276edf0030f 12
+  s_4abace7291ca5d::t_2244665e2523df 119-120,126-127
+  s_4abace7291ca5d::t_92b990ef0542f4 16
+  s_4abace7291ca5d::t_5436b1df97264d 44-48,53-56,58,60,62,64
+  s_4abace7291ca5d::t_3605244bb94c73 93
+  s_4abace7291ca5d::t_81c25457a20208 112
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "9ee781ceddf706517699048bed80782e2f453d1a",
+  "prompts": {},
+  "sessions": {
+    "s_4abace7291ca5d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d0f4ec80-7246-40c4-a34a-b57360193cc3",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
