@@ -25,8 +25,7 @@ export type WorkspacePrimaryActionKind =
 	| 'create_pr'
 	| 'fix_ci'
 	| 'merge'
-	| 'archive'
-	| 'pull_latest_main';
+	| 'archive';
 
 export interface WorkspacePrimaryAction {
 	kind: WorkspacePrimaryActionKind;
@@ -113,7 +112,7 @@ function deriveStage(args: {
 	if (args.mainAheadCount > 0) {
 		return {
 			stage: 'behind_main',
-			primaryAction: action('pull_latest_main', 'Pull latest main'),
+			primaryAction: null,
 		};
 	}
 

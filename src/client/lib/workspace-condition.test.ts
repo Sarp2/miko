@@ -189,7 +189,7 @@ describe('deriveWorkspaceCondition', () => {
 
 		expect(deriveWorkspaceCondition(makeSnapshot({ git: { mainAheadCount: 2 } }))).toMatchObject({
 			stage: 'behind_main',
-			primaryAction: { kind: 'pull_latest_main', label: 'Pull latest main' },
+			primaryAction: null,
 		});
 	});
 });
