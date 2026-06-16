@@ -1,0 +1,51 @@
+src/client/lib/workspace-condition.test.ts
+  s_85788a13129bf7::t_db365644d91de7 156-166,290-301
+src/server/event-store.ts
+  s_85788a13129bf7::t_aaabec1f97a856 629-630
+src/server/agent-instruction-attachments.test.ts
+  s_85788a13129bf7::t_c6421b762f307e 2,256-259
+  s_85788a13129bf7::t_d26e01387b5219 12,173-207
+src/server/pr-manager.test.ts
+  s_85788a13129bf7::t_71984c44605320 83,181-182,203-251
+src/server/pr-manager.ts
+  s_85788a13129bf7::t_1403c94ee13b32 121-124,341-342,362-363
+  s_85788a13129bf7::t_43aedc0042e06c 217-218
+src/server/workspace-manager.ts
+  s_85788a13129bf7::t_6129f2b50f86de 48,272,313,320-323
+src/client/components/workspace-action-button.tsx
+  s_85788a13129bf7::t_d12825907b32a8 26
+src/shared/protocol.ts
+  s_85788a13129bf7::t_bdd73cc4ce1be6 93
+src/shared/types.ts
+  s_85788a13129bf7::t_b60d1253db3d3c 240-241,284,731-732
+src/server/read-models.test.ts
+  s_85788a13129bf7::t_af7857834e823a 99-100,318-349
+src/server/ws-router.ts
+  s_85788a13129bf7::t_0e9a9bedfa7e9c 19,642-657
+src/client/components/left-sidebar-view.tsx
+  s_85788a13129bf7::t_866463398266c7 211,222-227,272-277,391,395-404,419,440-444,460,475,548
+src/client/stores/workspace-store.ts
+  s_85788a13129bf7::t_4cb635432f573a 43,298-301
+src/server/agent-instruction-attachments.ts
+  s_85788a13129bf7::t_039b51a0ebb863 14,17,164-263
+src/server/read-models.ts
+  s_85788a13129bf7::t_2b532f542a7f51 108-110
+src/client/lib/workspace-condition.ts
+  s_85788a13129bf7::t_37ba3e0987a6d5 17,28,65,81,99-104,149-151,178
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "993a8d00355f737331792e119a10cb7b375ff312",
+  "prompts": {},
+  "sessions": {
+    "s_85788a13129bf7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ecbe7-9667-7663-b230-74a1c17dfc92",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
