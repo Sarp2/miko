@@ -642,12 +642,19 @@ export function createWsRouter({
 				case 'workspace.resolveMergeConflicts': {
 					const workspace = requireWorkspace(command.workspaceId);
 					const directory = store.requireDirectory(workspace.directoryId);
+					const github = prManager.getWorkspaceGitHubSnapshot(workspace.id);
+					if (!github || github.status === 'none' || github.status === 'unknown') {
+						throw new Error('Workspace does not have a current pull request snapshot');
+					}
+					if (!github.hasMergeConflicts) {
+						throw new Error('Workspace does not have merge conflicts to resolve');
+					}
 					await diffStore.refreshWorkspaceGitSnapshot(workspace.id, workspace.localPath);
 					const attachment = await writeMergeConflictInstructionsAttachment({
 						workspace,
 						directory,
 						git: diffStore.getWorkspaceGitSnapshot(workspace.id),
-						github: prManager.getWorkspaceGitHubSnapshot(workspace.id),
+						github,
 					});
 					const result = await sendWorkspaceInstruction(
 						command.workspaceId,

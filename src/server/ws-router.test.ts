@@ -496,6 +496,188 @@ describe('createWsRouter.sendWorkspaceInstruction', () => {
 		expect(clearedSessionId as string | null).toBe(sessionId);
 		expect(ws.sent).toEqual([{ type: 'error', id: 'commit-1', message: 'agent failed' }]);
 	});
+
+	test('starts merge-conflict resolution only with a current conflicting PR snapshot', async () => {
+		let markedIntent: unknown;
+		let sentCommand: unknown;
+		const github: WorkspaceGitHubSnapshot = {
+			status: 'open',
+			owner: 'sarp',
+			repo: 'miko',
+			prNumber: 12,
+			title: 'Resolve conflicts',
+			url: 'https://github.com/sarp/miko/pull/12',
+			mergeStateStatus: 'DIRTY',
+			hasMergeConflicts: true,
+			comments: [],
+			checks: [],
+		};
+		const { router, workspaceId, sessionId } = await createRouter({
+			workspaceManager: {
+				markWorkspaceInstructionTurnStarted: (args: unknown) => {
+					markedIntent = args;
+				},
+				clearWorkspaceInstructionTurn: () => {},
+			},
+			prManager: {
+				getWorkspaceGitHubSnapshot: () => github,
+				refreshWorkspacePrState: async () => github,
+				fetchFailingCheckLogs: async () => [],
+				mergeWorkspacePullRequest: async () => ({ status: 'merged' }),
+			},
+			agent: {
+				getActiveStatuses: () => new Map(),
+				getDrainingSessionIds: () => new Set(),
+				send: async (command: unknown) => {
+					sentCommand = command;
+					return { sessionId };
+				},
+				setBackgroundErrorReporter: () => {},
+			},
+		});
+		const ws = new FakeWebSocket();
+
+		await router.handleMessage(
+			ws as never,
+			JSON.stringify({
+				type: 'command',
+				id: 'conflicts-1',
+				command: {
+					type: 'workspace.resolveMergeConflicts',
+					workspaceId,
+					sessionId,
+				},
+			}),
+		);
+
+		expect(markedIntent).toEqual({
+			workspaceId,
+			sessionId,
+			intent: 'resolve_merge_conflicts',
+		});
+		expect(sentCommand).toMatchObject({
+			type: 'session.send',
+			sessionId,
+			workspaceId,
+			content: 'Resolve merge conflicts using the attached instructions.',
+			attachments: [
+				{
+					displayName: 'merge-conflict-instructions.md',
+					mimeType: 'text/markdown',
+				},
+			],
+		});
+		expect(ws.sent[0]).toEqual({ type: 'ack', id: 'conflicts-1', result: { sessionId } });
+	});
+
+	test('rejects merge-conflict resolution without a current conflicting PR snapshot', async () => {
+		let sendCalled = false;
+		const nonConflictingGithub: WorkspaceGitHubSnapshot = {
+			status: 'open',
+			owner: 'sarp',
+			repo: 'miko',
+			prNumber: 12,
+			hasMergeConflicts: false,
+			comments: [],
+			checks: [],
+		};
+		const { router, workspaceId, sessionId } = await createRouter({
+			prManager: {
+				getWorkspaceGitHubSnapshot: () => nonConflictingGithub,
+				refreshWorkspacePrState: async () => ({
+					status: 'none',
+					owner: 'sarp',
+					repo: 'miko',
+					comments: [],
+					checks: [],
+				}),
+				fetchFailingCheckLogs: async () => [],
+				mergeWorkspacePullRequest: async () => ({ status: 'merged' }),
+			},
+			agent: {
+				getActiveStatuses: () => new Map(),
+				getDrainingSessionIds: () => new Set(),
+				send: async () => {
+					sendCalled = true;
+					return { sessionId };
+				},
+				setBackgroundErrorReporter: () => {},
+			},
+		});
+		const ws = new FakeWebSocket();
+
+		await router.handleMessage(
+			ws as never,
+			JSON.stringify({
+				type: 'command',
+				id: 'conflicts-1',
+				command: {
+					type: 'workspace.resolveMergeConflicts',
+					workspaceId,
+					sessionId,
+				},
+			}),
+		);
+
+		expect(sendCalled).toBe(false);
+		expect(ws.sent).toEqual([
+			{
+				type: 'error',
+				id: 'conflicts-1',
+				message: 'Workspace does not have merge conflicts to resolve',
+			},
+		]);
+	});
+
+	test('rejects merge-conflict resolution without a current PR snapshot', async () => {
+		let sendCalled = false;
+		const { router, workspaceId, sessionId } = await createRouter({
+			prManager: {
+				getWorkspaceGitHubSnapshot: () => null,
+				refreshWorkspacePrState: async () => ({
+					status: 'none',
+					owner: 'sarp',
+					repo: 'miko',
+					comments: [],
+					checks: [],
+				}),
+				fetchFailingCheckLogs: async () => [],
+				mergeWorkspacePullRequest: async () => ({ status: 'merged' }),
+			},
+			agent: {
+				getActiveStatuses: () => new Map(),
+				getDrainingSessionIds: () => new Set(),
+				send: async () => {
+					sendCalled = true;
+					return { sessionId };
+				},
+				setBackgroundErrorReporter: () => {},
+			},
+		});
+		const ws = new FakeWebSocket();
+
+		await router.handleMessage(
+			ws as never,
+			JSON.stringify({
+				type: 'command',
+				id: 'conflicts-1',
+				command: {
+					type: 'workspace.resolveMergeConflicts',
+					workspaceId,
+					sessionId,
+				},
+			}),
+		);
+
+		expect(sendCalled).toBe(false);
+		expect(ws.sent).toEqual([
+			{
+				type: 'error',
+				id: 'conflicts-1',
+				message: 'Workspace does not have a current pull request snapshot',
+			},
+		]);
+	});
 });
 
 describe('createWsRouter.handleCommand', () => {
