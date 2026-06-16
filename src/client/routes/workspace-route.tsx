@@ -191,22 +191,36 @@ export function WorkspaceRoute({ kind }: WorkspaceRouteProps) {
 				) : page?.type === 'diff' && workspaceSnapshot ? (
 					<PageWithComposer composer={composer}>
 						<WorkspaceDiffPage
-							key={page.path ?? 'diff'}
+							key={`${page.source ?? 'workspace'}:${page.turnId ?? ''}:${page.path ?? 'diff'}`}
 							workspaceId={workspaceId}
 							path={page.path}
-							expectedPatchDigest={activeDiffFile?.patchDigest}
+							expectedPatchDigest={
+								page.source === 'transcript' ? undefined : activeDiffFile?.patchDigest
+							}
+							source={page.source}
 							sourceSessionId={page.sourceSessionId}
+							turnId={page.turnId}
+							workspaceRoot={workspaceSnapshot.workspace.localPath}
 							composerSessionId={composerSessionId}
 							composerSessionSnapshot={composerSessionSnapshot}
 						/>
 					</PageWithComposer>
-				) : page?.type === 'file' && page.source === 'workspace_file' && workspaceSnapshot ? (
+				) : page?.type === 'file' &&
+					(page.source === 'workspace_file' ||
+						page.source === 'pasted_text' ||
+						page.source === 'generated_attachment') &&
+					workspaceSnapshot ? (
 					<PageWithComposer composer={composer}>
-						<WorkspaceFilePage
-							workspaceId={workspaceId}
-							page={page}
-							revisionKey={activeFileRevisionKey}
-						/>
+						<ErrorBoundary
+							resetKey={`${workspaceId}:${page.source}:${page.path ?? page.sourceId ?? ''}:${activeFileRevisionKey ?? ''}`}
+							message="Could not render this file."
+						>
+							<WorkspaceFilePage
+								workspaceId={workspaceId}
+								page={page}
+								revisionKey={activeFileRevisionKey}
+							/>
+						</ErrorBoundary>
 					</PageWithComposer>
 				) : (
 					<div className="h-full overflow-auto p-3 text-ink-muted">

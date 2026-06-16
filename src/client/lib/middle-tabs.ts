@@ -29,7 +29,9 @@ export function workspacePagePath(workspaceId: string, page: WorkspacePage) {
 	if (page.type === 'diff') {
 		const params = new URLSearchParams();
 		if (page.path) params.set('path', page.path);
+		if (page.source && page.source !== 'workspace') params.set('source', page.source);
 		if (page.sourceSessionId) params.set('sessionId', page.sourceSessionId);
+		if (page.turnId) params.set('turnId', page.turnId);
 		const query = params.toString();
 		return `${base}/diff${query ? `?${query}` : ''}`;
 	}

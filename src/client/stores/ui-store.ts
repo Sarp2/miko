@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import { PASTED_TEXT_LABEL } from '../lib/prompt-parts';
 import { getLocalStorage } from './persist-storage';
 
 export const UI_STORAGE_KEY = 'miko:v1';
@@ -13,11 +14,18 @@ export type WorkspaceFileSource =
 	| 'workspace_file'
 	| 'ci_log'
 	| 'pr_comment'
-	| 'generated_attachment';
+	| 'generated_attachment'
+	| 'pasted_text';
 
 export type WorkspacePage =
 	| { type: 'chat'; sessionId: string }
-	| { type: 'diff'; path?: string; sourceSessionId?: string }
+	| {
+			type: 'diff';
+			path?: string;
+			source?: 'workspace' | 'transcript';
+			sourceSessionId?: string;
+			turnId?: string;
+	  }
 	| {
 			type: 'file';
 			path?: string;
@@ -111,7 +119,11 @@ export function scratchpadTabId(workspaceId: string) {
 
 export function pageTabId(page: WorkspacePage) {
 	if (page.type === 'chat') return `chat:${page.sessionId}`;
-	if (page.type === 'diff') return page.path ? `diff:${page.path}` : 'diff:placeholder';
+	if (page.type === 'diff') {
+		const source = page.source ?? 'workspace';
+		const identity = page.turnId ?? page.path ?? 'placeholder';
+		return `diff:${source}:${identity}:${page.path ?? ''}`;
+	}
 
 	const identity = page.sourceId ?? page.path ?? page.title;
 	return `file:${page.source}:${identity}`;
@@ -129,6 +141,7 @@ export function fallbackTitleForPage(page: WorkspacePage) {
 	if (page.source === 'workspace_file') return page.path ? basename(page.path) : page.title;
 	if (page.source === 'ci_log') return page.title || 'CI Log';
 	if (page.source === 'pr_comment') return page.title || 'PR Comment';
+	if (page.source === 'pasted_text') return page.title || PASTED_TEXT_LABEL;
 	return page.title || 'Attachment';
 }
 

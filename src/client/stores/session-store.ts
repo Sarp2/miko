@@ -4,6 +4,7 @@ import type {
 	AgentProvider,
 	ChatAttachment,
 	ModelOptions,
+	PromptPart,
 	SessionHistoryPage,
 	SessionSnapshot,
 } from '../../shared/types';
@@ -22,6 +23,7 @@ interface SendSessionInput {
 	provider?: AgentProvider;
 	content: string;
 	attachments?: ChatAttachment[];
+	parts?: PromptPart[];
 	model?: string;
 	modelOptions: ModelOptions;
 	effort?: string;

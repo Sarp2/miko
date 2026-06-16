@@ -103,6 +103,7 @@ export function TurnFooter({
 					key={file.path}
 					file={file}
 					sourceSessionId={sessionId}
+					sourceTurnId={turn.id}
 					workspaceId={workspaceId}
 					workspaceRoot={workspaceRoot}
 				/>

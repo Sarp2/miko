@@ -5,6 +5,7 @@ import type {
 	AgentProvider,
 	ClaudeContextWindow,
 	ClaudeReasoningEffort,
+	PromptPart,
 	SessionSnapshot,
 	WorkspaceSnapshot,
 } from '../../shared/types';
@@ -23,6 +24,7 @@ import {
 	runtimePlanModeForComposer,
 	uploadAttachments,
 } from '../components/chat-composer/chat-composer-utils';
+import { compactPromptParts, promptPartsPlainText } from '../lib/prompt-parts';
 import { useComposerPreferencesStore } from '../stores/composer-preferences-store';
 import { useSessionStore } from '../stores/session-store';
 
@@ -45,7 +47,7 @@ export function useChatComposer({
 	workspaceSnapshot,
 	sessionSnapshot,
 }: UseChatComposerArgs) {
-	const [content, setContent] = useState('');
+	const [parts, setParts] = useState<PromptPart[]>([]);
 	const [attachments, setAttachments] = useState<LocalAttachment[]>([]);
 	const [submitting, setSubmitting] = useState(false);
 	const rawAvailableProviders = providerCatalogs(sessionSnapshot);
@@ -100,6 +102,7 @@ export function useChatComposer({
 	const sessionLoaded = sessionSnapshot !== null;
 	const disabled =
 		!sessionLoaded || workspaceSnapshot.workspace.setupState !== 'ready' || submitting;
+	const content = useMemo(() => promptPartsPlainText(parts), [parts]);
 	const canSubmit =
 		(content.trim().length > 0 || attachments.length > 0) && !disabled && !isStreaming;
 
@@ -107,30 +110,45 @@ export function useChatComposer({
 		if (previousSessionIdRef.current === sessionId) return;
 
 		previousSessionIdRef.current = sessionId;
-		setContent('');
+		setParts([]);
 		setAttachments([]);
 		setSubmitting(false);
 	}, [sessionId]);
 
-	const addFiles = useCallback((files: File[]) => {
-		setAttachments((current) => {
-			const remaining = Math.max(MAX_ATTACHMENTS - current.length, 0);
-			return [
-				...current,
-				...files.slice(0, remaining).map(
-					(file) =>
-						({
-							id: crypto.randomUUID(),
-							file,
-							kind: file.type.toLowerCase().startsWith('image/') ? 'image' : 'file',
-						}) as LocalAttachment,
-				),
-			];
-		});
-	}, []);
+	const addFiles = useCallback(
+		(files: File[]) => {
+			const created = files.slice(0, Math.max(MAX_ATTACHMENTS - attachments.length, 0)).map(
+				(file) =>
+					({
+						id: crypto.randomUUID(),
+						file,
+						kind: file.type.toLowerCase().startsWith('image/') ? 'image' : 'file',
+					}) as LocalAttachment,
+			);
+			if (created.length === 0) return;
+			setAttachments((current) => [...current, ...created]);
+			setParts((current) =>
+				compactPromptParts([
+					...current,
+					...(current.length > 0 ? [{ type: 'text' as const, text: ' ' }] : []),
+					...created.map((attachment) => ({
+						type: 'attachment' as const,
+						attachmentId: attachment.id,
+					})),
+					{ type: 'text', text: ' ' },
+				]),
+			);
+		},
+		[attachments.length],
+	);
 
 	const removeAttachment = useCallback((attachmentId: string) => {
 		setAttachments((current) => current.filter((item) => item.id !== attachmentId));
+		setParts((current) =>
+			compactPromptParts(
+				current.filter((part) => part.type !== 'attachment' || part.attachmentId !== attachmentId),
+			),
+		);
 	}, []);
 
 	const changeProvider = useCallback(
@@ -166,12 +184,24 @@ export function useChatComposer({
 		setSubmitting(true);
 		try {
 			const uploadedAttachments = await uploadAttachments(workspaceId, attachments);
+			const uploadedAttachmentByLocalId = new Map(
+				attachments.map((attachment, index) => [attachment.id, uploadedAttachments[index]]),
+			);
+			const submittedParts = compactPromptParts(
+				parts.flatMap((part): PromptPart[] => {
+					if (part.type !== 'attachment') return [part];
+					const uploaded = uploadedAttachmentByLocalId.get(part.attachmentId);
+					return uploaded ? [{ type: 'attachment' as const, attachmentId: uploaded.id }] : [];
+				}),
+			);
+			const submittedContent = promptPartsPlainText(submittedParts, uploadedAttachments);
 			await useSessionStore.getState().sendSessionMessage({
 				sessionId,
 				workspaceId,
 				provider,
-				content,
+				content: submittedContent,
 				attachments: uploadedAttachments,
+				parts: submittedParts,
 				model: model.id,
 				modelOptions: modelOptionsForSubmit({
 					provider,
@@ -182,7 +212,7 @@ export function useChatComposer({
 				}),
 				planMode,
 			});
-			setContent('');
+			setParts([]);
 			setAttachments([]);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : 'Could not send message';
@@ -197,7 +227,7 @@ export function useChatComposer({
 		claudeReasoningEffort,
 		codexFastMode,
 		codexReasoningEffort,
-		content,
+		parts,
 		model,
 		planMode,
 		provider,
@@ -216,8 +246,8 @@ export function useChatComposer({
 	}, [sessionId]);
 
 	return {
-		content,
-		setContent,
+		parts,
+		setParts,
 		attachments,
 		provider,
 		setProvider: changeProvider,

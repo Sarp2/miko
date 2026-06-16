@@ -8,6 +8,7 @@ import type {
 	GithubPublishInfo,
 	KeybindingsSnapshot,
 	ModelOptions,
+	PromptPart,
 	ScratchpadSnapshot,
 	SessionHistoryPage,
 	SessionSnapshot,
@@ -121,6 +122,7 @@ export type ClientCommand =
 			provider?: AgentProvider;
 			content: string;
 			attachments?: ChatAttachment[];
+			parts?: PromptPart[];
 			model?: string;
 			modelOptions: ModelOptions;
 			effort?: string;

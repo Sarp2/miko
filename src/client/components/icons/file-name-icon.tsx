@@ -125,6 +125,11 @@ const ICON_DEFS: Record<FileIconKey, FileIconDefinition> = {
 	zig: { svg: zigIcon, color: palette.orange },
 };
 
+export function fileNameIconSrc(name: string): string {
+	const icon = ICON_DEFS[resolveFileIconKey(name)];
+	return svgDataUri(icon);
+}
+
 function svgDataUri(icon: FileIconDefinition): string {
 	const svg = icon.svg.replaceAll('currentColor', icon.color);
 	return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
@@ -145,7 +150,7 @@ export function FileNameIcon({
 			aria-hidden="true"
 			className={`inline-block shrink-0 ${className}`}
 			draggable={false}
-			src={svgDataUri(icon)}
+			src={fileNameIconSrc(name)}
 			style={{ opacity: icon.opacity }}
 		/>
 	);

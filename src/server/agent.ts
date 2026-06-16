@@ -17,6 +17,7 @@ import type {
 	MikoStatus,
 	NormalizedToolCall,
 	PendingToolSnapshot,
+	PromptPart,
 	TranscriptEntry,
 } from '../shared/types';
 import { CodexAppServerManager } from './codex-app-server';
@@ -833,6 +834,7 @@ export class AgentCoordinator {
 		provider: AgentProvider;
 		content: string;
 		attachments: ChatAttachment[];
+		parts?: PromptPart[];
 		model: string;
 		effort?: string;
 		contextWindow?: ClaudeContextWindow;
@@ -881,7 +883,12 @@ export class AgentCoordinator {
 
 		if (args.appendUserPrompt) {
 			const userPromptEntry = timestamped(
-				{ kind: 'user_prompt', content: args.content, attachments: args.attachments },
+				{
+					kind: 'user_prompt',
+					content: args.content,
+					attachments: args.attachments,
+					parts: args.parts,
+				},
 				Date.now(),
 			);
 			await this.store.appendMessage(args.sessionId, userPromptEntry);
@@ -1099,6 +1106,7 @@ export class AgentCoordinator {
 			provider,
 			content: command.content,
 			attachments: command.attachments ?? [],
+			parts: command.parts,
 			model: settings.model,
 			effort: settings.effort,
 			contextWindow: settings.contextWindow,
