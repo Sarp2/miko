@@ -1,4 +1,4 @@
-import { basename } from '../../routes/workspace-route-state';
+import { basename } from '../../lib/relative-path';
 
 export type FileIconKey =
 	| 'astro'

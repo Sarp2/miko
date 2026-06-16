@@ -1,5 +1,6 @@
 import type { SessionSummary } from '../../shared/types';
 import { PASTED_TEXT_LABEL } from '../lib/prompt-parts';
+import { basename } from '../lib/relative-path';
 import type { WorkspaceFileSource, WorkspacePage } from '../stores/ui-store';
 
 export type WorkspaceRouteKind = 'workspace' | 'session' | 'diff' | 'file';
@@ -18,10 +19,6 @@ const FILE_SOURCES = new Set<WorkspaceFileSource>([
 	'generated_attachment',
 	'pasted_text',
 ]);
-
-export function basename(path: string) {
-	return path.split('/').filter(Boolean).at(-1) ?? path;
-}
 
 export function selectFirstSessionId(sessions: Pick<SessionSummary, 'id' | 'createdAt'>[] = []) {
 	return sessions.toSorted((a, b) => a.createdAt - b.createdAt)[0]?.id ?? null;

@@ -35,6 +35,7 @@ import type {
 import { useSidebarExpansion } from '../hooks/use-sidebar-expansion';
 import { MAX_WIDTH, MIN_WIDTH, useSidebarResize } from '../hooks/use-sidebar-resize';
 import { Icons } from '../lib/icons';
+import { formatRelativeTime } from '../lib/relative-time';
 import { cn } from '../lib/utils';
 import { validateBranchName } from '../lib/validate-branch-name';
 import type { SidebarSortField } from '../stores/ui-store';
@@ -248,19 +249,6 @@ function WorkspaceIndicatorIcon({
 		className: iconClassName,
 		muted: indicator === 'none',
 	});
-}
-
-function formatRelativeTime(timestamp: number | undefined) {
-	if (!timestamp) return '';
-	const diffMs = Math.max(0, Date.now() - timestamp);
-	const minute = 60_000;
-	const hour = 60 * minute;
-	const day = 24 * hour;
-
-	if (diffMs < minute) return 'now';
-	if (diffMs < hour) return `${Math.floor(diffMs / minute)}m ago`;
-	if (diffMs < day) return `${Math.floor(diffMs / hour)}h ago`;
-	return `${Math.floor(diffMs / day)}d ago`;
 }
 
 function workspaceTimeAt(workspace: SidebarWorkspaceRow) {

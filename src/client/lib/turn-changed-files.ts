@@ -1,5 +1,5 @@
 import type { HydratedTranscriptMessage } from '../../shared/types';
-import { basename } from '../routes/workspace-route-state';
+import { basename } from './relative-path';
 
 type ToolMessage = Extract<HydratedTranscriptMessage, { kind: 'tool' }>;
 

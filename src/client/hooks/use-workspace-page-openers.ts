@@ -4,7 +4,7 @@ import type { ChatAttachment } from '../../shared/types';
 import type { LocalAttachment } from '../components/chat-composer/chat-composer-types';
 import { workspacePagePath } from '../lib/middle-tabs';
 import { PASTED_TEXT_LABEL } from '../lib/prompt-parts';
-import { basename } from '../routes/workspace-route-state';
+import { basename } from '../lib/relative-path';
 import { useUiStore, type WorkspacePage } from '../stores/ui-store';
 import { useWorkspaceFileStore } from '../stores/workspace-file-store';
 
