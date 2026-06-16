@@ -6,6 +6,7 @@ import { middleTabTitle, workspacePagePath } from '../lib/middle-tabs';
 import { cn } from '../lib/utils';
 import { useSessionStore } from '../stores/session-store';
 import { type MiddleTabDescriptor, useUiStore, withScratchpadFirst } from '../stores/ui-store';
+import { SessionHistoryMenu } from './session-history-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 
 interface MiddleTabsProps {
@@ -139,6 +140,10 @@ export function MiddleTabs({ workspaceId, sessions }: MiddleTabsProps) {
 						<TooltipContent>New chat</TooltipContent>
 					</Tooltip>
 				</div>
+			</div>
+
+			<div className="flex h-10 shrink-0 items-center px-2">
+				<SessionHistoryMenu workspaceId={workspaceId} sessions={sessions} />
 			</div>
 		</div>
 	);
