@@ -49,6 +49,25 @@ function action(kind: WorkspacePrimaryActionKind, label: string): WorkspacePrima
 	return { kind, label };
 }
 
+function setupStateFromSidebarIndicator(row: SidebarWorkspaceRow): WorkspaceSetupState {
+	if (row.indicator === 'workspace_creating') return 'creating';
+	if (row.indicator === 'workspace_failed') return 'failed';
+	return 'ready';
+}
+
+function reviewStateFromSidebarIndicator(row: SidebarWorkspaceRow): WorkspaceReviewState {
+	if (row.indicator === 'merged') return 'done';
+	if (row.indicator === 'closed') return 'closed';
+	if (
+		row.indicator === 'pr_opened' ||
+		row.indicator === 'ci_failed' ||
+		row.indicator === 'commit_and_push'
+	) {
+		return 'in_review';
+	}
+	return row.reviewState;
+}
+
 function deriveStage(args: {
 	setupState: WorkspaceSetupState;
 	reviewState: WorkspaceReviewState;
@@ -133,16 +152,14 @@ export function deriveWorkspaceCondition(snapshot: WorkspaceSnapshot): Workspace
 }
 
 export function deriveSidebarWorkspaceCondition(row: SidebarWorkspaceRow): WorkspaceCondition {
+	const setupState = setupStateFromSidebarIndicator(row);
+	const reviewState = reviewStateFromSidebarIndicator(row);
+	const hasLocalPrWork = row.hasDirtyFiles || row.hasUnpushedCommits;
 	const derived = deriveStage({
-		setupState:
-			row.indicator === 'workspace_creating'
-				? 'creating'
-				: row.indicator === 'workspace_failed'
-					? 'failed'
-					: 'ready',
-		reviewState: row.reviewState,
+		setupState,
+		reviewState,
 		hasActiveSession: row.hasActiveSession || row.indicator === 'agent_active',
-		dirtyFileCount: row.hasDirtyFiles ? 1 : 0,
+		dirtyFileCount: hasLocalPrWork ? 1 : 0,
 		hasPushedCommits: row.indicator === 'create_pr',
 		mainAheadCount: 0,
 		ciStatus: row.indicator === 'ci_failed' ? 'failing' : undefined,
@@ -150,13 +167,8 @@ export function deriveSidebarWorkspaceCondition(row: SidebarWorkspaceRow): Works
 
 	return {
 		workspaceId: row.workspaceId,
-		setupState:
-			row.indicator === 'workspace_creating'
-				? 'creating'
-				: row.indicator === 'workspace_failed'
-					? 'failed'
-					: 'ready',
-		reviewState: row.reviewState,
+		setupState,
+		reviewState,
 		hasDirtyFiles: row.hasDirtyFiles,
 		dirtyFileCount: null,
 		diffStats: row.displayDiffStats,

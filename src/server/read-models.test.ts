@@ -233,6 +233,7 @@ describe('deriveSidebarSnapshot', () => {
 			prUrl: 'https://github.com/sarp/miko/pull/12',
 			prCreatedAt: 20,
 			hasDirtyFiles: true,
+			hasUnpushedCommits: false,
 			displayDiffStats: { additions: 52, deletions: 14 },
 		});
 	});
@@ -283,7 +284,7 @@ describe('deriveSidebarSnapshot', () => {
 		});
 	});
 
-	test('does not show commit and push for open PRs with only ahead commits', () => {
+	test('shows commit and push for open PRs with local ahead commits', () => {
 		const state = addDirectoryWorkspaceAndSession();
 		const workspace = state.workspacesById.get('workspace-1');
 		expect(workspace).toBeDefined();
@@ -305,8 +306,9 @@ describe('deriveSidebarSnapshot', () => {
 				githubSnapshots: new Map([['workspace-1', openPullRequestSnapshot()]]),
 			}).directoryGroups[0]?.workspaces[0],
 		).toMatchObject({
-			indicator: 'pr_opened',
+			indicator: 'commit_and_push',
 			hasDirtyFiles: false,
+			hasUnpushedCommits: true,
 			displayDiffStats: { additions: 52, deletions: 14 },
 		});
 	});

@@ -216,6 +216,7 @@ describe('deriveSidebarWorkspaceCondition', () => {
 			prNumber: 12,
 			prTitle: 'PR title',
 			hasDirtyFiles: false,
+			hasUnpushedCommits: false,
 			hasPullRequest: true,
 			displayDiffStats: { additions: 52, deletions: 14 },
 			...overrides,
@@ -234,6 +235,42 @@ describe('deriveSidebarWorkspaceCondition', () => {
 			stage: 'dirty',
 			primaryAction: { kind: 'commit_and_push', label: 'Commit and push' },
 			hasDirtyFiles: true,
+		});
+
+		expect(
+			deriveSidebarWorkspaceCondition(
+				makeRow({ hasUnpushedCommits: true, displayDiffStats: { additions: 0, deletions: 0 } }),
+			),
+		).toMatchObject({
+			stage: 'dirty',
+			primaryAction: { kind: 'commit_and_push', label: 'Commit and push' },
+			hasDirtyFiles: false,
+		});
+	});
+
+	test('normalizes stale PR rows from sidebar indicators before deriving actions', () => {
+		expect(
+			deriveSidebarWorkspaceCondition(
+				makeRow({ reviewState: 'in_progress', indicator: 'pr_opened' }),
+			),
+		).toMatchObject({
+			reviewState: 'in_review',
+			stage: 'pr_open',
+			primaryAction: { kind: 'merge', label: 'Merge' },
+		});
+
+		expect(
+			deriveSidebarWorkspaceCondition(
+				makeRow({
+					reviewState: 'in_progress',
+					indicator: 'commit_and_push',
+					hasUnpushedCommits: true,
+				}),
+			),
+		).toMatchObject({
+			reviewState: 'in_review',
+			stage: 'dirty',
+			primaryAction: { kind: 'commit_and_push', label: 'Commit and push' },
 		});
 	});
 });

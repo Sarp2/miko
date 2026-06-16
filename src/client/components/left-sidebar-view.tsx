@@ -228,6 +228,11 @@ function manualCreatePrUrl(workspace: SidebarWorkspaceRow) {
 	return `https://github.com/${workspace.githubOwner}/${workspace.githubRepo}/compare/${workspace.defaultBranchName}...${encodeURIComponent(workspace.branchName)}?body=&expand=1`;
 }
 
+function manualCreatePrUrlForWorkspace(workspace: SidebarWorkspaceRow) {
+	if (workspace.hasDirtyFiles || workspace.hasUnpushedCommits) return undefined;
+	return manualCreatePrUrl(workspace);
+}
+
 function WorkspaceIndicatorIcon({
 	indicator,
 	className,
@@ -449,6 +454,10 @@ function WorkspaceHoverMeta({
 		condition.primaryAction?.kind === 'fix_ci' ||
 		condition.primaryAction?.kind === 'commit_and_push';
 	const actionDisabled = actionNeedsSession && !workspace.lastSessionId;
+	const manualCreateUrl =
+		condition.primaryAction?.kind === 'create_pr'
+			? manualCreatePrUrlForWorkspace(workspace)
+			: undefined;
 
 	return (
 		<HoverCard openDelay={140} closeDelay={80}>
@@ -507,7 +516,7 @@ function WorkspaceHoverMeta({
 							<WorkspaceActionButton
 								action={condition.primaryAction}
 								disabled={actionDisabled}
-								manualCreatePrUrl={manualCreatePrUrl(workspace)}
+								manualCreatePrUrl={manualCreateUrl}
 								onPrimaryAction={async (action) => {
 									await runSidebarWorkspaceAction({
 										action,

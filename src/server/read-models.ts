@@ -105,7 +105,7 @@ function getWorkspaceSidebarIndicator(args: {
 	}
 	const hasOpenPr =
 		workspace.reviewState === 'in_review' || workspace.pullRequest?.status === 'open';
-	if (hasOpenPr && git?.files.length) {
+	if (hasOpenPr && ((git?.files.length ?? 0) > 0 || (git?.aheadCount ?? 0) > 0)) {
 		return 'commit_and_push';
 	}
 	if (hasOpenPr) {
@@ -177,6 +177,7 @@ export function deriveSidebarSnapshot(args: {
 					prUrl: workspace.pullRequest?.url,
 					prCreatedAt: workspace.pullRequest?.createdAt,
 					hasDirtyFiles: (git?.files.length ?? 0) > 0,
+					hasUnpushedCommits: (git?.aheadCount ?? 0) > 0,
 					displayDiffStats: getWorkspaceDiffStats(git, github),
 					lastActivityAt: getWorkspaceLastActivityAt(args.state, workspace),
 					lastSessionId: latestSession?.id,

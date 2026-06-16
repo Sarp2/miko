@@ -305,6 +305,7 @@ export interface SidebarWorkspaceRow {
 	prUrl?: string;
 	prCreatedAt?: number;
 	hasDirtyFiles: boolean;
+	hasUnpushedCommits: boolean;
 	displayDiffStats: { additions: number; deletions: number };
 	lastActivityAt?: number;
 	lastSessionId?: string;
