@@ -1,0 +1,20 @@
+src/client/components/left-sidebar-view.tsx
+  s_85788a13129bf7::t_2719045d7200e3 753,755,800,802
+  s_85788a13129bf7::t_e813a87cba6ddc 754,801
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "1c1263adc1e37d48b5ff85c3ae074d49879c0446",
+  "prompts": {},
+  "sessions": {
+    "s_85788a13129bf7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ecbe7-9667-7663-b230-74a1c17dfc92",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
