@@ -1,0 +1,27 @@
+src/client/lib/workspace-file-previews.ts
+  s_82e93de1bb8ac8::t_cc07440d78f2e3 26,89-92,130
+src/client/hooks/use-chat-composer.ts
+  s_82e93de1bb8ac8::t_f653ccba5f36c6 56,119,136,153-154
+  s_82e93de1bb8ac8::t_ff09cac07fdfa6 125-135,137-150
+  s_82e93de1bb8ac8::t_e3c828b39e3afe 230
+src/client/lib/workspace-file-previews.test.ts
+  s_82e93de1bb8ac8::t_f0e0f0a599611b 1-28,34-45,47-55,57-68
+  s_82e93de1bb8ac8::t_953f0d16dc6ae4 29-33,46
+  s_82e93de1bb8ac8::t_a0da6f313d571c 56
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "7d55cd10f20ad40903f30e919cbf2580c03e3f36",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
