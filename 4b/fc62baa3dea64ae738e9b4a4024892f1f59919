@@ -1,0 +1,19 @@
+src/client/lib/relative-time.ts
+  s_4abace7291ca5d::t_952b74558e0fff 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "4bfc62baa3dea64ae738e9b4a4024892f1f59919",
+  "prompts": {},
+  "sessions": {
+    "s_4abace7291ca5d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d0f4ec80-7246-40c4-a34a-b57360193cc3",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
