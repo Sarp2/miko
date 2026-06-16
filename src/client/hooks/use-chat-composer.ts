@@ -24,7 +24,11 @@ import {
 	runtimePlanModeForComposer,
 	uploadAttachments,
 } from '../components/chat-composer/chat-composer-utils';
-import { compactPromptParts, promptPartsPlainText } from '../lib/prompt-parts';
+import {
+	compactPromptParts,
+	promptPartsPlainText,
+	promptPartsSubmissionText,
+} from '../lib/prompt-parts';
 import { useComposerPreferencesStore } from '../stores/composer-preferences-store';
 import { useSessionStore } from '../stores/session-store';
 
@@ -103,8 +107,9 @@ export function useChatComposer({
 	const disabled =
 		!sessionLoaded || workspaceSnapshot.workspace.setupState !== 'ready' || submitting;
 	const content = useMemo(() => promptPartsPlainText(parts), [parts]);
+	const hasVisibleAttachmentToken = parts.some((part) => part.type === 'attachment');
 	const canSubmit =
-		(content.trim().length > 0 || attachments.length > 0) && !disabled && !isStreaming;
+		(content.trim().length > 0 || hasVisibleAttachmentToken) && !disabled && !isStreaming;
 
 	useEffect(() => {
 		if (previousSessionIdRef.current === sessionId) return;
@@ -183,9 +188,15 @@ export function useChatComposer({
 		if (!canSubmit || !model) return;
 		setSubmitting(true);
 		try {
-			const uploadedAttachments = await uploadAttachments(workspaceId, attachments);
+			const visibleAttachmentIds = new Set(
+				parts.flatMap((part) => (part.type === 'attachment' ? [part.attachmentId] : [])),
+			);
+			const visibleAttachments = attachments.filter((attachment) =>
+				visibleAttachmentIds.has(attachment.id),
+			);
+			const uploadedAttachments = await uploadAttachments(workspaceId, visibleAttachments);
 			const uploadedAttachmentByLocalId = new Map(
-				attachments.map((attachment, index) => [attachment.id, uploadedAttachments[index]]),
+				visibleAttachments.map((attachment, index) => [attachment.id, uploadedAttachments[index]]),
 			);
 			const submittedParts = compactPromptParts(
 				parts.flatMap((part): PromptPart[] => {
@@ -194,7 +205,7 @@ export function useChatComposer({
 					return uploaded ? [{ type: 'attachment' as const, attachmentId: uploaded.id }] : [];
 				}),
 			);
-			const submittedContent = promptPartsPlainText(submittedParts, uploadedAttachments);
+			const submittedContent = promptPartsSubmissionText(submittedParts);
 			await useSessionStore.getState().sendSessionMessage({
 				sessionId,
 				workspaceId,

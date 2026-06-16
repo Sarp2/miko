@@ -5,6 +5,7 @@ import {
 	fallbackPromptParts,
 	promptPartLabel,
 	promptPartsPlainText,
+	promptPartsSubmissionText,
 	promptPartText,
 	replaceRangeWithParts,
 } from './prompt-parts';
@@ -52,6 +53,14 @@ describe('promptPartsPlainText', () => {
 		expect(promptPartsPlainText(parts, [attachment('a1', 'photo.png')])).toBe(
 			'see @src/x.ts and photo.png',
 		);
+	});
+});
+
+describe('promptPartsSubmissionText', () => {
+	test('omits attachment labels so attachment-only prompts can use the backend fallback', () => {
+		const parts: PromptPart[] = [{ type: 'attachment', attachmentId: 'a1' }];
+
+		expect(promptPartsSubmissionText(parts)).toBe('');
 	});
 });
 

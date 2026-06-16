@@ -15,7 +15,7 @@ type FilePage = Extract<WorkspacePage, { type: 'file' }>;
  * and the transcript (submitted prompts) so a clicked mention/attachment/pasted-text
  * always opens the same way.
  */
-export function useWorkspacePageOpeners(workspaceId: string) {
+export function useWorkspacePageOpeners(workspaceId: string, sourceSessionId?: string) {
 	const navigate = useNavigate();
 
 	const openFilePage = useCallback(
@@ -28,17 +28,29 @@ export function useWorkspacePageOpeners(workspaceId: string) {
 
 	const openWorkspaceFile = useCallback(
 		(path: string) => {
-			openFilePage({ type: 'file', source: 'workspace_file', path, title: basename(path) });
+			openFilePage({
+				type: 'file',
+				source: 'workspace_file',
+				path,
+				title: basename(path),
+				...(sourceSessionId ? { sourceSessionId } : {}),
+			});
 		},
-		[openFilePage],
+		[openFilePage, sourceSessionId],
 	);
 
 	const openPastedText = useCallback(
 		(id: string, text: string) => {
 			useWorkspaceFileStore.getState().setPastedTextFile(workspaceId, id, text);
-			openFilePage({ type: 'file', source: 'pasted_text', sourceId: id, title: PASTED_TEXT_LABEL });
+			openFilePage({
+				type: 'file',
+				source: 'pasted_text',
+				sourceId: id,
+				title: PASTED_TEXT_LABEL,
+				...(sourceSessionId ? { sourceSessionId } : {}),
+			});
 		},
-		[openFilePage, workspaceId],
+		[openFilePage, sourceSessionId, workspaceId],
 	);
 
 	const openAttachment = useCallback(
@@ -49,9 +61,10 @@ export function useWorkspacePageOpeners(workspaceId: string) {
 				source: 'generated_attachment',
 				sourceId: attachment.id,
 				title: attachment.displayName,
+				...(sourceSessionId ? { sourceSessionId } : {}),
 			});
 		},
-		[openFilePage, workspaceId],
+		[openFilePage, sourceSessionId, workspaceId],
 	);
 
 	const openLocalAttachment = useCallback(
@@ -64,9 +77,10 @@ export function useWorkspacePageOpeners(workspaceId: string) {
 				source: 'generated_attachment',
 				sourceId: attachment.id,
 				title: attachment.file.name || 'file',
+				...(sourceSessionId ? { sourceSessionId } : {}),
 			});
 		},
-		[openFilePage, workspaceId],
+		[openFilePage, sourceSessionId, workspaceId],
 	);
 
 	return { openWorkspaceFile, openPastedText, openAttachment, openLocalAttachment };

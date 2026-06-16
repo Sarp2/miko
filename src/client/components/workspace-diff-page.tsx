@@ -233,7 +233,7 @@ export function WorkspaceDiffPage({
 				mode={diffViewMode}
 				onChange={(mode) => setDiffViewMode(workspaceId, mode)}
 			/>
-			<CopyFileButton onCopy={copyFileContents} />
+			{!isTranscriptDiff ? <CopyFileButton onCopy={copyFileContents} /> : null}
 			<DiffFileSegmentedControl
 				filePath={path}
 				mode="diff"

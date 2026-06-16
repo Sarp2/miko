@@ -80,6 +80,13 @@ export function promptPartsPlainText(parts: PromptPart[], attachments: ChatAttac
 	return parts.map((part) => promptPartText(part, attachments)).join('');
 }
 
+export function promptPartsSubmissionText(parts: PromptPart[]) {
+	return parts
+		.filter((part) => part.type !== 'attachment')
+		.map((part) => promptPartText(part))
+		.join('');
+}
+
 export function fallbackPromptParts(content: string, attachments: ChatAttachment[] = []) {
 	const parts: PromptPart[] = [];
 	if (content.length > 0) parts.push({ type: 'text', text: content });

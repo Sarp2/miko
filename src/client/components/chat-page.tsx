@@ -154,8 +154,10 @@ export function ChatPage({ workspaceId, sessionId, workspaceSnapshot }: ChatPage
 	const sessionSnapshot = useSessionStore(
 		(state) => state.snapshotBySessionId.get(sessionId) ?? null,
 	);
-	const { openWorkspaceFile, openPastedText, openAttachment } =
-		useWorkspacePageOpeners(workspaceId);
+	const { openWorkspaceFile, openPastedText, openAttachment } = useWorkspacePageOpeners(
+		workspaceId,
+		sessionId,
+	);
 
 	const loadOlder = () => {
 		void useSessionStore

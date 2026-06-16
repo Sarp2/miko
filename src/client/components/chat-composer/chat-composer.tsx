@@ -36,8 +36,10 @@ export function ChatComposer({
 		workspaceId,
 		workspaceSnapshot,
 	});
-	const { openWorkspaceFile, openPastedText, openLocalAttachment } =
-		useWorkspacePageOpeners(workspaceId);
+	const { openWorkspaceFile, openPastedText, openLocalAttachment } = useWorkspacePageOpeners(
+		workspaceId,
+		sessionId,
+	);
 
 	const findTokenPart = (tokenKey?: string): Exclude<PromptPart, { type: 'text' }> | null => {
 		if (!tokenKey) return null;
@@ -140,7 +142,7 @@ export function ChatComposer({
 								data-placeholder={
 									composer.parts.length === 0 ? 'Ask to make changes, @mention files' : undefined
 								}
-								className="scrollbar-miko block min-h-20 w-full overflow-y-auto whitespace-pre-wrap break-words bg-transparent px-3 py-3 text-[13px] leading-5 text-ink outline-none empty:before:pointer-events-none empty:before:text-ink-tertiary empty:before:content-[attr(data-placeholder)] disabled:cursor-not-allowed"
+								className="scrollbar-miko block max-h-[220px] min-h-20 w-full overflow-y-auto whitespace-pre-wrap break-words bg-transparent px-3 py-3 text-[13px] leading-5 text-ink outline-none empty:before:pointer-events-none empty:before:text-ink-tertiary empty:before:content-[attr(data-placeholder)] disabled:cursor-not-allowed"
 							/>
 							<div className="flex items-center justify-between px-2 py-1.5">
 								<div className="flex min-w-0 items-center gap-1">
