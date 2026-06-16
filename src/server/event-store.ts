@@ -26,6 +26,7 @@ import {
 import { resolveLocalPath } from './paths';
 
 const COMPACTION_THRESHOLD_BYTES = 2 * 1024 * 1024;
+const SESSION_PROMPT_PREVIEW_MAX_LENGTH = 140;
 
 interface TranscriptPageResult {
 	entries: TranscriptEntry[];
@@ -57,6 +58,12 @@ function getHistorySnapshot(
 		olderCursor: page.olderCursor,
 		recentLimit,
 	};
+}
+
+function promptPreview(content: string) {
+	const collapsed = content.replace(/\s+/g, ' ').trim();
+	if (collapsed.length <= SESSION_PROMPT_PREVIEW_MAX_LENGTH) return collapsed;
+	return `${collapsed.slice(0, SESSION_PROMPT_PREVIEW_MAX_LENGTH - 1).trimEnd()}…`;
 }
 
 export class EventStore {
@@ -385,8 +392,9 @@ export class EventStore {
 		const session = this.state.sessionsById.get(sessionId);
 		if (!session) return;
 
-		if (entry.kind === 'user_prompt') {
+		if (entry.kind === 'user_prompt' && !entry.hidden) {
 			session.lastMessageAt = entry.createdAt;
+			session.lastPromptPreview = promptPreview(entry.content);
 		}
 		session.updatedAt = Math.max(session.updatedAt, entry.createdAt);
 	}

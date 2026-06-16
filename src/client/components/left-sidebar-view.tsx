@@ -7,7 +7,6 @@ import {
 	ClockCounterClockwise,
 	FolderSimplePlus,
 	Gear,
-	GitMerge,
 	GitPullRequest,
 	PencilSimple,
 	Plus,
@@ -38,6 +37,13 @@ import { Icons } from '../lib/icons';
 import { formatRelativeTime } from '../lib/relative-time';
 import { cn } from '../lib/utils';
 import { validateBranchName } from '../lib/validate-branch-name';
+import type { WorkspacePrimaryAction } from '../lib/workspace-condition';
+import { deriveSidebarWorkspaceCondition } from '../lib/workspace-condition';
+import {
+	WORKSPACE_DIFF_ADDITION_CLASS,
+	WORKSPACE_DIFF_DELETION_CLASS,
+	WORKSPACE_MERGED_CLASS,
+} from '../lib/workspace-visuals';
 import type { SidebarSortField } from '../stores/ui-store';
 import { useWorkspaceStore } from '../stores/workspace-store';
 import { Button } from './ui/button';
@@ -63,6 +69,7 @@ import {
 	useSidebar as useSidebarPrimitive,
 } from './ui/sidebar';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
+import { WorkspaceActionButton } from './workspace-action-button';
 
 export interface SidebarProps {
 	directoryGroups: SidebarDirectoryGroup[];
@@ -197,7 +204,7 @@ function indicatorLabel(indicator: WorkspaceSidebarIndicator) {
 	if (indicator === 'workspace_creating') return 'creating';
 	if (indicator === 'workspace_failed') return 'failed';
 	if (indicator === 'agent_active') return 'streaming';
-	if (indicator === 'commit_and_push') return 'commit';
+	if (indicator === 'commit_and_push') return 'commit and push';
 	if (indicator === 'create_pr') return 'create pr';
 	if (indicator === 'pr_opened') return 'open pr';
 	if (indicator === 'ci_failed') return 'ci failed';
@@ -208,12 +215,27 @@ function indicatorLabel(indicator: WorkspaceSidebarIndicator) {
 
 function indicatorTextClass(indicator: WorkspaceSidebarIndicator) {
 	if (indicator === 'agent_active' || indicator === 'workspace_creating') return 'text-primary';
-	if (indicator === 'pr_opened' || indicator === 'create_pr') return 'text-success/75';
+	if (indicator === 'pr_opened' || indicator === 'create_pr' || indicator === 'commit_and_push') {
+		return 'text-success/75';
+	}
 	if (indicator === 'ci_failed' || indicator === 'workspace_failed' || indicator === 'closed') {
 		return 'text-destructive';
 	}
-	if (indicator === 'merged') return 'text-primary-hover/85';
+	if (indicator === 'merged') return WORKSPACE_MERGED_CLASS;
 	return 'text-ink-tertiary';
+}
+
+function manualCreatePrUrl(workspace: SidebarWorkspaceRow) {
+	const owner = encodeURIComponent(workspace.githubOwner);
+	const repo = encodeURIComponent(workspace.githubRepo);
+	const base = encodeURIComponent(workspace.defaultBranchName);
+	const head = encodeURIComponent(workspace.branchName);
+	return `https://github.com/${owner}/${repo}/compare/${base}...${head}?body=&expand=1`;
+}
+
+function manualCreatePrUrlForWorkspace(workspace: SidebarWorkspaceRow) {
+	if (workspace.hasDirtyFiles || workspace.hasUnpushedCommits) return undefined;
+	return manualCreatePrUrl(workspace);
 }
 
 function WorkspaceIndicatorIcon({
@@ -237,7 +259,7 @@ function WorkspaceIndicatorIcon({
 		return Icons.mergedIcon({ className: iconClassName });
 	}
 
-	if (indicator === 'pr_opened' || indicator === 'create_pr') {
+	if (indicator === 'pr_opened' || indicator === 'create_pr' || indicator === 'commit_and_push') {
 		return Icons.prIcon({ className: iconClassName });
 	}
 
@@ -247,31 +269,19 @@ function WorkspaceIndicatorIcon({
 
 	return Icons.idleIcon({
 		className: iconClassName,
-		muted: indicator === 'none',
 	});
 }
 
 function workspaceTimeAt(workspace: SidebarWorkspaceRow) {
-	return workspace.reviewState === 'in_progress'
-		? workspace.lastActivityAt
-		: (workspace.prCreatedAt ?? workspace.lastActivityAt);
+	return workspace.hasPullRequest
+		? (workspace.prCreatedAt ?? workspace.lastActivityAt)
+		: workspace.lastActivityAt;
 }
 
-function workspaceSubtitle(workspace: SidebarWorkspaceRow) {
-	if (workspace.prNumber) return `Created PR #${workspace.prNumber}`;
-	if (workspace.indicator === 'commit_and_push') return 'Local changes are ready to commit.';
-	if (workspace.indicator === 'create_pr') return 'Branch has pushed commits.';
-	if (workspace.indicator === 'agent_active') return 'Agent is working in this workspace.';
-	return workspace.localPath;
-}
-
-function workspaceActionLabel(workspace: SidebarWorkspaceRow) {
-	if (workspace.reviewState === 'done' || workspace.reviewState === 'closed') return 'Archive';
-	if (workspace.indicator === 'ci_failed') return 'Fix CI';
-	if (workspace.reviewState === 'in_review') return 'Merge';
-	if (workspace.indicator === 'create_pr') return 'Create PR';
-	if (workspace.indicator === 'commit_and_push') return 'Commit';
-	return null;
+function workspaceRowTitle(workspace: SidebarWorkspaceRow) {
+	return workspace.hasPullRequest
+		? (workspace.prTitle ?? workspace.displayName)
+		: workspace.displayName;
 }
 
 function formatDiffStat(value: number) {
@@ -281,14 +291,18 @@ function formatDiffStat(value: number) {
 }
 
 function WorkspaceDiffStats({ workspace }: { workspace: SidebarWorkspaceRow }) {
-	const additions = workspace.diffStats.additions;
-	const deletions = workspace.diffStats.deletions;
+	const additions = workspace.displayDiffStats.additions;
+	const deletions = workspace.displayDiffStats.deletions;
 	if (additions <= 0 && deletions <= 0) return null;
 
 	return (
-		<span className="flex shrink-0 items-center justify-end gap-1 font-mono text-[11px] font-medium leading-4 tabular-nums">
-			{additions > 0 && <span className="text-success">+{formatDiffStat(additions)}</span>}
-			{deletions > 0 && <span className="text-destructive">-{formatDiffStat(deletions)}</span>}
+		<span className="flex shrink-0 items-center justify-end gap-1 text-[11px] font-medium leading-4 tabular-nums">
+			{additions > 0 && (
+				<span className={WORKSPACE_DIFF_ADDITION_CLASS}>+{formatDiffStat(additions)}</span>
+			)}
+			{deletions > 0 && (
+				<span className={WORKSPACE_DIFF_DELETION_CLASS}>-{formatDiffStat(deletions)}</span>
+			)}
 		</span>
 	);
 }
@@ -357,52 +371,85 @@ function WorkspaceRowContextMenu({
 	);
 }
 
-function WorkspaceActionPill({ workspace }: { workspace: SidebarWorkspaceRow }) {
-	const label = workspaceActionLabel(workspace);
-	if (!label) return null;
+async function runSidebarWorkspaceAction(args: {
+	action: WorkspacePrimaryAction;
+	workspace: SidebarWorkspaceRow;
+	createPr: (workspaceId: string, sessionId: string) => Promise<unknown>;
+	commitAndPush: (workspaceId: string, sessionId: string) => Promise<unknown>;
+	fixCi: (workspaceId: string, sessionId: string) => Promise<unknown>;
+	mergePr: (workspaceId: string) => Promise<unknown>;
+	onArchive?: () => void | Promise<void>;
+}) {
+	const { action, workspace, createPr, commitAndPush, fixCi, mergePr, onArchive } = args;
 
-	const isArchive = label === 'Archive';
-	const isMerge = label === 'Merge';
-	const isCreatePr = label === 'Create PR';
-	const isFix = label === 'Fix CI';
+	if (action.kind === 'archive') {
+		await onArchive?.();
+		return;
+	}
 
-	return (
-		<span
-			className={cn(
-				'inline-flex h-6 items-center gap-1 rounded-md border px-1.5 text-[11px] font-medium leading-4',
-				isArchive && 'border-transparent bg-primary text-primary-foreground',
-				isMerge && 'border-transparent bg-success text-white',
-				isCreatePr && 'border-hairline bg-surface-2 text-ink',
-				isFix && 'border-transparent bg-destructive text-white',
-				!isArchive && !isMerge && !isCreatePr && !isFix && 'border-hairline bg-surface-2 text-ink',
-			)}
-		>
-			{isArchive ? (
-				<Archive className="size-3" />
-			) : isMerge ? (
-				<GitMerge className="size-3" />
-			) : isCreatePr ? (
-				<GitPullRequest className="size-3" />
-			) : null}
-			{label}
-		</span>
-	);
+	if (action.kind === 'merge') {
+		await mergePr(workspace.workspaceId);
+		return;
+	}
+
+	if (
+		action.kind !== 'create_pr' &&
+		action.kind !== 'fix_ci' &&
+		action.kind !== 'commit_and_push'
+	) {
+		return;
+	}
+
+	if (!workspace.lastSessionId) {
+		console.warn(`Cannot run ${action.kind} without a workspace session id`);
+		return;
+	}
+
+	if (action.kind === 'create_pr') {
+		await createPr(workspace.workspaceId, workspace.lastSessionId);
+		return;
+	}
+
+	if (action.kind === 'commit_and_push') {
+		await commitAndPush(workspace.workspaceId, workspace.lastSessionId);
+		return;
+	}
+
+	await fixCi(workspace.workspaceId, workspace.lastSessionId);
 }
 
 function WorkspaceHoverMeta({
 	workspace,
 	children,
+	onArchive,
 }: {
 	workspace: SidebarWorkspaceRow;
 	children: React.ReactElement;
+	onArchive?: () => void | Promise<void>;
 }) {
+	const createPr = useWorkspaceStore((state) => state.createPr);
+	const commitAndPush = useWorkspaceStore((state) => state.commitAndPush);
+	const fixCi = useWorkspaceStore((state) => state.fixCi);
+	const mergePr = useWorkspaceStore((state) => state.mergePr);
 	const hasDetails =
 		workspace.localPath || workspace.branchName || workspace.prNumber || workspace.lastActivityAt;
 	if (!hasDetails) return children;
 
-	const hasDiffStats = workspace.diffStats.additions > 0 || workspace.diffStats.deletions > 0;
+	const condition = deriveSidebarWorkspaceCondition(workspace);
+	const hasDiffStats = condition.diffStats.additions > 0 || condition.diffStats.deletions > 0;
 	const relativeTime = formatRelativeTime(workspaceTimeAt(workspace));
-	const subtitle = workspaceSubtitle(workspace);
+	const isPrStage = workspace.hasPullRequest;
+	const titleText = isPrStage ? workspaceRowTitle(workspace) : workspace.lastSessionTitle;
+	const bodyText = isPrStage ? null : workspace.lastPromptPreview;
+	const actionNeedsSession =
+		condition.primaryAction?.kind === 'create_pr' ||
+		condition.primaryAction?.kind === 'fix_ci' ||
+		condition.primaryAction?.kind === 'commit_and_push';
+	const actionDisabled = actionNeedsSession && !workspace.lastSessionId;
+	const manualCreateUrl =
+		condition.primaryAction?.kind === 'create_pr'
+			? manualCreatePrUrlForWorkspace(workspace)
+			: undefined;
 
 	return (
 		<HoverCard openDelay={140} closeDelay={80}>
@@ -410,46 +457,92 @@ function WorkspaceHoverMeta({
 			<HoverCardContent
 				side="right"
 				align="start"
-				sideOffset={8}
-				className="w-[286px] rounded-lg border-hairline bg-surface-1 p-0 shadow-none"
+				sideOffset={6}
+				className="w-[276px] rounded-md border-hairline bg-surface-1 p-0 shadow-none"
 			>
 				<div className="flex flex-col gap-2 px-3 py-2.5">
-					<div className="flex items-start justify-between gap-2">
+					<div className="flex items-start justify-between gap-1.5">
 						<div className="flex min-w-0 items-center gap-1.5 font-mono text-[11px] leading-4 text-ink-muted">
 							<span className="truncate">{workspace.branchName}</span>
 							{hasDiffStats && (
-								<span className="flex shrink-0 items-center gap-1 tabular-nums">
-									<span className="text-success">+{workspace.diffStats.additions}</span>
-									<span className="text-destructive">-{workspace.diffStats.deletions}</span>
+								<span className="flex shrink-0 items-center gap-1 font-sans font-medium tabular-nums">
+									{condition.diffStats.additions > 0 && (
+										<span className="text-[#3ee87f]">
+											+{formatDiffStat(condition.diffStats.additions)}
+										</span>
+									)}
+									{condition.diffStats.deletions > 0 && (
+										<span className="text-[#ff6b7a]">
+											-{formatDiffStat(condition.diffStats.deletions)}
+										</span>
+									)}
 								</span>
 							)}
 						</div>
-						<WorkspaceIndicatorIcon indicator={workspace.indicator} className="size-3.5 shrink-0" />
+						<WorkspaceIndicatorIcon indicator={workspace.indicator} className="size-3 shrink-0" />
 					</div>
 
-					<div className="min-w-0">
-						<p
-							className="truncate text-[12px] font-medium leading-4 text-ink"
-							title={workspace.displayName}
-						>
-							{workspace.displayName}
-						</p>
-						<p className="mt-0.5 truncate text-[11px] leading-4 text-ink-subtle" title={subtitle}>
-							{subtitle}
-						</p>
-					</div>
-
-					<div className="flex min-w-0 items-center justify-between gap-1.5">
-						<div className="flex min-w-0 items-center gap-1.5">
-							<WorkspaceActionPill workspace={workspace} />
-							{workspace.prNumber && (
-								<span className="flex min-w-0 items-center gap-1 font-mono text-[11px] leading-4 text-ink-subtle">
-									<GitPullRequest className="size-3" />#{workspace.prNumber}
-								</span>
+					{(titleText || bodyText) && (
+						<div className="min-w-0 space-y-0.5">
+							{titleText && (
+								<p
+									className="truncate text-[12.5px] font-semibold leading-5 text-ink"
+									title={titleText}
+								>
+									{titleText}
+								</p>
 							)}
+							{bodyText && (
+								<p
+									className="line-clamp-2 text-[11.5px] leading-4 text-ink-subtle"
+									title={bodyText}
+								>
+									{bodyText}
+								</p>
+							)}
+						</div>
+					)}
+
+					<div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5">
+						<div className="flex min-w-0 items-center gap-1.5">
+							<WorkspaceActionButton
+								action={condition.primaryAction}
+								disabled={actionDisabled}
+								manualCreatePrUrl={manualCreateUrl}
+								onPrimaryAction={async (action) => {
+									await runSidebarWorkspaceAction({
+										action,
+										workspace,
+										createPr,
+										commitAndPush,
+										fixCi,
+										mergePr,
+										onArchive,
+									});
+								}}
+							/>
+							{isPrStage && workspace.prNumber ? (
+								workspace.prUrl ? (
+									<a
+										href={workspace.prUrl}
+										target="_blank"
+										rel="noreferrer"
+										className="flex min-w-0 cursor-pointer items-center font-mono text-[11px] leading-4 text-ink-subtle tabular-nums transition-colors hover:text-ink"
+									>
+										<GitPullRequest className="mr-1 size-3" />
+										<span>#{workspace.prNumber}</span>
+										<span className="ml-1 text-[10px]">↗</span>
+									</a>
+								) : (
+									<span className="flex min-w-0 items-center font-mono text-[11px] leading-4 text-ink-subtle tabular-nums">
+										<GitPullRequest className="mr-1 size-3" />
+										<span>#{workspace.prNumber}</span>
+									</span>
+								)
+							) : null}
 						</div>
 						{relativeTime && (
-							<span className="shrink-0 text-[11px] leading-4 text-ink-subtle tabular-nums">
+							<span className="justify-self-end text-[11px] leading-4 text-ink-subtle tabular-nums">
 								{relativeTime}
 							</span>
 						)}
@@ -477,14 +570,16 @@ function WorkspaceRow({
 	onArchive?: () => void | Promise<void>;
 	onRename?: () => void;
 }) {
-	const hasDiffStats = workspace.diffStats.additions > 0 || workspace.diffStats.deletions > 0;
+	const hasDiffStats =
+		workspace.displayDiffStats.additions > 0 || workspace.displayDiffStats.deletions > 0;
 	const titleClassName = workspace.hasUnreadAgentResult ? 'font-semibold text-ink' : 'font-normal';
-	const hasHoverArchive = isActive && Boolean(onArchive);
+	const hasHoverArchive = Boolean(onArchive);
+	const title = workspaceRowTitle(workspace);
 
 	return (
 		<ContextMenu.Root>
 			<div className="group relative">
-				<WorkspaceHoverMeta workspace={workspace}>
+				<WorkspaceHoverMeta workspace={workspace} onArchive={onArchive}>
 					<ContextMenu.Trigger asChild>
 						<button
 							type="button"
@@ -507,7 +602,7 @@ function WorkspaceRow({
 										titleClassName,
 									)}
 								>
-									{workspace.displayName}
+									{title}
 								</span>
 							</span>
 
@@ -517,13 +612,7 @@ function WorkspaceRow({
 									hasHoverArchive && 'group-hover:opacity-0',
 								)}
 							>
-								{hasDiffStats ? (
-									<WorkspaceDiffStats workspace={workspace} />
-								) : workspace.prNumber ? (
-									<span className="font-mono text-[11px] leading-4 text-ink-subtle tabular-nums">
-										#{workspace.prNumber}
-									</span>
-								) : null}
+								{hasDiffStats ? <WorkspaceDiffStats workspace={workspace} /> : null}
 							</span>
 						</button>
 					</ContextMenu.Trigger>
@@ -649,7 +738,9 @@ function DirectoryGroup({
 								if (isMobile) setOpenMobile(false);
 							}}
 							onPinToggle={() => onWorkspacePinToggle?.(workspace.workspaceId)}
-							onArchive={() => onWorkspaceArchive?.(workspace.workspaceId)}
+							onArchive={
+								onWorkspaceArchive ? () => onWorkspaceArchive(workspace.workspaceId) : undefined
+							}
 							onRename={() => onWorkspaceRename?.(workspace)}
 						/>
 					))}
@@ -694,7 +785,9 @@ function PinnedWorkspaceSection({
 							if (isMobile) setOpenMobile(false);
 						}}
 						onPinToggle={() => onWorkspacePinToggle?.(workspace.workspaceId)}
-						onArchive={() => onWorkspaceArchive?.(workspace.workspaceId)}
+						onArchive={
+							onWorkspaceArchive ? () => onWorkspaceArchive(workspace.workspaceId) : undefined
+						}
 						onRename={() => onWorkspaceRename?.(workspace)}
 					/>
 				))}

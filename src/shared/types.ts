@@ -266,6 +266,7 @@ export interface SessionSummary {
 	planMode: boolean;
 	sessionToken: string | null;
 	lastMessageAt?: number;
+	lastPromptPreview?: string;
 	lastTurnOutcome: 'success' | 'failed' | 'cancelled' | null;
 }
 
@@ -295,11 +296,21 @@ export interface SidebarWorkspaceRow {
 	hasActiveSession: boolean;
 	localPath: string;
 	branchName: string;
+	githubOwner: string;
+	githubRepo: string;
+	defaultBranchName: 'main';
+	hasPullRequest: boolean;
 	prNumber?: number;
+	prTitle?: string;
 	prUrl?: string;
 	prCreatedAt?: number;
-	diffStats: { additions: number; deletions: number };
+	hasDirtyFiles: boolean;
+	hasUnpushedCommits: boolean;
+	displayDiffStats: { additions: number; deletions: number };
 	lastActivityAt?: number;
+	lastSessionId?: string;
+	lastSessionTitle?: string;
+	lastPromptPreview?: string;
 }
 
 export interface SidebarDirectoryGroup {
@@ -715,6 +726,8 @@ export interface WorkspaceGitHubSnapshot {
 	baseRefName?: string;
 	ciStatus?: 'unknown' | 'pending' | 'passing' | 'failing';
 	unresolvedCommentCount?: number;
+	additions?: number;
+	deletions?: number;
 	comments: PullRequestCommentSnapshot[];
 	checks: PullRequestCheckSnapshot[];
 	createdAt?: number;

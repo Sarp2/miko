@@ -442,6 +442,31 @@ describe('EventStore.appendMessage', () => {
 		const reloaded = new EventStore(dataDir);
 		await reloaded.initialize();
 		expect(reloaded.getMessages(session.id)).toEqual([userEntry, assistantEntry]);
+		expect(reloaded.getSession(session.id)).toMatchObject({
+			lastMessageAt: 100,
+			lastPromptPreview: 'hello',
+		});
+	});
+
+	test('stores a collapsed bounded preview of the latest user prompt', async () => {
+		const dataDir = await createTempDataDir();
+		const store = new EventStore(dataDir);
+		await store.initialize();
+		const { workspace } = await createReadyWorkspace(store);
+		const session = await store.createSession(workspace.id);
+
+		await store.appendMessage(
+			session.id,
+			entry('user_prompt', 100, {
+				content: `  ${'write sidebar hover card '.repeat(12)}  `,
+			}),
+		);
+
+		const preview = store.getSession(session.id)?.lastPromptPreview;
+		expect(preview).toBeDefined();
+		expect(preview?.endsWith('…')).toBe(true);
+		expect(preview?.length).toBeLessThanOrEqual(140);
+		expect(preview).not.toContain('\n');
 	});
 
 	test('protects stored transcript entries from caller mutations', async () => {
