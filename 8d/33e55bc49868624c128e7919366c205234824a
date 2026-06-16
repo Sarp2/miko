@@ -1,0 +1,174 @@
+src/client/lib/prompt-parts.ts
+  s_82e93de1bb8ac8::t_1b89a912fb70dd 1-2,58-79,81-90
+  s_9287dbcf5b1358::t_ab589cab8cbcda 3-57,80,96-149
+  s_82e93de1bb8ac8::t_2ddbd87d7479f0 94-95
+  s_82e93de1bb8ac8::t_2af419177de426 91-92
+  s_82e93de1bb8ac8::t_0a1badd08cb675 93,150
+src/client/lib/middle-tabs.ts
+  s_82e93de1bb8ac8::t_2a1bb6a1969bb8 32,34
+src/server/agent.ts
+  s_82e93de1bb8ac8::t_996802b4e895d6 20
+  s_82e93de1bb8ac8::t_b5ff7c9c1e125f 837,886-891,1109
+src/client/stores/workspace-file-store.ts
+  s_82e93de1bb8ac8::t_100fd84c955740 2-6,32,37-38,236
+  s_82e93de1bb8ac8::t_98f07656786618 8,226-228,232-234
+  s_9287dbcf5b1358::t_702d4e2b41895a 75-76,80-83
+  s_82e93de1bb8ac8::t_e2afa14de09112 39-44,135-136
+  s_9287dbcf5b1358::t_c815aa67c6bac0 7
+  s_9287dbcf5b1358::t_93a460798a15db 31
+  s_9287dbcf5b1358::t_a23ad523698087 238-301,305,307-308,314-352
+  s_82e93de1bb8ac8::t_b180da549daf15 35-36,122,124-125
+  s_9287dbcf5b1358::t_c64e3d550c4efe 108-121,123,126,128-134,140-144,148-153,155-157,162-164,166,168-172,174-199,202-203,209-214,216-225,229-231,235,237
+  s_9287dbcf5b1358::t_081511e81b1b14 353-354
+src/client/hooks/use-workspace-page-openers.ts
+  s_9287dbcf5b1358::t_7408c5646803c7 8
+  s_9287dbcf5b1358::t_a0ff1ed8f89929 1-7,9-73
+src/client/stores/ui-store.ts
+  s_9287dbcf5b1358::t_37a7d2f106491c 3
+  s_82e93de1bb8ac8::t_2a1bb6a1969bb8 23-28,122-126
+  s_82e93de1bb8ac8::t_b180da549daf15 17-18
+  s_9287dbcf5b1358::t_fd73b1dbbf6dcb 144
+src/client/hooks/use-chat-composer.ts
+  s_82e93de1bb8ac8::t_f9276c24df43f1 191,250
+  s_9287dbcf5b1358::t_3f87f20de536a5 50
+  s_82e93de1bb8ac8::t_41f15bfb2e6e3d 8,118-143
+  s_82e93de1bb8ac8::t_9cb66ab48f1ff8 27,105,113,147-151,187-190,192-197,202,204,215,230,249
+src/client/routes/workspace-route-state.ts
+  s_9287dbcf5b1358::t_171e18f77f0232 2
+  s_82e93de1bb8ac8::t_2a1bb6a1969bb8 69-70,74,76
+  s_82e93de1bb8ac8::t_b180da549daf15 19
+  s_9287dbcf5b1358::t_34a57618eda305 51
+src/client/lib/hydrate-transcript-messages.ts
+  s_82e93de1bb8ac8::t_aafb98488ade00 59
+src/client/lib/prompt-parts.test.ts
+  s_9287dbcf5b1358::t_653791c020f69a 62-64
+  s_9287dbcf5b1358::t_876ce54a03ca4f 1-61,65-102
+src/client/components/messages/user-prompt.tsx
+  s_82e93de1bb8ac8::t_85bfad13f77adc 27,57,63
+  s_82e93de1bb8ac8::t_41f15bfb2e6e3d 54-56,60-62,66,75
+  s_82e93de1bb8ac8::t_bcfee99ad6111c 2,4,23-24,72-73,93-94,96-98,100-107,110-111,122,125-127
+  s_82e93de1bb8ac8::t_62bfa60b705e11 79-92,99
+  s_82e93de1bb8ac8::t_2ddbd87d7479f0 95
+  s_9287dbcf5b1358::t_5330d4c8298281 74,76-78
+  s_82e93de1bb8ac8::t_2effd6cebd1436 29,59,65,67-71,119,137
+  s_9287dbcf5b1358::t_655d874f311328 3
+  s_82e93de1bb8ac8::t_66b69bad4d0a57 28,58,64,113-118,120,131-136,138-139
+src/client/lib/transcript-diff.ts
+  s_82e93de1bb8ac8::t_569a54b64f45a6 1-41
+src/client/components/chat-page.tsx
+  s_9287dbcf5b1358::t_5d2b4162ae8451 4
+  s_82e93de1bb8ac8::t_a258c73f2cfa05 29,74,137
+  s_82e93de1bb8ac8::t_fe549cfd099975 158
+  s_82e93de1bb8ac8::t_6271d6916ea231 28,73,136,203
+  s_82e93de1bb8ac8::t_edbff69872a773 2,30,75,138,205
+  s_9287dbcf5b1358::t_a48989a048be42 204
+  s_9287dbcf5b1358::t_409eb1ec42268d 156-157
+src/client/components/transcript-message-view.tsx
+  s_82e93de1bb8ac8::t_1fb1ff59e9b3f4 1,26,34,46
+  s_82e93de1bb8ac8::t_fe549cfd099975 24,32,44
+  s_82e93de1bb8ac8::t_101ae4057b596a 25,33,45
+  s_82e93de1bb8ac8::t_aafb98488ade00 40-43,47
+src/client/components/workspace-diff-page.tsx
+  s_82e93de1bb8ac8::t_87d43379e1ca25 2,42,44-45,99,101-102,106,108,111,113,213-231,247,249,329,331-337,339-352,354-358
+  s_82e93de1bb8ac8::t_bda3147fa52095 15,110,112,149,156,330
+  s_82e93de1bb8ac8::t_c1935627ea9243 14,150-155,157-160,338,353
+  s_82e93de1bb8ac8::t_1e0acc2600bbb1 148
+src/client/components/chat-composer/chat-composer.tsx
+  s_82e93de1bb8ac8::t_c19e945c0709d1 109
+  s_82e93de1bb8ac8::t_2ddbd87d7479f0 117
+  s_9287dbcf5b1358::t_c9d21d53f172be 4,7-8
+  s_82e93de1bb8ac8::t_86855b89263f4e 57
+  s_82e93de1bb8ac8::t_538f7ad7bab971 72,105,107,111,115-116,118,143
+  s_9287dbcf5b1358::t_a23ad523698087 73-75
+  s_82e93de1bb8ac8::t_54594f7cf259b5 2,6,32-35,37,88-89,93,95,106,112,114,122,124,128-129,131
+  s_82e93de1bb8ac8::t_3d1b74d5a98f8e 59-60,70-71,78-79,82,113
+  s_82e93de1bb8ac8::t_22a54e10bf35dc 104
+  s_82e93de1bb8ac8::t_89d772213346ba 90-91
+  s_9287dbcf5b1358::t_2e85f43199baa7 39-40,42-47,49-56,62-69,76-77,80-81
+  s_82e93de1bb8ac8::t_7a64e24ca5af90 48
+  s_82e93de1bb8ac8::t_fe549cfd099975 58,61
+  s_82e93de1bb8ac8::t_41f15bfb2e6e3d 108,110,140-142
+src/client/components/changed-file-chip.tsx
+  s_82e93de1bb8ac8::t_2a1bb6a1969bb8 11-12,17,23,29-33,36-43
+  s_82e93de1bb8ac8::t_b25b9428a8b2d5 50
+CLAUDE.md
+  s_82e93de1bb8ac8::t_4d215a9295db84 70-72
+src/client/lib/workspace-file-previews.ts
+  s_82e93de1bb8ac8::t_569a54b64f45a6 1-138
+src/client/components/workspace-file-page.tsx
+  s_82e93de1bb8ac8::t_ae29560eb407b0 146-147,149,163-166,168,187,189,193,202,216,224,234
+  s_82e93de1bb8ac8::t_3a10a06afe1d0b 97-105,107-121,126
+  s_82e93de1bb8ac8::t_70a3021393af5f 148,150,191
+  s_82e93de1bb8ac8::t_4a0ecf58c8d560 179-181
+  s_82e93de1bb8ac8::t_cd60e56fdfb1db 90-96
+  s_82e93de1bb8ac8::t_793781a7b324b6 106
+  s_9287dbcf5b1358::t_938f9212c9587d 151-158,160,167,177
+src/client/components/transcript-turn-footer.tsx
+  s_82e93de1bb8ac8::t_2a1bb6a1969bb8 106
+src/shared/protocol.ts
+  s_82e93de1bb8ac8::t_f9276c24df43f1 11
+  s_82e93de1bb8ac8::t_ce91a8998f3b33 125
+src/client/stores/session-store.ts
+  s_82e93de1bb8ac8::t_f9276c24df43f1 7,26
+src/client/routes/workspace-route.tsx
+  s_82e93de1bb8ac8::t_cd60e56fdfb1db 214,216-223
+  s_82e93de1bb8ac8::t_bda3147fa52095 194
+  s_82e93de1bb8ac8::t_2a1bb6a1969bb8 197-200,202-203
+  s_9287dbcf5b1358::t_9f72e24451e9e0 208-212,215
+src/client/components/icons/file-name-icon.tsx
+  s_82e93de1bb8ac8::t_e182820c59519f 128-132,153
+src/client/components/prompt-token.tsx
+  s_82e93de1bb8ac8::t_32da932343eb6a 3,5,17-37
+  s_82e93de1bb8ac8::t_dcbb29940c1cec 46-55
+  s_82e93de1bb8ac8::t_1b89a912fb70dd 1-2,4,6,39-43,45,88-90,92-98,100-104
+  s_82e93de1bb8ac8::t_6271d6916ea231 59-60,65-73,75-85,87
+  s_82e93de1bb8ac8::t_a29971659d6c0d 99
+  s_9287dbcf5b1358::t_2b1f7d837f039b 7-16,38,56-58,61-62,64,74,86,91
+  s_82e93de1bb8ac8::t_1815c3a6413513 44
+  s_82e93de1bb8ac8::t_e182820c59519f 63
+src/shared/types.ts
+  s_82e93de1bb8ac8::t_56628e3a78f0e2 16-18,21,517
+  s_82e93de1bb8ac8::t_2ddbd87d7479f0 19
+  s_9287dbcf5b1358::t_0c7253f04ea721 20
+  s_82e93de1bb8ac8::t_aafb98488ade00 1016
+src/client/hooks/use-inline-prompt-editor.ts
+  s_82e93de1bb8ac8::t_2af419177de426 95-180,405,408-410,412,414-416,418
+  s_82e93de1bb8ac8::t_2ddbd87d7479f0 406-407,411,417,439
+  s_82e93de1bb8ac8::t_fa887e787bae2e 68-71,348
+  s_82e93de1bb8ac8::t_3fb6446c2c299e 75,218,221-222,232-233,235-244,246,252,429
+  s_82e93de1bb8ac8::t_32da932343eb6a 6,30-31,36-38
+  s_82e93de1bb8ac8::t_9cff44190b004c 72
+  s_82e93de1bb8ac8::t_3b11f66161b210 55,58-65,73-74,76-91,93-94,181-214,216-217,219-220,223-228,234,263-267,279
+  s_82e93de1bb8ac8::t_4a513bd5278b79 1-5,15-16,27-29,42-54,56-57,66-67,229-231,245,247-251,253-262,268-278,280-299,306-319,324-327,335-337,352-354,356-367,370-376,378-381,383-385,390-391,396-400,403,419-428,430-438,440-447
+  s_82e93de1bb8ac8::t_3d1b74d5a98f8e 32-35,39-41,320-321
+  s_82e93de1bb8ac8::t_3bdaaf46496386 301,355,368-369,377,382,386-389,392-395
+  s_82e93de1bb8ac8::t_54594f7cf259b5 302-305,322-323
+  s_9287dbcf5b1358::t_513439d3b8d661 7-14,17-26,92,413
+  s_82e93de1bb8ac8::t_36c387aa89dd69 342
+  s_82e93de1bb8ac8::t_f625abe88af8aa 215
+  s_82e93de1bb8ac8::t_70bacac51a1eb9 300,328-334,338-341,343-347,349-351,401-402,404
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "8d33e55bc49868624c128e7919366c205234824a",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    },
+    "s_9287dbcf5b1358": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "aa47929d-8bcf-4a1c-9454-31fc9d1e8492",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
