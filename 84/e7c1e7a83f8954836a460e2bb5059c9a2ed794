@@ -1,0 +1,59 @@
+src/client/components/messages/read-line.test.ts
+  s_82e93de1bb8ac8::t_cf339cfcc5abf3 1-31
+src/client/components/chat-composer/chat-composer-utils.ts
+  s_82e93de1bb8ac8::t_cf339cfcc5abf3 16
+src/client/components/messages/bash-line.tsx
+  s_82e93de1bb8ac8::t_cf339cfcc5abf3 1-38
+src/client/components/left-sidebar-view.tsx
+  s_82e93de1bb8ac8::t_cf339cfcc5abf3 38
+src/client/components/chat-page.tsx
+  s_82e93de1bb8ac8::t_cf339cfcc5abf3 8-9
+src/client/components/icons/file-icon-map.ts
+  s_82e93de1bb8ac8::t_cf339cfcc5abf3 1
+src/client/components/session-history-menu.tsx
+  s_82e93de1bb8ac8::t_cf339cfcc5abf3 1-90
+src/client/components/messages/tool-line.test.ts
+  s_82e93de1bb8ac8::t_cf339cfcc5abf3 1-39
+src/client/components/messages/changed-file-line.tsx
+  s_82e93de1bb8ac8::t_cf339cfcc5abf3 1-121
+src/client/lib/relative-path.ts
+  s_82e93de1bb8ac8::t_cf339cfcc5abf3 1-5
+src/client/components/messages/read-line.tsx
+  s_82e93de1bb8ac8::t_cf339cfcc5abf3 1-94
+src/client/components/transcript-turn.tsx
+  s_82e93de1bb8ac8::t_cf339cfcc5abf3 6,11-17,21,30,38,58,76,80
+src/client/lib/relative-path.test.ts
+  s_82e93de1bb8ac8::t_cf339cfcc5abf3 2-13
+src/client/components/messages/index.ts
+  s_82e93de1bb8ac8::t_cf339cfcc5abf3 3-5
+src/client/lib/turn-changed-files.ts
+  s_82e93de1bb8ac8::t_cf339cfcc5abf3 2
+src/client/components/middle-tabs.tsx
+  s_82e93de1bb8ac8::t_cf339cfcc5abf3 9,144-146
+src/client/components/messages/tool-line.tsx
+  s_82e93de1bb8ac8::t_cf339cfcc5abf3 12,14-19,44-48,53-56,58,60,62,64,93,102-120,126-127
+src/client/components/session-history-menu.test.ts
+  s_82e93de1bb8ac8::t_cf339cfcc5abf3 1-28
+src/client/stores/workspace-store.ts
+  s_82e93de1bb8ac8::t_cf339cfcc5abf3 9
+src/client/hooks/use-workspace-page-openers.ts
+  s_82e93de1bb8ac8::t_6af61ae59330c5 7
+src/client/lib/relative-time.ts
+  s_82e93de1bb8ac8::t_cf339cfcc5abf3 1-13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "84e7c1e7a83f8954836a460e2bb5059c9a2ed794",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
