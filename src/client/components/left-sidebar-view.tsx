@@ -750,7 +750,9 @@ function DirectoryGroup({
 								if (isMobile) setOpenMobile(false);
 							}}
 							onPinToggle={() => onWorkspacePinToggle?.(workspace.workspaceId)}
-							onArchive={() => onWorkspaceArchive?.(workspace.workspaceId)}
+							onArchive={
+								onWorkspaceArchive ? () => onWorkspaceArchive(workspace.workspaceId) : undefined
+							}
 							onRename={() => onWorkspaceRename?.(workspace)}
 						/>
 					))}
@@ -795,7 +797,9 @@ function PinnedWorkspaceSection({
 							if (isMobile) setOpenMobile(false);
 						}}
 						onPinToggle={() => onWorkspacePinToggle?.(workspace.workspaceId)}
-						onArchive={() => onWorkspaceArchive?.(workspace.workspaceId)}
+						onArchive={
+							onWorkspaceArchive ? () => onWorkspaceArchive(workspace.workspaceId) : undefined
+						}
 						onRename={() => onWorkspaceRename?.(workspace)}
 					/>
 				))}
