@@ -225,7 +225,11 @@ function indicatorTextClass(indicator: WorkspaceSidebarIndicator) {
 }
 
 function manualCreatePrUrl(workspace: SidebarWorkspaceRow) {
-	return `https://github.com/${workspace.githubOwner}/${workspace.githubRepo}/compare/${workspace.defaultBranchName}...${encodeURIComponent(workspace.branchName)}?body=&expand=1`;
+	const owner = encodeURIComponent(workspace.githubOwner);
+	const repo = encodeURIComponent(workspace.githubRepo);
+	const base = encodeURIComponent(workspace.defaultBranchName);
+	const head = encodeURIComponent(workspace.branchName);
+	return `https://github.com/${owner}/${repo}/compare/${base}...${head}?body=&expand=1`;
 }
 
 function manualCreatePrUrlForWorkspace(workspace: SidebarWorkspaceRow) {
