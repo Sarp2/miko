@@ -38,7 +38,21 @@ function getWorkspaceLatestSession(state: StoreState, workspace: WorkspaceRecord
 		.toSorted((a, b) => getSessionActivityTimestamp(b) - getSessionActivityTimestamp(a))[0];
 }
 
-function getWorkspaceDiffStats(git: WorkspaceGitSnapshot | null | undefined) {
+function hasPrDiffStats(github: WorkspaceGitHubSnapshot | null | undefined) {
+	return typeof github?.additions === 'number' || typeof github?.deletions === 'number';
+}
+
+function getWorkspaceDiffStats(
+	git: WorkspaceGitSnapshot | null | undefined,
+	github: WorkspaceGitHubSnapshot | null | undefined,
+) {
+	if (github?.status === 'open' && hasPrDiffStats(github)) {
+		return {
+			additions: github.additions ?? 0,
+			deletions: github.deletions ?? 0,
+		};
+	}
+
 	return (git?.files ?? []).reduce(
 		(stats, file) => ({
 			additions: stats.additions + file.additions,
@@ -52,9 +66,23 @@ function getWorkspaceDisplayName(
 	workspace: WorkspaceRecord,
 	github: WorkspaceGitHubSnapshot | null | undefined,
 ) {
-	return github?.status !== 'none' && github?.title
-		? github.title
-		: (workspace.pullRequest?.title ?? workspace.branchName);
+	return getWorkspacePrTitle(workspace, github) ?? workspace.branchName;
+}
+
+function getWorkspacePrTitle(
+	workspace: WorkspaceRecord,
+	github: WorkspaceGitHubSnapshot | null | undefined,
+) {
+	return github?.status !== 'none' && github?.title ? github.title : workspace.pullRequest?.title;
+}
+
+function workspaceHasPullRequest(workspace: WorkspaceRecord) {
+	return Boolean(
+		workspace.pullRequest ||
+			workspace.reviewState === 'in_review' ||
+			workspace.reviewState === 'done' ||
+			workspace.reviewState === 'closed',
+	);
 }
 
 function getWorkspaceSidebarIndicator(args: {
@@ -68,11 +96,21 @@ function getWorkspaceSidebarIndicator(args: {
 	if (workspace.setupState === 'creating') return 'workspace_creating';
 	if (workspace.setupState === 'failed') return 'workspace_failed';
 	if (hasActiveSession) return 'agent_active';
-	if (workspace.reviewState === 'done') return 'merged';
-	if (workspace.reviewState === 'closed') return 'closed';
-	if (github?.ciStatus === 'failing') return 'ci_failed';
-	if (git?.files.length || (git?.aheadCount ?? 0) > 0) return 'commit_and_push';
-	if (workspace.reviewState === 'in_review') return 'pr_opened';
+	if (workspace.reviewState === 'done' || workspace.pullRequest?.status === 'merged')
+		return 'merged';
+	if (workspace.reviewState === 'closed' || workspace.pullRequest?.status === 'closed')
+		return 'closed';
+	if (github?.ciStatus === 'failing' || workspace.pullRequest?.ciStatus === 'failing') {
+		return 'ci_failed';
+	}
+	const hasOpenPr =
+		workspace.reviewState === 'in_review' || workspace.pullRequest?.status === 'open';
+	if (hasOpenPr && git?.files.length) {
+		return 'commit_and_push';
+	}
+	if (hasOpenPr) {
+		return 'pr_opened';
+	}
 	if (git?.hasPushedCommits) return 'create_pr';
 	return 'none';
 }
@@ -133,10 +171,13 @@ export function deriveSidebarSnapshot(args: {
 					githubOwner: directory.githubOwner,
 					githubRepo: directory.githubRepo,
 					defaultBranchName: directory.defaultBranchName,
+					hasPullRequest: workspaceHasPullRequest(workspace),
 					prNumber: workspace.pullRequest?.number,
+					prTitle: getWorkspacePrTitle(workspace, github),
 					prUrl: workspace.pullRequest?.url,
 					prCreatedAt: workspace.pullRequest?.createdAt,
-					diffStats: getWorkspaceDiffStats(git),
+					hasDirtyFiles: (git?.files.length ?? 0) > 0,
+					displayDiffStats: getWorkspaceDiffStats(git, github),
 					lastActivityAt: getWorkspaceLastActivityAt(args.state, workspace),
 					lastSessionId: latestSession?.id,
 					lastSessionTitle:

@@ -62,6 +62,8 @@ interface GitHubPullRequestView {
 	headRefName?: string;
 	baseRefName?: string;
 	createdAt?: string;
+	additions?: number;
+	deletions?: number;
 	comments?: GitHubPullRequestComment[];
 	reviews?: Array<{
 		id?: string;
@@ -273,7 +275,7 @@ export class PrManager {
 			'--repo',
 			`${owner}/${repo}`,
 			'--json',
-			'number,title,body,url,state,mergeStateStatus,isDraft,headRefName,baseRefName,createdAt,comments,reviews,statusCheckRollup',
+			'number,title,body,url,state,mergeStateStatus,isDraft,headRefName,baseRefName,createdAt,additions,deletions,comments,reviews,statusCheckRollup',
 		]);
 
 		if (result.exitCode !== 0) {
@@ -331,6 +333,8 @@ export class PrManager {
 			baseRefName: source.baseRefName,
 			ciStatus: deriveCiStatus(checks),
 			unresolvedCommentCount: undefined,
+			additions: detailed?.additions,
+			deletions: detailed?.deletions,
 			comments: detailed ? mapComments(detailed) : [],
 			checks,
 			createdAt,

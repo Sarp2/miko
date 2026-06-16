@@ -36,7 +36,13 @@ import { MAX_WIDTH, MIN_WIDTH, useSidebarResize } from '../hooks/use-sidebar-res
 import { Icons } from '../lib/icons';
 import { cn } from '../lib/utils';
 import { validateBranchName } from '../lib/validate-branch-name';
+import type { WorkspacePrimaryAction } from '../lib/workspace-condition';
 import { deriveSidebarWorkspaceCondition } from '../lib/workspace-condition';
+import {
+	WORKSPACE_DIFF_ADDITION_CLASS,
+	WORKSPACE_DIFF_DELETION_CLASS,
+	WORKSPACE_MERGED_CLASS,
+} from '../lib/workspace-visuals';
 import type { SidebarSortField } from '../stores/ui-store';
 import { useWorkspaceStore } from '../stores/workspace-store';
 import { Button } from './ui/button';
@@ -197,7 +203,7 @@ function indicatorLabel(indicator: WorkspaceSidebarIndicator) {
 	if (indicator === 'workspace_creating') return 'creating';
 	if (indicator === 'workspace_failed') return 'failed';
 	if (indicator === 'agent_active') return 'streaming';
-	if (indicator === 'commit_and_push') return 'commit';
+	if (indicator === 'commit_and_push') return 'commit and push';
 	if (indicator === 'create_pr') return 'create pr';
 	if (indicator === 'pr_opened') return 'open pr';
 	if (indicator === 'ci_failed') return 'ci failed';
@@ -208,11 +214,13 @@ function indicatorLabel(indicator: WorkspaceSidebarIndicator) {
 
 function indicatorTextClass(indicator: WorkspaceSidebarIndicator) {
 	if (indicator === 'agent_active' || indicator === 'workspace_creating') return 'text-primary';
-	if (indicator === 'pr_opened' || indicator === 'create_pr') return 'text-success/75';
+	if (indicator === 'pr_opened' || indicator === 'create_pr' || indicator === 'commit_and_push') {
+		return 'text-success/75';
+	}
 	if (indicator === 'ci_failed' || indicator === 'workspace_failed' || indicator === 'closed') {
 		return 'text-destructive';
 	}
-	if (indicator === 'merged') return 'text-primary-hover/85';
+	if (indicator === 'merged') return WORKSPACE_MERGED_CLASS;
 	return 'text-ink-tertiary';
 }
 
@@ -241,7 +249,7 @@ function WorkspaceIndicatorIcon({
 		return Icons.mergedIcon({ className: iconClassName });
 	}
 
-	if (indicator === 'pr_opened' || indicator === 'create_pr') {
+	if (indicator === 'pr_opened' || indicator === 'create_pr' || indicator === 'commit_and_push') {
 		return Icons.prIcon({ className: iconClassName });
 	}
 
@@ -268,9 +276,15 @@ function formatRelativeTime(timestamp: number | undefined) {
 }
 
 function workspaceTimeAt(workspace: SidebarWorkspaceRow) {
-	return workspace.reviewState === 'in_progress'
-		? workspace.lastActivityAt
-		: (workspace.prCreatedAt ?? workspace.lastActivityAt);
+	return workspace.hasPullRequest
+		? (workspace.prCreatedAt ?? workspace.lastActivityAt)
+		: workspace.lastActivityAt;
+}
+
+function workspaceRowTitle(workspace: SidebarWorkspaceRow) {
+	return workspace.hasPullRequest
+		? (workspace.prTitle ?? workspace.displayName)
+		: workspace.displayName;
 }
 
 function formatDiffStat(value: number) {
@@ -280,14 +294,18 @@ function formatDiffStat(value: number) {
 }
 
 function WorkspaceDiffStats({ workspace }: { workspace: SidebarWorkspaceRow }) {
-	const additions = workspace.diffStats.additions;
-	const deletions = workspace.diffStats.deletions;
+	const additions = workspace.displayDiffStats.additions;
+	const deletions = workspace.displayDiffStats.deletions;
 	if (additions <= 0 && deletions <= 0) return null;
 
 	return (
 		<span className="flex shrink-0 items-center justify-end gap-1 text-[11px] font-medium leading-4 tabular-nums">
-			{additions > 0 && <span className="text-[#3ee87f]">+{formatDiffStat(additions)}</span>}
-			{deletions > 0 && <span className="text-[#ff6b7a]">-{formatDiffStat(deletions)}</span>}
+			{additions > 0 && (
+				<span className={WORKSPACE_DIFF_ADDITION_CLASS}>+{formatDiffStat(additions)}</span>
+			)}
+			{deletions > 0 && (
+				<span className={WORKSPACE_DIFF_DELETION_CLASS}>-{formatDiffStat(deletions)}</span>
+			)}
 		</span>
 	);
 }
@@ -356,14 +374,66 @@ function WorkspaceRowContextMenu({
 	);
 }
 
+async function runSidebarWorkspaceAction(args: {
+	action: WorkspacePrimaryAction;
+	workspace: SidebarWorkspaceRow;
+	createPr: (workspaceId: string, sessionId: string) => Promise<unknown>;
+	commitAndPush: (workspaceId: string, sessionId: string) => Promise<unknown>;
+	fixCi: (workspaceId: string, sessionId: string) => Promise<unknown>;
+	mergePr: (workspaceId: string) => Promise<unknown>;
+	onArchive?: () => void | Promise<void>;
+}) {
+	const { action, workspace, createPr, commitAndPush, fixCi, mergePr, onArchive } = args;
+
+	if (action.kind === 'archive') {
+		await onArchive?.();
+		return;
+	}
+
+	if (action.kind === 'merge') {
+		await mergePr(workspace.workspaceId);
+		return;
+	}
+
+	if (
+		action.kind !== 'create_pr' &&
+		action.kind !== 'fix_ci' &&
+		action.kind !== 'commit_and_push'
+	) {
+		return;
+	}
+
+	if (!workspace.lastSessionId) {
+		console.warn(`Cannot run ${action.kind} without a workspace session id`);
+		return;
+	}
+
+	if (action.kind === 'create_pr') {
+		await createPr(workspace.workspaceId, workspace.lastSessionId);
+		return;
+	}
+
+	if (action.kind === 'commit_and_push') {
+		await commitAndPush(workspace.workspaceId, workspace.lastSessionId);
+		return;
+	}
+
+	await fixCi(workspace.workspaceId, workspace.lastSessionId);
+}
+
 function WorkspaceHoverMeta({
 	workspace,
 	children,
+	onArchive,
 }: {
 	workspace: SidebarWorkspaceRow;
 	children: React.ReactElement;
+	onArchive?: () => void | Promise<void>;
 }) {
 	const createPr = useWorkspaceStore((state) => state.createPr);
+	const commitAndPush = useWorkspaceStore((state) => state.commitAndPush);
+	const fixCi = useWorkspaceStore((state) => state.fixCi);
+	const mergePr = useWorkspaceStore((state) => state.mergePr);
 	const hasDetails =
 		workspace.localPath || workspace.branchName || workspace.prNumber || workspace.lastActivityAt;
 	if (!hasDetails) return children;
@@ -371,12 +441,14 @@ function WorkspaceHoverMeta({
 	const condition = deriveSidebarWorkspaceCondition(workspace);
 	const hasDiffStats = condition.diffStats.additions > 0 || condition.diffStats.deletions > 0;
 	const relativeTime = formatRelativeTime(workspaceTimeAt(workspace));
-	const isPrStage =
-		workspace.reviewState === 'in_review' ||
-		workspace.reviewState === 'done' ||
-		workspace.reviewState === 'closed';
-	const titleText = isPrStage ? workspace.displayName : workspace.lastSessionTitle;
+	const isPrStage = workspace.hasPullRequest;
+	const titleText = isPrStage ? workspaceRowTitle(workspace) : workspace.lastSessionTitle;
 	const bodyText = isPrStage ? null : workspace.lastPromptPreview;
+	const actionNeedsSession =
+		condition.primaryAction?.kind === 'create_pr' ||
+		condition.primaryAction?.kind === 'fix_ci' ||
+		condition.primaryAction?.kind === 'commit_and_push';
+	const actionDisabled = actionNeedsSession && !workspace.lastSessionId;
 
 	return (
 		<HoverCard openDelay={140} closeDelay={80}>
@@ -431,32 +503,47 @@ function WorkspaceHoverMeta({
 					)}
 
 					<div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5">
-						<div className="min-w-0">
+						<div className="flex min-w-0 items-center gap-1.5">
 							<WorkspaceActionButton
 								action={condition.primaryAction}
+								disabled={actionDisabled}
 								manualCreatePrUrl={manualCreatePrUrl(workspace)}
 								onPrimaryAction={async (action) => {
-									if (action.kind !== 'create_pr') return;
-									if (!workspace.lastSessionId) {
-										console.warn('Cannot create PR without a workspace session id');
-										return;
-									}
-									await createPr(workspace.workspaceId, workspace.lastSessionId);
+									await runSidebarWorkspaceAction({
+										action,
+										workspace,
+										createPr,
+										commitAndPush,
+										fixCi,
+										mergePr,
+										onArchive,
+									});
 								}}
 							/>
+							{isPrStage && workspace.prNumber ? (
+								workspace.prUrl ? (
+									<a
+										href={workspace.prUrl}
+										target="_blank"
+										rel="noreferrer"
+										className="flex min-w-0 cursor-pointer items-center font-mono text-[11px] leading-4 text-ink-subtle tabular-nums transition-colors hover:text-ink"
+									>
+										<GitPullRequest className="mr-1 size-3" />
+										<span>#{workspace.prNumber}</span>
+										<span className="ml-1 text-[10px]">↗</span>
+									</a>
+								) : (
+									<span className="flex min-w-0 items-center font-mono text-[11px] leading-4 text-ink-subtle tabular-nums">
+										<GitPullRequest className="mr-1 size-3" />
+										<span>#{workspace.prNumber}</span>
+									</span>
+								)
+							) : null}
 						</div>
-						{isPrStage && workspace.prNumber ? (
-							<span className="flex min-w-0 items-center justify-self-end font-mono text-[11px] leading-4 text-ink-subtle tabular-nums">
-								<GitPullRequest className="mr-1 size-3" />
-								<span>#{workspace.prNumber}</span>
-								{workspace.prUrl && <span className="ml-1 text-[10px]">↗</span>}
+						{relativeTime && (
+							<span className="justify-self-end text-[11px] leading-4 text-ink-subtle tabular-nums">
+								{relativeTime}
 							</span>
-						) : (
-							relativeTime && (
-								<span className="justify-self-end text-[11px] leading-4 text-ink-subtle tabular-nums">
-									{relativeTime}
-								</span>
-							)
 						)}
 					</div>
 				</div>
@@ -482,14 +569,16 @@ function WorkspaceRow({
 	onArchive?: () => void | Promise<void>;
 	onRename?: () => void;
 }) {
-	const hasDiffStats = workspace.diffStats.additions > 0 || workspace.diffStats.deletions > 0;
+	const hasDiffStats =
+		workspace.displayDiffStats.additions > 0 || workspace.displayDiffStats.deletions > 0;
 	const titleClassName = workspace.hasUnreadAgentResult ? 'font-semibold text-ink' : 'font-normal';
 	const hasHoverArchive = Boolean(onArchive);
+	const title = workspaceRowTitle(workspace);
 
 	return (
 		<ContextMenu.Root>
 			<div className="group relative">
-				<WorkspaceHoverMeta workspace={workspace}>
+				<WorkspaceHoverMeta workspace={workspace} onArchive={onArchive}>
 					<ContextMenu.Trigger asChild>
 						<button
 							type="button"
@@ -512,7 +601,7 @@ function WorkspaceRow({
 										titleClassName,
 									)}
 								>
-									{workspace.displayName}
+									{title}
 								</span>
 							</span>
 
@@ -522,13 +611,7 @@ function WorkspaceRow({
 									hasHoverArchive && 'group-hover:opacity-0',
 								)}
 							>
-								{hasDiffStats ? (
-									<WorkspaceDiffStats workspace={workspace} />
-								) : workspace.prNumber ? (
-									<span className="font-mono text-[11px] leading-4 text-ink-subtle tabular-nums">
-										#{workspace.prNumber}
-									</span>
-								) : null}
+								{hasDiffStats ? <WorkspaceDiffStats workspace={workspace} /> : null}
 							</span>
 						</button>
 					</ContextMenu.Trigger>

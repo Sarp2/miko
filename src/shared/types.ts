@@ -299,10 +299,13 @@ export interface SidebarWorkspaceRow {
 	githubOwner: string;
 	githubRepo: string;
 	defaultBranchName: 'main';
+	hasPullRequest: boolean;
 	prNumber?: number;
+	prTitle?: string;
 	prUrl?: string;
 	prCreatedAt?: number;
-	diffStats: { additions: number; deletions: number };
+	hasDirtyFiles: boolean;
+	displayDiffStats: { additions: number; deletions: number };
 	lastActivityAt?: number;
 	lastSessionId?: string;
 	lastSessionTitle?: string;
@@ -722,6 +725,8 @@ export interface WorkspaceGitHubSnapshot {
 	baseRefName?: string;
 	ciStatus?: 'unknown' | 'pending' | 'passing' | 'failing';
 	unresolvedCommentCount?: number;
+	additions?: number;
+	deletions?: number;
 	comments: PullRequestCommentSnapshot[];
 	checks: PullRequestCheckSnapshot[];
 	createdAt?: number;

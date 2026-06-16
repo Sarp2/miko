@@ -74,6 +74,12 @@ function deriveStage(args: {
 		if (args.ciStatus === 'failing') {
 			return { stage: 'ci_failed', primaryAction: action('fix_ci', 'Fix CI') };
 		}
+		if (args.dirtyFileCount > 0) {
+			return {
+				stage: 'dirty',
+				primaryAction: action('commit_and_push', 'Commit and push'),
+			};
+		}
 		return { stage: 'pr_open', primaryAction: action('merge', 'Merge') };
 	}
 
@@ -127,7 +133,6 @@ export function deriveWorkspaceCondition(snapshot: WorkspaceSnapshot): Workspace
 }
 
 export function deriveSidebarWorkspaceCondition(row: SidebarWorkspaceRow): WorkspaceCondition {
-	const hasDirtyFiles = row.diffStats.additions > 0 || row.diffStats.deletions > 0;
 	const derived = deriveStage({
 		setupState:
 			row.indicator === 'workspace_creating'
@@ -137,7 +142,7 @@ export function deriveSidebarWorkspaceCondition(row: SidebarWorkspaceRow): Works
 					: 'ready',
 		reviewState: row.reviewState,
 		hasActiveSession: row.hasActiveSession || row.indicator === 'agent_active',
-		dirtyFileCount: hasDirtyFiles ? 1 : 0,
+		dirtyFileCount: row.hasDirtyFiles ? 1 : 0,
 		hasPushedCommits: row.indicator === 'create_pr',
 		mainAheadCount: 0,
 		ciStatus: row.indicator === 'ci_failed' ? 'failing' : undefined,
@@ -152,9 +157,9 @@ export function deriveSidebarWorkspaceCondition(row: SidebarWorkspaceRow): Works
 					? 'failed'
 					: 'ready',
 		reviewState: row.reviewState,
-		hasDirtyFiles,
+		hasDirtyFiles: row.hasDirtyFiles,
 		dirtyFileCount: null,
-		diffStats: row.diffStats,
+		diffStats: row.displayDiffStats,
 		...derived,
 	};
 }

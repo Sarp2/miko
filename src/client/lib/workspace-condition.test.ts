@@ -1,12 +1,13 @@
 import { describe, expect, test } from 'bun:test';
 import type {
+	SidebarWorkspaceRow,
 	WorkspaceDiffFile,
 	WorkspaceGitHubSnapshot,
 	WorkspaceGitSnapshot,
 	WorkspaceSnapshot,
 	WorkspaceSummary,
 } from '../../shared/types';
-import { deriveWorkspaceCondition } from './workspace-condition';
+import { deriveSidebarWorkspaceCondition, deriveWorkspaceCondition } from './workspace-condition';
 
 function diffFile(
 	path = 'src/app.ts',
@@ -149,6 +150,18 @@ describe('deriveWorkspaceCondition', () => {
 		});
 
 		expect(
+			deriveWorkspaceCondition(
+				makeSnapshot({
+					workspace: { reviewState: 'in_review' },
+					git: { files: [diffFile()] },
+				}),
+			),
+		).toMatchObject({
+			stage: 'dirty',
+			primaryAction: { kind: 'commit_and_push', label: 'Commit and push' },
+		});
+
+		expect(
 			deriveWorkspaceCondition(makeSnapshot({ git: { hasPushedCommits: true } })),
 		).toMatchObject({
 			stage: 'ready_to_create_pr',
@@ -177,6 +190,50 @@ describe('deriveWorkspaceCondition', () => {
 		expect(deriveWorkspaceCondition(makeSnapshot({ git: { mainAheadCount: 2 } }))).toMatchObject({
 			stage: 'behind_main',
 			primaryAction: { kind: 'pull_latest_main', label: 'Pull latest main' },
+		});
+	});
+});
+
+describe('deriveSidebarWorkspaceCondition', () => {
+	function makeRow(overrides: Partial<SidebarWorkspaceRow> = {}): SidebarWorkspaceRow {
+		return {
+			_id: 'ws1',
+			_creationTime: 1,
+			workspaceId: 'ws1',
+			createdAt: 1,
+			updatedAt: 1,
+			displayName: 'PR title',
+			reviewState: 'in_review',
+			visibilityState: 'active',
+			indicator: 'pr_opened',
+			hasUnreadAgentResult: false,
+			hasActiveSession: false,
+			localPath: '/repo/ws1',
+			branchName: 'feature/x',
+			githubOwner: 'o',
+			githubRepo: 'r',
+			defaultBranchName: 'main',
+			prNumber: 12,
+			prTitle: 'PR title',
+			hasDirtyFiles: false,
+			hasPullRequest: true,
+			displayDiffStats: { additions: 52, deletions: 14 },
+			...overrides,
+		};
+	}
+
+	test('does not treat PR diff stats as dirty local files', () => {
+		expect(deriveSidebarWorkspaceCondition(makeRow())).toMatchObject({
+			stage: 'pr_open',
+			primaryAction: { kind: 'merge', label: 'Merge' },
+			hasDirtyFiles: false,
+			diffStats: { additions: 52, deletions: 14 },
+		});
+
+		expect(deriveSidebarWorkspaceCondition(makeRow({ hasDirtyFiles: true }))).toMatchObject({
+			stage: 'dirty',
+			primaryAction: { kind: 'commit_and_push', label: 'Commit and push' },
+			hasDirtyFiles: true,
 		});
 	});
 });

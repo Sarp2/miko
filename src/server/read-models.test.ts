@@ -96,6 +96,8 @@ function openPullRequestSnapshot(): WorkspaceGitHubSnapshot {
 		prNumber: 12,
 		title: 'Add workspace model',
 		ciStatus: 'passing',
+		additions: 52,
+		deletions: 14,
 		createdAt: 20,
 		comments: [],
 		checks: [],
@@ -227,9 +229,85 @@ describe('deriveSidebarSnapshot', () => {
 			displayName: 'Add workspace model',
 			indicator: 'commit_and_push',
 			prNumber: 12,
+			prTitle: 'Add workspace model',
 			prUrl: 'https://github.com/sarp/miko/pull/12',
 			prCreatedAt: 20,
-			diffStats: { additions: 2, deletions: 1 },
+			hasDirtyFiles: true,
+			displayDiffStats: { additions: 52, deletions: 14 },
+		});
+	});
+
+	test('uses stored PR status for sidebar indicators when reviewState is stale', () => {
+		const state = addDirectoryWorkspaceAndSession();
+		const workspace = state.workspacesById.get('workspace-1');
+		expect(workspace).toBeDefined();
+		if (!workspace) throw new Error('workspace missing');
+		workspace.reviewState = 'in_progress';
+		workspace.pullRequest = {
+			number: 1,
+			status: 'open',
+			title: 'Improve README tooling',
+			url: 'https://github.com/sarp/miko/pull/1',
+			lastObservedAt: 10,
+		};
+
+		expect(
+			deriveSidebarSnapshot({ state, activeStatuses: new Map() }).directoryGroups[0]?.workspaces[0],
+		).toMatchObject({
+			displayName: 'Improve README tooling',
+			indicator: 'pr_opened',
+			prNumber: 1,
+			prTitle: 'Improve README tooling',
+		});
+
+		workspace.pullRequest.status = 'merged';
+		expect(
+			deriveSidebarSnapshot({ state, activeStatuses: new Map() }).directoryGroups[0]?.workspaces[0]
+				?.indicator,
+		).toBe('merged');
+	});
+
+	test('does not show PR stage indicators for dirty workspaces without open PRs', () => {
+		const state = addDirectoryWorkspaceAndSession();
+
+		expect(
+			deriveSidebarSnapshot({
+				state,
+				activeStatuses: new Map(),
+				gitSnapshots: new Map([['workspace-1', dirtyGitSnapshot()]]),
+			}).directoryGroups[0]?.workspaces[0],
+		).toMatchObject({
+			indicator: 'none',
+			prNumber: undefined,
+			displayDiffStats: { additions: 2, deletions: 1 },
+		});
+	});
+
+	test('does not show commit and push for open PRs with only ahead commits', () => {
+		const state = addDirectoryWorkspaceAndSession();
+		const workspace = state.workspacesById.get('workspace-1');
+		expect(workspace).toBeDefined();
+		if (!workspace) throw new Error('workspace missing');
+		workspace.reviewState = 'in_review';
+		workspace.pullRequest = {
+			number: 12,
+			status: 'open',
+			lastObservedAt: 10,
+		};
+
+		expect(
+			deriveSidebarSnapshot({
+				state,
+				activeStatuses: new Map(),
+				gitSnapshots: new Map([
+					['workspace-1', { ...dirtyGitSnapshot(), files: [], aheadCount: 2 }],
+				]),
+				githubSnapshots: new Map([['workspace-1', openPullRequestSnapshot()]]),
+			}).directoryGroups[0]?.workspaces[0],
+		).toMatchObject({
+			indicator: 'pr_opened',
+			hasDirtyFiles: false,
+			displayDiffStats: { additions: 52, deletions: 14 },
 		});
 	});
 
