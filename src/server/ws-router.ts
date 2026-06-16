@@ -646,6 +646,9 @@ export function createWsRouter({
 					if (!github || github.status === 'none' || github.status === 'unknown') {
 						throw new Error('Workspace does not have a current pull request snapshot');
 					}
+					if (github.hasMergeConflicts === undefined) {
+						throw new Error('Workspace merge conflict status is unknown');
+					}
 					if (!github.hasMergeConflicts) {
 						throw new Error('Workspace does not have merge conflicts to resolve');
 					}

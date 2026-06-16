@@ -678,6 +678,58 @@ describe('createWsRouter.sendWorkspaceInstruction', () => {
 			},
 		]);
 	});
+
+	test('rejects merge-conflict resolution when mergeability is unknown', async () => {
+		let sendCalled = false;
+		const unknownMergeabilityGithub: WorkspaceGitHubSnapshot = {
+			status: 'open',
+			owner: 'sarp',
+			repo: 'miko',
+			prNumber: 12,
+			comments: [],
+			checks: [],
+		};
+		const { router, workspaceId, sessionId } = await createRouter({
+			prManager: {
+				getWorkspaceGitHubSnapshot: () => unknownMergeabilityGithub,
+				refreshWorkspacePrState: async () => unknownMergeabilityGithub,
+				fetchFailingCheckLogs: async () => [],
+				mergeWorkspacePullRequest: async () => ({ status: 'merged' }),
+			},
+			agent: {
+				getActiveStatuses: () => new Map(),
+				getDrainingSessionIds: () => new Set(),
+				send: async () => {
+					sendCalled = true;
+					return { sessionId };
+				},
+				setBackgroundErrorReporter: () => {},
+			},
+		});
+		const ws = new FakeWebSocket();
+
+		await router.handleMessage(
+			ws as never,
+			JSON.stringify({
+				type: 'command',
+				id: 'conflicts-1',
+				command: {
+					type: 'workspace.resolveMergeConflicts',
+					workspaceId,
+					sessionId,
+				},
+			}),
+		);
+
+		expect(sendCalled).toBe(false);
+		expect(ws.sent).toEqual([
+			{
+				type: 'error',
+				id: 'conflicts-1',
+				message: 'Workspace merge conflict status is unknown',
+			},
+		]);
+	});
 });
 
 describe('createWsRouter.handleCommand', () => {
