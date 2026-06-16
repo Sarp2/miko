@@ -1,0 +1,37 @@
+src/client/components/chat-page.tsx
+  s_82e93de1bb8ac8::t_b5f662e30740e9 157-160
+src/server/diff-store.test.ts
+  s_82e93de1bb8ac8::t_52544b0d9bce13 734
+  s_82e93de1bb8ac8::t_b5f662e30740e9 735-737
+src/client/components/workspace-diff-page.tsx
+  s_82e93de1bb8ac8::t_241466adc00e98 236
+src/client/hooks/use-workspace-page-openers.ts
+  s_82e93de1bb8ac8::t_8a7f4bc2404fe2 18,31-37,39,45-51,53,64,67,80,83
+src/client/lib/prompt-parts.ts
+  s_82e93de1bb8ac8::t_17e5004a58f25d 83-89
+src/server/diff-store.ts
+  s_82e93de1bb8ac8::t_663cac3636ab8a 1158
+src/client/components/chat-composer/chat-composer.tsx
+  s_82e93de1bb8ac8::t_ded2ebb835423d 39-42,145
+src/client/lib/prompt-parts.test.ts
+  s_82e93de1bb8ac8::t_a62b0662fee0e6 8,59-63
+src/client/hooks/use-chat-composer.ts
+  s_82e93de1bb8ac8::t_b50af056129473 110,112
+  s_82e93de1bb8ac8::t_fb59f658b254f2 27-31,191-197,199,208
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "10d2b6201c1c76e177fb428ca9c3bee5f07d8a74",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
