@@ -54,7 +54,7 @@ export interface TerminalPanelState {
 	height: number;
 }
 
-interface PersistedUiState {
+export interface PersistedUiState {
 	leftSidebarCollapsed: boolean;
 	leftSidebarWidth: number;
 	externalOpenApp: ExternalOpenApp;
@@ -127,6 +127,49 @@ export function pageTabId(page: WorkspacePage) {
 
 	const identity = page.sourceId ?? page.path ?? page.title;
 	return `file:${page.source}:${identity}`;
+}
+
+function normalizeMiddleTab(tab: MiddleTabDescriptor) {
+	if (tab.page.type !== 'diff') return tab;
+	const id = pageTabId(tab.page);
+	return tab.id === id ? tab : { ...tab, id };
+}
+
+export function normalizePersistedUiState(state: PersistedUiState): PersistedUiState {
+	const middleTabsByWorkspaceId: Record<string, MiddleTabDescriptor[]> = {};
+	const activeTabIdByWorkspaceId: Record<string, string> = {};
+
+	for (const [workspaceId, tabs] of Object.entries(state.middleTabsByWorkspaceId)) {
+		const legacyIdByNextId = new Map<string, string>();
+		const normalizedTabs = tabs.map((tab) => {
+			const normalizedTab = normalizeMiddleTab(tab);
+			legacyIdByNextId.set(tab.id, normalizedTab.id);
+			return normalizedTab;
+		});
+		const normalizedTabIds = new Set(normalizedTabs.map((tab) => tab.id));
+		const activeTabId = state.activeTabIdByWorkspaceId[workspaceId];
+		const normalizedActiveTabId = activeTabId
+			? (legacyIdByNextId.get(activeTabId) ?? activeTabId)
+			: null;
+
+		middleTabsByWorkspaceId[workspaceId] = normalizedTabs;
+		if (normalizedActiveTabId && normalizedTabIds.has(normalizedActiveTabId)) {
+			activeTabIdByWorkspaceId[workspaceId] = normalizedActiveTabId;
+		} else if (normalizedTabs[0]) {
+			activeTabIdByWorkspaceId[workspaceId] = normalizedTabs[0].id;
+		}
+	}
+
+	for (const [workspaceId, activeTabId] of Object.entries(state.activeTabIdByWorkspaceId)) {
+		if (workspaceId in activeTabIdByWorkspaceId) continue;
+		activeTabIdByWorkspaceId[workspaceId] = activeTabId;
+	}
+
+	return {
+		...state,
+		middleTabsByWorkspaceId,
+		activeTabIdByWorkspaceId,
+	};
 }
 
 function basename(path: string) {
@@ -510,6 +553,16 @@ export const useUiStore = create<UiStoreState>()(
 		{
 			name: UI_STORAGE_KEY,
 			storage: createJSONStorage(getLocalStorage),
+			merge: (persistedState, currentState) => {
+				const state = {
+					...currentState,
+					...(persistedState as Partial<PersistedUiState>),
+				};
+				return {
+					...currentState,
+					...normalizePersistedUiState(state),
+				};
+			},
 			partialize: (state): PersistedUiState => ({
 				leftSidebarCollapsed: state.leftSidebarCollapsed,
 				leftSidebarWidth: state.leftSidebarWidth,

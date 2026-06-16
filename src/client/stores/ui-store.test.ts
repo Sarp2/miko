@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { UI_STORAGE_KEY, useUiStore, type WorkspacePage } from './ui-store';
+import {
+	normalizePersistedUiState,
+	type PersistedUiState,
+	UI_STORAGE_KEY,
+	useUiStore,
+	type WorkspacePage,
+} from './ui-store';
 
 const initialState = useUiStore.getInitialState();
 
@@ -220,10 +226,10 @@ describe('useUiStore.openMiddleTab', () => {
 			'scratchpad:workspace-1',
 			'chat:session-1',
 			'file:workspace_file:src/server/foo.ts',
-			'diff:src/server/foo.ts',
+			'diff:workspace:src/server/foo.ts:src/server/foo.ts',
 		]);
 		expect(useUiStore.getState().activeTabIdByWorkspaceId['workspace-1']).toBe(
-			'diff:src/server/foo.ts',
+			'diff:workspace:src/server/foo.ts:src/server/foo.ts',
 		);
 		expect(tabs.map((tab) => tab.fallbackTitle)).toEqual([
 			'Scratchpad',
@@ -245,7 +251,7 @@ describe('useUiStore.openMiddleTab', () => {
 		const tabs = useUiStore.getState().getMiddleTabs('workspace-1');
 		expect(tabs.map((tab) => [tab.id, tab.fallbackTitle])).toEqual([
 			['scratchpad:workspace-1', 'Scratchpad'],
-			['diff:placeholder', 'Select a changed file'],
+			['diff:workspace:placeholder:', 'Select a changed file'],
 			['file:pr_comment:comment-1', 'Comment by CodeRabbit'],
 		]);
 	});
@@ -385,5 +391,53 @@ describe('useUiStore.removeWorkspaceUi', () => {
 describe('useUiStore.persist', () => {
 	test('uses the miko:v1 storage key', () => {
 		expect(useUiStore.persist.getOptions().name).toBe(UI_STORAGE_KEY);
+	});
+
+	test('normalizes legacy diff tab ids and stale active tab ids', () => {
+		const persisted: PersistedUiState = {
+			leftSidebarCollapsed: false,
+			leftSidebarWidth: 292,
+			externalOpenApp: 'finder',
+			expandedDirectoryIds: [],
+			pinnedWorkspaceIds: [],
+			sidebarDirectorySort: 'updated',
+			sidebarWorkspaceSort: 'updated',
+			rightSidebarTabByWorkspaceId: {},
+			middleTabsByWorkspaceId: {
+				'workspace-1': [
+					{
+						id: 'diff:src/a.ts',
+						page: { type: 'diff', path: 'src/a.ts' },
+						closable: true,
+						updatedAt: 1,
+					},
+				],
+				'workspace-2': [
+					{
+						id: 'chat:session-1',
+						page: { type: 'chat', sessionId: 'session-1' },
+						closable: true,
+						updatedAt: 1,
+					},
+				],
+			},
+			activeTabIdByWorkspaceId: {
+				'workspace-1': 'diff:src/a.ts',
+				'workspace-2': 'missing-tab',
+			},
+			terminalPanelByWorkspaceId: {},
+			terminalTabsByWorkspaceId: {},
+			activeTerminalIdByWorkspaceId: {},
+			diffViewModeByWorkspaceId: {},
+			viewedDiffDigestByWorkspaceId: {},
+		};
+
+		expect(normalizePersistedUiState(persisted).middleTabsByWorkspaceId['workspace-1'][0].id).toBe(
+			'diff:workspace:src/a.ts:src/a.ts',
+		);
+		expect(normalizePersistedUiState(persisted).activeTabIdByWorkspaceId).toEqual({
+			'workspace-1': 'diff:workspace:src/a.ts:src/a.ts',
+			'workspace-2': 'chat:session-1',
+		});
 	});
 });

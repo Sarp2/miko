@@ -5,7 +5,6 @@ import type { PromptPart, SessionSnapshot, WorkspaceSnapshot } from '../../../sh
 import { useChatComposer } from '../../hooks/use-chat-composer';
 import { useInlinePromptEditor } from '../../hooks/use-inline-prompt-editor';
 import { useWorkspacePageOpeners } from '../../hooks/use-workspace-page-openers';
-import { promptPartKey } from '../../lib/prompt-parts';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
@@ -41,11 +40,11 @@ export function ChatComposer({
 		sessionId,
 	);
 
-	const findTokenPart = (tokenKey?: string): Exclude<PromptPart, { type: 'text' }> | null => {
-		if (!tokenKey) return null;
-		const part = composer.parts.find(
-			(candidate) => candidate.type !== 'text' && promptPartKey(candidate) === tokenKey,
-		);
+	const findTokenPart = (tokenIndex?: string): Exclude<PromptPart, { type: 'text' }> | null => {
+		if (!tokenIndex) return null;
+		const index = Number(tokenIndex);
+		if (!Number.isSafeInteger(index) || index < 0) return null;
+		const part = composer.parts[index];
 		return part && part.type !== 'text' ? part : null;
 	};
 
@@ -60,20 +59,25 @@ export function ChatComposer({
 
 	const handleEditorClick = (event: React.MouseEvent<HTMLDivElement>) => {
 		const target = event.target instanceof Element ? event.target : null;
+		const readonly = composer.disabled || composer.isStreaming;
+		if (readonly) return;
 
 		const removeButton = target?.closest<HTMLElement>('[data-remove-token-key]');
 		if (removeButton) {
 			event.preventDefault();
 			event.stopPropagation();
-			const part = findTokenPart(removeButton.dataset.removeTokenKey);
+			const part = findTokenPart(removeButton.dataset.removeTokenIndex);
 			if (!part) return;
 			if (part.type === 'attachment') composer.removeAttachment(part.attachmentId);
-			else composer.setParts(composer.parts.filter((candidate) => candidate !== part));
+			else {
+				const index = Number(removeButton.dataset.removeTokenIndex);
+				composer.setParts(composer.parts.filter((_, candidateIndex) => candidateIndex !== index));
+			}
 			return;
 		}
 
 		const tokenPart = findTokenPart(
-			target?.closest<HTMLElement>('[data-token-key]')?.dataset.tokenKey,
+			target?.closest<HTMLElement>('[data-token-key]')?.dataset.tokenIndex,
 		);
 		if (!tokenPart) {
 			promptEditor.refreshMentionRange();

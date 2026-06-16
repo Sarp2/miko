@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import type { ChatAttachment } from '../../shared/types';
-import { attachmentPreviewResult, localFilePreviewResult } from './workspace-file-previews';
+import {
+	attachmentPreviewResult,
+	isTextLikeAttachment,
+	localFilePreviewResult,
+} from './workspace-file-previews';
 
 const originalFetch = globalThis.fetch;
 
@@ -20,6 +24,14 @@ function attachment(overrides: Partial<ChatAttachment> = {}): ChatAttachment {
 
 afterEach(() => {
 	globalThis.fetch = originalFetch;
+});
+
+describe('isTextLikeAttachment', () => {
+	test('detects common source files when browser MIME is empty', () => {
+		for (const name of ['main.py', 'server.go', 'lib.rs', 'script.sh', 'config.toml']) {
+			expect(isTextLikeAttachment(name, '')).toBe(true);
+		}
+	});
 });
 
 describe('localFilePreviewResult', () => {

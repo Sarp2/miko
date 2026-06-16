@@ -5,23 +5,46 @@ import type {
 } from '../../shared/types';
 
 const TEXT_LIKE_EXTENSIONS = new Set([
+	'.c',
+	'.cfg',
+	'.conf',
+	'.cpp',
 	'.css',
 	'.csv',
+	'.dart',
 	'.env',
 	'.gitignore',
+	'.go',
+	'.gradle',
+	'.h',
+	'.hpp',
 	'.html',
+	'.ini',
+	'.java',
 	'.js',
 	'.json',
 	'.jsx',
+	'.kt',
+	'.lua',
+	'.make',
 	'.md',
 	'.mdx',
+	'.py',
+	'.rb',
+	'.rs',
+	'.sh',
 	'.sql',
+	'.svelte',
+	'.swift',
+	'.toml',
 	'.ts',
 	'.tsx',
 	'.txt',
+	'.vue',
 	'.xml',
 	'.yaml',
 	'.yml',
+	'.zig',
 ]);
 const MAX_TEXT_PREVIEW_BYTES = 2 * 1024 * 1024;
 
@@ -51,7 +74,13 @@ export function isTextLikeAttachment(name: string, mimeType: string) {
 function fileToDataUrl(file: File) {
 	return new Promise<string>((resolve, reject) => {
 		const reader = new FileReader();
-		reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+		reader.onload = () => {
+			if (typeof reader.result === 'string') {
+				resolve(reader.result);
+				return;
+			}
+			reject(new Error('Failed to read image data URL'));
+		};
 		reader.onerror = () => reject(reader.error ?? new Error('Failed to read file'));
 		reader.readAsDataURL(file);
 	});

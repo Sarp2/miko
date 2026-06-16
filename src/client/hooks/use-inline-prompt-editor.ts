@@ -33,10 +33,16 @@ function escapeTextHtml(value: string) {
 
 function editorHtmlFromParts(parts: PromptPart[], attachments: ChatAttachment[]) {
 	return parts
-		.map((part) =>
-			part.type === 'text' ? escapeTextHtml(part.text) : promptTokenEditorHtml(part, attachments),
+		.map((part, index) =>
+			part.type === 'text'
+				? escapeTextHtml(part.text)
+				: promptTokenEditorHtml(part, attachments, editorTokenKey(part, index), index),
 		)
 		.join('');
+}
+
+function editorTokenKey(part: Exclude<PromptPart, { type: 'text' }>, index: number) {
+	return `${index}:${promptPartKey(part)}`;
 }
 
 function localAttachmentsAsChatAttachments(attachments: LocalAttachment[]) {
@@ -192,32 +198,13 @@ function caretOffset(
 	if (!root.contains(range.startContainer)) {
 		return promptTextFromDom(root, tokenPartsByKey, attachments).length;
 	}
-
-	let offset = 0;
-	const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
-	let node = walker.nextNode();
-
-	while (node) {
-		if (node === range.startContainer) {
-			if (node.nodeType === Node.TEXT_NODE) return offset + range.startOffset;
-			return offset;
-		}
-
-		if (node instanceof HTMLElement && node.dataset.tokenKey) {
-			if (node.contains(range.startContainer)) return offset;
-			offset += tokenTextFromElement(node, tokenPartsByKey, attachments).length;
-			walker.currentNode = node;
-			node = walker.nextSibling();
-			continue;
-		}
-
-		if (node.nodeType === Node.TEXT_NODE) offset += node.textContent?.length ?? 0;
-		else if (node instanceof HTMLBRElement) offset += 1;
-
-		node = walker.nextNode();
-	}
-
-	return offset;
+	return boundaryOffset(
+		root,
+		range.startContainer,
+		range.startOffset,
+		tokenPartsByKey,
+		attachments,
+	);
 }
 
 function restoreCaret(
@@ -306,9 +293,9 @@ export function useInlinePromptEditor({
 	const tokenPartsByKey = useMemo(
 		() =>
 			new Map(
-				parts
-					.filter((part): part is Exclude<PromptPart, { type: 'text' }> => part.type !== 'text')
-					.map((part) => [promptPartKey(part), part]),
+				parts.flatMap((part, index) =>
+					part.type === 'text' ? [] : [[editorTokenKey(part, index), part] as const],
+				),
 			),
 		[parts],
 	);

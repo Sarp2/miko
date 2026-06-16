@@ -27,13 +27,18 @@ function escapeHtml(value: string) {
 export function promptTokenEditorHtml(
 	part: Exclude<PromptPart, { type: 'text' }>,
 	attachments: ChatAttachment[] = [],
+	tokenKey = promptPartKey(part),
+	tokenIndex?: number,
 ) {
-	const key = promptPartKey(part);
 	const label = promptPartLabel(part, attachments);
 	const tooltip = promptPartTooltip(part, attachments);
 	const iconSrc = fileNameIconSrc(tooltip);
+	const indexAttribute =
+		tokenIndex === undefined ? '' : ` data-token-index="${escapeHtml(String(tokenIndex))}"`;
+	const removeIndexAttribute =
+		tokenIndex === undefined ? '' : ` data-remove-token-index="${escapeHtml(String(tokenIndex))}"`;
 
-	return `<span contenteditable="false" data-token-key="${escapeHtml(key)}" class="${PROMPT_TOKEN_CHIP_CLASS}" title="${escapeHtml(tooltip)}"><span class="${PROMPT_TOKEN_ICON_WRAP_CLASS}"><img alt="" aria-hidden="true" draggable="false" src="${escapeHtml(iconSrc)}" class="size-3" /></span><span class="${PROMPT_TOKEN_NAME_CLASS}">${escapeHtml(label)}</span><button type="button" data-remove-token-key="${escapeHtml(key)}" class="${PROMPT_TOKEN_REMOVE_CLASS}" aria-label="Remove ${escapeHtml(label)}">×</button></span>`;
+	return `<span contenteditable="false" data-token-key="${escapeHtml(tokenKey)}"${indexAttribute} class="${PROMPT_TOKEN_CHIP_CLASS}" title="${escapeHtml(tooltip)}"><span class="${PROMPT_TOKEN_ICON_WRAP_CLASS}"><img alt="" aria-hidden="true" draggable="false" src="${escapeHtml(iconSrc)}" class="size-3" /></span><span class="${PROMPT_TOKEN_NAME_CLASS}">${escapeHtml(label)}</span><button type="button" data-remove-token-key="${escapeHtml(tokenKey)}"${removeIndexAttribute} class="${PROMPT_TOKEN_REMOVE_CLASS}" aria-label="Remove ${escapeHtml(label)}">×</button></span>`;
 }
 
 interface PromptTokenProps {
