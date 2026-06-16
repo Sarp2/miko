@@ -1,0 +1,30 @@
+src/server/read-models.ts
+  s_85788a13129bf7::t_e462d854b373ee 108,180
+src/client/lib/workspace-condition.ts
+  s_85788a13129bf7::t_4400b689a0ba8c 52-70,155-157,159-160,162,170-171
+src/shared/types.ts
+  s_85788a13129bf7::t_4d703c8cfafdaa 308
+src/client/lib/workspace-condition.test.ts
+  s_85788a13129bf7::t_fe9f2aca88ecb7 219,239-252,256-273
+  s_85788a13129bf7::t_efc9d9223bd1dd 253-255
+src/server/read-models.test.ts
+  s_85788a13129bf7::t_2a04fa562d1df9 236,287,309,311
+src/client/components/left-sidebar-view.tsx
+  s_85788a13129bf7::t_ac59990324dd72 231-235,457-460,519
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "7302e73f0c1e08d92585aa0e0d1b2be0496c7d97",
+  "prompts": {},
+  "sessions": {
+    "s_85788a13129bf7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ecbe7-9667-7663-b230-74a1c17dfc92",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
