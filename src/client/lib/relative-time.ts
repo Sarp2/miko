@@ -1,6 +1,6 @@
 /** Compact relative time like `now`, `5m ago`, `3h ago`, `9d ago`; empty for no timestamp. */
 export function formatRelativeTime(timestamp: number | undefined, now = Date.now()): string {
-	if (!timestamp) return '';
+	if (timestamp === undefined) return '';
 	const diffMs = Math.max(0, now - timestamp);
 	const minute = 60_000;
 	const hour = 60 * minute;
