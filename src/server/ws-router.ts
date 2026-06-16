@@ -16,6 +16,7 @@ import type { AgentCoordinator } from './agent';
 import {
 	writeCreatePrInstructionsAttachment,
 	writeFailingCiLogsAttachment,
+	writeMergeConflictInstructionsAttachment,
 	writeSelectedReviewCommentsAttachment,
 } from './agent-instruction-attachments';
 import type { DiffStore } from './diff-store';
@@ -634,6 +635,26 @@ export function createWsRouter({
 						'Fix the failing CI using the attached logs.',
 						[attachment],
 						'fix_ci',
+					);
+					send(ws, { type: 'ack', id, result });
+					break;
+				}
+				case 'workspace.resolveMergeConflicts': {
+					const workspace = requireWorkspace(command.workspaceId);
+					const directory = store.requireDirectory(workspace.directoryId);
+					await diffStore.refreshWorkspaceGitSnapshot(workspace.id, workspace.localPath);
+					const attachment = await writeMergeConflictInstructionsAttachment({
+						workspace,
+						directory,
+						git: diffStore.getWorkspaceGitSnapshot(workspace.id),
+						github: prManager.getWorkspaceGitHubSnapshot(workspace.id),
+					});
+					const result = await sendWorkspaceInstruction(
+						command.workspaceId,
+						command.sessionId,
+						'Resolve merge conflicts using the attached instructions.',
+						[attachment],
+						'resolve_merge_conflicts',
 					);
 					send(ws, { type: 'ack', id, result });
 					break;

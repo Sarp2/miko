@@ -105,6 +105,9 @@ function getWorkspaceSidebarIndicator(args: {
 	}
 	const hasOpenPr =
 		workspace.reviewState === 'in_review' || workspace.pullRequest?.status === 'open';
+	if (hasOpenPr && (github?.hasMergeConflicts || workspace.pullRequest?.hasMergeConflicts)) {
+		return 'merge_conflicts';
+	}
 	if (hasOpenPr && ((git?.files.length ?? 0) > 0 || (git?.aheadCount ?? 0) > 0)) {
 		return 'commit_and_push';
 	}

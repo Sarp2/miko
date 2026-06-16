@@ -208,6 +208,7 @@ function indicatorLabel(indicator: WorkspaceSidebarIndicator) {
 	if (indicator === 'create_pr') return 'create pr';
 	if (indicator === 'pr_opened') return 'open pr';
 	if (indicator === 'ci_failed') return 'ci failed';
+	if (indicator === 'merge_conflicts') return 'merge conflicts';
 	if (indicator === 'merged') return 'merged';
 	if (indicator === 'closed') return 'closed';
 	return 'idle';
@@ -218,7 +219,12 @@ function indicatorTextClass(indicator: WorkspaceSidebarIndicator) {
 	if (indicator === 'pr_opened' || indicator === 'create_pr' || indicator === 'commit_and_push') {
 		return 'text-success/75';
 	}
-	if (indicator === 'ci_failed' || indicator === 'workspace_failed' || indicator === 'closed') {
+	if (
+		indicator === 'ci_failed' ||
+		indicator === 'merge_conflicts' ||
+		indicator === 'workspace_failed' ||
+		indicator === 'closed'
+	) {
 		return 'text-destructive';
 	}
 	if (indicator === 'merged') return WORKSPACE_MERGED_CLASS;
@@ -263,7 +269,12 @@ function WorkspaceIndicatorIcon({
 		return Icons.prIcon({ className: iconClassName });
 	}
 
-	if (indicator === 'ci_failed' || indicator === 'workspace_failed' || indicator === 'closed') {
+	if (
+		indicator === 'ci_failed' ||
+		indicator === 'merge_conflicts' ||
+		indicator === 'workspace_failed' ||
+		indicator === 'closed'
+	) {
 		return Icons.errorIcon({ className: iconClassName });
 	}
 
@@ -377,10 +388,20 @@ async function runSidebarWorkspaceAction(args: {
 	createPr: (workspaceId: string, sessionId: string) => Promise<unknown>;
 	commitAndPush: (workspaceId: string, sessionId: string) => Promise<unknown>;
 	fixCi: (workspaceId: string, sessionId: string) => Promise<unknown>;
+	resolveMergeConflicts: (workspaceId: string, sessionId: string) => Promise<unknown>;
 	mergePr: (workspaceId: string) => Promise<unknown>;
 	onArchive?: () => void | Promise<void>;
 }) {
-	const { action, workspace, createPr, commitAndPush, fixCi, mergePr, onArchive } = args;
+	const {
+		action,
+		workspace,
+		createPr,
+		commitAndPush,
+		fixCi,
+		resolveMergeConflicts,
+		mergePr,
+		onArchive,
+	} = args;
 
 	if (action.kind === 'archive') {
 		await onArchive?.();
@@ -395,6 +416,7 @@ async function runSidebarWorkspaceAction(args: {
 	if (
 		action.kind !== 'create_pr' &&
 		action.kind !== 'fix_ci' &&
+		action.kind !== 'resolve_merge_conflicts' &&
 		action.kind !== 'commit_and_push'
 	) {
 		return;
@@ -415,6 +437,11 @@ async function runSidebarWorkspaceAction(args: {
 		return;
 	}
 
+	if (action.kind === 'resolve_merge_conflicts') {
+		await resolveMergeConflicts(workspace.workspaceId, workspace.lastSessionId);
+		return;
+	}
+
 	await fixCi(workspace.workspaceId, workspace.lastSessionId);
 }
 
@@ -430,6 +457,7 @@ function WorkspaceHoverMeta({
 	const createPr = useWorkspaceStore((state) => state.createPr);
 	const commitAndPush = useWorkspaceStore((state) => state.commitAndPush);
 	const fixCi = useWorkspaceStore((state) => state.fixCi);
+	const resolveMergeConflicts = useWorkspaceStore((state) => state.resolveMergeConflicts);
 	const mergePr = useWorkspaceStore((state) => state.mergePr);
 	const hasDetails =
 		workspace.localPath || workspace.branchName || workspace.prNumber || workspace.lastActivityAt;
@@ -444,6 +472,7 @@ function WorkspaceHoverMeta({
 	const actionNeedsSession =
 		condition.primaryAction?.kind === 'create_pr' ||
 		condition.primaryAction?.kind === 'fix_ci' ||
+		condition.primaryAction?.kind === 'resolve_merge_conflicts' ||
 		condition.primaryAction?.kind === 'commit_and_push';
 	const actionDisabled = actionNeedsSession && !workspace.lastSessionId;
 	const manualCreateUrl =
@@ -516,6 +545,7 @@ function WorkspaceHoverMeta({
 										createPr,
 										commitAndPush,
 										fixCi,
+										resolveMergeConflicts,
 										mergePr,
 										onArchive,
 									});

@@ -11,9 +11,10 @@ import type { DirectoryRecord, WorkspaceRecord } from './event';
 
 const CREATE_PR_INSTRUCTIONS_FILE_NAME = 'create-pr-instructions.md';
 const FAILING_CI_LOGS_FILE_NAME = 'failing-ci-logs.txt';
+const MERGE_CONFLICT_INSTRUCTIONS_FILE_NAME = 'merge-conflict-instructions.md';
 const SELECTED_REVIEW_COMMENTS_FILE_NAME = 'selected-review-comments.txt';
 const INSTRUCTION_FILE_PATTERN =
-	/^(?:create-pr|failing-ci|selected-review-comments)-(.+)\.(?:md|txt)$/u;
+	/^(?:create-pr|failing-ci|merge-conflict|selected-review-comments)-(.+)\.(?:md|txt)$/u;
 
 function getAgentInstructionsDir() {
 	return path.join(getDataDir(homedir()), 'agent-instructions');
@@ -156,6 +157,110 @@ export async function writeFailingCiLogsAttachment(args: {
 		relativePath: FAILING_CI_LOGS_FILE_NAME,
 		contentUrl: `file://${absolutePath}`,
 		mimeType: 'text/plain',
+		size: info.size,
+	};
+}
+
+export function buildMergeConflictInstructionsMarkdown(args: {
+	workspaceId: string;
+	directoryPath: string;
+	workspacePath: string;
+	branchName: string;
+	defaultBranchName: string;
+	githubOwner: string;
+	githubRepo: string;
+	prNumber?: number;
+	prTitle?: string;
+	prUrl?: string;
+	mergeStateStatus?: string;
+	hasUncommittedChanges: boolean;
+	hasUnpushedCommits?: boolean;
+}) {
+	const prLine = args.prNumber
+		? `Pull request: #${args.prNumber}${args.prTitle ? ` ${args.prTitle}` : ''}`
+		: 'Pull request: unknown';
+	const urlLine = args.prUrl ? `Pull request URL: ${args.prUrl}` : null;
+	const mergeStatusLine = args.mergeStateStatus
+		? `GitHub merge state: ${args.mergeStateStatus}`
+		: null;
+	const dirtyLine = args.hasUncommittedChanges
+		? 'There are uncommitted changes in this workspace. Review them before resolving conflicts.'
+		: 'There are no uncommitted changes currently detected in this workspace.';
+	const aheadLine = args.hasUnpushedCommits
+		? 'The current branch has local commits that are not pushed to its upstream.'
+		: 'No unpushed upstream commits are currently detected.';
+
+	return `The user requested help resolving pull request merge conflicts.
+
+Workspace ID: ${args.workspaceId}
+Directory: ${args.directoryPath}
+Worktree: ${args.workspacePath}
+Current branch: ${args.branchName}
+Target branch: origin/${args.defaultBranchName}
+GitHub repository: ${args.githubOwner}/${args.githubRepo}
+${prLine}
+${urlLine ? `${urlLine}\n` : ''}${mergeStatusLine ? `${mergeStatusLine}\n` : ''}${dirtyLine}
+${aheadLine}
+
+Follow these steps:
+
+- Inspect the current workspace state with \`git status\` and \`git diff\`.
+- Fetch the latest target branch from origin.
+- Merge or rebase \`origin/${args.defaultBranchName}\` into the current branch to reproduce the conflicts locally.
+- Resolve conflicted files carefully and preserve the user's intended changes.
+- Run the relevant tests or checks for the files you changed.
+- Commit the conflict resolution if needed.
+- Push the current branch after the conflict resolution is complete.
+- Do not merge the pull request.
+- Do not rename the branch.
+
+If the conflict cannot be reproduced locally or any step fails, stop and explain the blocker.
+`;
+}
+
+export async function writeMergeConflictInstructionsAttachment(args: {
+	workspace: WorkspaceRecord;
+	directory: DirectoryRecord;
+	git: WorkspaceGitSnapshot;
+	github?: {
+		prNumber?: number;
+		title?: string;
+		url?: string;
+		mergeStateStatus?: string;
+	} | null;
+}): Promise<ChatAttachment> {
+	const { workspace, directory, git, github } = args;
+	const instructionsDir = getAgentInstructionsDir();
+	await mkdir(instructionsDir, { recursive: true });
+
+	const absolutePath = path.join(instructionsDir, `merge-conflict-${workspace.id}.md`);
+	const markdown = buildMergeConflictInstructionsMarkdown({
+		workspaceId: workspace.id,
+		directoryPath: directory.localPath,
+		workspacePath: workspace.localPath,
+		branchName: workspace.branchName,
+		defaultBranchName: directory.defaultBranchName,
+		githubOwner: directory.githubOwner,
+		githubRepo: directory.githubRepo,
+		prNumber: github?.prNumber ?? workspace.pullRequest?.number,
+		prTitle: github?.title ?? workspace.pullRequest?.title,
+		prUrl: github?.url ?? workspace.pullRequest?.url,
+		mergeStateStatus: github?.mergeStateStatus ?? workspace.pullRequest?.mergeStateStatus,
+		hasUncommittedChanges: git.files.length > 0,
+		hasUnpushedCommits: (git.aheadCount ?? 0) > 0,
+	});
+
+	await Bun.write(absolutePath, markdown);
+	const info = await stat(absolutePath);
+
+	return {
+		id: `merge-conflict-${workspace.id}`,
+		kind: 'file',
+		displayName: MERGE_CONFLICT_INSTRUCTIONS_FILE_NAME,
+		absolutePath,
+		relativePath: MERGE_CONFLICT_INSTRUCTIONS_FILE_NAME,
+		contentUrl: `file://${absolutePath}`,
+		mimeType: 'text/markdown',
 		size: info.size,
 	};
 }
