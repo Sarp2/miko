@@ -53,6 +53,7 @@ export function useChatComposer({
 }: UseChatComposerArgs) {
 	const [parts, setParts] = useState<PromptPart[]>([]);
 	const [attachments, setAttachments] = useState<LocalAttachment[]>([]);
+	const attachmentsRef = useRef<LocalAttachment[]>([]);
 	const [submitting, setSubmitting] = useState(false);
 	const rawAvailableProviders = providerCatalogs(sessionSnapshot);
 	const providerCatalogKey = providerCatalogSignature(rawAvailableProviders);
@@ -115,40 +116,42 @@ export function useChatComposer({
 		if (previousSessionIdRef.current === sessionId) return;
 
 		previousSessionIdRef.current = sessionId;
+		attachmentsRef.current = [];
 		setParts([]);
 		setAttachments([]);
 		setSubmitting(false);
 	}, [sessionId]);
 
-	const addFiles = useCallback(
-		(files: File[]) => {
-			const created = files.slice(0, Math.max(MAX_ATTACHMENTS - attachments.length, 0)).map(
-				(file) =>
-					({
-						id: crypto.randomUUID(),
-						file,
-						kind: file.type.toLowerCase().startsWith('image/') ? 'image' : 'file',
-					}) as LocalAttachment,
-			);
-			if (created.length === 0) return;
-			setAttachments((current) => [...current, ...created]);
-			setParts((current) =>
-				compactPromptParts([
-					...current,
-					...(current.length > 0 ? [{ type: 'text' as const, text: ' ' }] : []),
-					...created.map((attachment) => ({
-						type: 'attachment' as const,
-						attachmentId: attachment.id,
-					})),
-					{ type: 'text', text: ' ' },
-				]),
-			);
-		},
-		[attachments.length],
-	);
+	const addFiles = useCallback((files: File[]) => {
+		const remaining = Math.max(MAX_ATTACHMENTS - attachmentsRef.current.length, 0);
+		const created = files.slice(0, remaining).map(
+			(file) =>
+				({
+					id: crypto.randomUUID(),
+					file,
+					kind: file.type.toLowerCase().startsWith('image/') ? 'image' : 'file',
+				}) as LocalAttachment,
+		);
+		if (created.length === 0) return;
+
+		attachmentsRef.current = [...attachmentsRef.current, ...created];
+		setAttachments(attachmentsRef.current);
+		setParts((current) =>
+			compactPromptParts([
+				...current,
+				...(current.length > 0 ? [{ type: 'text' as const, text: ' ' }] : []),
+				...created.map((attachment) => ({
+					type: 'attachment' as const,
+					attachmentId: attachment.id,
+				})),
+				{ type: 'text', text: ' ' },
+			]),
+		);
+	}, []);
 
 	const removeAttachment = useCallback((attachmentId: string) => {
-		setAttachments((current) => current.filter((item) => item.id !== attachmentId));
+		attachmentsRef.current = attachmentsRef.current.filter((item) => item.id !== attachmentId);
+		setAttachments(attachmentsRef.current);
 		setParts((current) =>
 			compactPromptParts(
 				current.filter((part) => part.type !== 'attachment' || part.attachmentId !== attachmentId),
@@ -224,6 +227,7 @@ export function useChatComposer({
 				planMode,
 			});
 			setParts([]);
+			attachmentsRef.current = [];
 			setAttachments([]);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : 'Could not send message';

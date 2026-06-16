@@ -23,6 +23,7 @@ const TEXT_LIKE_EXTENSIONS = new Set([
 	'.yaml',
 	'.yml',
 ]);
+const MAX_TEXT_PREVIEW_BYTES = 2 * 1024 * 1024;
 
 function extension(name: string) {
 	const lastSegment = name.split('/').filter(Boolean).at(-1) ?? name;
@@ -85,6 +86,10 @@ export async function localFilePreviewResult({
 		return { kind: 'binary', path: name, name, mimeType, size: file.size, cacheKey };
 	}
 
+	if (file.size > MAX_TEXT_PREVIEW_BYTES) {
+		return { kind: 'binary', path: name, name, mimeType, size: file.size, cacheKey };
+	}
+
 	const contents = await file.text();
 	return {
 		kind: 'text',
@@ -119,6 +124,10 @@ export async function attachmentPreviewResult(
 	}
 
 	if (!hasContentUrl || !isTextLikeAttachment(name, mimeType)) {
+		return { kind: 'binary', path: name, name, mimeType, size: attachment.size, cacheKey };
+	}
+
+	if (attachment.size > MAX_TEXT_PREVIEW_BYTES) {
 		return { kind: 'binary', path: name, name, mimeType, size: attachment.size, cacheKey };
 	}
 
