@@ -1,3 +1,4 @@
+import type { ChatAttachment, PromptPart } from '../../shared/types';
 import type { TranscriptItem } from '../lib/group-transcript-turns';
 import { UserPrompt } from './messages';
 import { RunningTimer } from './transcript-running-timer';
@@ -20,17 +21,30 @@ export function TranscriptItemView({
 	sessionId,
 	workspaceId,
 	workspaceRoot,
+	onOpenFile,
+	onOpenPastedText,
+	onOpenAttachment,
 }: {
 	item: TranscriptItem;
 	sessionId: string;
 	workspaceId: string;
 	workspaceRoot: string;
+	onOpenFile?: (path: string) => void;
+	onOpenPastedText?: (part: Extract<PromptPart, { type: 'pasted_text' }>) => void;
+	onOpenAttachment?: (attachment: ChatAttachment) => void;
 }) {
 	if (item.type === 'user') {
 		return (
 			<div data-transcript-item-id={item.id} className="mb-5 flex justify-end">
 				<div className="inline-flex max-w-[80%] flex-col rounded-lg border border-hairline bg-surface-1 px-[15px] py-[11px]">
-					<UserPrompt content={item.message.content} attachments={item.message.attachments} />
+					<UserPrompt
+						content={item.message.content}
+						attachments={item.message.attachments}
+						parts={item.message.parts}
+						onOpenFile={onOpenFile}
+						onOpenPastedText={onOpenPastedText}
+						onOpenAttachment={onOpenAttachment}
+					/>
 				</div>
 			</div>
 		);

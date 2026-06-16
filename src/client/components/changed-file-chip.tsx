@@ -8,36 +8,46 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from './ui/hover-card';
 
 /**
  * A changed-file pill in the turn footer: file icon, name, and line deltas.
- * When edit fragments exist, hovering reveals the fragment diff.
+ * Clicking opens the transcript-backed diff view; hovering reveals the
+ * historical edit fragment captured from the turn transcript.
  */
 export function ChangedFileChip({
 	file,
 	sourceSessionId,
+	sourceTurnId,
 	workspaceId,
 	workspaceRoot,
 }: {
 	file: TurnChangedFile;
 	sourceSessionId?: string;
+	sourceTurnId?: string;
 	workspaceId?: string;
 	workspaceRoot: string;
 }) {
 	const navigate = useNavigate();
 	const relativePath = toRelativePath(file.path, workspaceRoot);
-	const targetWorkspaceId = workspaceId ?? '';
-	const canOpenDiff = targetWorkspaceId.length > 0 && file.path !== '__overflow';
+	const canOpenDiff =
+		Boolean(workspaceId) &&
+		Boolean(sourceSessionId) &&
+		Boolean(sourceTurnId) &&
+		file.path !== '__overflow';
 
 	const openDiff = () => {
-		if (!canOpenDiff) return;
-		const params = new URLSearchParams({ path: relativePath });
-		if (sourceSessionId) params.set('sessionId', sourceSessionId);
-		navigate(`/workspaces/${encodeURIComponent(targetWorkspaceId)}/diff?${params.toString()}`);
+		if (!workspaceId || !sourceSessionId || !sourceTurnId || !canOpenDiff) return;
+		const params = new URLSearchParams({
+			path: relativePath,
+			sessionId: sourceSessionId,
+			source: 'transcript',
+			turnId: sourceTurnId,
+		});
+		navigate(`/workspaces/${encodeURIComponent(workspaceId)}/diff?${params.toString()}`);
 	};
 
 	const chip = (
 		<button
 			type="button"
 			className={cn(
-				'inline-flex appearance-none items-center gap-1 rounded-md border border-hairline bg-transparent px-1.5 py-0.5 text-[11px] font-[inherit] focus-visible:ring-1 focus-visible:ring-primary focus-visible:outline-none',
+				'inline-flex appearance-none items-center gap-1 rounded-md border border-hairline bg-transparent px-1.5 py-0.5 text-[11px] font-[inherit] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary',
 				canOpenDiff ? 'cursor-pointer' : 'cursor-default',
 			)}
 			onClick={openDiff}

@@ -1155,7 +1155,7 @@ export class DiffStore {
 				kind: 'image',
 				path: relativePath,
 				name: path.basename(relativePath),
-				contentUrl: `/api/workspaces/${encodeURIComponent(args.workspaceId)}/files/${encodeURIComponent(relativePath)}/content`,
+				contentUrl: `/api/workspaces/${encodeURIComponent(args.workspaceId)}/files/${encodeURIComponent(relativePath)}/content?v=${encodeURIComponent(metadataDigest)}`,
 				mimeType,
 				size: info.size,
 				cacheKey: `${relativePath}:${metadataDigest}`,

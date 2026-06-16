@@ -87,9 +87,43 @@ function WorkspaceBinaryPreview({
 	);
 }
 
+function shouldRenderAsPlainText(file: Extract<WorkspaceFileContentsResult, { kind: 'text' }>) {
+	const name = file.name.trim();
+	if (!name) return true;
+	if (name.startsWith('.')) return true;
+	return !name.includes('.');
+}
+
+function WorkspacePlainTextPreview({
+	file,
+}: {
+	file: Extract<WorkspaceFileContentsResult, { kind: 'text' }>;
+}) {
+	const lines = file.contents.split('\n');
+
+	return (
+		<pre
+			className="m-0 grid min-w-max grid-cols-[auto_1fr] bg-canvas font-mono text-[12px] leading-[1.6] text-ink"
+			style={MIKO_CODE_FONT_VARS}
+		>
+			{lines.map((line, index) => (
+				// biome-ignore lint/suspicious/noArrayIndexKey: file viewer lines are static for a loaded cache key.
+				<code key={index} className="contents">
+					<span className="select-none border-r border-hairline bg-surface-1 px-3 text-right text-ink-tertiary">
+						{index + 1}
+					</span>
+					<span className="whitespace-pre px-3 text-ink">{line || ' '}</span>
+				</code>
+			))}
+		</pre>
+	);
+}
+
 function WorkspaceFilePreview({ file }: { file: WorkspaceFileContentsResult }) {
 	if (file.kind === 'image') return <WorkspaceImagePreview file={file} />;
 	if (file.kind === 'binary') return <WorkspaceBinaryPreview file={file} />;
+
+	if (shouldRenderAsPlainText(file)) return <WorkspacePlainTextPreview file={file} />;
 
 	return (
 		<div className="min-w-max">
@@ -109,15 +143,29 @@ function WorkspaceFilePreview({ file }: { file: WorkspaceFileContentsResult }) {
 
 export function WorkspaceFilePage({ workspaceId, page, revisionKey }: WorkspaceFilePageProps) {
 	const path = page.path;
-	const resource = useWorkspaceFileStore((state) =>
-		path ? state.getFileResource(workspaceId, path) : null,
+	const isWorkspaceFile = page.source === 'workspace_file';
+	const isPastedText = page.source === 'pasted_text';
+	const isGeneratedAttachment = page.source === 'generated_attachment';
+	const pastedTextSourceId = isPastedText ? page.sourceId : undefined;
+	const attachmentSourceId = isGeneratedAttachment ? page.sourceId : undefined;
+	const getActiveResource = useCallback(
+		(state: ReturnType<typeof useWorkspaceFileStore.getState>) => {
+			if (isWorkspaceFile && path) return state.getFileResource(workspaceId, path);
+			if (pastedTextSourceId) return state.getPastedTextResource(workspaceId, pastedTextSourceId);
+			if (attachmentSourceId) return state.getAttachmentResource(workspaceId, attachmentSourceId);
+			return null;
+		},
+		[attachmentSourceId, isWorkspaceFile, pastedTextSourceId, path, workspaceId],
 	);
+	const resource = useWorkspaceFileStore(getActiveResource);
 	const copyFileContents = useCallback(async () => {
-		if (!path) return;
 		try {
-			await useWorkspaceFileStore.getState().loadFileContents(workspaceId, path);
-			const latest = useWorkspaceFileStore.getState().getFileResource(workspaceId, path);
-			if (latest.status !== 'ready' || !latest.data || latest.data.kind !== 'text') {
+			if (isWorkspaceFile && path) {
+				await useWorkspaceFileStore.getState().loadFileContents(workspaceId, path);
+			}
+
+			const latest = getActiveResource(useWorkspaceFileStore.getState());
+			if (latest?.status !== 'ready' || !latest.data || latest.data.kind !== 'text') {
 				throw new Error('File content is not ready to copy.');
 			}
 			if (!navigator.clipboard) throw new Error('Clipboard is not available.');
@@ -126,24 +174,23 @@ export function WorkspaceFilePage({ workspaceId, page, revisionKey }: WorkspaceF
 			console.warn('[workspace-file-page] failed to copy file contents', error);
 			throw error;
 		}
-	}, [path, workspaceId]);
+	}, [getActiveResource, isWorkspaceFile, path, workspaceId]);
 	const canCopyTextFile = resource?.status === 'ready' && resource.data?.kind === 'text';
-	const toolbarActions =
-		path && page.source === 'workspace_file' && canCopyTextFile ? (
-			<CopyFileButton disabled={false} onCopy={copyFileContents} />
-		) : null;
+	const toolbarActions = canCopyTextFile ? (
+		<CopyFileButton disabled={false} onCopy={copyFileContents} />
+	) : null;
 
 	useEffect(() => {
 		// The revision key is a workspace-snapshot freshness signal; when it changes,
 		// this effect intentionally refetches the same route path.
 		void revisionKey;
-		if (!path || page.source !== 'workspace_file') return;
+		if (!path || !isWorkspaceFile) return;
 		void useWorkspaceFileStore.getState().loadFileContents(workspaceId, path, { force: true });
-	}, [page.source, path, revisionKey, workspaceId]);
+	}, [isWorkspaceFile, path, revisionKey, workspaceId]);
 
-	if (page.source !== 'workspace_file') {
+	if (!isWorkspaceFile && !isPastedText && !isGeneratedAttachment) {
 		return (
-			<WorkspaceCodePageShell path={path} actions={toolbarActions}>
+			<WorkspaceCodePageShell path={path ?? page.title} actions={toolbarActions}>
 				<WorkspaceCodePageState
 					title="Preview unavailable"
 					message="This file source is not supported by the workspace file viewer yet."
@@ -152,7 +199,7 @@ export function WorkspaceFilePage({ workspaceId, page, revisionKey }: WorkspaceF
 		);
 	}
 
-	if (!path) {
+	if (isWorkspaceFile && !path) {
 		return (
 			<WorkspaceCodePageShell>
 				<WorkspaceCodePageState title="Select a file" message="Choose a file to preview." />
@@ -166,7 +213,7 @@ export function WorkspaceFilePage({ workspaceId, page, revisionKey }: WorkspaceF
 		(resource.status === 'loading' && !resource.data)
 	) {
 		return (
-			<WorkspaceCodePageShell path={path} actions={toolbarActions}>
+			<WorkspaceCodePageShell path={path ?? page.title} actions={toolbarActions}>
 				<WorkspaceCodePageLoading />
 			</WorkspaceCodePageShell>
 		);
@@ -174,7 +221,7 @@ export function WorkspaceFilePage({ workspaceId, page, revisionKey }: WorkspaceF
 
 	if (resource.status === 'error' || !resource.data) {
 		return (
-			<WorkspaceCodePageShell path={path} actions={toolbarActions}>
+			<WorkspaceCodePageShell path={path ?? page.title} actions={toolbarActions}>
 				<WorkspaceCodePageState
 					title="Preview unavailable"
 					message={resource.error ?? 'This file cannot be shown as text.'}
@@ -184,7 +231,7 @@ export function WorkspaceFilePage({ workspaceId, page, revisionKey }: WorkspaceF
 	}
 
 	return (
-		<WorkspaceCodePageShell path={resource.data.path} actions={toolbarActions}>
+		<WorkspaceCodePageShell path={resource.data.path || page.title} actions={toolbarActions}>
 			<WorkspaceFilePreview file={resource.data} />
 		</WorkspaceCodePageShell>
 	);

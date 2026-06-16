@@ -56,6 +56,7 @@ export function hydrateTranscriptEntry(entry: TranscriptEntry): HydratedTranscri
 				kind: 'user_prompt',
 				content: entry.content,
 				attachments: entry.attachments,
+				parts: entry.parts,
 			};
 		case 'system_init':
 			return {

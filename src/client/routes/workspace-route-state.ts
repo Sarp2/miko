@@ -1,4 +1,5 @@
 import type { SessionSummary } from '../../shared/types';
+import { PASTED_TEXT_LABEL } from '../lib/prompt-parts';
 import { basename } from '../lib/relative-path';
 import type { WorkspaceFileSource, WorkspacePage } from '../stores/ui-store';
 
@@ -16,6 +17,7 @@ const FILE_SOURCES = new Set<WorkspaceFileSource>([
 	'ci_log',
 	'pr_comment',
 	'generated_attachment',
+	'pasted_text',
 ]);
 
 export function selectFirstSessionId(sessions: Pick<SessionSummary, 'id' | 'createdAt'>[] = []) {
@@ -43,6 +45,7 @@ function fallbackFileTitle(source: WorkspaceFileSource, path: string | null) {
 	if (source === 'workspace_file' && path) return basename(path);
 	if (source === 'ci_log') return 'CI Log';
 	if (source === 'pr_comment') return 'PR Comment';
+	if (source === 'pasted_text') return PASTED_TEXT_LABEL;
 	return 'Attachment';
 }
 
@@ -60,10 +63,14 @@ export function deriveWorkspaceRoutePage({
 	if (kind === 'diff') {
 		const path = searchParams.get('path')?.trim();
 		const sourceSessionId = searchParams.get('sessionId')?.trim() || undefined;
+		const source = searchParams.get('source') === 'transcript' ? 'transcript' : undefined;
+		const turnId = searchParams.get('turnId')?.trim() || undefined;
 		return {
 			type: 'diff',
 			...(path ? { path } : {}),
+			...(source ? { source } : {}),
 			...(sourceSessionId ? { sourceSessionId } : {}),
+			...(turnId ? { turnId } : {}),
 		};
 	}
 

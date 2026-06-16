@@ -13,6 +13,12 @@ export interface ChatAttachment {
 	size: number;
 }
 
+export type PromptPart =
+	| { type: 'text'; text: string }
+	| { type: 'mention'; path: string; label?: string }
+	| { type: 'attachment'; attachmentId: string }
+	| { type: 'pasted_text'; id: string; text: string };
+
 export interface InternalUserAttachmentsData {
 	userText: string;
 	attachments: ChatAttachment[];
@@ -519,6 +525,7 @@ export interface UserPromptEntry extends TranscriptEntryBase {
 	kind: 'user_prompt';
 	content: string;
 	attachments?: ChatAttachment[];
+	parts?: PromptPart[];
 }
 
 export interface SystemInitEntry extends TranscriptEntryBase {
@@ -1019,6 +1026,7 @@ export type HydratedTranscriptMessage =
 			kind: 'user_prompt';
 			content: string;
 			attachments?: ChatAttachment[];
+			parts?: PromptPart[];
 			id: string;
 			messageId?: string;
 			timestamp: string;

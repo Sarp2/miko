@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import { PASTED_TEXT_LABEL } from '../lib/prompt-parts';
 import { getLocalStorage } from './persist-storage';
 
 export const UI_STORAGE_KEY = 'miko:v1';
@@ -13,11 +14,18 @@ export type WorkspaceFileSource =
 	| 'workspace_file'
 	| 'ci_log'
 	| 'pr_comment'
-	| 'generated_attachment';
+	| 'generated_attachment'
+	| 'pasted_text';
 
 export type WorkspacePage =
 	| { type: 'chat'; sessionId: string }
-	| { type: 'diff'; path?: string; sourceSessionId?: string }
+	| {
+			type: 'diff';
+			path?: string;
+			source?: 'workspace' | 'transcript';
+			sourceSessionId?: string;
+			turnId?: string;
+	  }
 	| {
 			type: 'file';
 			path?: string;
@@ -46,7 +54,7 @@ export interface TerminalPanelState {
 	height: number;
 }
 
-interface PersistedUiState {
+export interface PersistedUiState {
 	leftSidebarCollapsed: boolean;
 	leftSidebarWidth: number;
 	externalOpenApp: ExternalOpenApp;
@@ -111,10 +119,57 @@ export function scratchpadTabId(workspaceId: string) {
 
 export function pageTabId(page: WorkspacePage) {
 	if (page.type === 'chat') return `chat:${page.sessionId}`;
-	if (page.type === 'diff') return page.path ? `diff:${page.path}` : 'diff:placeholder';
+	if (page.type === 'diff') {
+		const source = page.source ?? 'workspace';
+		const identity = page.turnId ?? page.path ?? 'placeholder';
+		return `diff:${source}:${identity}:${page.path ?? ''}`;
+	}
 
 	const identity = page.sourceId ?? page.path ?? page.title;
 	return `file:${page.source}:${identity}`;
+}
+
+function normalizeMiddleTab(tab: MiddleTabDescriptor) {
+	if (tab.page.type !== 'diff') return tab;
+	const id = pageTabId(tab.page);
+	return tab.id === id ? tab : { ...tab, id };
+}
+
+export function normalizePersistedUiState(state: PersistedUiState): PersistedUiState {
+	const middleTabsByWorkspaceId: Record<string, MiddleTabDescriptor[]> = {};
+	const activeTabIdByWorkspaceId: Record<string, string> = {};
+
+	for (const [workspaceId, tabs] of Object.entries(state.middleTabsByWorkspaceId)) {
+		const legacyIdByNextId = new Map<string, string>();
+		const normalizedTabs = tabs.map((tab) => {
+			const normalizedTab = normalizeMiddleTab(tab);
+			legacyIdByNextId.set(tab.id, normalizedTab.id);
+			return normalizedTab;
+		});
+		const normalizedTabIds = new Set(normalizedTabs.map((tab) => tab.id));
+		const activeTabId = state.activeTabIdByWorkspaceId[workspaceId];
+		const normalizedActiveTabId = activeTabId
+			? (legacyIdByNextId.get(activeTabId) ?? activeTabId)
+			: null;
+
+		middleTabsByWorkspaceId[workspaceId] = normalizedTabs;
+		if (normalizedActiveTabId && normalizedTabIds.has(normalizedActiveTabId)) {
+			activeTabIdByWorkspaceId[workspaceId] = normalizedActiveTabId;
+		} else if (normalizedTabs[0]) {
+			activeTabIdByWorkspaceId[workspaceId] = normalizedTabs[0].id;
+		}
+	}
+
+	for (const [workspaceId, activeTabId] of Object.entries(state.activeTabIdByWorkspaceId)) {
+		if (workspaceId in activeTabIdByWorkspaceId) continue;
+		activeTabIdByWorkspaceId[workspaceId] = activeTabId;
+	}
+
+	return {
+		...state,
+		middleTabsByWorkspaceId,
+		activeTabIdByWorkspaceId,
+	};
 }
 
 function basename(path: string) {
@@ -129,6 +184,7 @@ export function fallbackTitleForPage(page: WorkspacePage) {
 	if (page.source === 'workspace_file') return page.path ? basename(page.path) : page.title;
 	if (page.source === 'ci_log') return page.title || 'CI Log';
 	if (page.source === 'pr_comment') return page.title || 'PR Comment';
+	if (page.source === 'pasted_text') return page.title || PASTED_TEXT_LABEL;
 	return page.title || 'Attachment';
 }
 
@@ -497,6 +553,16 @@ export const useUiStore = create<UiStoreState>()(
 		{
 			name: UI_STORAGE_KEY,
 			storage: createJSONStorage(getLocalStorage),
+			merge: (persistedState, currentState) => {
+				const state = {
+					...currentState,
+					...(persistedState as Partial<PersistedUiState>),
+				};
+				return {
+					...currentState,
+					...normalizePersistedUiState(state),
+				};
+			},
 			partialize: (state): PersistedUiState => ({
 				leftSidebarCollapsed: state.leftSidebarCollapsed,
 				leftSidebarWidth: state.leftSidebarWidth,

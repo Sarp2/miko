@@ -5,6 +5,7 @@ import type {
 	AgentProvider,
 	ClaudeContextWindow,
 	ClaudeReasoningEffort,
+	PromptPart,
 	SessionSnapshot,
 	WorkspaceSnapshot,
 } from '../../shared/types';
@@ -23,6 +24,11 @@ import {
 	runtimePlanModeForComposer,
 	uploadAttachments,
 } from '../components/chat-composer/chat-composer-utils';
+import {
+	compactPromptParts,
+	promptPartsPlainText,
+	promptPartsSubmissionText,
+} from '../lib/prompt-parts';
 import { useComposerPreferencesStore } from '../stores/composer-preferences-store';
 import { useSessionStore } from '../stores/session-store';
 
@@ -45,8 +51,9 @@ export function useChatComposer({
 	workspaceSnapshot,
 	sessionSnapshot,
 }: UseChatComposerArgs) {
-	const [content, setContent] = useState('');
+	const [parts, setParts] = useState<PromptPart[]>([]);
 	const [attachments, setAttachments] = useState<LocalAttachment[]>([]);
+	const attachmentsRef = useRef<LocalAttachment[]>([]);
 	const [submitting, setSubmitting] = useState(false);
 	const rawAvailableProviders = providerCatalogs(sessionSnapshot);
 	const providerCatalogKey = providerCatalogSignature(rawAvailableProviders);
@@ -100,37 +107,56 @@ export function useChatComposer({
 	const sessionLoaded = sessionSnapshot !== null;
 	const disabled =
 		!sessionLoaded || workspaceSnapshot.workspace.setupState !== 'ready' || submitting;
+	const content = useMemo(() => promptPartsPlainText(parts), [parts]);
+	const hasVisibleAttachmentToken = parts.some((part) => part.type === 'attachment');
 	const canSubmit =
-		(content.trim().length > 0 || attachments.length > 0) && !disabled && !isStreaming;
+		(content.trim().length > 0 || hasVisibleAttachmentToken) && !disabled && !isStreaming;
 
 	useEffect(() => {
 		if (previousSessionIdRef.current === sessionId) return;
 
 		previousSessionIdRef.current = sessionId;
-		setContent('');
+		attachmentsRef.current = [];
+		setParts([]);
 		setAttachments([]);
 		setSubmitting(false);
 	}, [sessionId]);
 
 	const addFiles = useCallback((files: File[]) => {
-		setAttachments((current) => {
-			const remaining = Math.max(MAX_ATTACHMENTS - current.length, 0);
-			return [
+		const remaining = Math.max(MAX_ATTACHMENTS - attachmentsRef.current.length, 0);
+		const created = files.slice(0, remaining).map(
+			(file) =>
+				({
+					id: crypto.randomUUID(),
+					file,
+					kind: file.type.toLowerCase().startsWith('image/') ? 'image' : 'file',
+				}) as LocalAttachment,
+		);
+		if (created.length === 0) return;
+
+		attachmentsRef.current = [...attachmentsRef.current, ...created];
+		setAttachments(attachmentsRef.current);
+		setParts((current) =>
+			compactPromptParts([
 				...current,
-				...files.slice(0, remaining).map(
-					(file) =>
-						({
-							id: crypto.randomUUID(),
-							file,
-							kind: file.type.toLowerCase().startsWith('image/') ? 'image' : 'file',
-						}) as LocalAttachment,
-				),
-			];
-		});
+				...(current.length > 0 ? [{ type: 'text' as const, text: ' ' }] : []),
+				...created.map((attachment) => ({
+					type: 'attachment' as const,
+					attachmentId: attachment.id,
+				})),
+				{ type: 'text', text: ' ' },
+			]),
+		);
 	}, []);
 
 	const removeAttachment = useCallback((attachmentId: string) => {
-		setAttachments((current) => current.filter((item) => item.id !== attachmentId));
+		attachmentsRef.current = attachmentsRef.current.filter((item) => item.id !== attachmentId);
+		setAttachments(attachmentsRef.current);
+		setParts((current) =>
+			compactPromptParts(
+				current.filter((part) => part.type !== 'attachment' || part.attachmentId !== attachmentId),
+			),
+		);
 	}, []);
 
 	const changeProvider = useCallback(
@@ -165,13 +191,31 @@ export function useChatComposer({
 		if (!canSubmit || !model) return;
 		setSubmitting(true);
 		try {
-			const uploadedAttachments = await uploadAttachments(workspaceId, attachments);
+			const visibleAttachmentIds = new Set(
+				parts.flatMap((part) => (part.type === 'attachment' ? [part.attachmentId] : [])),
+			);
+			const visibleAttachments = attachments.filter((attachment) =>
+				visibleAttachmentIds.has(attachment.id),
+			);
+			const uploadedAttachments = await uploadAttachments(workspaceId, visibleAttachments);
+			const uploadedAttachmentByLocalId = new Map(
+				visibleAttachments.map((attachment, index) => [attachment.id, uploadedAttachments[index]]),
+			);
+			const submittedParts = compactPromptParts(
+				parts.flatMap((part): PromptPart[] => {
+					if (part.type !== 'attachment') return [part];
+					const uploaded = uploadedAttachmentByLocalId.get(part.attachmentId);
+					return uploaded ? [{ type: 'attachment' as const, attachmentId: uploaded.id }] : [];
+				}),
+			);
+			const submittedContent = promptPartsSubmissionText(submittedParts);
 			await useSessionStore.getState().sendSessionMessage({
 				sessionId,
 				workspaceId,
 				provider,
-				content,
+				content: submittedContent,
 				attachments: uploadedAttachments,
+				parts: submittedParts,
 				model: model.id,
 				modelOptions: modelOptionsForSubmit({
 					provider,
@@ -182,7 +226,8 @@ export function useChatComposer({
 				}),
 				planMode,
 			});
-			setContent('');
+			setParts([]);
+			attachmentsRef.current = [];
 			setAttachments([]);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : 'Could not send message';
@@ -197,7 +242,7 @@ export function useChatComposer({
 		claudeReasoningEffort,
 		codexFastMode,
 		codexReasoningEffort,
-		content,
+		parts,
 		model,
 		planMode,
 		provider,
@@ -216,8 +261,8 @@ export function useChatComposer({
 	}, [sessionId]);
 
 	return {
-		content,
-		setContent,
+		parts,
+		setParts,
 		attachments,
 		provider,
 		setProvider: changeProvider,

@@ -67,6 +67,9 @@ For narrow changes, run the related test file first, then the broader checks whe
 - Keep transcript rendering resilient. Unknown, partial, or malformed entries should degrade gracefully instead of crashing the chat.
 - Preserve keyboard focus behavior in chat input, dialogs, sidebars, and terminal panes.
 - Avoid layout shifts in dense UI such as sidebars, message rows, terminal panes, tool calls, and diff views.
+- Tokenized composer content uses `PromptPart[]` as the durable UI/prompt shape. Keep contenteditable/caret logic isolated in `use-inline-prompt-editor.ts`, and reuse `PromptToken` / `promptTokenEditorHtml` instead of duplicating token markup.
+- File/diff middle pages are route-driven. Dirty workspace diffs use the backend `workspace.readDiffPatch` path; transcript footer changed-file diffs use `source=transcript` + `sessionId` + `turnId` and resolve from the chat window through `src/client/lib/transcript-diff.ts`.
+- `workspace-file-store.ts` owns file/diff cache and request state. Preview classification/conversion belongs in `src/client/lib/workspace-file-previews.ts`.
 
 ## Tests
 

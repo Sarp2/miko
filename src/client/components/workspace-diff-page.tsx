@@ -1,5 +1,5 @@
 import type { DiffLineAnnotation, SelectedLineRange } from '@pierre/diffs';
-import { PatchDiff } from '@pierre/diffs/react';
+import { FileDiff, PatchDiff } from '@pierre/diffs/react';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import type { SessionSnapshot } from '../../shared/types';
@@ -11,6 +11,8 @@ import {
 	MIKO_CODE_FONT_VARS,
 	MIKO_DIFF_OPTIONS,
 } from '../lib/miko-diff-renderer';
+import { findTranscriptChangedFile, transcriptFileDiff } from '../lib/transcript-diff';
+import { useChatWindowStore } from '../stores/chat-window-store';
 import { useSessionStore } from '../stores/session-store';
 import { useUiStore } from '../stores/ui-store';
 import { useWorkspaceFileStore } from '../stores/workspace-file-store';
@@ -37,7 +39,10 @@ interface WorkspaceDiffPageProps {
 	workspaceId: string;
 	path?: string;
 	expectedPatchDigest?: string;
+	source?: 'workspace' | 'transcript';
 	sourceSessionId?: string;
+	turnId?: string;
+	workspaceRoot?: string;
 	composerSessionId?: string | null;
 	composerSessionSnapshot?: SessionSnapshot | null;
 }
@@ -91,12 +96,21 @@ export function WorkspaceDiffPage({
 	workspaceId,
 	path,
 	expectedPatchDigest,
+	source = 'workspace',
 	sourceSessionId,
+	turnId,
+	workspaceRoot = '',
 	composerSessionId,
 	composerSessionSnapshot,
 }: WorkspaceDiffPageProps) {
+	const isTranscriptDiff = source === 'transcript';
 	const resource = useWorkspaceFileStore((state) =>
-		path ? state.getDiffResource(workspaceId, path) : null,
+		!isTranscriptDiff && path ? state.getDiffResource(workspaceId, path) : null,
+	);
+	const sourceWindowMessages = useChatWindowStore((state) =>
+		isTranscriptDiff && sourceSessionId
+			? (state.windowBySessionId.get(sourceSessionId)?.messages ?? null)
+			: null,
 	);
 	const diffViewMode = useUiStore((state) => state.getDiffViewMode(workspaceId));
 	const currentPatchDigest = resource?.data?.patchDigest ?? expectedPatchDigest ?? null;
@@ -131,6 +145,19 @@ export function WorkspaceDiffPage({
 			},
 		];
 	}, [commentRange]);
+	const transcriptChangedFile = useMemo(() => {
+		if (!isTranscriptDiff || !path || !turnId || !sourceWindowMessages) return null;
+		return findTranscriptChangedFile({
+			messages: sourceWindowMessages,
+			path,
+			turnId,
+			workspaceRoot,
+		});
+	}, [isTranscriptDiff, path, sourceWindowMessages, turnId, workspaceRoot]);
+	const transcriptDiff = useMemo(
+		() => (transcriptChangedFile ? transcriptFileDiff(transcriptChangedFile) : null),
+		[transcriptChangedFile],
+	);
 	const copyFileContents = useCallback(async () => {
 		if (!path) return;
 		try {
@@ -183,26 +210,30 @@ export function WorkspaceDiffPage({
 	]);
 	const toolbarActions = path ? (
 		<>
-			<ViewedDiffButton
-				disabled={!currentPatchDigest}
-				viewed={viewed}
-				onToggle={() => {
-					if (!currentPatchDigest) return;
-					setDiffPathViewed(workspaceId, path, currentPatchDigest, !viewed);
-				}}
-			/>
-			<DiffRefreshButton
-				onClick={() =>
-					void useWorkspaceFileStore
-						.getState()
-						.loadDiffPatch(workspaceId, path, { expectedPatchDigest, force: true })
-				}
-			/>
+			{!isTranscriptDiff ? (
+				<>
+					<ViewedDiffButton
+						disabled={!currentPatchDigest}
+						viewed={viewed}
+						onToggle={() => {
+							if (!currentPatchDigest) return;
+							setDiffPathViewed(workspaceId, path, currentPatchDigest, !viewed);
+						}}
+					/>
+					<DiffRefreshButton
+						onClick={() =>
+							void useWorkspaceFileStore
+								.getState()
+								.loadDiffPatch(workspaceId, path, { expectedPatchDigest, force: true })
+						}
+					/>
+				</>
+			) : null}
 			<DiffViewModeToggle
 				mode={diffViewMode}
 				onChange={(mode) => setDiffViewMode(workspaceId, mode)}
 			/>
-			<CopyFileButton onCopy={copyFileContents} />
+			{!isTranscriptDiff ? <CopyFileButton onCopy={copyFileContents} /> : null}
 			<DiffFileSegmentedControl
 				filePath={path}
 				mode="diff"
@@ -213,9 +244,9 @@ export function WorkspaceDiffPage({
 	) : null;
 
 	useEffect(() => {
-		if (!path) return;
+		if (!path || isTranscriptDiff) return;
 		void useWorkspaceFileStore.getState().loadDiffPatch(workspaceId, path, { expectedPatchDigest });
-	}, [expectedPatchDigest, path, workspaceId]);
+	}, [expectedPatchDigest, isTranscriptDiff, path, workspaceId]);
 
 	const renderCommentAnnotation = useCallback(
 		(annotation: DiffLineAnnotation<DiffCommentMetadata>) => {
@@ -291,6 +322,40 @@ export function WorkspaceDiffPage({
 					title="Select a changed file"
 					message="Choose a file from Changes to inspect its diff."
 				/>
+			</WorkspaceDiffPageShell>
+		);
+	}
+
+	if (isTranscriptDiff) {
+		if (!sourceWindowMessages) {
+			return (
+				<WorkspaceDiffPageShell path={path} actions={toolbarActions}>
+					<WorkspaceDiffPageLoading />
+				</WorkspaceDiffPageShell>
+			);
+		}
+
+		if (!transcriptChangedFile || !transcriptDiff) {
+			return (
+				<WorkspaceDiffPageShell path={path} actions={toolbarActions}>
+					<WorkspaceDiffPageState
+						title="Diff unavailable"
+						message="This transcript diff is no longer available in the loaded chat window."
+					/>
+				</WorkspaceDiffPageShell>
+			);
+		}
+
+		return (
+			<WorkspaceDiffPageShell path={path} actions={toolbarActions}>
+				<div className="min-w-max">
+					<FileDiff
+						fileDiff={transcriptDiff}
+						disableWorkerPool
+						style={MIKO_CODE_FONT_VARS}
+						options={{ ...MIKO_DIFF_OPTIONS, diffStyle: diffViewMode }}
+					/>
+				</div>
 			</WorkspaceDiffPageShell>
 		);
 	}

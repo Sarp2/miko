@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useMemo } from 'react';
-import type { MikoStatus, WorkspaceSnapshot } from '../../shared/types';
+import type { ChatAttachment, MikoStatus, PromptPart, WorkspaceSnapshot } from '../../shared/types';
 import { useChatScroll } from '../hooks/use-chat-scroll';
+import { useWorkspacePageOpeners } from '../hooks/use-workspace-page-openers';
 import { composeTranscriptWindow } from '../lib/compose-transcript-window';
 import { groupTranscriptTurns } from '../lib/group-transcript-turns';
 import { hydrateTranscriptMessages } from '../lib/hydrate-transcript-messages';
@@ -25,6 +26,9 @@ export interface ChatPageViewProps extends ChatPageProps {
 	onLoadOlder?: () => void;
 	composer?: ReactNode;
 	sessionStatus?: MikoStatus | null;
+	onOpenFile?: (path: string) => void;
+	onOpenPastedText?: (part: Extract<PromptPart, { type: 'pasted_text' }>) => void;
+	onOpenAttachment?: (attachment: ChatAttachment) => void;
 }
 
 function EmptyChatSessionState({ localPath }: { localPath: string }) {
@@ -67,6 +71,9 @@ export function ChatPageView({
 	onLoadOlder,
 	composer,
 	sessionStatus,
+	onOpenFile,
+	onOpenPastedText,
+	onOpenAttachment,
 }: ChatPageViewProps) {
 	const messages = useMemo(() => {
 		return composeTranscriptWindow(hydrateTranscriptMessages(chatWindow?.messages ?? []));
@@ -127,6 +134,9 @@ export function ChatPageView({
 								sessionId={sessionId}
 								workspaceId={workspaceId}
 								workspaceRoot={workspaceSnapshot.workspace.localPath}
+								onOpenFile={onOpenFile}
+								onOpenPastedText={onOpenPastedText}
+								onOpenAttachment={onOpenAttachment}
 							/>
 						))}
 						{showActivityIndicator && !hasOpenTurn ? <TranscriptActivityIndicator /> : null}
@@ -144,6 +154,11 @@ export function ChatPage({ workspaceId, sessionId, workspaceSnapshot }: ChatPage
 	const sessionSnapshot = useSessionStore(
 		(state) => state.snapshotBySessionId.get(sessionId) ?? null,
 	);
+	const { openWorkspaceFile, openPastedText, openAttachment } = useWorkspacePageOpeners(
+		workspaceId,
+		sessionId,
+	);
+
 	const loadOlder = () => {
 		void useSessionStore
 			.getState()
@@ -188,6 +203,9 @@ export function ChatPage({ workspaceId, sessionId, workspaceSnapshot }: ChatPage
 			chatWindow={chatWindow}
 			onLoadOlder={loadOlder}
 			sessionStatus={sessionSnapshot?.runtime.status ?? null}
+			onOpenFile={openWorkspaceFile}
+			onOpenPastedText={(part) => openPastedText(part.id, part.text)}
+			onOpenAttachment={openAttachment}
 			composer={
 				<ChatComposer
 					key={sessionId}

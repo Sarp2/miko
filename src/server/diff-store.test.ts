@@ -728,10 +728,13 @@ describe('DiffStore.readFileContents', () => {
 			kind: 'image',
 			path: 'avatar.png',
 			name: 'avatar.png',
-			contentUrl: '/api/workspaces/workspace-1/files/avatar.png/content',
 			mimeType: 'image/png',
 			size: 4,
 		});
+		if (result.kind !== 'image') throw new Error('Expected image preview result');
+		expect(result.contentUrl).toStartWith(
+			'/api/workspaces/workspace-1/files/avatar.png/content?v=',
+		);
 	});
 
 	test('returns svg files as text instead of previewable images', async () => {

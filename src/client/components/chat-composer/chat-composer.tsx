@@ -1,19 +1,17 @@
 import { ArrowUp, Lightning, MapTrifold, Plus, StopCircle } from '@phosphor-icons/react';
-import { useLayoutEffect, useRef } from 'react';
+import { useRef } from 'react';
 
-import type { SessionSnapshot, WorkspaceSnapshot } from '../../../shared/types';
+import type { PromptPart, SessionSnapshot, WorkspaceSnapshot } from '../../../shared/types';
 import { useChatComposer } from '../../hooks/use-chat-composer';
-import { useFileMentions } from '../../hooks/use-file-mentions';
+import { useInlinePromptEditor } from '../../hooks/use-inline-prompt-editor';
+import { useWorkspacePageOpeners } from '../../hooks/use-workspace-page-openers';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
-import { AttachmentPill } from './composer-attachments';
 import { ComposerEffortMenu } from './composer-effort-menu';
 import { ComposerModelMenu } from './composer-model-menu';
 import { ComposerToggle } from './composer-toggle';
 import { FileMentionPopover } from './file-mention-popover';
-
-const MAX_INPUT_HEIGHT = 220;
 
 interface ChatComposerProps {
 	workspaceId: string;
@@ -30,34 +28,77 @@ export function ChatComposer({
 }: ChatComposerProps) {
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const composer = useChatComposer({ workspaceId, sessionId, workspaceSnapshot, sessionSnapshot });
-	const mentions = useFileMentions({
+	const promptEditor = useInlinePromptEditor({
+		attachments: composer.attachments,
+		parts: composer.parts,
+		setParts: composer.setParts,
 		workspaceId,
-		content: composer.content,
-		files: workspaceSnapshot.git?.files ?? [],
-		onContentChange: composer.setContent,
+		workspaceSnapshot,
 	});
+	const { openWorkspaceFile, openPastedText, openLocalAttachment } = useWorkspacePageOpeners(
+		workspaceId,
+		sessionId,
+	);
 
-	useLayoutEffect(() => {
-		const textarea = mentions.textareaRef.current;
-		if (!textarea) return;
-		textarea.style.height = '0px';
-		const nextHeight = Math.min(textarea.scrollHeight, MAX_INPUT_HEIGHT);
-		textarea.style.height = `${nextHeight}px`;
-		textarea.style.overflowY = textarea.scrollHeight > MAX_INPUT_HEIGHT ? 'auto' : 'hidden';
-	});
+	const findTokenPart = (tokenIndex?: string): Exclude<PromptPart, { type: 'text' }> | null => {
+		if (!tokenIndex) return null;
+		const index = Number(tokenIndex);
+		if (!Number.isSafeInteger(index) || index < 0) return null;
+		const part = composer.parts[index];
+		return part && part.type !== 'text' ? part : null;
+	};
+
+	const openTokenPart = (part: Exclude<PromptPart, { type: 'text' }>) => {
+		if (part.type === 'mention') openWorkspaceFile(part.path);
+		else if (part.type === 'pasted_text') openPastedText(part.id, part.text);
+		else {
+			const attachment = composer.attachments.find((item) => item.id === part.attachmentId);
+			if (attachment) openLocalAttachment(attachment);
+		}
+	};
+
+	const handleEditorClick = (event: React.MouseEvent<HTMLDivElement>) => {
+		const target = event.target instanceof Element ? event.target : null;
+		const readonly = composer.disabled || composer.isStreaming;
+		if (readonly) return;
+
+		const removeButton = target?.closest<HTMLElement>('[data-remove-token-key]');
+		if (removeButton) {
+			event.preventDefault();
+			event.stopPropagation();
+			const part = findTokenPart(removeButton.dataset.removeTokenIndex);
+			if (!part) return;
+			if (part.type === 'attachment') composer.removeAttachment(part.attachmentId);
+			else {
+				const index = Number(removeButton.dataset.removeTokenIndex);
+				composer.setParts(composer.parts.filter((_, candidateIndex) => candidateIndex !== index));
+			}
+			return;
+		}
+
+		const tokenPart = findTokenPart(
+			target?.closest<HTMLElement>('[data-token-key]')?.dataset.tokenIndex,
+		);
+		if (!tokenPart) {
+			promptEditor.refreshMentionRange();
+			return;
+		}
+		event.preventDefault();
+		openTokenPart(tokenPart);
+	};
 
 	return (
 		<div className="bg-canvas px-4 py-3">
 			<div className="mx-auto w-full max-w-4xl">
 				<FileMentionPopover
-					open={mentions.mentionRange !== null}
-					query={mentions.mentionRange?.query ?? ''}
-					options={mentions.mentionOptions}
-					isLoading={mentions.isLoading}
+					open={promptEditor.mentionRange !== null}
+					query={promptEditor.mentionRange?.query ?? ''}
+					options={promptEditor.mentionOptions}
+					isLoading={promptEditor.isMentionLoading}
 					onOpenChange={(open) => {
-						if (!open) mentions.closeMentions();
+						if (!open) promptEditor.setMentionRange(null);
 					}}
-					onSelect={mentions.insertMention}
+					onSelect={promptEditor.insertMention}
 					anchor={
 						<div
 							className={cn(
@@ -66,36 +107,34 @@ export function ChatComposer({
 							)}
 							data-disabled={composer.disabled || composer.isStreaming}
 						>
-							{composer.attachments.length > 0 ? (
-								<div className="flex flex-wrap gap-1.5 border-b border-hairline px-3 py-2">
-									{composer.attachments.map((attachment) => (
-										<AttachmentPill
-											key={attachment.id}
-											attachment={attachment}
-											onRemove={() => composer.removeAttachment(attachment.id)}
-										/>
-									))}
-								</div>
-							) : null}
-							<textarea
-								ref={mentions.textareaRef}
-								value={composer.content}
-								onChange={(event) => mentions.updateContent(event.target.value)}
-								onClick={() => mentions.refreshMentionRange(composer.content)}
-								onKeyUp={() => mentions.refreshMentionRange(composer.content)}
+							{/* biome-ignore lint/a11y/useSemanticElements: contentEditable is required for inline file and mention tokens. */}
+							<div
+								ref={promptEditor.editorRef}
+								contentEditable={!composer.disabled && !composer.isStreaming}
+								role="textbox"
+								tabIndex={composer.disabled || composer.isStreaming ? -1 : 0}
+								aria-multiline="true"
+								suppressContentEditableWarning
+								onInput={promptEditor.syncPartsFromDom}
+								onClick={handleEditorClick}
+								onKeyUp={promptEditor.refreshMentionRange}
+								onPaste={(event) => {
+									event.preventDefault();
+									promptEditor.insertPastedText(event.clipboardData.getData('text/plain'));
+								}}
 								onKeyDown={(event) => {
 									if (event.nativeEvent.isComposing) return;
 
-									if (event.key === 'Escape' && mentions.mentionRange) {
+									if (event.key === 'Escape' && promptEditor.mentionRange) {
 										event.preventDefault();
-										mentions.closeMentions();
+										promptEditor.setMentionRange(null);
 										return;
 									}
 
-									const firstMentionOption = mentions.mentionOptions[0];
-									if (event.key === 'Enter' && mentions.mentionRange) {
+									const firstMentionOption = promptEditor.mentionOptions[0];
+									if (event.key === 'Enter' && promptEditor.mentionRange) {
 										event.preventDefault();
-										if (firstMentionOption) mentions.insertMention(firstMentionOption);
+										if (firstMentionOption) promptEditor.insertMention(firstMentionOption);
 										return;
 									}
 
@@ -104,10 +143,10 @@ export function ChatComposer({
 										void composer.submit();
 									}
 								}}
-								disabled={composer.disabled || composer.isStreaming}
-								placeholder="Ask to make changes, @mention files"
-								rows={1}
-								className="scrollbar-miko block min-h-20 w-full resize-none bg-transparent px-3 py-3 text-[13px] leading-5 text-ink outline-none placeholder:text-ink-tertiary disabled:cursor-not-allowed"
+								data-placeholder={
+									composer.parts.length === 0 ? 'Ask to make changes, @mention files' : undefined
+								}
+								className="scrollbar-miko block max-h-[220px] min-h-20 w-full overflow-y-auto whitespace-pre-wrap break-words bg-transparent px-3 py-3 text-[13px] leading-5 text-ink outline-none empty:before:pointer-events-none empty:before:text-ink-tertiary empty:before:content-[attr(data-placeholder)] disabled:cursor-not-allowed"
 							/>
 							<div className="flex items-center justify-between px-2 py-1.5">
 								<div className="flex min-w-0 items-center gap-1">
