@@ -1,0 +1,37 @@
+src/client/stores/ui-store.test.ts
+  s_82e93de1bb8ac8::t_bb4a69fef306b9 2-3,5-8,229,232,254,395-441
+  s_82e93de1bb8ac8::t_b64e4a7dbf424c 4
+src/client/lib/workspace-file-previews.ts
+  s_82e93de1bb8ac8::t_fa04451c597640 8-11,14,17-20,22-23,27-29,32-35,37-39,43,47,77-83
+src/client/stores/ui-store.ts
+  s_82e93de1bb8ac8::t_2f367d2cbd7732 57,132-150,154-174,556-560,565
+  s_82e93de1bb8ac8::t_b64e4a7dbf424c 151-153
+  s_82e93de1bb8ac8::t_bbbdb66f10bad7 561-564
+src/client/components/chat-composer/chat-composer.tsx
+  s_82e93de1bb8ac8::t_c7c180d9c9f69b 63
+  s_82e93de1bb8ac8::t_815a208dfee5c1 43-47,62,69,72-75,80
+src/client/lib/workspace-file-previews.test.ts
+  s_82e93de1bb8ac8::t_1f153484118863 3-7,29-34
+src/client/components/prompt-token.tsx
+  s_82e93de1bb8ac8::t_4bc9653afdc970 30-31,36-38,41
+  s_82e93de1bb8ac8::t_b64e4a7dbf424c 39
+src/client/hooks/use-inline-prompt-editor.ts
+  s_82e93de1bb8ac8::t_059ce9c745ac8c 36-39,44-47,201-207
+  s_82e93de1bb8ac8::t_b64e4a7dbf424c 296-298
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "dc8079ed659333427b5796245ba802803313d8f4",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
