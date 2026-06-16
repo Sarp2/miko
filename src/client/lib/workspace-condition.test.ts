@@ -153,7 +153,7 @@ describe('deriveWorkspaceCondition', () => {
 			deriveWorkspaceCondition(
 				makeSnapshot({
 					workspace: { reviewState: 'in_review' },
-					github: { status: 'open', hasMergeConflicts: true },
+					github: { status: 'open', ciStatus: 'failing', hasMergeConflicts: true },
 				}),
 			),
 		).toMatchObject({

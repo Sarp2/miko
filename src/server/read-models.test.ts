@@ -337,6 +337,7 @@ describe('deriveSidebarSnapshot', () => {
 						'workspace-1',
 						{
 							...openPullRequestSnapshot(),
+							ciStatus: 'failing',
 							mergeStateStatus: 'DIRTY',
 							hasMergeConflicts: true,
 						},

@@ -93,14 +93,14 @@ function deriveStage(args: {
 	}
 
 	if (args.reviewState === 'in_review') {
-		if (args.ciStatus === 'failing') {
-			return { stage: 'ci_failed', primaryAction: action('fix_ci', 'Fix CI') };
-		}
 		if (args.hasMergeConflicts) {
 			return {
 				stage: 'merge_conflicts',
 				primaryAction: action('resolve_merge_conflicts', 'Resolve conflicts'),
 			};
+		}
+		if (args.ciStatus === 'failing') {
+			return { stage: 'ci_failed', primaryAction: action('fix_ci', 'Fix CI') };
 		}
 		if (args.dirtyFileCount > 0) {
 			return {

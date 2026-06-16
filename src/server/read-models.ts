@@ -100,13 +100,13 @@ function getWorkspaceSidebarIndicator(args: {
 		return 'merged';
 	if (workspace.reviewState === 'closed' || workspace.pullRequest?.status === 'closed')
 		return 'closed';
-	if (github?.ciStatus === 'failing' || workspace.pullRequest?.ciStatus === 'failing') {
-		return 'ci_failed';
-	}
 	const hasOpenPr =
 		workspace.reviewState === 'in_review' || workspace.pullRequest?.status === 'open';
 	if (hasOpenPr && (github?.hasMergeConflicts || workspace.pullRequest?.hasMergeConflicts)) {
 		return 'merge_conflicts';
+	}
+	if (github?.ciStatus === 'failing' || workspace.pullRequest?.ciStatus === 'failing') {
+		return 'ci_failed';
 	}
 	if (hasOpenPr && ((git?.files.length ?? 0) > 0 || (git?.aheadCount ?? 0) > 0)) {
 		return 'commit_and_push';
