@@ -35,6 +35,7 @@ const TEXT_LIKE_EXTENSIONS = new Set([
 	'.sh',
 	'.sql',
 	'.svelte',
+	'.svg',
 	'.swift',
 	'.toml',
 	'.ts',

@@ -28,7 +28,7 @@ afterEach(() => {
 
 describe('isTextLikeAttachment', () => {
 	test('detects common source files when browser MIME is empty', () => {
-		for (const name of ['main.py', 'server.go', 'lib.rs', 'script.sh', 'config.toml']) {
+		for (const name of ['main.py', 'server.go', 'lib.rs', 'script.sh', 'config.toml', 'icon.svg']) {
 			expect(isTextLikeAttachment(name, '')).toBe(true);
 		}
 	});
