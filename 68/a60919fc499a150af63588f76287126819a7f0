@@ -1,0 +1,19 @@
+src/client/hooks/use-chat-composer.ts
+  s_f5046c8230e48f::t_61352fe7765bcc 126
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "68a60919fc499a150af63588f76287126819a7f0",
+  "prompts": {},
+  "sessions": {
+    "s_f5046c8230e48f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ed414-a9e4-72c0-a0c8-95aa649ff9f6",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
