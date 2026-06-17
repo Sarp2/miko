@@ -739,6 +739,28 @@ describe('PrManager.markWorkspacePullRequestReady', () => {
 			isDraft: false,
 		});
 	});
+
+	test('rejects mark ready when the workspace PR is not a draft', async () => {
+		const { store, workspace } = await createWorkspace();
+		await store.observeWorkspacePullRequest(workspace.id, {
+			number: 12,
+			status: 'open',
+			isDraft: false,
+			lastObservedAt: Date.now(),
+		});
+		const calls: string[][] = [];
+		const manager = new PrManager(store, {
+			runGh: async (args) => {
+				calls.push(args);
+				return failed('unexpected gh command');
+			},
+		});
+
+		await expect(manager.markWorkspacePullRequestReady(workspace.id)).rejects.toThrow(
+			'Workspace pull request is not a draft',
+		);
+		expect(calls).toEqual([]);
+	});
 });
 
 describe('PrManager REST refresh', () => {

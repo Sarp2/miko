@@ -1049,6 +1049,9 @@ export class PrManager {
 		const directory = this.eventStore.requireDirectory(workspace.directoryId);
 		const prNumber = workspace.pullRequest?.number;
 		if (prNumber === undefined) throw new Error('Workspace does not have a pull request');
+		if (workspace.pullRequest?.isDraft !== true) {
+			throw new Error('Workspace pull request is not a draft');
+		}
 
 		const result = await this.runGh([
 			'pr',

@@ -164,6 +164,26 @@ describe('deriveWorkspaceCondition', () => {
 		expect(
 			deriveWorkspaceCondition(
 				makeSnapshot({
+					workspace: {
+						reviewState: 'in_review',
+						pullRequest: {
+							number: 12,
+							status: 'open',
+							isDraft: true,
+							lastObservedAt: 1,
+						},
+					},
+					github: { status: 'open', isDraft: false },
+				}),
+			),
+		).toMatchObject({
+			stage: 'pr_open',
+			primaryAction: { kind: 'merge', label: 'Merge' },
+		});
+
+		expect(
+			deriveWorkspaceCondition(
+				makeSnapshot({
 					workspace: { reviewState: 'in_review' },
 					github: { status: 'open', ciStatus: 'failing', hasMergeConflicts: true },
 				}),

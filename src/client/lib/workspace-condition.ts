@@ -156,7 +156,7 @@ export function deriveWorkspaceCondition(snapshot: WorkspaceSnapshot): Workspace
 		hasMergeConflicts:
 			snapshot.github?.hasMergeConflicts === true ||
 			snapshot.workspace.pullRequest?.hasMergeConflicts === true,
-		isDraft: snapshot.github?.isDraft === true || snapshot.workspace.pullRequest?.isDraft === true,
+		isDraft: snapshot.github?.isDraft ?? snapshot.workspace.pullRequest?.isDraft ?? false,
 	});
 
 	return {
