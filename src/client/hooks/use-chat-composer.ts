@@ -116,12 +116,14 @@ export function useChatComposer({
 		(content.trim().length > 0 || hasVisibleAttachmentToken) && !disabled && !isStreaming;
 
 	useEffect(() => {
-		if (parts.length > 0 || attachments.length > 0) {
-			useComposerDraftStore.getState().setDraft(sessionId, parts);
+		const targetSessionId = previousSessionIdRef.current;
+		const textParts = parts.filter((part) => part.type !== 'attachment');
+		if (textParts.length > 0) {
+			useComposerDraftStore.getState().setDraft(targetSessionId, textParts);
 		} else {
-			useComposerDraftStore.getState().clearDraft(sessionId);
+			useComposerDraftStore.getState().clearDraft(targetSessionId);
 		}
-	}, [parts, attachments, sessionId]);
+	}, [parts, sessionId]);
 
 	useEffect(() => {
 		if (previousSessionIdRef.current === sessionId) return;
