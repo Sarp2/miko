@@ -2,9 +2,11 @@ import { NotePencil, WarningCircle } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router-dom';
 import type { HydratedTranscriptMessage } from '../../../shared/types';
 import { Icons } from '../../lib/icons';
+import { workspacePagePath } from '../../lib/middle-tabs';
 import { toRelativePath } from '../../lib/relative-path';
 import { turnChangedFiles } from '../../lib/turn-changed-files';
 import { cn } from '../../lib/utils';
+import { resolveChangedFileDiffOpenTarget } from '../../lib/workspace-file-open-target';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '../ui/hover-card';
 import { ChangedFileDiff } from './changed-file-diff';
 
@@ -13,6 +15,7 @@ export type ChangedFileLineContext = {
 	sessionId?: string;
 	workspaceId?: string;
 	workspaceRoot?: string;
+	turnId?: string;
 };
 
 type ChangedFileMessage = Extract<
@@ -59,13 +62,17 @@ export function ChangedFileLine({
 
 	const workspaceId = context?.workspaceId ?? '';
 	const relativePath = toRelativePath(file.path, context?.workspaceRoot ?? '');
-	const canOpenDiff = workspaceId.length > 0 && file.path !== '__overflow';
+	const target = resolveChangedFileDiffOpenTarget({
+		path: file.path,
+		workspaceRoot: context?.workspaceRoot,
+		sourceSessionId: context?.sessionId,
+		turnId: context?.turnId,
+	});
+	const canOpenDiff = workspaceId.length > 0 && target.kind === 'page';
 
 	const openDiff = () => {
-		if (!canOpenDiff) return;
-		const params = new URLSearchParams({ path: relativePath });
-		if (context?.sessionId) params.set('sessionId', context.sessionId);
-		navigate(`/workspaces/${encodeURIComponent(workspaceId)}/diff?${params.toString()}`);
+		if (!canOpenDiff || target.kind !== 'page') return;
+		navigate(workspacePagePath(workspaceId, target.page));
 	};
 
 	const card = (

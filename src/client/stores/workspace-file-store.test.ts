@@ -9,6 +9,7 @@ import { useWorkspaceStore } from './workspace-store';
 
 const originalWorkspaceFileCommands = {
 	readFileContents: useWorkspaceStore.getState().readFileContents,
+	readExternalFileContents: useWorkspaceStore.getState().readExternalFileContents,
 	readDiffPatch: useWorkspaceStore.getState().readDiffPatch,
 };
 
@@ -45,6 +46,7 @@ beforeEach(() => {
 	useWorkspaceFileStore.getState().resetForTests();
 	useWorkspaceStore.setState({
 		readFileContents: async () => fileResult(),
+		readExternalFileContents: async (path) => fileResult(path),
 		readDiffPatch: async () => diffResult(),
 	});
 });
@@ -122,6 +124,24 @@ describe('useWorkspaceFileStore.loadFileContents', () => {
 		expect(
 			useWorkspaceFileStore.getState().getFileResource('workspace-1', 'src/index.css').status,
 		).toBe('idle');
+	});
+});
+
+describe('useWorkspaceFileStore.loadExternalFileContents', () => {
+	test('loads external file contents through the shared file cache', async () => {
+		await useWorkspaceFileStore
+			.getState()
+			.loadExternalFileContents('workspace-1', '/Users/sarp/.claude/plans/plan.md');
+
+		expect(
+			useWorkspaceFileStore
+				.getState()
+				.getFileResource('workspace-1', '/Users/sarp/.claude/plans/plan.md'),
+		).toMatchObject({
+			status: 'ready',
+			data: fileResult('/Users/sarp/.claude/plans/plan.md'),
+			error: null,
+		});
 	});
 });
 

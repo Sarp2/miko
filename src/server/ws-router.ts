@@ -60,6 +60,7 @@ interface CreateWsRouterArgs {
 		| 'ignoreFile'
 		| 'readPatch'
 		| 'readFileContents'
+		| 'readExternalFileContents'
 	>;
 	workspaceManager: WorkspaceManager;
 	prManager: PrManager;
@@ -571,6 +572,11 @@ export function createWsRouter({
 						workspacePath: workspace.localPath,
 						path: command.path,
 					});
+					send(ws, { type: 'ack', id, result });
+					return;
+				}
+				case 'file.readExternal': {
+					const result = await diffStore.readExternalFileContents({ path: command.path });
 					send(ws, { type: 'ack', id, result });
 					return;
 				}

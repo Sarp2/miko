@@ -165,11 +165,11 @@ export function modelOptionsForSubmit(args: {
 	};
 }
 
-export async function uploadAttachments(workspaceId: string, attachments: LocalAttachment[]) {
-	if (attachments.length === 0) return [] satisfies ChatAttachment[];
+export async function uploadFiles(workspaceId: string, files: File[]) {
+	if (files.length === 0) return [] satisfies ChatAttachment[];
 
 	const formData = new FormData();
-	for (const attachment of attachments) formData.append('files', attachment.file);
+	for (const file of files) formData.append('files', file);
 
 	const response = await fetch(`/api/workspaces/${encodeURIComponent(workspaceId)}/uploads`, {
 		method: 'POST',
@@ -183,6 +183,13 @@ export async function uploadAttachments(workspaceId: string, attachments: LocalA
 
 	const payload = (await response.json()) as UploadResponse;
 	return payload.attachments ?? [];
+}
+
+export async function uploadAttachments(workspaceId: string, attachments: LocalAttachment[]) {
+	return uploadFiles(
+		workspaceId,
+		attachments.map((attachment) => attachment.file),
+	);
 }
 
 export const DEFAULT_COMPOSER_MODEL_OPTIONS = {

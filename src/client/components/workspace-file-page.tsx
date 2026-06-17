@@ -7,6 +7,7 @@ import {
 	MIKO_CODE_FONT_VARS,
 	MIKO_FILE_OPTIONS,
 } from '../lib/miko-diff-renderer';
+import { workspaceFilePath } from '../lib/workspace-file-open-target';
 import { agentInstructionContentUrlFromPath } from '../lib/workspace-file-previews';
 import type { WorkspacePage } from '../stores/ui-store';
 import { useWorkspaceFileStore } from '../stores/workspace-file-store';
@@ -18,6 +19,7 @@ interface WorkspaceFilePageProps {
 	workspaceId: string;
 	page: Extract<WorkspacePage, { type: 'file' }>;
 	revisionKey?: string | null;
+	workspaceRoot?: string;
 }
 
 function WorkspaceCodePageShell({
@@ -142,7 +144,12 @@ function WorkspaceFilePreview({ file }: { file: WorkspaceFileContentsResult }) {
 	);
 }
 
-export function WorkspaceFilePage({ workspaceId, page, revisionKey }: WorkspaceFilePageProps) {
+export function WorkspaceFilePage({
+	workspaceId,
+	page,
+	revisionKey,
+	workspaceRoot,
+}: WorkspaceFilePageProps) {
 	const path = page.path;
 	const agentInstructionAttachment = useMemo(
 		() => (path ? agentInstructionContentUrlFromPath(path) : null),
@@ -151,8 +158,11 @@ export function WorkspaceFilePage({ workspaceId, page, revisionKey }: WorkspaceF
 	const agentInstructionAttachmentId = agentInstructionAttachment
 		? `agent-instruction:${agentInstructionAttachment.fileName}`
 		: undefined;
+	const resolvedWorkspaceFilePath = path ? workspaceFilePath(path, workspaceRoot) : null;
+	const isExternalFile = page.source === 'external_file';
 	const isWorkspaceFile = page.source === 'workspace_file' && !agentInstructionAttachment;
 	const isPastedText = page.source === 'pasted_text';
+	const pageAttachment = page.source === 'generated_attachment' ? page.attachment : undefined;
 	const isGeneratedAttachment =
 		page.source === 'generated_attachment' || Boolean(agentInstructionAttachment);
 	const pastedTextSourceId = isPastedText ? page.sourceId : undefined;
@@ -160,18 +170,30 @@ export function WorkspaceFilePage({ workspaceId, page, revisionKey }: WorkspaceF
 		agentInstructionAttachmentId ?? (isGeneratedAttachment ? page.sourceId : undefined);
 	const getActiveResource = useCallback(
 		(state: ReturnType<typeof useWorkspaceFileStore.getState>) => {
-			if (isWorkspaceFile && path) return state.getFileResource(workspaceId, path);
+			if (isWorkspaceFile && resolvedWorkspaceFilePath)
+				return state.getFileResource(workspaceId, resolvedWorkspaceFilePath);
+			if (isExternalFile && path) return state.getFileResource(workspaceId, path);
 			if (pastedTextSourceId) return state.getPastedTextResource(workspaceId, pastedTextSourceId);
 			if (attachmentSourceId) return state.getAttachmentResource(workspaceId, attachmentSourceId);
 			return null;
 		},
-		[attachmentSourceId, isWorkspaceFile, pastedTextSourceId, path, workspaceId],
+		[
+			attachmentSourceId,
+			isExternalFile,
+			isWorkspaceFile,
+			pastedTextSourceId,
+			path,
+			resolvedWorkspaceFilePath,
+			workspaceId,
+		],
 	);
 	const resource = useWorkspaceFileStore(getActiveResource);
 	const copyFileContents = useCallback(async () => {
 		try {
-			if (isWorkspaceFile && path) {
-				await useWorkspaceFileStore.getState().loadFileContents(workspaceId, path);
+			if (isWorkspaceFile && resolvedWorkspaceFilePath) {
+				await useWorkspaceFileStore
+					.getState()
+					.loadFileContents(workspaceId, resolvedWorkspaceFilePath);
 			}
 
 			const latest = getActiveResource(useWorkspaceFileStore.getState());
@@ -184,7 +206,7 @@ export function WorkspaceFilePage({ workspaceId, page, revisionKey }: WorkspaceF
 			console.warn('[workspace-file-page] failed to copy file contents', error);
 			throw error;
 		}
-	}, [getActiveResource, isWorkspaceFile, path, workspaceId]);
+	}, [getActiveResource, isWorkspaceFile, resolvedWorkspaceFilePath, workspaceId]);
 	const canCopyTextFile = resource?.status === 'ready' && resource.data?.kind === 'text';
 	const toolbarActions = canCopyTextFile ? (
 		<CopyFileButton disabled={false} onCopy={copyFileContents} />
@@ -194,9 +216,25 @@ export function WorkspaceFilePage({ workspaceId, page, revisionKey }: WorkspaceF
 		// The revision key is a workspace-snapshot freshness signal; when it changes,
 		// this effect intentionally refetches the same route path.
 		void revisionKey;
-		if (!path || !isWorkspaceFile) return;
-		void useWorkspaceFileStore.getState().loadFileContents(workspaceId, path, { force: true });
-	}, [isWorkspaceFile, path, revisionKey, workspaceId]);
+		if (!resolvedWorkspaceFilePath || !isWorkspaceFile) return;
+		void useWorkspaceFileStore
+			.getState()
+			.loadFileContents(workspaceId, resolvedWorkspaceFilePath, { force: true });
+	}, [isWorkspaceFile, resolvedWorkspaceFilePath, revisionKey, workspaceId]);
+
+	useEffect(() => {
+		if (!path || !isExternalFile) return;
+		void useWorkspaceFileStore
+			.getState()
+			.loadExternalFileContents(workspaceId, path, { force: true });
+	}, [isExternalFile, path, workspaceId]);
+
+	useEffect(() => {
+		if (!pageAttachment) return;
+		void useWorkspaceFileStore
+			.getState()
+			.loadAttachmentFile(workspaceId, pageAttachment, { force: true });
+	}, [pageAttachment, workspaceId]);
 
 	useEffect(() => {
 		// The revision key should also refresh generated instruction attachments that
@@ -221,7 +259,7 @@ export function WorkspaceFilePage({ workspaceId, page, revisionKey }: WorkspaceF
 		);
 	}, [agentInstructionAttachment, agentInstructionAttachmentId, path, revisionKey, workspaceId]);
 
-	if (!isWorkspaceFile && !isPastedText && !isGeneratedAttachment) {
+	if (!isWorkspaceFile && !isExternalFile && !isPastedText && !isGeneratedAttachment) {
 		return (
 			<WorkspaceCodePageShell path={path ?? page.title} actions={toolbarActions}>
 				<WorkspaceCodePageState
@@ -232,7 +270,7 @@ export function WorkspaceFilePage({ workspaceId, page, revisionKey }: WorkspaceF
 		);
 	}
 
-	if (isWorkspaceFile && !path) {
+	if ((isWorkspaceFile || isExternalFile) && !path) {
 		return (
 			<WorkspaceCodePageShell>
 				<WorkspaceCodePageState title="Select a file" message="Choose a file to preview." />

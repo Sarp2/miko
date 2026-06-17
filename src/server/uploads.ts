@@ -90,12 +90,12 @@ export function getUploadCandidateNames(originalName: string) {
 
 export async function persistWorkspaceUpload(args: {
 	workspaceId: string;
-	localPath: string;
+	dataDir?: string;
 	fileName: string;
 	bytes: Uint8Array;
 	fallbackMimeType?: string;
 }): Promise<ChatAttachment> {
-	const uploadDir = getWorkspaceUploadDir(args.localPath);
+	const uploadDir = getWorkspaceUploadDir(args.workspaceId, args.dataDir);
 	await mkdir(uploadDir, { recursive: true });
 
 	const detectedType = await fileTypeFromBuffer(args.bytes);
@@ -135,7 +135,7 @@ export async function persistWorkspaceUpload(args: {
 		kind: mimeType.startsWith(IMAGE_MIME_PREFIX) ? 'image' : 'file',
 		displayName: args.fileName,
 		absolutePath,
-		relativePath: `./.miko/uploads/${storedName}`,
+		relativePath: `miko://uploads/${args.workspaceId}/${storedName}`,
 		contentUrl: `/api/workspaces/${args.workspaceId}/uploads/${encodeURIComponent(storedName)}/content`,
 		mimeType,
 		size: args.bytes.byteLength,
@@ -166,7 +166,8 @@ export function inferWorkspaceFileContentType(fileName: string, fallbackType?: s
 }
 
 export async function deleteWorkspaceUpload(args: {
-	localPath: string;
+	workspaceId: string;
+	dataDir?: string;
 	storedName: string;
 }): Promise<boolean> {
 	const storedName = args.storedName;
@@ -180,7 +181,7 @@ export async function deleteWorkspaceUpload(args: {
 		return false;
 	}
 
-	const absolutePath = path.join(getWorkspaceUploadDir(args.localPath), storedName);
+	const absolutePath = path.join(getWorkspaceUploadDir(args.workspaceId, args.dataDir), storedName);
 	try {
 		await rm(absolutePath, { force: true });
 		return true;

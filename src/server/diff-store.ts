@@ -612,6 +612,65 @@ async function resolveWorkspaceFilePath(repoRoot: string, relativePath: string) 
 	return targetRealPath;
 }
 
+async function previewFileAtPath(args: {
+	filePath: string;
+	displayPath: string;
+	contentUrl?: (metadataDigest: string) => string;
+}): Promise<WorkspaceFileContentsResult> {
+	const info = await stat(args.filePath);
+	if (!info.isFile()) throw new Error(`Path is not a file: ${args.displayPath}`);
+	if (info.size > MAX_WORKSPACE_FILE_CONTENT_BYTES) {
+		throw new Error(`File is too large to preview: ${args.displayPath}`);
+	}
+
+	let mimeType = inferWorkspaceFileContentType(args.filePath);
+	const metadataDigest = hashFileMetadata(args.displayPath, info.size, info.mtimeMs);
+
+	if (args.contentUrl && isPreviewableImageMimeType(mimeType)) {
+		return {
+			kind: 'image',
+			path: args.displayPath,
+			name: path.basename(args.displayPath),
+			contentUrl: args.contentUrl(metadataDigest),
+			mimeType,
+			size: info.size,
+			cacheKey: `${args.displayPath}:${metadataDigest}`,
+		};
+	}
+
+	let contents: string | null = null;
+	if (isPreviewableTextMimeType(mimeType) || isDefaultBinaryMimeType(mimeType)) {
+		contents = await readPreviewableTextFile(args.filePath, args.displayPath).catch(() => null);
+	}
+
+	if (contents === null) {
+		return {
+			kind: 'binary',
+			path: args.displayPath,
+			name: path.basename(args.displayPath),
+			mimeType,
+			size: info.size,
+			cacheKey: `${args.displayPath}:${metadataDigest}`,
+		};
+	}
+
+	if (isDefaultBinaryMimeType(mimeType)) {
+		mimeType = TEXT_PLAIN_CONTENT_TYPE;
+	}
+	const contentDigest = hashFileContents(args.displayPath, contents);
+
+	return {
+		kind: 'text',
+		path: args.displayPath,
+		name: path.basename(args.displayPath),
+		contents,
+		mimeType,
+		size: info.size,
+		encoding: 'utf-8',
+		cacheKey: `${args.displayPath}:${contentDigest}`,
+	};
+}
+
 async function readPreviewableTextFile(filePath: string, relativePath: string) {
 	const file = Bun.file(filePath);
 	const buffer = await file.arrayBuffer();
@@ -1141,58 +1200,31 @@ export class DiffStore {
 			throw new Error(`File does not exist: ${relativePath}`);
 		});
 
-		const info = await stat(filePath);
-		if (!info.isFile()) throw new Error(`Path is not a file: ${relativePath}`);
-		if (info.size > MAX_WORKSPACE_FILE_CONTENT_BYTES) {
-			throw new Error(`File is too large to preview: ${relativePath}`);
+		return previewFileAtPath({
+			filePath,
+			displayPath: relativePath,
+			contentUrl: (metadataDigest) =>
+				`/api/workspaces/${encodeURIComponent(args.workspaceId)}/files/${encodeURIComponent(relativePath)}/content?v=${encodeURIComponent(metadataDigest)}`,
+		});
+	}
+
+	async readExternalFileContents(args: { path: string }): Promise<WorkspaceFileContentsResult> {
+		const requestedPath = args.path.trim();
+		if (!path.isAbsolute(requestedPath)) throw new Error('External file path must be absolute.');
+
+		let filePath: string;
+		try {
+			filePath = await realpath(requestedPath);
+		} catch {
+			throw new Error(`File does not exist: ${requestedPath}`);
 		}
 
-		let mimeType = inferWorkspaceFileContentType(filePath);
-		const metadataDigest = hashFileMetadata(relativePath, info.size, info.mtimeMs);
-
-		if (isPreviewableImageMimeType(mimeType)) {
-			return {
-				kind: 'image',
-				path: relativePath,
-				name: path.basename(relativePath),
-				contentUrl: `/api/workspaces/${encodeURIComponent(args.workspaceId)}/files/${encodeURIComponent(relativePath)}/content?v=${encodeURIComponent(metadataDigest)}`,
-				mimeType,
-				size: info.size,
-				cacheKey: `${relativePath}:${metadataDigest}`,
-			};
-		}
-
-		let contents: string | null = null;
-		if (isPreviewableTextMimeType(mimeType) || isDefaultBinaryMimeType(mimeType)) {
-			contents = await readPreviewableTextFile(filePath, relativePath).catch(() => null);
-		}
-
-		if (contents === null) {
-			return {
-				kind: 'binary',
-				path: relativePath,
-				name: path.basename(relativePath),
-				mimeType,
-				size: info.size,
-				cacheKey: `${relativePath}:${metadataDigest}`,
-			};
-		}
-
-		if (isDefaultBinaryMimeType(mimeType)) {
-			mimeType = TEXT_PLAIN_CONTENT_TYPE;
-		}
-		const contentDigest = hashFileContents(relativePath, contents);
-
-		return {
-			kind: 'text',
-			path: relativePath,
-			name: path.basename(relativePath),
-			contents,
-			mimeType,
-			size: info.size,
-			encoding: 'utf-8',
-			cacheKey: `${relativePath}:${contentDigest}`,
-		};
+		return previewFileAtPath({
+			filePath,
+			displayPath: filePath,
+			contentUrl: (metadataDigest) =>
+				`/api/external-files/content?path=${encodeURIComponent(filePath)}&v=${encodeURIComponent(metadataDigest)}`,
+		});
 	}
 
 	async refreshWorkspaceGitSnapshot(workspaceId: string, workspacePath: string) {

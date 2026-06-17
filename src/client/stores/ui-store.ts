@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import type { ChatAttachment } from '../../shared/types';
 import { PASTED_TEXT_LABEL } from '../lib/prompt-parts';
 import { getLocalStorage } from './persist-storage';
 
@@ -15,7 +16,8 @@ export type WorkspaceFileSource =
 	| 'ci_log'
 	| 'pr_comment'
 	| 'generated_attachment'
-	| 'pasted_text';
+	| 'pasted_text'
+	| 'external_file';
 
 export type WorkspacePage =
 	| { type: 'chat'; sessionId: string }
@@ -33,6 +35,7 @@ export type WorkspacePage =
 			source: WorkspaceFileSource;
 			sourceId?: string;
 			sourceSessionId?: string;
+			attachment?: ChatAttachment;
 	  };
 
 export interface MiddleTabDescriptor {
@@ -129,7 +132,46 @@ export function pageTabId(page: WorkspacePage) {
 	return `file:${page.source}:${identity}`;
 }
 
-function normalizeMiddleTab(tab: MiddleTabDescriptor) {
+function isChatAttachment(value: unknown): value is ChatAttachment {
+	if (!value || typeof value !== 'object') return false;
+	const candidate = value as Partial<ChatAttachment>;
+	return (
+		(candidate.kind === 'file' || candidate.kind === 'image') &&
+		typeof candidate.id === 'string' &&
+		candidate.id.trim().length > 0 &&
+		typeof candidate.displayName === 'string' &&
+		typeof candidate.absolutePath === 'string' &&
+		typeof candidate.relativePath === 'string' &&
+		typeof candidate.contentUrl === 'string' &&
+		candidate.contentUrl.trim().length > 0 &&
+		typeof candidate.mimeType === 'string' &&
+		candidate.mimeType.trim().length > 0 &&
+		typeof candidate.size === 'number' &&
+		Number.isSafeInteger(candidate.size) &&
+		candidate.size >= 0
+	);
+}
+
+function normalizeFilePage(page: Extract<WorkspacePage, { type: 'file' }>) {
+	if (page.source === 'pasted_text') return null;
+	if (page.source !== 'generated_attachment') return page;
+	if (page.attachment && isChatAttachment(page.attachment)) return page;
+	// Legacy generated-attachment tabs that only stored a sourceId were backed by
+	// memory-only preview state. Drop them on hydration instead of reviving dead tabs.
+	if (!page.path) return null;
+	return page;
+}
+
+function normalizeMiddleTab(workspaceId: string, tab: MiddleTabDescriptor) {
+	if (tab.page.type === 'file' && tab.page.source === 'scratchpad') {
+		const id = scratchpadTabId(workspaceId);
+		return tab.id === id ? tab : { ...tab, id, closable: false };
+	}
+
+	if (tab.page.type === 'file') {
+		const page = normalizeFilePage(tab.page);
+		return page ? { ...tab, page, id: pageTabId(page) } : null;
+	}
 	if (tab.page.type !== 'diff') return tab;
 	const id = pageTabId(tab.page);
 	return tab.id === id ? tab : { ...tab, id };
@@ -141,10 +183,11 @@ export function normalizePersistedUiState(state: PersistedUiState): PersistedUiS
 
 	for (const [workspaceId, tabs] of Object.entries(state.middleTabsByWorkspaceId)) {
 		const legacyIdByNextId = new Map<string, string>();
-		const normalizedTabs = tabs.map((tab) => {
-			const normalizedTab = normalizeMiddleTab(tab);
+		const normalizedTabs = tabs.flatMap((tab) => {
+			const normalizedTab = normalizeMiddleTab(workspaceId, tab);
+			if (!normalizedTab) return [];
 			legacyIdByNextId.set(tab.id, normalizedTab.id);
-			return normalizedTab;
+			return [normalizedTab];
 		});
 		const normalizedTabIds = new Set(normalizedTabs.map((tab) => tab.id));
 		const activeTabId = state.activeTabIdByWorkspaceId[workspaceId];
@@ -162,6 +205,7 @@ export function normalizePersistedUiState(state: PersistedUiState): PersistedUiS
 
 	for (const [workspaceId, activeTabId] of Object.entries(state.activeTabIdByWorkspaceId)) {
 		if (workspaceId in activeTabIdByWorkspaceId) continue;
+		if (workspaceId in middleTabsByWorkspaceId) continue;
 		activeTabIdByWorkspaceId[workspaceId] = activeTabId;
 	}
 
@@ -205,9 +249,32 @@ export function scratchpadTab(workspaceId: string, now = Date.now()): MiddleTabD
 
 export function withScratchpadFirst(workspaceId: string, tabs: MiddleTabDescriptor[]) {
 	const scratchpadId = scratchpadTabId(workspaceId);
-	const existingScratchpad = tabs.find((tab) => tab.id === scratchpadId);
-	const rest = tabs.filter((tab) => tab.id !== scratchpadId);
-	return [existingScratchpad ?? scratchpadTab(workspaceId), ...rest];
+	const existingScratchpad = tabs.find(
+		(tab) =>
+			tab.id === scratchpadId || (tab.page.type === 'file' && tab.page.source === 'scratchpad'),
+	);
+	const rest = tabs.filter(
+		(tab) =>
+			tab.id !== scratchpadId && !(tab.page.type === 'file' && tab.page.source === 'scratchpad'),
+	);
+	return [
+		existingScratchpad
+			? { ...existingScratchpad, id: scratchpadId, closable: false }
+			: scratchpadTab(workspaceId),
+		...rest,
+	];
+}
+
+function mergeWorkspacePages(existing: WorkspacePage, next: WorkspacePage): WorkspacePage {
+	if (existing.type !== next.type) return next;
+	if (existing.type === 'file' && next.type === 'file') {
+		return {
+			...existing,
+			...next,
+			attachment: next.attachment ?? existing.attachment,
+		};
+	}
+	return next;
 }
 
 function removeWorkspaceKey<T>(record: Record<string, T>, workspaceId: string) {
@@ -368,18 +435,19 @@ export const useUiStore = create<UiStoreState>()(
 					const now = Date.now();
 					const existingIndex = tabs.findIndex((tab) => tab.id === tabId);
 
+					const existingTab = existingIndex >= 0 ? tabs[existingIndex] : null;
 					const nextTab: MiddleTabDescriptor = {
 						id: tabId,
-						fallbackTitle: fallbackTitle ?? fallbackTitleForPage(page),
-						page,
+						fallbackTitle:
+							fallbackTitle ?? existingTab?.fallbackTitle ?? fallbackTitleForPage(page),
+						page: existingTab ? mergeWorkspacePages(existingTab.page, page) : page,
 						closable: tabId !== scratchpadTabId(workspaceId),
 						updatedAt: now,
 					};
 
 					const nextTabs = [...tabs];
 
-					if (existingIndex >= 0)
-						nextTabs[existingIndex] = { ...nextTabs[existingIndex], ...nextTab };
+					if (existingIndex >= 0) nextTabs[existingIndex] = nextTab;
 					else nextTabs.push(nextTab);
 
 					return {

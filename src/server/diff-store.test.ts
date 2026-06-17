@@ -25,6 +25,7 @@ import {
 	snapshotsEqual,
 	stripTrailingSlash,
 } from './diff-store';
+import { persistWorkspaceUpload } from './uploads';
 
 type StoredSnapshot = Parameters<typeof snapshotsEqual>[1];
 const tempDirs: string[] = [];
@@ -443,6 +444,22 @@ describe('computeCurrentFiles', () => {
 		expect(files[0]?.patchDigest).toHaveLength(64);
 		expect(files[1]?.patchDigest).toHaveLength(64);
 	});
+
+	test('does not count persisted uploads as workspace git changes', async () => {
+		const repoRoot = await createRepoWithInitialCommit();
+		const dataDir = await createTempDir();
+		const head = await runGit(['rev-parse', 'HEAD'], repoRoot);
+
+		await persistWorkspaceUpload({
+			workspaceId: 'workspace-1',
+			dataDir,
+			fileName: 'pasted-text.txt',
+			bytes: new TextEncoder().encode('this is app-owned prompt context\n'),
+			fallbackMimeType: 'text/plain; charset=utf-8',
+		});
+
+		await expect(computeCurrentFiles(repoRoot, head.stdout.trim())).resolves.toEqual([]);
+	});
 });
 
 describe('getBranchHistory', () => {
@@ -756,6 +773,53 @@ describe('DiffStore.readFileContents', () => {
 			mimeType: 'text/plain; charset=utf-8',
 			encoding: 'utf-8',
 		});
+	});
+
+	test('returns external text file contents for an absolute path', async () => {
+		const tempDir = await createTempDir();
+		const filePath = path.join(tempDir, 'plan.md');
+		await Bun.write(filePath, '# plan');
+		const store = new DiffStore(tempDir);
+
+		const result = await store.readExternalFileContents({ path: filePath });
+
+		expect(result).toMatchObject({
+			kind: 'text',
+			path: await realpath(filePath),
+			name: 'plan.md',
+			contents: '# plan',
+			encoding: 'utf-8',
+		});
+		expect(result.cacheKey).toMatch(/plan\.md:[a-f0-9]{64}$/u);
+	});
+
+	test('returns external image metadata with an external content URL', async () => {
+		const tempDir = await createTempDir();
+		const filePath = path.join(tempDir, 'avatar.png');
+		await Bun.write(filePath, new Uint8Array([137, 80, 78, 71]));
+		const store = new DiffStore(tempDir);
+
+		const result = await store.readExternalFileContents({ path: filePath });
+
+		expect(result).toMatchObject({
+			kind: 'image',
+			path: await realpath(filePath),
+			name: 'avatar.png',
+			mimeType: 'image/png',
+			size: 4,
+		});
+		if (result.kind !== 'image') throw new Error('Expected image preview result');
+		expect(result.contentUrl).toStartWith('/api/external-files/content?path=');
+		expect(result.contentUrl).toContain('&v=');
+	});
+
+	test('rejects relative external file paths', async () => {
+		const tempDir = await createTempDir();
+		const store = new DiffStore(tempDir);
+
+		await expect(store.readExternalFileContents({ path: 'notes.md' })).rejects.toThrow(
+			'External file path must be absolute.',
+		);
 	});
 });
 

@@ -10,7 +10,7 @@ import { WorkspaceFilePage } from '../components/workspace-file-page';
 import { WorkspaceHeader } from '../components/workspace-header/workspace-header';
 import { useScratchpadStore } from '../stores/scratchpad-store';
 import { useSessionStore } from '../stores/session-store';
-import { useUiStore } from '../stores/ui-store';
+import { pageTabId, useUiStore, type WorkspacePage } from '../stores/ui-store';
 import { useWorkspaceStore } from '../stores/workspace-store';
 import {
 	deriveWorkspaceRoutePage,
@@ -41,6 +41,18 @@ function selectComposerSessionId(sessions: SessionSummary[], preferredSessionId?
 			return right - left;
 		})[0]?.id ?? null
 	);
+}
+
+function mergeRoutePageWithStoredTab(page: WorkspacePage | null, storedPage: WorkspacePage | null) {
+	if (!page || !storedPage || page.type !== storedPage.type) return page;
+	if (page.type === 'file' && storedPage.type === 'file') {
+		return {
+			...storedPage,
+			...page,
+			attachment: page.attachment ?? storedPage.attachment,
+		};
+	}
+	return page;
 }
 
 function PageWithComposer({ children, composer }: { children: ReactNode; composer: ReactNode }) {
@@ -84,9 +96,20 @@ export function WorkspaceRoute({ kind }: WorkspaceRouteProps) {
 	}, [workspaceId, workspaceSnapshot]);
 
 	const firstSessionId = useMemo(() => selectFirstSessionId(sessions), [sessions]);
-	const page = useMemo(() => {
+	const routePage = useMemo(() => {
 		return deriveWorkspaceRoutePage({ kind, sessionId, searchParams });
 	}, [kind, sessionId, searchParams]);
+	const storedRoutePage = useUiStore((state) => {
+		if (!workspaceId || !routePage) return null;
+		const tabId = pageTabId(routePage);
+		return (
+			state.middleTabsByWorkspaceId[workspaceId]?.find((tab) => tab.id === tabId)?.page ?? null
+		);
+	});
+	const page = useMemo(
+		() => mergeRoutePageWithStoredTab(routePage, storedRoutePage),
+		[routePage, storedRoutePage],
+	);
 	const sessionRouteTargetId = useMemo(() => {
 		if (page?.type !== 'chat') return null;
 		return selectSessionRouteTarget(sessions, page.sessionId);
@@ -120,10 +143,10 @@ export function WorkspaceRoute({ kind }: WorkspaceRouteProps) {
 	}, [navigate, page, sessionRouteTargetId, workspaceId, workspaceSnapshot]);
 
 	useEffect(() => {
-		if (!workspaceId || !page) return;
-		if (page.type === 'chat' && sessionRouteTargetId !== page.sessionId) return;
-		useUiStore.getState().openMiddleTab(workspaceId, page);
-	}, [workspaceId, page, sessionRouteTargetId]);
+		if (!workspaceId || !routePage) return;
+		if (routePage.type === 'chat' && sessionRouteTargetId !== routePage.sessionId) return;
+		useUiStore.getState().openMiddleTab(workspaceId, routePage);
+	}, [workspaceId, routePage, sessionRouteTargetId]);
 
 	if (!workspaceId) return <section data-testid="workspace-route">Missing workspace</section>;
 
@@ -208,7 +231,8 @@ export function WorkspaceRoute({ kind }: WorkspaceRouteProps) {
 				) : page?.type === 'file' &&
 					(page.source === 'workspace_file' ||
 						page.source === 'pasted_text' ||
-						page.source === 'generated_attachment') &&
+						page.source === 'generated_attachment' ||
+						page.source === 'external_file') &&
 					workspaceSnapshot ? (
 					<PageWithComposer composer={composer}>
 						<ErrorBoundary
@@ -219,6 +243,7 @@ export function WorkspaceRoute({ kind }: WorkspaceRouteProps) {
 								workspaceId={workspaceId}
 								page={page}
 								revisionKey={activeFileRevisionKey}
+								workspaceRoot={workspaceSnapshot.workspace.localPath}
 							/>
 						</ErrorBoundary>
 					</PageWithComposer>

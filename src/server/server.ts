@@ -108,7 +108,7 @@ export async function refreshStartupWorkspaceState(
 
 export async function persistUploadedFiles(args: {
 	workspaceId: string;
-	localPath: string;
+	dataDir?: string;
 	files: File[];
 	persistUpload?: typeof persistWorkspaceUpload;
 }): Promise<ChatAttachment[]> {
@@ -120,7 +120,7 @@ export async function persistUploadedFiles(args: {
 			const bytes = new Uint8Array(await file.arrayBuffer());
 			const attachment = await persistUpload({
 				workspaceId: args.workspaceId,
-				localPath: args.localPath,
+				dataDir: args.dataDir,
 				fileName: file.name,
 				bytes,
 				fallbackMimeType: file.type || undefined,
@@ -131,7 +131,8 @@ export async function persistUploadedFiles(args: {
 		await Promise.allSettled(
 			attachments.map((attachment) =>
 				deleteWorkspaceUpload({
-					localPath: args.localPath,
+					workspaceId: args.workspaceId,
+					dataDir: args.dataDir,
 					storedName: path.basename(attachment.absolutePath),
 				}),
 			),
@@ -312,6 +313,11 @@ export async function startServer(options: StartServerOptions = {}) {
 						return workspaceFileContentResponse;
 					}
 
+					const externalFileContentResponse = await handleExternalFileContent(req, url);
+					if (externalFileContentResponse) {
+						return externalFileContentResponse;
+					}
+
 					return serveStatic(distDir, url.pathname);
 				},
 				websocket: {
@@ -413,7 +419,7 @@ export async function handleWorkspaceUpload(req: Request, url: URL, store: Event
 	try {
 		const attachments = await persistUploadedFiles({
 			workspaceId: workspace.id,
-			localPath: workspace.localPath,
+			dataDir: store.dataDir,
 			files,
 		});
 		return Response.json({ attachments });
@@ -454,7 +460,7 @@ export async function handleAttachmentContent(req: Request, url: URL, store: Eve
 		return Response.json({ error: 'Invalid attachment path' }, { status: 400 });
 	}
 
-	const filePath = path.join(getWorkspaceUploadDir(workspace.localPath), storedName);
+	const filePath = path.join(getWorkspaceUploadDir(workspace.id, store.dataDir), storedName);
 	const file = Bun.file(filePath);
 
 	try {
@@ -604,6 +610,56 @@ export async function handleWorkspaceFileContent(req: Request, url: URL, store: 
 	});
 }
 
+export async function handleExternalFileContent(req: Request, url: URL) {
+	if (url.pathname !== '/api/external-files/content') {
+		return null;
+	}
+
+	if (req.method !== 'GET') {
+		return new Response(null, {
+			status: 405,
+			headers: {
+				Allow: 'GET',
+			},
+		});
+	}
+
+	const requestedPath = url.searchParams.get('path')?.trim();
+	if (!requestedPath || !path.isAbsolute(requestedPath)) {
+		return Response.json({ error: 'Invalid external file path' }, { status: 400 });
+	}
+
+	let targetRealPath: string;
+	let info: Awaited<ReturnType<typeof stat>>;
+	try {
+		targetRealPath = await realpath(requestedPath);
+		info = await stat(targetRealPath);
+		if (!info.isFile()) {
+			return Response.json({ error: 'File not found' }, { status: 404 });
+		}
+		if (info.size > MAX_WORKSPACE_FILE_CONTENT_BYTES) {
+			return Response.json({ error: 'File is too large to preview' }, { status: 413 });
+		}
+	} catch {
+		return Response.json({ error: 'File not found' }, { status: 404 });
+	}
+
+	const file = Bun.file(targetRealPath);
+	const inferredContentType = inferWorkspaceFileContentType(targetRealPath, file.type);
+	const contentType =
+		inferredContentType.toLowerCase() === 'image/svg+xml'
+			? 'text/plain; charset=utf-8'
+			: inferredContentType;
+
+	return new Response(file, {
+		headers: {
+			'Content-Type': contentType,
+			'Content-Disposition': 'inline',
+			'X-Content-Type-Options': 'nosniff',
+		},
+	});
+}
+
 export async function handleWorkspaceUploadDelete(req: Request, url: URL, store: EventStore) {
 	if (req.method !== 'DELETE') {
 		return null;
@@ -631,7 +687,8 @@ export async function handleWorkspaceUploadDelete(req: Request, url: URL, store:
 	}
 
 	const deleted = await deleteWorkspaceUpload({
-		localPath: workspace.localPath,
+		workspaceId: workspace.id,
+		dataDir: store.dataDir,
 		storedName,
 	});
 

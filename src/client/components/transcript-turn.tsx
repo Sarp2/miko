@@ -73,7 +73,7 @@ export function TranscriptTurnView({
 	workspaceRoot: string;
 }) {
 	const start = Date.parse(turn.startTimestamp);
-	const context: ToolLineContext = { sessionId, workspaceId, workspaceRoot };
+	const context: ToolLineContext = { sessionId, workspaceId, workspaceRoot, turnId: turn.id };
 
 	return (
 		<div className="flex flex-col gap-2">

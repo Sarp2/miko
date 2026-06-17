@@ -207,6 +207,33 @@ describe('useUiStore.ensureScratchpadTab', () => {
 			},
 		]);
 	});
+
+	test('dedupes legacy scratchpad file-tab ids', () => {
+		useUiStore.setState({
+			middleTabsByWorkspaceId: {
+				'workspace-1': [
+					{
+						id: 'file:scratchpad:workspace-1',
+						fallbackTitle: 'Scratchpad',
+						page: {
+							type: 'file',
+							source: 'scratchpad',
+							sourceId: 'workspace-1',
+							title: 'Scratchpad',
+						},
+						closable: true,
+						updatedAt: 1,
+					},
+				],
+			},
+		});
+
+		useUiStore.getState().ensureScratchpadTab('workspace-1');
+
+		const tabs = useUiStore.getState().getMiddleTabs('workspace-1');
+		expect(tabs.map((tab) => tab.id)).toEqual(['scratchpad:workspace-1']);
+		expect(tabs[0]?.closable).toBe(false);
+	});
 });
 
 describe('useUiStore.openMiddleTab', () => {
@@ -273,6 +300,40 @@ describe('useUiStore.openMiddleTab', () => {
 			id: 'file:workspace_file:src/server/foo.ts',
 			fallbackTitle: 'Renamed foo.ts',
 		});
+	});
+
+	test('preserves durable attachment metadata when a route-derived file page reopens the same tab', () => {
+		const durableAttachment = {
+			id: 'attachment-1',
+			kind: 'file' as const,
+			displayName: 'notes.md',
+			absolutePath: '/repo/.miko/uploads/notes.md',
+			relativePath: './.miko/uploads/notes.md',
+			contentUrl: '/api/workspaces/workspace-1/uploads/notes.md/content',
+			mimeType: 'text/markdown',
+			size: 12,
+		};
+
+		useUiStore.getState().openMiddleTab('workspace-1', {
+			type: 'file',
+			source: 'generated_attachment',
+			sourceId: 'attachment-1',
+			title: 'notes.md',
+			attachment: durableAttachment,
+		});
+		useUiStore.getState().openMiddleTab('workspace-1', {
+			type: 'file',
+			source: 'generated_attachment',
+			sourceId: 'attachment-1',
+			title: 'notes.md',
+		});
+
+		const tab = useUiStore
+			.getState()
+			.getMiddleTabs('workspace-1')
+			.find((candidate) => candidate.id === 'file:generated_attachment:attachment-1');
+
+		expect(tab?.page).toMatchObject({ attachment: durableAttachment });
 	});
 });
 
@@ -439,5 +500,111 @@ describe('useUiStore.persist', () => {
 			'workspace-1': 'diff:workspace:src/a.ts:src/a.ts',
 			'workspace-2': 'chat:session-1',
 		});
+	});
+});
+
+describe('normalizePersistedUiState durable file tabs', () => {
+	function basePersistedState(): PersistedUiState {
+		return {
+			leftSidebarCollapsed: false,
+			leftSidebarWidth: 292,
+			externalOpenApp: 'finder',
+			expandedDirectoryIds: [],
+			pinnedWorkspaceIds: [],
+			sidebarDirectorySort: 'updated',
+			sidebarWorkspaceSort: 'updated',
+			rightSidebarTabByWorkspaceId: {},
+			middleTabsByWorkspaceId: {},
+			activeTabIdByWorkspaceId: {},
+			terminalPanelByWorkspaceId: {},
+			terminalTabsByWorkspaceId: {},
+			activeTerminalIdByWorkspaceId: {},
+			diffViewModeByWorkspaceId: {},
+			viewedDiffDigestByWorkspaceId: {},
+		};
+	}
+
+	test('drops legacy memory-only pasted text and generated attachment tabs', () => {
+		const persisted = basePersistedState();
+		persisted.middleTabsByWorkspaceId['workspace-1'] = [
+			{
+				id: 'file:pasted_text:paste-1',
+				page: { type: 'file', source: 'pasted_text', sourceId: 'paste-1', title: 'Pasted text' },
+				closable: true,
+				updatedAt: 1,
+			},
+			{
+				id: 'file:generated_attachment:attachment-1',
+				page: {
+					type: 'file',
+					source: 'generated_attachment',
+					sourceId: 'attachment-1',
+					title: 'image.png',
+				},
+				closable: true,
+				updatedAt: 2,
+			},
+		];
+		persisted.activeTabIdByWorkspaceId['workspace-1'] = 'file:pasted_text:paste-1';
+
+		const normalized = normalizePersistedUiState(persisted);
+
+		expect(normalized.middleTabsByWorkspaceId['workspace-1']).toEqual([]);
+		expect(normalized.activeTabIdByWorkspaceId['workspace-1']).toBeUndefined();
+	});
+
+	test('normalizes legacy scratchpad file-tab ids to the canonical pinned id', () => {
+		const persisted = basePersistedState();
+		persisted.middleTabsByWorkspaceId['workspace-1'] = [
+			{
+				id: 'file:scratchpad:workspace-1',
+				page: { type: 'file', source: 'scratchpad', sourceId: 'workspace-1', title: 'Scratchpad' },
+				closable: true,
+				updatedAt: 1,
+			},
+		];
+		persisted.activeTabIdByWorkspaceId['workspace-1'] = 'file:scratchpad:workspace-1';
+
+		const normalized = normalizePersistedUiState(persisted);
+
+		expect(normalized.middleTabsByWorkspaceId['workspace-1']).toMatchObject([
+			{ id: 'scratchpad:workspace-1', closable: false },
+		]);
+		expect(normalized.activeTabIdByWorkspaceId['workspace-1']).toBe('scratchpad:workspace-1');
+	});
+
+	test('keeps generated attachment tabs when durable attachment metadata is persisted', () => {
+		const persisted = basePersistedState();
+		persisted.middleTabsByWorkspaceId['workspace-1'] = [
+			{
+				id: 'file:generated_attachment:attachment-1',
+				page: {
+					type: 'file',
+					source: 'generated_attachment',
+					sourceId: 'attachment-1',
+					title: 'notes.md',
+					attachment: {
+						id: 'attachment-1',
+						kind: 'file',
+						displayName: 'notes.md',
+						absolutePath: '/repo/.miko/uploads/notes.md',
+						relativePath: './.miko/uploads/notes.md',
+						contentUrl: '/api/workspaces/workspace-1/uploads/notes.md/content',
+						mimeType: 'text/markdown',
+						size: 12,
+					},
+				},
+				closable: true,
+				updatedAt: 1,
+			},
+		];
+		persisted.activeTabIdByWorkspaceId['workspace-1'] = 'file:generated_attachment:attachment-1';
+
+		const normalized = normalizePersistedUiState(persisted);
+
+		expect(normalized.middleTabsByWorkspaceId['workspace-1']).toHaveLength(1);
+		expect(normalized.activeTabIdByWorkspaceId['workspace-1']).toBe(
+			'file:generated_attachment:attachment-1',
+		);
 	});
 });

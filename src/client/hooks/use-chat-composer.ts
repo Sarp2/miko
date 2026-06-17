@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 
 import type {
 	AgentProvider,
+	ChatAttachment,
 	ClaudeContextWindow,
 	ClaudeReasoningEffort,
 	PromptPart,
@@ -57,6 +58,7 @@ export function useChatComposer({
 	);
 	const [attachments, setAttachments] = useState<LocalAttachment[]>([]);
 	const attachmentsRef = useRef<LocalAttachment[]>([]);
+	const uploadingAttachmentByIdRef = useRef(new Map<string, Promise<ChatAttachment | null>>());
 	const [submitting, setSubmitting] = useState(false);
 	const rawAvailableProviders = providerCatalogs(sessionSnapshot);
 	const providerCatalogKey = providerCatalogSignature(rawAvailableProviders);
@@ -162,6 +164,40 @@ export function useChatComposer({
 		);
 	}, []);
 
+	const markAttachmentsUploaded = useCallback((uploadedByLocalId: Map<string, ChatAttachment>) => {
+		if (uploadedByLocalId.size === 0) return;
+		attachmentsRef.current = attachmentsRef.current.map((attachment) => {
+			const uploaded = uploadedByLocalId.get(attachment.id);
+			return uploaded ? { ...attachment, uploaded } : attachment;
+		});
+		setAttachments(attachmentsRef.current);
+	}, []);
+
+	const ensureAttachmentUploaded = useCallback(
+		async (attachmentId: string) => {
+			const attachment = attachmentsRef.current.find((item) => item.id === attachmentId);
+			if (!attachment) return null;
+			if (attachment.uploaded) return attachment.uploaded;
+
+			const inFlight = uploadingAttachmentByIdRef.current.get(attachmentId);
+			if (inFlight) return await inFlight;
+
+			const upload = uploadAttachments(workspaceId, [attachment])
+				.then((uploadedAttachments) => {
+					const uploaded = uploadedAttachments[0] ?? null;
+					if (uploaded) markAttachmentsUploaded(new Map([[attachmentId, uploaded]]));
+					return uploaded;
+				})
+				.finally(() => {
+					uploadingAttachmentByIdRef.current.delete(attachmentId);
+				});
+
+			uploadingAttachmentByIdRef.current.set(attachmentId, upload);
+			return await upload;
+		},
+		[markAttachmentsUploaded, workspaceId],
+	);
+
 	const removeAttachment = useCallback((attachmentId: string) => {
 		attachmentsRef.current = attachmentsRef.current.filter((item) => item.id !== attachmentId);
 		setAttachments(attachmentsRef.current);
@@ -210,10 +246,35 @@ export function useChatComposer({
 			const visibleAttachments = attachments.filter((attachment) =>
 				visibleAttachmentIds.has(attachment.id),
 			);
-			const uploadedAttachments = await uploadAttachments(workspaceId, visibleAttachments);
-			const uploadedAttachmentByLocalId = new Map(
-				visibleAttachments.map((attachment, index) => [attachment.id, uploadedAttachments[index]]),
-			);
+			const uploadedAttachmentByLocalId = new Map<string, ChatAttachment>();
+			for (const attachment of visibleAttachments) {
+				if (attachment.uploaded)
+					uploadedAttachmentByLocalId.set(attachment.id, attachment.uploaded);
+			}
+
+			const attachmentsToUpload: LocalAttachment[] = [];
+			for (const attachment of visibleAttachments) {
+				if (attachment.uploaded) continue;
+				const inFlight = uploadingAttachmentByIdRef.current.get(attachment.id);
+				if (inFlight) {
+					const uploaded = await inFlight;
+					if (uploaded) uploadedAttachmentByLocalId.set(attachment.id, uploaded);
+					continue;
+				}
+				attachmentsToUpload.push(attachment);
+			}
+
+			const newlyUploadedAttachments = await uploadAttachments(workspaceId, attachmentsToUpload);
+			for (const [index, uploaded] of newlyUploadedAttachments.entries()) {
+				const localAttachment = attachmentsToUpload[index];
+				if (localAttachment && uploaded)
+					uploadedAttachmentByLocalId.set(localAttachment.id, uploaded);
+			}
+			markAttachmentsUploaded(uploadedAttachmentByLocalId);
+			const uploadedAttachments = visibleAttachments.flatMap((attachment) => {
+				const uploaded = uploadedAttachmentByLocalId.get(attachment.id);
+				return uploaded ? [uploaded] : [];
+			});
 			const submittedParts = compactPromptParts(
 				parts.flatMap((part): PromptPart[] => {
 					if (part.type !== 'attachment') return [part];
@@ -257,6 +318,7 @@ export function useChatComposer({
 		codexFastMode,
 		codexReasoningEffort,
 		parts,
+		markAttachmentsUploaded,
 		model,
 		planMode,
 		provider,
@@ -296,6 +358,7 @@ export function useChatComposer({
 		canSubmit,
 		addFiles,
 		removeAttachment,
+		ensureAttachmentUploaded,
 		changeModel,
 		submit,
 		stop,

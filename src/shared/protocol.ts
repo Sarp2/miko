@@ -86,6 +86,7 @@ export type ClientCommand =
 	| { type: 'workspace.refreshPrStage'; workspaceId: string }
 	| { type: 'workspace.readDiffPatch'; workspaceId: string; path: string }
 	| { type: 'workspace.readFile'; workspaceId: string; path: string }
+	| { type: 'file.readExternal'; path: string }
 	| { type: 'workspace.searchFiles'; workspaceId: string; query: string; limit?: number }
 	| { type: 'workspace.commitAndPush'; workspaceId: string; sessionId: string }
 	| { type: 'workspace.pullLatestMain'; workspaceId: string; sessionId: string }
