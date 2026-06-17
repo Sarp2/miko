@@ -29,6 +29,7 @@ import {
 	promptPartsPlainText,
 	promptPartsSubmissionText,
 } from '../lib/prompt-parts';
+import { useComposerDraftStore } from '../stores/composer-draft-store';
 import { useComposerPreferencesStore } from '../stores/composer-preferences-store';
 import { useSessionStore } from '../stores/session-store';
 
@@ -51,7 +52,9 @@ export function useChatComposer({
 	workspaceSnapshot,
 	sessionSnapshot,
 }: UseChatComposerArgs) {
-	const [parts, setParts] = useState<PromptPart[]>([]);
+	const [parts, setParts] = useState<PromptPart[]>(() =>
+		useComposerDraftStore.getState().getDraft(sessionId),
+	);
 	const [attachments, setAttachments] = useState<LocalAttachment[]>([]);
 	const attachmentsRef = useRef<LocalAttachment[]>([]);
 	const [submitting, setSubmitting] = useState(false);
@@ -113,11 +116,19 @@ export function useChatComposer({
 		(content.trim().length > 0 || hasVisibleAttachmentToken) && !disabled && !isStreaming;
 
 	useEffect(() => {
+		if (parts.length > 0 || attachments.length > 0) {
+			useComposerDraftStore.getState().setDraft(sessionId, parts);
+		} else {
+			useComposerDraftStore.getState().clearDraft(sessionId);
+		}
+	}, [parts, attachments, sessionId]);
+
+	useEffect(() => {
 		if (previousSessionIdRef.current === sessionId) return;
 
 		previousSessionIdRef.current = sessionId;
 		attachmentsRef.current = [];
-		setParts([]);
+		setParts(useComposerDraftStore.getState().getDraft(sessionId));
 		setAttachments([]);
 		setSubmitting(false);
 	}, [sessionId]);
@@ -226,6 +237,7 @@ export function useChatComposer({
 				}),
 				planMode,
 			});
+			useComposerDraftStore.getState().clearDraft(sessionId);
 			setParts([]);
 			attachmentsRef.current = [];
 			setAttachments([]);
