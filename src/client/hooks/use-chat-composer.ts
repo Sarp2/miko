@@ -123,7 +123,7 @@ export function useChatComposer({
 		} else {
 			useComposerDraftStore.getState().clearDraft(targetSessionId);
 		}
-	}, [parts, sessionId]);
+	}, [parts]);
 
 	useEffect(() => {
 		if (previousSessionIdRef.current === sessionId) return;
