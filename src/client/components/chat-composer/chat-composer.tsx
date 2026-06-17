@@ -110,10 +110,9 @@ export function ChatComposer({
 	};
 
 	const handleDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
-		if (!hasDraggedFiles(event.dataTransfer)) return;
+		if (!hasDraggedFiles(event.dataTransfer) && dragDepthRef.current === 0) return;
 		event.preventDefault();
 		event.stopPropagation();
-		if (composerReadonly) return;
 
 		dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
 		if (dragDepthRef.current === 0) setIsFileDragActive(false);
@@ -154,7 +153,7 @@ export function ChatComposer({
 								'data-[disabled=true]:opacity-60',
 								isFileDragActive && 'border-accent ring-2 ring-accent/20',
 							)}
-							data-disabled={composer.disabled || composer.isStreaming}
+							data-disabled={composerReadonly}
 							onDragEnter={handleDragEnter}
 							onDragOver={handleDragOver}
 							onDragLeave={handleDragLeave}
