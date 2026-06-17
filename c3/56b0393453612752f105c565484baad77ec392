@@ -1,0 +1,55 @@
+src/server/event-store.test.ts
+  s_82e93de1bb8ac8::t_6a56d455938d76 446-447,451,460-461
+  s_82e93de1bb8ac8::t_23fa2757bb259d 465
+src/client/lib/workspace-file-previews.ts
+  s_82e93de1bb8ac8::t_1f49637150c386 75-87,97
+  s_82e93de1bb8ac8::t_8fc23132dd57b4 88-96,98-103,178,193
+src/server/agent-instruction-attachments.test.ts
+  s_82e93de1bb8ac8::t_2212ea4faba52e 130
+src/server/server.test.ts
+  s_82e93de1bb8ac8::t_09832e069f7d6a 3,433-434,447
+  s_82e93de1bb8ac8::t_2212ea4faba52e 10,59-67,403-432,435-446
+  s_82e93de1bb8ac8::t_06cca3ca751aa7 5
+src/server/agent-instruction-attachments.ts
+  s_82e93de1bb8ac8::t_28582b13bdaa9f 16
+  s_82e93de1bb8ac8::t_5e184be7f9e039 18,22-26,30-36,124,168,225
+src/server/event-store.ts
+  s_82e93de1bb8ac8::t_2092e1201342f4 29,63,65-66,395,398-402
+src/server/read-models.ts
+  s_82e93de1bb8ac8::t_23fa2757bb259d 186
+src/server/read-models.test.ts
+  s_82e93de1bb8ac8::t_23fa2757bb259d 369,375,384,396
+src/client/components/left-sidebar-view.tsx
+  s_82e93de1bb8ac8::t_23fa2757bb259d 443
+src/client/lib/workspace-file-previews.test.ts
+  s_82e93de1bb8ac8::t_2212ea4faba52e 76,78-87,89-99
+  s_82e93de1bb8ac8::t_dfbfc162b4254e 4,71
+  s_82e93de1bb8ac8::t_06cca3ca751aa7 63-70,73-75,88
+src/shared/types.ts
+  s_82e93de1bb8ac8::t_23fa2757bb259d 275,319
+src/client/components/workspace-file-page.tsx
+  s_82e93de1bb8ac8::t_1f49637150c386 10,151-154,201-215
+  s_82e93de1bb8ac8::t_06cca3ca751aa7 156-157,159-160
+  s_82e93de1bb8ac8::t_dfbfc162b4254e 2,147-150
+CLAUDE.md
+  s_82e93de1bb8ac8::t_ba460d0b514be9 17-29
+  s_82e93de1bb8ac8::t_534d0300e64c32 71
+src/server/server.ts
+  s_82e93de1bb8ac8::t_ccef08f6169a75 6-9,295-299,464-505
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "c356b0393453612752f105c565484baad77ec392",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
