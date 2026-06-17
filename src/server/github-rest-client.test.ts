@@ -48,7 +48,17 @@ describe('GitHubRestClient', () => {
 				seenHeaders.push(new Headers(init?.headers));
 				const isSecondPass = pass >= 2;
 				pass += 1;
-				if (isSecondPass) return new Response(null, { status: 304 });
+				if (isSecondPass && !url.includes('page=3')) {
+					return new Response(null, {
+						status: 304,
+						headers: {
+							link: '<https://api.github.com/repos/sarp/miko/issues/1/comments?page=3>; rel="next"',
+						},
+					});
+				}
+				if (url.includes('page=3')) {
+					return new Response(JSON.stringify([{ id: 3 }]), { status: 200 });
+				}
 				if (url.includes('page=2')) {
 					return new Response(JSON.stringify([{ id: 2 }]), {
 						status: 200,
@@ -78,11 +88,11 @@ describe('GitHubRestClient', () => {
 				'/repos/sarp/miko/issues/1/comments?per_page=100',
 				(page) => page,
 			),
-		).resolves.toEqual({ status: 'ok', data: [{ id: 1 }, { id: 2 }] });
+		).resolves.toEqual({ status: 'ok', data: [{ id: 1 }, { id: 3 }] });
 
-		expect(seenUrls.filter((url) => url.includes('page=2'))).toHaveLength(2);
+		expect(seenUrls.filter((url) => url.includes('page=2'))).toHaveLength(1);
+		expect(seenUrls.filter((url) => url.includes('page=3'))).toHaveLength(1);
 		expect(seenHeaders[2]?.get('if-none-match')).toBe('etag-1');
-		expect(seenHeaders[3]?.get('if-none-match')).toBe('etag-2');
 	});
 
 	test('uses x-ratelimit-reset for primary rate limit backoff', async () => {

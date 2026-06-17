@@ -113,7 +113,11 @@ export class GitHubRestClient {
 		const response = await this.fetchImpl(new URL(path, GITHUB_API_BASE_URL), { headers });
 		if (response.status === 304) {
 			if (cache && 'data' in cache) {
-				return { status: 'ok', data: cache.data as T, link: cache.link };
+				return {
+					status: 'ok',
+					data: cache.data as T,
+					link: response.headers.get('link') ?? cache.link,
+				};
 			}
 			return { status: 'not_modified' };
 		}

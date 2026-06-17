@@ -778,4 +778,61 @@ describe('PrManager REST refresh', () => {
 		expect(snapshot.checks[0]).toMatchObject({ name: 'test', status: 'passing' });
 		expect(snapshot.checks[1]).toMatchObject({ name: 'lint', status: 'passing' });
 	});
+	test('paginates commit statuses and preserves pending status state', async () => {
+		const { store, workspace } = await createWorkspace();
+		await store.observeWorkspacePullRequest(workspace.id, {
+			number: 12,
+			status: 'open',
+			lastObservedAt: Date.now(),
+		});
+		const pagedCalls: string[] = [];
+		const okRest = <T>(data: unknown): GitHubRestResult<T> => ({ status: 'ok', data: data as T });
+		const manager = new PrManager(store, {
+			github: {
+				requestJson: async (_cacheKey, requestPath) => {
+					if (requestPath.endsWith('/repos/sarp/miko/pulls/12')) {
+						return okRest({
+							number: 12,
+							title: 'REST title',
+							html_url: 'https://github.com/sarp/miko/pull/12',
+							state: 'open',
+							head: { ref: 'atlas', sha: 'sha-1' },
+							base: { ref: 'main' },
+						});
+					}
+					throw new Error(`unexpected REST path: ${requestPath}`);
+				},
+				requestJsonPages: async <TPage, TItem>(
+					_cacheKey: string,
+					requestPath: string,
+					getItems: (page: TPage) => TItem[],
+				) => {
+					pagedCalls.push(requestPath);
+					if (requestPath.includes('/check-runs')) return okRest([]);
+					if (requestPath.includes('/status?per_page=100')) {
+						return okRest(
+							getItems({
+								statuses: [
+									{ context: 'build', state: 'pending' },
+									{ context: 'deploy', state: 'success' },
+								],
+							} as TPage),
+						);
+					}
+					return okRest([]);
+				},
+			},
+		});
+
+		const snapshot = await manager.refreshWorkspacePrState(workspace.id);
+
+		expect(pagedCalls.some((call) => call.includes('/status?per_page=100'))).toBe(true);
+		expect(snapshot.ciStatus).toBe('pending');
+		expect(snapshot.checks).toContainEqual(
+			expect.objectContaining({ name: 'build', status: 'pending' }),
+		);
+		expect(snapshot.checks).toContainEqual(
+			expect.objectContaining({ name: 'deploy', status: 'passing' }),
+		);
+	});
 });

@@ -761,17 +761,21 @@ export class PrManager {
 	}
 
 	private async fetchCommitStatuses(owner: string, repo: string, prNumber: number, ref: string) {
-		const result = await this.requestGitHub<GitHubRestCombinedStatus>(
+		const result = await this.requestGitHubPages<
+			GitHubRestCombinedStatus,
+			NonNullable<GitHubRestCombinedStatus['statuses']>[number]
+		>(
 			`commit-status:${owner}/${repo}:${ref}`,
-			`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/commits/${encodeURIComponent(ref)}/status`,
+			`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/commits/${encodeURIComponent(ref)}/status?per_page=100`,
+			(page) => page.statuses ?? [],
 		);
 		if (result.status === 'not_modified')
 			return this.snapshotChecksAsGhChecks(owner, repo, prNumber);
-		return (result.data.statuses ?? []).flatMap((status) => {
+		return result.data.flatMap((status) => {
 			if (!status.context) return [];
 			return {
 				name: status.context,
-				status: 'COMPLETED',
+				status: status.state === 'pending' ? 'IN_PROGRESS' : 'COMPLETED',
 				conclusion: status.state === 'success' ? 'success' : status.state,
 				detailsUrl: status.target_url,
 				startedAt: status.created_at,
