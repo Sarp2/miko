@@ -1,8 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
-import { homedir, tmpdir } from 'node:os';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { getDataDir } from '../shared/branding';
 import type { ChatAttachment } from '../shared/types';
 import type { WorkspaceRecord } from './event';
 import { getWorkspaceUploadDir } from './paths';
@@ -428,30 +427,27 @@ describe('handleAgentInstructionContent', () => {
 	});
 
 	test('returns instruction content with inferred content type', async () => {
-		const originalRuntimeProfile = process.env.MIKO_RUNTIME_PROFILE;
-		process.env.MIKO_RUNTIME_PROFILE = 'dev';
-		const instructionsDir = path.join(getDataDir(homedir()), 'agent-instructions');
+		const instructionsDir = await mkdtemp(path.join(tmpdir(), 'miko-agent-instructions-'));
 		const filePath = path.join(instructionsDir, 'create-pr-workspace-1.md');
 		try {
 			await mkdir(path.dirname(filePath), { recursive: true });
 			await Bun.write(filePath, '# instruction');
 			const req = createAgentInstructionContentRequest({});
-			const response = await handleAgentInstructionContent(req, new URL(req.url));
+			const response = await handleAgentInstructionContent(req, new URL(req.url), {
+				getFilePath: (fileName) => path.join(instructionsDir, fileName),
+			});
 
 			expect(response?.status).toBe(200);
 			expect(response?.headers.get('Content-Type')).toBe('text/markdown; charset=utf-8');
 			expect(response?.headers.get('X-Content-Type-Options')).toBe('nosniff');
 			expect(await response?.text()).toBe('# instruction');
 		} finally {
-			process.env.MIKO_RUNTIME_PROFILE = originalRuntimeProfile;
-			await rm(filePath, { force: true });
+			await rm(instructionsDir, { recursive: true, force: true });
 		}
 	});
 
 	test('rejects oversized instruction previews', async () => {
-		const originalRuntimeProfile = process.env.MIKO_RUNTIME_PROFILE;
-		process.env.MIKO_RUNTIME_PROFILE = 'dev';
-		const instructionsDir = path.join(getDataDir(homedir()), 'agent-instructions');
+		const instructionsDir = await mkdtemp(path.join(tmpdir(), 'miko-agent-instructions-'));
 		const filePath = path.join(instructionsDir, 'failing-ci-workspace-1.txt');
 		try {
 			await mkdir(path.dirname(filePath), { recursive: true });
@@ -459,15 +455,16 @@ describe('handleAgentInstructionContent', () => {
 			const req = createAgentInstructionContentRequest({
 				url: 'http://localhost/api/agent-instructions/failing-ci-workspace-1.txt/content',
 			});
-			const response = await handleAgentInstructionContent(req, new URL(req.url));
+			const response = await handleAgentInstructionContent(req, new URL(req.url), {
+				getFilePath: (fileName) => path.join(instructionsDir, fileName),
+			});
 
 			expect(response?.status).toBe(413);
 			expect(await response?.json()).toEqual({
 				error: 'Agent instruction is too large to preview',
 			});
 		} finally {
-			process.env.MIKO_RUNTIME_PROFILE = originalRuntimeProfile;
-			await rm(filePath, { force: true });
+			await rm(instructionsDir, { recursive: true, force: true });
 		}
 	});
 });

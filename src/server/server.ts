@@ -462,7 +462,11 @@ export async function handleAttachmentContent(req: Request, url: URL, store: Eve
 	});
 }
 
-export async function handleAgentInstructionContent(req: Request, url: URL) {
+export async function handleAgentInstructionContent(
+	req: Request,
+	url: URL,
+	options: { getFilePath?: (fileName: string) => string } = {},
+) {
 	const match = url.pathname.match(/^\/api\/agent-instructions\/([^/]+)\/content$/);
 	if (!match) {
 		return null;
@@ -484,7 +488,7 @@ export async function handleAgentInstructionContent(req: Request, url: URL) {
 
 	let filePath: string;
 	try {
-		filePath = getAgentInstructionFilePath(fileName);
+		filePath = (options.getFilePath ?? getAgentInstructionFilePath)(fileName);
 	} catch {
 		return Response.json({ error: 'Invalid agent instruction path' }, { status: 400 });
 	}
