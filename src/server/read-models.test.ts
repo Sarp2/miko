@@ -366,13 +366,13 @@ describe('deriveSidebarSnapshot', () => {
 		).toEqual(['workspace-2', 'workspace-1']);
 	});
 
-	test('projects latest session title and prompt preview onto sidebar workspace rows', () => {
+	test('projects latest session title and assistant preview onto sidebar workspace rows', () => {
 		const state = addDirectoryWorkspaceAndSession();
 		const firstSession = state.sessionsById.get('session-1');
 		expect(firstSession).toBeDefined();
 		if (!firstSession) throw new Error('session missing');
 		firstSession.lastMessageAt = 100;
-		firstSession.lastPromptPreview = 'Older prompt';
+		firstSession.lastAssistantPreview = 'Older prompt';
 
 		state.sessionsById.set('session-2', {
 			id: 'session-2',
@@ -381,7 +381,7 @@ describe('deriveSidebarSnapshot', () => {
 			createdAt: 4,
 			updatedAt: 4,
 			lastMessageAt: 500,
-			lastPromptPreview: 'Updated the workspace condition model to include diff stats.',
+			lastAssistantPreview: 'Updated the workspace condition model to include diff stats.',
 			provider: null,
 			planMode: false,
 			sessionToken: null,
@@ -393,7 +393,7 @@ describe('deriveSidebarSnapshot', () => {
 		expect(sidebar.directoryGroups[0]?.workspaces[0]).toMatchObject({
 			lastSessionId: 'session-2',
 			lastSessionTitle: 'Read pasted text files',
-			lastPromptPreview: 'Updated the workspace condition model to include diff stats.',
+			lastAssistantPreview: 'Updated the workspace condition model to include diff stats.',
 			lastActivityAt: 500,
 		});
 	});

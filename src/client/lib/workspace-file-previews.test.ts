@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import type { ChatAttachment } from '../../shared/types';
 import {
+	agentInstructionContentUrlFromPath,
 	attachmentPreviewResult,
 	isTextLikeAttachment,
 	localFilePreviewResult,
@@ -59,7 +60,43 @@ describe('localFilePreviewResult', () => {
 	});
 });
 
+test('detects agent instruction paths from stale workspace-file routes', () => {
+	expect(
+		agentInstructionContentUrlFromPath(
+			'Users/sarp/.miko-dev/data/agent-instructions/create-pr-workspace-1.md',
+		),
+	).toEqual({
+		fileName: 'create-pr-workspace-1.md',
+		contentUrl: '/api/agent-instructions/create-pr-workspace-1.md/content',
+	});
+
+	expect(agentInstructionContentUrlFromPath('/tmp/not-agent-instructions/notes.md')).toBeNull();
+	expect(agentInstructionContentUrlFromPath('agent-instructions/../../secret.txt')).toBeNull();
+});
+
 describe('attachmentPreviewResult', () => {
+	test('loads legacy file-url agent instruction attachments through the server endpoint', async () => {
+		let fetchedUrl = '';
+		globalThis.fetch = (async (input: RequestInfo | URL) => {
+			fetchedUrl = String(input);
+			return new Response('# create pr', { status: 200 });
+		}) as unknown as typeof fetch;
+
+		const result = await attachmentPreviewResult({
+			...attachment({ size: 11 }),
+			displayName: 'create-pr-instructions.md',
+			contentUrl: 'file:///Users/sarp/.miko-dev/data/agent-instructions/create-pr-workspace-1.md',
+			mimeType: 'text/markdown',
+		});
+
+		expect(fetchedUrl).toBe('/api/agent-instructions/create-pr-workspace-1.md/content');
+		expect(result).toMatchObject({
+			kind: 'text',
+			name: 'create-pr-instructions.md',
+			contents: '# create pr',
+		});
+	});
+
 	test('returns binary metadata for oversized text-like uploaded attachments without fetching', async () => {
 		let fetched = false;
 		globalThis.fetch = (async () => {

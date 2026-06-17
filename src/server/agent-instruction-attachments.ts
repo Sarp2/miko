@@ -13,14 +13,25 @@ const CREATE_PR_INSTRUCTIONS_FILE_NAME = 'create-pr-instructions.md';
 const FAILING_CI_LOGS_FILE_NAME = 'failing-ci-logs.txt';
 const SELECTED_REVIEW_COMMENTS_FILE_NAME = 'selected-review-comments.txt';
 const INSTRUCTION_FILE_PATTERN =
-	/^(?:create-pr|failing-ci|selected-review-comments)-(.+)\.(?:md|txt)$/u;
+	/^(?:create-pr|failing-ci|merge-conflict|selected-review-comments)-(.+)\.(?:md|txt)$/u;
 
-function getAgentInstructionsDir() {
+export function getAgentInstructionsDir() {
 	return path.join(getDataDir(homedir()), 'agent-instructions');
 }
 
-function isWorkspaceInstructionAttachment(fileName: string) {
+export function agentInstructionContentUrl(fileName: string) {
+	return `/api/agent-instructions/${encodeURIComponent(fileName)}/content`;
+}
+
+export function isWorkspaceInstructionAttachment(fileName: string) {
 	return INSTRUCTION_FILE_PATTERN.exec(fileName);
+}
+
+export function getAgentInstructionFilePath(fileName: string) {
+	if (path.basename(fileName) !== fileName || !isWorkspaceInstructionAttachment(fileName)) {
+		throw new Error('Invalid agent instruction attachment path');
+	}
+	return path.join(getAgentInstructionsDir(), fileName);
 }
 
 export function buildCreatePrInstructionsMarkdown(args: {
@@ -110,7 +121,7 @@ export async function writeCreatePrInstructionsAttachment(args: {
 		displayName: CREATE_PR_INSTRUCTIONS_FILE_NAME,
 		absolutePath,
 		relativePath: CREATE_PR_INSTRUCTIONS_FILE_NAME,
-		contentUrl: `file://${absolutePath}`,
+		contentUrl: agentInstructionContentUrl(path.basename(absolutePath)),
 		mimeType: 'text/markdown',
 		size: info.size,
 	};
@@ -154,7 +165,7 @@ export async function writeFailingCiLogsAttachment(args: {
 		displayName: FAILING_CI_LOGS_FILE_NAME,
 		absolutePath,
 		relativePath: FAILING_CI_LOGS_FILE_NAME,
-		contentUrl: `file://${absolutePath}`,
+		contentUrl: agentInstructionContentUrl(path.basename(absolutePath)),
 		mimeType: 'text/plain',
 		size: info.size,
 	};
@@ -211,7 +222,7 @@ export async function writeSelectedReviewCommentsAttachment(args: {
 		displayName: SELECTED_REVIEW_COMMENTS_FILE_NAME,
 		absolutePath,
 		relativePath: SELECTED_REVIEW_COMMENTS_FILE_NAME,
-		contentUrl: `file://${absolutePath}`,
+		contentUrl: agentInstructionContentUrl(path.basename(absolutePath)),
 		mimeType: 'text/plain',
 		size: info.size,
 	};

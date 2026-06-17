@@ -72,6 +72,35 @@ export function isTextLikeAttachment(name: string, mimeType: string) {
 	);
 }
 
+const AGENT_INSTRUCTION_FILE_PATTERN =
+	/^(?:create-pr|failing-ci|merge-conflict|selected-review-comments)-[^/\\]+\.(?:md|txt)$/u;
+
+export function agentInstructionContentUrlFromPath(filePath: string) {
+	const segments = filePath.replaceAll('\\', '/').split('/').filter(Boolean);
+	const instructionDirIndex = segments.lastIndexOf('agent-instructions');
+	const fileName = instructionDirIndex >= 0 ? segments[instructionDirIndex + 1] : null;
+	if (!fileName || !AGENT_INSTRUCTION_FILE_PATTERN.test(fileName)) return null;
+	return {
+		fileName,
+		contentUrl: `/api/agent-instructions/${encodeURIComponent(fileName)}/content`,
+	};
+}
+function agentInstructionContentUrlFromFileUrl(contentUrl: string) {
+	let url: URL;
+	try {
+		url = new URL(contentUrl);
+	} catch {
+		return null;
+	}
+
+	if (url.protocol !== 'file:') return null;
+	return agentInstructionContentUrlFromPath(url.pathname)?.contentUrl ?? null;
+}
+
+function fetchableAttachmentContentUrl(contentUrl: string) {
+	return agentInstructionContentUrlFromFileUrl(contentUrl) ?? contentUrl;
+}
+
 function fileToDataUrl(file: File) {
 	return new Promise<string>((resolve, reject) => {
 		const reader = new FileReader();
@@ -146,7 +175,7 @@ export async function attachmentPreviewResult(
 			kind: 'image',
 			path: name,
 			name,
-			contentUrl: attachment.contentUrl,
+			contentUrl: fetchableAttachmentContentUrl(attachment.contentUrl),
 			mimeType,
 			size: attachment.size,
 			cacheKey,
@@ -161,7 +190,7 @@ export async function attachmentPreviewResult(
 		return { kind: 'binary', path: name, name, mimeType, size: attachment.size, cacheKey };
 	}
 
-	const response = await fetch(attachment.contentUrl);
+	const response = await fetch(fetchableAttachmentContentUrl(attachment.contentUrl));
 	if (!response.ok) throw new Error(`Failed to load attachment: ${response.status}`);
 	const contents = await response.text();
 	return {

@@ -183,7 +183,7 @@ export function deriveSidebarSnapshot(args: {
 					lastSessionId: latestSession?.id,
 					lastSessionTitle:
 						latestSession && latestSession.title !== 'Untitled' ? latestSession.title : undefined,
-					lastPromptPreview: latestSession?.lastPromptPreview,
+					lastAssistantPreview: latestSession?.lastAssistantPreview,
 				};
 			});
 

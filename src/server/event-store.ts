@@ -26,7 +26,7 @@ import {
 import { resolveLocalPath } from './paths';
 
 const COMPACTION_THRESHOLD_BYTES = 2 * 1024 * 1024;
-const SESSION_PROMPT_PREVIEW_MAX_LENGTH = 140;
+const SESSION_MESSAGE_PREVIEW_MAX_LENGTH = 140;
 
 interface TranscriptPageResult {
 	entries: TranscriptEntry[];
@@ -60,10 +60,10 @@ function getHistorySnapshot(
 	};
 }
 
-function promptPreview(content: string) {
+function messagePreview(content: string) {
 	const collapsed = content.replace(/\s+/g, ' ').trim();
-	if (collapsed.length <= SESSION_PROMPT_PREVIEW_MAX_LENGTH) return collapsed;
-	return `${collapsed.slice(0, SESSION_PROMPT_PREVIEW_MAX_LENGTH - 1).trimEnd()}…`;
+	if (collapsed.length <= SESSION_MESSAGE_PREVIEW_MAX_LENGTH) return collapsed;
+	return `${collapsed.slice(0, SESSION_MESSAGE_PREVIEW_MAX_LENGTH - 1).trimEnd()}…`;
 }
 
 export class EventStore {
@@ -392,10 +392,14 @@ export class EventStore {
 		const session = this.state.sessionsById.get(sessionId);
 		if (!session) return;
 
-		if (entry.kind === 'user_prompt' && !entry.hidden) {
+		if (!entry.hidden && (entry.kind === 'user_prompt' || entry.kind === 'assistant_text')) {
 			session.lastMessageAt = entry.createdAt;
-			session.lastPromptPreview = promptPreview(entry.content);
 		}
+
+		if (entry.kind === 'assistant_text' && !entry.hidden) {
+			session.lastAssistantPreview = messagePreview(entry.text);
+		}
+
 		session.updatedAt = Math.max(session.updatedAt, entry.createdAt);
 	}
 
