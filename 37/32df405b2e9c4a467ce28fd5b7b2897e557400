@@ -1,0 +1,27 @@
+src/server/github-rest-client.ts
+  s_82e93de1bb8ac8::t_43bac4daec026c 116-120
+src/server/pr-manager.test.ts
+  s_82e93de1bb8ac8::t_81da38bd32ea28 805-809,819
+  s_82e93de1bb8ac8::t_43bac4daec026c 831-836
+  s_82e93de1bb8ac8::t_7a14af834bbb3a 781-804,810-818,820-830,837
+src/server/github-rest-client.test.ts
+  s_82e93de1bb8ac8::t_c11bc5996a75df 51-61,91,93-94
+src/server/pr-manager.ts
+  s_82e93de1bb8ac8::t_01783cbc030325 764-767,769-770,774,778
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "3732df405b2e9c4a467ce28fd5b7b2897e557400",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
