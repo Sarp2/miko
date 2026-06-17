@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test';
-import { rm } from 'node:fs/promises';
+import { mkdir, rm } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { getDataDir } from 'src/shared/branding';
@@ -9,6 +9,7 @@ import {
 	cleanupStaleInstructionAttachments,
 	writeCreatePrInstructionsAttachment,
 	writeFailingCiLogsAttachment,
+	writeMergeConflictInstructionsAttachment,
 	writeSelectedReviewCommentsAttachment,
 } from './agent-instruction-attachments';
 import type { DirectoryRecord, WorkspaceRecord } from './event';
@@ -169,6 +170,44 @@ describe('writeFailingCiLogsAttachment', () => {
 	});
 });
 
+describe('writeMergeConflictInstructionsAttachment', () => {
+	test('writes merge conflict resolution instructions with PR and git context', async () => {
+		useDevDataRoot();
+		const filePath = instructionPath('merge-conflict-workspace-test-attachment.md');
+		writtenFiles.push(filePath);
+
+		const attachment = await writeMergeConflictInstructionsAttachment({
+			workspace: workspace(),
+			directory: directory(),
+			git: gitSnapshot({
+				aheadCount: 2,
+				files: [{ path: 'src/app.ts' } as WorkspaceGitSnapshot['files'][number]],
+			}),
+			github: {
+				prNumber: 12,
+				title: 'Add workspace model',
+				url: 'https://github.com/sarp/miko/pull/12',
+				mergeStateStatus: 'DIRTY',
+			},
+		});
+
+		expect(attachment).toMatchObject({
+			id: 'merge-conflict-workspace-test-attachment',
+			displayName: 'merge-conflict-instructions.md',
+			mimeType: 'text/markdown',
+			absolutePath: filePath,
+		});
+		const body = await Bun.file(filePath).text();
+		expect(body).toContain('resolving pull request merge conflicts');
+		expect(body).toContain('Pull request: #12 Add workspace model');
+		expect(body).toContain('GitHub merge state: DIRTY');
+		expect(body).toContain('There are uncommitted changes in this workspace.');
+		expect(body).toContain('The current branch has local commits');
+		expect(body).toContain('Merge or rebase `origin/main`');
+		expect(body).toContain('Do not merge the pull request.');
+	});
+});
+
 describe('writeSelectedReviewCommentsAttachment', () => {
 	test('writes only the comments selected by the user with PR and file context', async () => {
 		useDevDataRoot();
@@ -214,6 +253,10 @@ describe('writeSelectedReviewCommentsAttachment', () => {
 describe('cleanupStaleInstructionAttachments', () => {
 	test('deletes attachments for inactive, terminal, removed, or unknown workspaces only', async () => {
 		useDevDataRoot();
+		const instructionsDir = path.dirname(instructionPath('notes.txt'));
+		await rm(instructionsDir, { recursive: true, force: true });
+		await mkdir(instructionsDir, { recursive: true });
+
 		const activeWorkspace = workspace({ id: 'active-workspace' });
 		const archivedWorkspace = workspace({
 			id: 'archived-workspace',

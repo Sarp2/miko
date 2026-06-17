@@ -118,6 +118,10 @@ function deriveCiStatus(checks: PullRequestCheckSnapshot[]): WorkspaceGitHubSnap
 	return 'unknown';
 }
 
+function hasMergeConflicts(mergeStateStatus: string | undefined) {
+	return mergeStateStatus?.toUpperCase() === 'DIRTY';
+}
+
 function mapChecks(pr: GitHubPullRequestView): PullRequestCheckSnapshot[] {
 	const checks = pr.statusCheckRollup ?? [];
 	return checks.flatMap((check) => {
@@ -210,6 +214,8 @@ function createKnownPrSnapshot(
 		headRefName: pullRequest.headRefName,
 		baseRefName: pullRequest.baseRefName,
 		ciStatus: pullRequest.ciStatus ?? 'unknown',
+		mergeStateStatus: pullRequest.mergeStateStatus,
+		hasMergeConflicts: pullRequest.hasMergeConflicts,
 		comments: [],
 		checks: [],
 		lastRefreshedAt: Date.now(),
@@ -332,6 +338,8 @@ export class PrManager {
 			headRefName: source.headRefName,
 			baseRefName: source.baseRefName,
 			ciStatus: deriveCiStatus(checks),
+			mergeStateStatus: detailed?.mergeStateStatus,
+			hasMergeConflicts: hasMergeConflicts(detailed?.mergeStateStatus),
 			unresolvedCommentCount: undefined,
 			additions: detailed?.additions,
 			deletions: detailed?.deletions,
@@ -351,6 +359,8 @@ export class PrManager {
 				headRefName: source.headRefName,
 				baseRefName: source.baseRefName,
 				ciStatus: snapshot.ciStatus,
+				mergeStateStatus: snapshot.mergeStateStatus,
+				hasMergeConflicts: snapshot.hasMergeConflicts,
 				createdAt,
 				lastObservedAt: snapshot.lastRefreshedAt ?? Date.now(),
 			});

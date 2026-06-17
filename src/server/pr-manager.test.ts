@@ -80,6 +80,7 @@ function openPrView() {
 		body: 'PR body',
 		url: 'https://github.com/sarp/miko/pull/12',
 		state: 'OPEN',
+		mergeStateStatus: 'CLEAN',
 		headRefName: 'atlas',
 		baseRefName: 'main',
 		createdAt: '2026-01-01T00:00:00Z',
@@ -177,6 +178,8 @@ describe('PrManager.refreshWorkspacePrState', () => {
 			title: 'Add workspace model',
 			body: 'PR body',
 			ciStatus: 'failing',
+			mergeStateStatus: 'CLEAN',
+			hasMergeConflicts: false,
 			additions: 52,
 			deletions: 14,
 			createdAt: Date.parse('2026-01-01T00:00:00Z'),
@@ -197,7 +200,55 @@ describe('PrManager.refreshWorkspacePrState', () => {
 		expect(manager.getWorkspaceGitHubSnapshot(workspace.id)).toBe(snapshot);
 		expect(store.requireWorkspace(workspace.id)).toMatchObject({
 			reviewState: 'in_review',
-			pullRequest: { number: 12, status: 'open', ciStatus: 'failing' },
+			pullRequest: {
+				number: 12,
+				status: 'open',
+				ciStatus: 'failing',
+				mergeStateStatus: 'CLEAN',
+				hasMergeConflicts: false,
+			},
+		});
+	});
+
+	test('marks dirty merge state as merge conflicts', async () => {
+		const { store, workspace } = await createWorkspace();
+		const manager = new PrManager(store, {
+			runGh: async (args) => {
+				if (args[0] === 'pr' && args[1] === 'list') {
+					return okJson([
+						{
+							number: 12,
+							title: 'List title',
+							url: 'https://github.com/sarp/miko/pull/12',
+							state: 'OPEN',
+							headRefName: 'atlas',
+							baseRefName: 'main',
+						},
+					]);
+				}
+				if (args[0] === 'pr' && args[1] === 'view') {
+					return okJson({
+						...openPrView(),
+						statusCheckRollup: [],
+						mergeStateStatus: 'DIRTY',
+					});
+				}
+				return failed('unexpected gh command');
+			},
+		});
+
+		const snapshot = await manager.refreshWorkspacePrState(workspace.id);
+
+		expect(snapshot).toMatchObject({
+			status: 'open',
+			mergeStateStatus: 'DIRTY',
+			hasMergeConflicts: true,
+		});
+		expect(store.requireWorkspace(workspace.id).pullRequest).toMatchObject({
+			number: 12,
+			status: 'open',
+			mergeStateStatus: 'DIRTY',
+			hasMergeConflicts: true,
 		});
 	});
 

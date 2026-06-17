@@ -16,6 +16,7 @@ import type { AgentCoordinator } from './agent';
 import {
 	writeCreatePrInstructionsAttachment,
 	writeFailingCiLogsAttachment,
+	writeMergeConflictInstructionsAttachment,
 	writeSelectedReviewCommentsAttachment,
 } from './agent-instruction-attachments';
 import type { DiffStore } from './diff-store';
@@ -634,6 +635,36 @@ export function createWsRouter({
 						'Fix the failing CI using the attached logs.',
 						[attachment],
 						'fix_ci',
+					);
+					send(ws, { type: 'ack', id, result });
+					break;
+				}
+				case 'workspace.resolveMergeConflicts': {
+					const workspace = requireWorkspace(command.workspaceId);
+					const directory = store.requireDirectory(workspace.directoryId);
+					const github = prManager.getWorkspaceGitHubSnapshot(workspace.id);
+					if (!github || github.status === 'none' || github.status === 'unknown') {
+						throw new Error('Workspace does not have a current pull request snapshot');
+					}
+					if (github.hasMergeConflicts === undefined) {
+						throw new Error('Workspace merge conflict status is unknown');
+					}
+					if (!github.hasMergeConflicts) {
+						throw new Error('Workspace does not have merge conflicts to resolve');
+					}
+					await diffStore.refreshWorkspaceGitSnapshot(workspace.id, workspace.localPath);
+					const attachment = await writeMergeConflictInstructionsAttachment({
+						workspace,
+						directory,
+						git: diffStore.getWorkspaceGitSnapshot(workspace.id),
+						github,
+					});
+					const result = await sendWorkspaceInstruction(
+						command.workspaceId,
+						command.sessionId,
+						'Resolve merge conflicts using the attached instructions.',
+						[attachment],
+						'resolve_merge_conflicts',
 					);
 					send(ws, { type: 'ack', id, result });
 					break;

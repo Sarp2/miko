@@ -14,6 +14,7 @@ export type WorkspaceConditionStage =
 	| 'ready_to_create_pr'
 	| 'pr_open'
 	| 'ci_failed'
+	| 'merge_conflicts'
 	| 'merged'
 	| 'closed'
 	| 'behind_main'
@@ -24,6 +25,7 @@ export type WorkspacePrimaryActionKind =
 	| 'commit_and_push'
 	| 'create_pr'
 	| 'fix_ci'
+	| 'resolve_merge_conflicts'
 	| 'merge'
 	| 'archive';
 
@@ -60,6 +62,7 @@ function reviewStateFromSidebarIndicator(row: SidebarWorkspaceRow): WorkspaceRev
 	if (
 		row.indicator === 'pr_opened' ||
 		row.indicator === 'ci_failed' ||
+		row.indicator === 'merge_conflicts' ||
 		row.indicator === 'commit_and_push'
 	) {
 		return 'in_review';
@@ -75,6 +78,7 @@ function deriveStage(args: {
 	hasPushedCommits: boolean;
 	mainAheadCount: number;
 	ciStatus?: 'unknown' | 'pending' | 'passing' | 'failing';
+	hasMergeConflicts: boolean;
 }): Pick<WorkspaceCondition, 'stage' | 'primaryAction'> {
 	if (args.setupState === 'creating') return { stage: 'creating', primaryAction: null };
 	if (args.setupState === 'failed') return { stage: 'setup_failed', primaryAction: null };
@@ -89,6 +93,12 @@ function deriveStage(args: {
 	}
 
 	if (args.reviewState === 'in_review') {
+		if (args.hasMergeConflicts) {
+			return {
+				stage: 'merge_conflicts',
+				primaryAction: action('resolve_merge_conflicts', 'Resolve conflicts'),
+			};
+		}
 		if (args.ciStatus === 'failing') {
 			return { stage: 'ci_failed', primaryAction: action('fix_ci', 'Fix CI') };
 		}
@@ -136,6 +146,9 @@ export function deriveWorkspaceCondition(snapshot: WorkspaceSnapshot): Workspace
 		hasPushedCommits: snapshot.git?.hasPushedCommits === true,
 		mainAheadCount: snapshot.git?.mainAheadCount ?? 0,
 		ciStatus: snapshot.github?.ciStatus ?? snapshot.workspace.pullRequest?.ciStatus,
+		hasMergeConflicts:
+			snapshot.github?.hasMergeConflicts === true ||
+			snapshot.workspace.pullRequest?.hasMergeConflicts === true,
 	});
 
 	return {
@@ -162,6 +175,7 @@ export function deriveSidebarWorkspaceCondition(row: SidebarWorkspaceRow): Works
 		hasPushedCommits: row.indicator === 'create_pr',
 		mainAheadCount: 0,
 		ciStatus: row.indicator === 'ci_failed' ? 'failing' : undefined,
+		hasMergeConflicts: row.indicator === 'merge_conflicts',
 	});
 
 	return {
