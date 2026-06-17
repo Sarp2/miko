@@ -85,6 +85,45 @@ describe('GitHubRestClient', () => {
 		expect(seenHeaders[3]?.get('if-none-match')).toBe('etag-2');
 	});
 
+	test('uses x-ratelimit-reset for primary rate limit backoff', async () => {
+		const client = new GitHubRestClient({
+			now: () => 1_000,
+			runGh: okGhToken(),
+			fetch: (async () =>
+				new Response(JSON.stringify({ message: 'API rate limit exceeded' }), {
+					status: 403,
+					headers: {
+						'x-ratelimit-remaining': '0',
+						'x-ratelimit-reset': '10',
+					},
+				})) as unknown as typeof fetch,
+		});
+
+		try {
+			await client.requestJson('key', '/repos/sarp/miko/pulls');
+			throw new Error('expected request to fail');
+		} catch (error) {
+			expect(error).toBeInstanceOf(GitHubRateLimitError);
+			expect((error as GitHubRateLimitError).retryAfterMs).toBe(9_000);
+		}
+	});
+
+	test('does not classify ordinary 403 responses as rate limits', async () => {
+		const client = new GitHubRestClient({
+			runGh: okGhToken(),
+			fetch: (async () => new Response('forbidden', { status: 403 })) as unknown as typeof fetch,
+		});
+
+		try {
+			await client.requestJson('key', '/repos/sarp/miko/pulls');
+			throw new Error('expected request to fail');
+		} catch (error) {
+			expect(error).toBeInstanceOf(Error);
+			expect(error).not.toBeInstanceOf(GitHubRateLimitError);
+			expect((error as Error).message).toBe('forbidden');
+		}
+	});
+
 	test('surfaces retry-after rate limit errors', async () => {
 		const client = new GitHubRestClient({
 			runGh: okGhToken(),

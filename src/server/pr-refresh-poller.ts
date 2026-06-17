@@ -51,6 +51,8 @@ export class PrRefreshPoller {
 	private timer: ReturnType<typeof setInterval> | null = null;
 	private running = false;
 	private backoffUntil = 0;
+	private stopped = false;
+	private inFlight: Promise<void> | null = null;
 
 	constructor(private readonly deps: PrRefreshPollerDeps) {
 		this.intervalMs = deps.intervalMs ?? DEFAULT_INTERVAL_MS;
@@ -63,23 +65,38 @@ export class PrRefreshPoller {
 
 	start() {
 		if (this.timer) return;
+		this.stopped = false;
 		this.timer = this.setIntervalImpl(() => {
 			void this.tick();
 		}, this.intervalMs);
 		void this.tick();
 	}
 
-	stop() {
-		if (!this.timer) return;
-		this.clearIntervalImpl(this.timer);
+	async stop() {
+		this.stopped = true;
+		this.backoffUntil = 0;
+		if (this.timer) this.clearIntervalImpl(this.timer);
 		this.timer = null;
+		await this.inFlight;
 	}
 
 	async tick() {
-		if (this.running) return;
+		if (this.stopped) return;
+		if (this.running) return this.inFlight ?? undefined;
 		if (this.now() < this.backoffUntil) return;
 
 		this.running = true;
+		const run = this.runTick();
+		this.inFlight = run;
+		try {
+			await run;
+		} finally {
+			this.running = false;
+			this.inFlight = null;
+		}
+	}
+
+	private async runTick() {
 		try {
 			let changed = false;
 			let backoffMs: number | null = null;
@@ -101,17 +118,17 @@ export class PrRefreshPoller {
 				}),
 			);
 
+			if (this.stopped) return;
 			if (backoffMs !== null) this.backoffUntil = this.now() + backoffMs;
 			if (changed) await this.deps.broadcastSnapshots();
 			if (errors.length > 0) {
 				this.logger.warn('[miko] failed to poll workspace PR state', errors[0]);
 			}
 		} catch (error) {
+			if (this.stopped) return;
 			const backoffMs = retryAfterMs(error, this.defaultBackoffMs);
 			if (backoffMs !== null) this.backoffUntil = this.now() + backoffMs;
 			this.logger.warn('[miko] failed to poll workspace PR state', error);
-		} finally {
-			this.running = false;
 		}
 	}
 }

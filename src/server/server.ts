@@ -351,7 +351,7 @@ export async function startServer(options: StartServerOptions = {}) {
 			await agent.cancel(sessionId);
 		}
 
-		prRefreshPoller.stop();
+		await prRefreshPoller.stop();
 		router.dispose();
 		keybindings.dispose();
 		terminals.closeAll();

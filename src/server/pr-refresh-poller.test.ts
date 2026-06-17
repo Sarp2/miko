@@ -100,6 +100,61 @@ describe('PrRefreshPoller', () => {
 		expect(refreshes).toBe(2);
 	});
 
+	test('clears backoff when stopped and restarted', async () => {
+		const now = 0;
+		let refreshes = 0;
+		const poller = new PrRefreshPoller({
+			listWorkspaces: () => [workspace()],
+			getWorkspaceGitHubSnapshot: () => null,
+			refreshWorkspacePrStage: async () => {
+				refreshes += 1;
+				if (refreshes === 1) throw new GitHubRateLimitError('slow down', 60_000);
+				return {};
+			},
+			broadcastSnapshots: async () => undefined,
+			setInterval: (() => 1) as unknown as typeof setInterval,
+			clearInterval: (() => undefined) as unknown as typeof clearInterval,
+			now: () => now,
+			logger: { warn: () => undefined },
+		});
+
+		await poller.tick();
+		await poller.stop();
+		poller.start();
+		await poller.tick();
+
+		expect(refreshes).toBe(2);
+	});
+
+	test('does not broadcast after stop waits for an in-flight tick', async () => {
+		let resolveRefresh!: () => void;
+		let currentSnapshot = snapshot('Before');
+		let broadcasts = 0;
+		const poller = new PrRefreshPoller({
+			listWorkspaces: () => [workspace()],
+			getWorkspaceGitHubSnapshot: () => currentSnapshot,
+			refreshWorkspacePrStage: async () => {
+				await new Promise<void>((resolve) => {
+					resolveRefresh = resolve;
+				});
+				currentSnapshot = snapshot('After');
+				return { snapshot: currentSnapshot };
+			},
+			broadcastSnapshots: async () => {
+				broadcasts += 1;
+			},
+		});
+
+		const tickPromise = poller.tick();
+		await Promise.resolve();
+		const stopPromise = poller.stop();
+		resolveRefresh();
+		await stopPromise;
+		await tickPromise;
+
+		expect(broadcasts).toBe(0);
+	});
+
 	test('keeps polling other workspaces when one workspace refresh fails', async () => {
 		const snapshots = new Map([
 			['workspace-1', snapshot('Before')],

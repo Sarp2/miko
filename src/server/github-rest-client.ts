@@ -22,11 +22,27 @@ type GitHubRestPageResult<T> =
 const TOKEN_TTL_MS = 45 * 60 * 1000;
 const GITHUB_API_BASE_URL = 'https://api.github.com';
 
-function retryAfterMs(headers: Headers) {
+function retryAfterMs(headers: Headers, now: () => number) {
 	const retryAfter = headers.get('retry-after');
-	if (!retryAfter) return null;
-	const seconds = Number.parseInt(retryAfter, 10);
-	return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : null;
+	if (retryAfter) {
+		const seconds = Number.parseInt(retryAfter, 10);
+		if (Number.isFinite(seconds) && seconds > 0) return seconds * 1000;
+	}
+
+	const reset = headers.get('x-ratelimit-reset');
+	if (!reset) return null;
+	const resetSeconds = Number.parseInt(reset, 10);
+	if (!Number.isFinite(resetSeconds) || resetSeconds <= 0) return null;
+	return Math.max(0, resetSeconds * 1000 - now());
+}
+
+function isGitHubRateLimitResponse(status: number, headers: Headers, body: string) {
+	if (status === 429) return true;
+	if (status !== 403) return false;
+	if (headers.get('retry-after')) return true;
+	if (headers.get('x-ratelimit-remaining') === '0' && headers.get('x-ratelimit-reset')) return true;
+	const normalizedBody = body.toLowerCase();
+	return normalizedBody.includes('rate limit') || normalizedBody.includes('secondary limit');
 }
 
 function nextLink(linkHeader: string | null | undefined) {
@@ -101,16 +117,16 @@ export class GitHubRestClient {
 			}
 			return { status: 'not_modified' };
 		}
-		if (response.status === 403 || response.status === 429) {
+		const errorBody = response.ok ? '' : await response.text().catch(() => '');
+		if (isGitHubRateLimitResponse(response.status, response.headers, errorBody)) {
 			throw new GitHubRateLimitError(
 				`GitHub REST request was rate limited (${response.status})`,
-				retryAfterMs(response.headers),
+				retryAfterMs(response.headers, this.now),
 			);
 		}
 		if (response.status === 401) this.token = null;
 		if (!response.ok) {
-			const body = await response.text().catch(() => '');
-			throw new Error(body.trim() || `GitHub REST request failed (${response.status})`);
+			throw new Error(errorBody.trim() || `GitHub REST request failed (${response.status})`);
 		}
 
 		const data = (await response.json()) as T;
