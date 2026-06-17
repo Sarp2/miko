@@ -6,6 +6,7 @@ import type { ChatAttachment } from '../shared/types';
 import type { WorkspaceRecord } from './event';
 import { getWorkspaceUploadDir } from './paths';
 import {
+	handleAgentInstructionContent,
 	handleAttachmentContent,
 	handleWorkspaceFileContent,
 	handleWorkspaceUpload,
@@ -48,6 +49,15 @@ function createStore(workspace: { id: string; localPath: string } | null) {
 function createAttachmentContentRequest(args: { method?: string; url?: string }) {
 	return new Request(
 		args.url ?? 'http://localhost/api/workspaces/workspace-1/uploads/notes.md/content',
+		{
+			method: args.method ?? 'GET',
+		},
+	);
+}
+
+function createAgentInstructionContentRequest(args: { method?: string; url?: string }) {
+	return new Request(
+		args.url ?? 'http://localhost/api/agent-instructions/create-pr-workspace-1.md/content',
 		{
 			method: args.method ?? 'GET',
 		},
@@ -385,6 +395,76 @@ describe('handleAttachmentContent', () => {
 			expect(await response?.text()).toBe('# hello');
 		} finally {
 			await rm(localPath, { recursive: true, force: true });
+		}
+	});
+});
+
+describe('handleAgentInstructionContent', () => {
+	test('returns null for non-matching paths', async () => {
+		const req = createAgentInstructionContentRequest({
+			url: 'http://localhost/api/agent-instructions/create-pr-workspace-1.md',
+		});
+		const response = await handleAgentInstructionContent(req, new URL(req.url));
+		expect(response).toBeNull();
+	});
+
+	test('returns 405 for non-GET methods', async () => {
+		const req = createAgentInstructionContentRequest({ method: 'POST' });
+		const response = await handleAgentInstructionContent(req, new URL(req.url));
+
+		expect(response?.status).toBe(405);
+		expect(response?.headers.get('Allow')).toBe('GET');
+	});
+
+	test('returns 400 for invalid instruction names', async () => {
+		const req = createAgentInstructionContentRequest({
+			url: 'http://localhost/api/agent-instructions/..%2Fsecret.txt/content',
+		});
+		const response = await handleAgentInstructionContent(req, new URL(req.url));
+
+		expect(response?.status).toBe(400);
+		expect(await response?.json()).toEqual({ error: 'Invalid agent instruction path' });
+	});
+
+	test('returns instruction content with inferred content type', async () => {
+		const instructionsDir = await mkdtemp(path.join(tmpdir(), 'miko-agent-instructions-'));
+		const filePath = path.join(instructionsDir, 'create-pr-workspace-1.md');
+		try {
+			await mkdir(path.dirname(filePath), { recursive: true });
+			await Bun.write(filePath, '# instruction');
+			const req = createAgentInstructionContentRequest({});
+			const response = await handleAgentInstructionContent(req, new URL(req.url), {
+				getFilePath: (fileName) => path.join(instructionsDir, fileName),
+			});
+
+			expect(response?.status).toBe(200);
+			expect(response?.headers.get('Content-Type')).toBe('text/markdown; charset=utf-8');
+			expect(response?.headers.get('X-Content-Type-Options')).toBe('nosniff');
+			expect(await response?.text()).toBe('# instruction');
+		} finally {
+			await rm(instructionsDir, { recursive: true, force: true });
+		}
+	});
+
+	test('rejects oversized instruction previews', async () => {
+		const instructionsDir = await mkdtemp(path.join(tmpdir(), 'miko-agent-instructions-'));
+		const filePath = path.join(instructionsDir, 'failing-ci-workspace-1.txt');
+		try {
+			await mkdir(path.dirname(filePath), { recursive: true });
+			await Bun.write(filePath, 'x'.repeat(2 * 1024 * 1024 + 1));
+			const req = createAgentInstructionContentRequest({
+				url: 'http://localhost/api/agent-instructions/failing-ci-workspace-1.txt/content',
+			});
+			const response = await handleAgentInstructionContent(req, new URL(req.url), {
+				getFilePath: (fileName) => path.join(instructionsDir, fileName),
+			});
+
+			expect(response?.status).toBe(413);
+			expect(await response?.json()).toEqual({
+				error: 'Agent instruction is too large to preview',
+			});
+		} finally {
+			await rm(instructionsDir, { recursive: true, force: true });
 		}
 	});
 });

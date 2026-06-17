@@ -128,7 +128,7 @@ describe('writeCreatePrInstructionsAttachment', () => {
 			relativePath: 'create-pr-instructions.md',
 			mimeType: 'text/markdown',
 			absolutePath: filePath,
-			contentUrl: `file://${filePath}`,
+			contentUrl: '/api/agent-instructions/create-pr-workspace-test-attachment.md/content',
 		});
 		expect(attachment.size).toBeGreaterThan(0);
 		expect(await Bun.file(filePath).text()).toContain('The user requested a pull request');

@@ -3,7 +3,10 @@ import path from 'node:path';
 import { APP_NAME, getRuntimeProfile } from '../shared/branding';
 import type { ChatAttachment } from '../shared/types';
 import { AgentCoordinator } from './agent';
-import { cleanupStaleInstructionAttachments } from './agent-instruction-attachments';
+import {
+	cleanupStaleInstructionAttachments,
+	getAgentInstructionFilePath,
+} from './agent-instruction-attachments';
 import type { UpdateInstallAttemptResult } from './cli-runtime';
 import { DiffStore } from './diff-store';
 import type { WorkspaceRecord } from './event';
@@ -27,6 +30,7 @@ import { type ClientState, createWsRouter } from './ws-router';
 const MAX_UPLOAD_FILES = 50;
 const MAX_UPLOAD_SIZE_BYTES = 100 * 1024 * 1024;
 const MAX_WORKSPACE_FILE_CONTENT_BYTES = 2 * 1024 * 1024;
+const MAX_AGENT_INSTRUCTION_CONTENT_BYTES = MAX_WORKSPACE_FILE_CONTENT_BYTES;
 
 function safeDecodePathSegment(segment: string): string | null {
 	try {
@@ -289,6 +293,11 @@ export async function startServer(options: StartServerOptions = {}) {
 						return attachmentContentResponse;
 					}
 
+					const agentInstructionContentResponse = await handleAgentInstructionContent(req, url);
+					if (agentInstructionContentResponse) {
+						return agentInstructionContentResponse;
+					}
+
 					const workspaceFileContentResponse = await handleWorkspaceFileContent(req, url, store);
 					if (workspaceFileContentResponse) {
 						return workspaceFileContentResponse;
@@ -449,6 +458,59 @@ export async function handleAttachmentContent(req: Request, url: URL, store: Eve
 	return new Response(file, {
 		headers: {
 			'Content-Type': inferAttachmentContentType(storedName, file.type),
+		},
+	});
+}
+
+export async function handleAgentInstructionContent(
+	req: Request,
+	url: URL,
+	options: { getFilePath?: (fileName: string) => string } = {},
+) {
+	const match = url.pathname.match(/^\/api\/agent-instructions\/([^/]+)\/content$/);
+	if (!match) {
+		return null;
+	}
+
+	if (req.method !== 'GET') {
+		return new Response(null, {
+			status: 405,
+			headers: {
+				Allow: 'GET',
+			},
+		});
+	}
+
+	const fileName = safeDecodePathSegment(match[1]);
+	if (!fileName) {
+		return Response.json({ error: 'Invalid agent instruction path' }, { status: 400 });
+	}
+
+	let filePath: string;
+	try {
+		filePath = (options.getFilePath ?? getAgentInstructionFilePath)(fileName);
+	} catch {
+		return Response.json({ error: 'Invalid agent instruction path' }, { status: 400 });
+	}
+
+	const file = Bun.file(filePath);
+	try {
+		const info = await stat(filePath);
+		if (!info.isFile()) {
+			return Response.json({ error: 'Agent instruction not found' }, { status: 404 });
+		}
+		if (info.size > MAX_AGENT_INSTRUCTION_CONTENT_BYTES) {
+			return Response.json({ error: 'Agent instruction is too large to preview' }, { status: 413 });
+		}
+	} catch {
+		return Response.json({ error: 'Agent instruction not found' }, { status: 404 });
+	}
+
+	return new Response(file, {
+		headers: {
+			'Content-Type': inferAttachmentContentType(fileName, file.type),
+			'Content-Disposition': 'inline',
+			'X-Content-Type-Options': 'nosniff',
 		},
 	});
 }

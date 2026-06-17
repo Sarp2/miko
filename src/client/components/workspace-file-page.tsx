@@ -1,5 +1,5 @@
 import { File as PierreFile } from '@pierre/diffs/react';
-import { type ReactNode, useCallback, useEffect } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo } from 'react';
 import type { WorkspaceFileContentsResult } from '../../shared/types';
 import { Icons } from '../lib/icons';
 import {
@@ -7,6 +7,7 @@ import {
 	MIKO_CODE_FONT_VARS,
 	MIKO_FILE_OPTIONS,
 } from '../lib/miko-diff-renderer';
+import { agentInstructionContentUrlFromPath } from '../lib/workspace-file-previews';
 import type { WorkspacePage } from '../stores/ui-store';
 import { useWorkspaceFileStore } from '../stores/workspace-file-store';
 import { CopyFileButton, WorkspaceCodeToolbar } from './workspace-code-toolbar';
@@ -143,11 +144,20 @@ function WorkspaceFilePreview({ file }: { file: WorkspaceFileContentsResult }) {
 
 export function WorkspaceFilePage({ workspaceId, page, revisionKey }: WorkspaceFilePageProps) {
 	const path = page.path;
-	const isWorkspaceFile = page.source === 'workspace_file';
+	const agentInstructionAttachment = useMemo(
+		() => (path ? agentInstructionContentUrlFromPath(path) : null),
+		[path],
+	);
+	const agentInstructionAttachmentId = agentInstructionAttachment
+		? `agent-instruction:${agentInstructionAttachment.fileName}`
+		: undefined;
+	const isWorkspaceFile = page.source === 'workspace_file' && !agentInstructionAttachment;
 	const isPastedText = page.source === 'pasted_text';
-	const isGeneratedAttachment = page.source === 'generated_attachment';
+	const isGeneratedAttachment =
+		page.source === 'generated_attachment' || Boolean(agentInstructionAttachment);
 	const pastedTextSourceId = isPastedText ? page.sourceId : undefined;
-	const attachmentSourceId = isGeneratedAttachment ? page.sourceId : undefined;
+	const attachmentSourceId =
+		agentInstructionAttachmentId ?? (isGeneratedAttachment ? page.sourceId : undefined);
 	const getActiveResource = useCallback(
 		(state: ReturnType<typeof useWorkspaceFileStore.getState>) => {
 			if (isWorkspaceFile && path) return state.getFileResource(workspaceId, path);
@@ -187,6 +197,29 @@ export function WorkspaceFilePage({ workspaceId, page, revisionKey }: WorkspaceF
 		if (!path || !isWorkspaceFile) return;
 		void useWorkspaceFileStore.getState().loadFileContents(workspaceId, path, { force: true });
 	}, [isWorkspaceFile, path, revisionKey, workspaceId]);
+
+	useEffect(() => {
+		// The revision key should also refresh generated instruction attachments that
+		// reuse the same synthetic id and server path.
+		void revisionKey;
+		if (!agentInstructionAttachment || !agentInstructionAttachmentId) return;
+		void useWorkspaceFileStore.getState().loadAttachmentFile(
+			workspaceId,
+			{
+				id: agentInstructionAttachmentId,
+				kind: 'file',
+				displayName: agentInstructionAttachment.fileName,
+				absolutePath: path ?? agentInstructionAttachment.fileName,
+				relativePath: agentInstructionAttachment.fileName,
+				contentUrl: agentInstructionAttachment.contentUrl,
+				mimeType: agentInstructionAttachment.fileName.endsWith('.md')
+					? 'text/markdown'
+					: 'text/plain',
+				size: 0,
+			},
+			{ force: true },
+		);
+	}, [agentInstructionAttachment, agentInstructionAttachmentId, path, revisionKey, workspaceId]);
 
 	if (!isWorkspaceFile && !isPastedText && !isGeneratedAttachment) {
 		return (

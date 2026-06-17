@@ -14,6 +14,19 @@ Main areas:
 
 Durable app state is event-oriented. Add typed events and replay/read behavior deliberately instead of saving derived state as a shortcut.
 
+
+## Architecture Source Maps
+
+Before changing architecture, read these current maps:
+
+- `.context/architecture-source-map.md` - system overview and ownership rules.
+- `.context/client-architecture.md` - routes, stores, chat, composer, sidebar, file/diff pages.
+- `.context/server-architecture.md` - event store, websocket router, agent, workspace manager, git/diff, PR, uploads.
+- `.context/feature-boundaries.md` - what is implemented vs explicitly deferred.
+- `.context/pr-archaeology.md` - merged PR index explaining why major subsystems exist.
+
+Old large specs in `.context/` are not final authority if they conflict with current source or the source maps above.
+
 ## Commands
 
 Use Bun for package management and scripts. Do not use npm, yarn, or pnpm in this repo.
@@ -55,7 +68,7 @@ For narrow changes, run the related test file first, then the broader checks whe
 - WebSocket messages must use the typed protocol in `src/shared/protocol.ts`.
 - Branding, CLI names, package names, and data-root names belong in `src/shared/branding.ts`.
 - Provider behavior should stay provider-agnostic where possible. Put provider-specific details behind shared provider types or adapter boundaries.
-- Persist durable project/chat/session changes through `src/server/event.ts` and `src/server/event-store.ts`; update replay and tests when event shapes change.
+- Persist durable directory/workspace/session changes through `src/server/event.ts` and `src/server/event-store.ts`; update replay and tests when event shapes change.
 - Preserve compatibility with existing local data under `~/.miko` and `~/.miko-dev`. If storage shape changes, make migration/replay behavior explicit and tested.
 - Keep server-only APIs out of client code. Browser code must not depend on Bun-only APIs, filesystem access, shell execution, or process management.
 - Treat paths, uploads, shell commands, git actions, terminal input, share tunnels, and external-open behavior as trust boundaries.

@@ -274,7 +274,7 @@ export interface SessionSummary {
 	planMode: boolean;
 	sessionToken: string | null;
 	lastMessageAt?: number;
-	lastPromptPreview?: string;
+	lastAssistantPreview?: string;
 	lastTurnOutcome: 'success' | 'failed' | 'cancelled' | null;
 }
 
@@ -319,7 +319,7 @@ export interface SidebarWorkspaceRow {
 	lastActivityAt?: number;
 	lastSessionId?: string;
 	lastSessionTitle?: string;
-	lastPromptPreview?: string;
+	lastAssistantPreview?: string;
 }
 
 export interface SidebarDirectoryGroup {

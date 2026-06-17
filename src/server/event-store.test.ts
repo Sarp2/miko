@@ -443,12 +443,12 @@ describe('EventStore.appendMessage', () => {
 		await reloaded.initialize();
 		expect(reloaded.getMessages(session.id)).toEqual([userEntry, assistantEntry]);
 		expect(reloaded.getSession(session.id)).toMatchObject({
-			lastMessageAt: 100,
-			lastPromptPreview: 'hello',
+			lastMessageAt: 101,
+			lastAssistantPreview: 'world',
 		});
 	});
 
-	test('stores a collapsed bounded preview of the latest user prompt', async () => {
+	test('stores a collapsed bounded preview of the latest assistant text', async () => {
 		const dataDir = await createTempDataDir();
 		const store = new EventStore(dataDir);
 		await store.initialize();
@@ -457,12 +457,12 @@ describe('EventStore.appendMessage', () => {
 
 		await store.appendMessage(
 			session.id,
-			entry('user_prompt', 100, {
-				content: `  ${'write sidebar hover card '.repeat(12)}  `,
+			entry('assistant_text', 100, {
+				text: `  ${'write sidebar hover card '.repeat(12)}  `,
 			}),
 		);
 
-		const preview = store.getSession(session.id)?.lastPromptPreview;
+		const preview = store.getSession(session.id)?.lastAssistantPreview;
 		expect(preview).toBeDefined();
 		expect(preview?.endsWith('…')).toBe(true);
 		expect(preview?.length).toBeLessThanOrEqual(140);
