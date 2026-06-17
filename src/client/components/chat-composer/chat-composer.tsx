@@ -1,5 +1,5 @@
 import { ArrowUp, Lightning, MapTrifold, Plus, StopCircle } from '@phosphor-icons/react';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 
 import type { PromptPart, SessionSnapshot, WorkspaceSnapshot } from '../../../shared/types';
 import { useChatComposer } from '../../hooks/use-chat-composer';
@@ -27,6 +27,8 @@ export function ChatComposer({
 	sessionSnapshot,
 }: ChatComposerProps) {
 	const fileInputRef = useRef<HTMLInputElement>(null);
+	const dragDepthRef = useRef(0);
+	const [isFileDragActive, setIsFileDragActive] = useState(false);
 	const composer = useChatComposer({ workspaceId, sessionId, workspaceSnapshot, sessionSnapshot });
 	const promptEditor = useInlinePromptEditor({
 		attachments: composer.attachments,
@@ -39,6 +41,10 @@ export function ChatComposer({
 		workspaceId,
 		sessionId,
 	);
+	const composerReadonly = composer.disabled || composer.isStreaming;
+
+	const hasDraggedFiles = (dataTransfer: DataTransfer) =>
+		Array.from(dataTransfer.types).includes('Files');
 
 	const findTokenPart = (tokenIndex?: string): Exclude<PromptPart, { type: 'text' }> | null => {
 		if (!tokenIndex) return null;
@@ -59,8 +65,7 @@ export function ChatComposer({
 
 	const handleEditorClick = (event: React.MouseEvent<HTMLDivElement>) => {
 		const target = event.target instanceof Element ? event.target : null;
-		const readonly = composer.disabled || composer.isStreaming;
-		if (readonly) return;
+		if (composerReadonly) return;
 
 		const removeButton = target?.closest<HTMLElement>('[data-remove-token-key]');
 		if (removeButton) {
@@ -87,6 +92,47 @@ export function ChatComposer({
 		openTokenPart(tokenPart);
 	};
 
+	const handleDragEnter = (event: React.DragEvent<HTMLDivElement>) => {
+		if (!hasDraggedFiles(event.dataTransfer)) return;
+		event.preventDefault();
+		event.stopPropagation();
+		if (composerReadonly) return;
+
+		dragDepthRef.current += 1;
+		setIsFileDragActive(true);
+	};
+
+	const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+		if (!hasDraggedFiles(event.dataTransfer)) return;
+		event.preventDefault();
+		event.stopPropagation();
+		event.dataTransfer.dropEffect = composerReadonly ? 'none' : 'copy';
+	};
+
+	const handleDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
+		if (!hasDraggedFiles(event.dataTransfer) && dragDepthRef.current === 0) return;
+		event.preventDefault();
+		event.stopPropagation();
+
+		dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+		if (dragDepthRef.current === 0) setIsFileDragActive(false);
+	};
+
+	const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+		if (!hasDraggedFiles(event.dataTransfer)) return;
+		event.preventDefault();
+		event.stopPropagation();
+		dragDepthRef.current = 0;
+		setIsFileDragActive(false);
+		if (composerReadonly) return;
+
+		const files = Array.from(event.dataTransfer.files);
+		if (files.length === 0) return;
+		promptEditor.setMentionRange(null);
+		composer.addFiles(files);
+		requestAnimationFrame(() => promptEditor.editorRef.current?.focus());
+	};
+
 	return (
 		<div className="bg-canvas px-4 py-3">
 			<div className="mx-auto w-full max-w-4xl">
@@ -100,19 +146,25 @@ export function ChatComposer({
 					}}
 					onSelect={promptEditor.insertMention}
 					anchor={
+						// biome-ignore lint/a11y/noStaticElementInteractions: drag-and-drop is scoped to the composer shell while keyboard input remains on the textbox.
 						<div
 							className={cn(
 								'overflow-hidden rounded-lg border border-hairline bg-surface-1 text-ink transition-colors',
 								'data-[disabled=true]:opacity-60',
+								isFileDragActive && 'border-accent ring-2 ring-accent/20',
 							)}
-							data-disabled={composer.disabled || composer.isStreaming}
+							data-disabled={composerReadonly}
+							onDragEnter={handleDragEnter}
+							onDragOver={handleDragOver}
+							onDragLeave={handleDragLeave}
+							onDrop={handleDrop}
 						>
 							{/* biome-ignore lint/a11y/useSemanticElements: contentEditable is required for inline file and mention tokens. */}
 							<div
 								ref={promptEditor.editorRef}
-								contentEditable={!composer.disabled && !composer.isStreaming}
+								contentEditable={!composerReadonly}
 								role="textbox"
-								tabIndex={composer.disabled || composer.isStreaming ? -1 : 0}
+								tabIndex={composerReadonly ? -1 : 0}
 								aria-multiline="true"
 								suppressContentEditableWarning
 								onInput={promptEditor.syncPartsFromDom}
