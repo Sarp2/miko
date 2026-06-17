@@ -1,0 +1,20 @@
+src/client/components/chat-composer/chat-composer.tsx
+  s_f5046c8230e48f::t_43b68ff89c06ba 2,30-31,44-47,68,95-134,155,158-161,166,168
+  s_f5046c8230e48f::t_109fc91e75584c 150
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "5578467e7cb5b90a68f8747e66f935b569ea3fe9",
+  "prompts": {},
+  "sessions": {
+    "s_f5046c8230e48f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ed414-a9e4-72c0-a0c8-95aa649ff9f6",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
