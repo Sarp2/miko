@@ -1,0 +1,25 @@
+src/server/pr-manager.ts
+  s_85788a13129bf7::t_2559d4c60a9271 1052-1054
+src/server/pr-manager.test.ts
+  s_85788a13129bf7::t_b6ed012fff873d 742-763
+src/client/lib/workspace-condition.test.ts
+  s_85788a13129bf7::t_b6ed012fff873d 167-183
+src/client/lib/workspace-condition.ts
+  s_85788a13129bf7::t_b6ed012fff873d 159
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "2296034336baec16b9bc6bb7944e4d176d96eb51",
+  "prompts": {},
+  "sessions": {
+    "s_85788a13129bf7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ecbe7-9667-7663-b230-74a1c17dfc92",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
