@@ -11,7 +11,13 @@ interface GitHubRestClientDeps {
 interface CacheEntry {
 	etag?: string;
 	lastModified?: string;
+	data?: unknown;
+	link?: string | null;
 }
+
+type GitHubRestPageResult<T> =
+	| { status: 'ok'; data: T; link?: string | null }
+	| { status: 'not_modified' };
 
 const TOKEN_TTL_MS = 45 * 60 * 1000;
 const GITHUB_API_BASE_URL = 'https://api.github.com';
@@ -21,6 +27,15 @@ function retryAfterMs(headers: Headers) {
 	if (!retryAfter) return null;
 	const seconds = Number.parseInt(retryAfter, 10);
 	return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : null;
+}
+
+function nextLink(linkHeader: string | null | undefined) {
+	if (!linkHeader) return null;
+	for (const part of linkHeader.split(',')) {
+		const match = part.match(/<([^>]+)>;\s*rel="next"/);
+		if (match?.[1]) return match[1];
+	}
+	return null;
 }
 
 export class GitHubRateLimitError extends Error {
@@ -65,7 +80,10 @@ export class GitHubRestClient {
 		return value;
 	}
 
-	async requestJson<T>(cacheKey: string, path: string): Promise<GitHubRestResult<T>> {
+	private async requestJsonPage<T>(
+		cacheKey: string,
+		path: string,
+	): Promise<GitHubRestPageResult<T>> {
 		const token = await this.getToken();
 		const headers = new Headers({
 			Accept: 'application/vnd.github+json',
@@ -77,7 +95,12 @@ export class GitHubRestClient {
 		else if (cache?.lastModified) headers.set('If-Modified-Since', cache.lastModified);
 
 		const response = await this.fetchImpl(new URL(path, GITHUB_API_BASE_URL), { headers });
-		if (response.status === 304) return { status: 'not_modified' };
+		if (response.status === 304) {
+			if (cache && 'data' in cache) {
+				return { status: 'ok', data: cache.data as T, link: cache.link };
+			}
+			return { status: 'not_modified' };
+		}
 		if (response.status === 403 || response.status === 429) {
 			throw new GitHubRateLimitError(
 				`GitHub REST request was rate limited (${response.status})`,
@@ -90,10 +113,44 @@ export class GitHubRestClient {
 			throw new Error(body.trim() || `GitHub REST request failed (${response.status})`);
 		}
 
+		const data = (await response.json()) as T;
 		const etag = response.headers.get('etag') ?? undefined;
 		const lastModified = response.headers.get('last-modified') ?? undefined;
-		if (etag || lastModified) this.cacheByKey.set(cacheKey, { etag, lastModified });
+		if (etag || lastModified) {
+			this.cacheByKey.set(cacheKey, {
+				etag,
+				lastModified,
+				data,
+				link: response.headers.get('link'),
+			});
+		}
 
-		return { status: 'ok', data: (await response.json()) as T };
+		return { status: 'ok', data, link: response.headers.get('link') };
+	}
+
+	async requestJson<T>(cacheKey: string, path: string): Promise<GitHubRestResult<T>> {
+		const result = await this.requestJsonPage<T>(cacheKey, path);
+		return result.status === 'ok' ? { status: 'ok', data: result.data } : result;
+	}
+
+	async requestJsonPages<TPage, TItem>(
+		cacheKey: string,
+		path: string,
+		getItems: (page: TPage) => TItem[],
+	): Promise<GitHubRestResult<TItem[]>> {
+		const items: TItem[] = [];
+		let page = 1;
+		let currentPath: string | null = path;
+
+		while (currentPath) {
+			const result = await this.requestJsonPage<TPage>(`${cacheKey}:page:${page}`, currentPath);
+			if (result.status === 'not_modified')
+				return page === 1 ? result : { status: 'ok', data: items };
+			items.push(...getItems(result.data));
+			currentPath = nextLink(result.link);
+			page += 1;
+		}
+
+		return { status: 'ok', data: items };
 	}
 }

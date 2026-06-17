@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { WorkspaceRecord } from './event';
 import { EventStore } from './event-store';
-import type { GitHubRestResult } from './github-rest-client';
+import { GitHubRateLimitError, type GitHubRestResult } from './github-rest-client';
 import { PrManager } from './pr-manager';
 
 type GhResult = { stdout: string; stderr: string; exitCode: number };
@@ -48,11 +48,12 @@ async function createAdditionalWorkspace(
 		branchName: string;
 		reviewState?: WorkspaceRecord['reviewState'];
 		visibilityState?: WorkspaceRecord['visibilityState'];
+		localPath?: string;
 	},
 ) {
 	const workspace = await store.createWorkspace({
 		directoryId,
-		localPath: `/repo/miko/${args.branchName}`,
+		localPath: args.localPath ?? `/repo/miko/${args.branchName}`,
 		branchName: args.branchName,
 	});
 	await store.markWorkspaceSetupCompleted(workspace.id);
@@ -124,6 +125,79 @@ describe('PrManager.getWorkspaceGitHubSnapshot', () => {
 		const manager = new PrManager(store, { runGh: async () => okJson([]) });
 
 		expect(manager.getWorkspaceGitHubSnapshot(workspace.id)).toBeNull();
+	});
+
+	test('scopes conditional branch-list fallback by owner and repo', async () => {
+		const { store, workspace } = await createWorkspace({ branchName: 'atlas' });
+		const otherDirectory = await store.addDirectory({
+			localPath: '/repo/other',
+			title: 'Other',
+			githubOwner: 'sarp',
+			githubRepo: 'other',
+		});
+		const otherWorkspace = await createAdditionalWorkspace(store, otherDirectory.id, {
+			branchName: 'atlas',
+			localPath: '/repo/other/atlas',
+		});
+		const okRest = <T>(data: unknown): GitHubRestResult<T> => ({ status: 'ok', data: data as T });
+		const manager = new PrManager(store, {
+			github: {
+				requestJson: async (_cacheKey, requestPath) => {
+					if (requestPath.includes('/repos/sarp/miko/pulls?')) {
+						return okRest([
+							{
+								number: 12,
+								title: 'Miko PR',
+								state: 'open',
+								head: { ref: 'atlas' },
+								base: { ref: 'main' },
+							},
+						]);
+					}
+					if (requestPath.endsWith('/repos/sarp/miko/pulls/12')) {
+						return okRest({
+							number: 12,
+							title: 'Miko PR',
+							state: 'open',
+							head: { ref: 'atlas', sha: 'sha-1' },
+							base: { ref: 'main' },
+						});
+					}
+					if (requestPath.includes('/repos/sarp/other/pulls?')) return { status: 'not_modified' };
+					if (requestPath.includes('/comments') || requestPath.includes('/reviews'))
+						return okRest([]);
+					if (requestPath.includes('/check-runs')) return okRest({ check_runs: [] });
+					if (requestPath.includes('/status')) return okRest({ statuses: [] });
+					throw new Error(`unexpected REST path: ${requestPath}`);
+				},
+			},
+		});
+
+		await manager.refreshWorkspacePrState(workspace.id);
+		const otherSnapshot = await manager.refreshWorkspacePrState(otherWorkspace.id);
+
+		expect(otherSnapshot.status).toBe('none');
+		expect(otherSnapshot.prNumber).toBeUndefined();
+	});
+
+	test('propagates REST rate limits for stored PR refreshes', async () => {
+		const { store, workspace } = await createWorkspace();
+		await store.observeWorkspacePullRequest(workspace.id, {
+			number: 12,
+			status: 'open',
+			lastObservedAt: Date.now(),
+		});
+		const manager = new PrManager(store, {
+			github: {
+				requestJson: async () => {
+					throw new GitHubRateLimitError('slow down', 5_000);
+				},
+			},
+		});
+
+		await expect(manager.refreshWorkspacePrState(workspace.id)).rejects.toBeInstanceOf(
+			GitHubRateLimitError,
+		);
 	});
 });
 
@@ -641,6 +715,19 @@ describe('PrManager REST refresh', () => {
 						]);
 					}
 					if (requestPath.includes('/pulls/12/reviews')) return okRest([]);
+					if (requestPath.includes('/pulls/12/comments')) {
+						return okRest([
+							{
+								id: 6,
+								user: { login: 'reviewer' },
+								body: 'line comment',
+								html_url: 'https://github.com/sarp/miko/pull/12#discussion_r6',
+								path: 'README.md',
+								line: 4,
+								created_at: '2026-01-01T00:00:00Z',
+							},
+						]);
+					}
 					if (requestPath.includes('/check-runs')) {
 						return okRest({
 							check_runs: [
@@ -653,6 +740,17 @@ describe('PrManager REST refresh', () => {
 							],
 						});
 					}
+					if (requestPath.includes('/status')) {
+						return okRest({
+							statuses: [
+								{
+									context: 'lint',
+									state: 'success',
+									target_url: 'https://github.com/sarp/miko/actions/runs/2',
+								},
+							],
+						});
+					}
 					throw new Error(`unexpected REST path: ${requestPath}`);
 				},
 			},
@@ -660,7 +758,7 @@ describe('PrManager REST refresh', () => {
 
 		const snapshot = await manager.refreshWorkspacePrState(workspace.id);
 
-		expect(calls).toHaveLength(5);
+		expect(calls).toHaveLength(7);
 		expect(snapshot).toMatchObject({
 			status: 'open',
 			title: 'REST title',
@@ -672,6 +770,12 @@ describe('PrManager REST refresh', () => {
 			deletions: 1,
 		});
 		expect(snapshot.comments[0]).toMatchObject({ id: 'issue-5', isBot: true });
+		expect(snapshot.comments[1]).toMatchObject({
+			id: 'thread-6',
+			source: 'thread',
+			path: 'README.md',
+		});
 		expect(snapshot.checks[0]).toMatchObject({ name: 'test', status: 'passing' });
+		expect(snapshot.checks[1]).toMatchObject({ name: 'lint', status: 'passing' });
 	});
 });

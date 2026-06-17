@@ -6,7 +6,7 @@ function okGhToken() {
 }
 
 describe('GitHubRestClient', () => {
-	test('sends authorization and reuses etags for conditional requests', async () => {
+	test('sends authorization and reuses etags for conditional cached requests', async () => {
 		const seenHeaders: Headers[] = [];
 		const client = new GitHubRestClient({
 			runGh: okGhToken(),
@@ -28,11 +28,61 @@ describe('GitHubRestClient', () => {
 			data: { ok: true },
 		});
 		await expect(client.requestJson('key', '/repos/sarp/miko/pulls')).resolves.toEqual({
-			status: 'not_modified',
+			status: 'ok',
+			data: { ok: true },
 		});
 
 		expect(seenHeaders[0]?.get('authorization')).toBe('Bearer token');
 		expect(seenHeaders[1]?.get('if-none-match')).toBe('etag-1');
+	});
+
+	test('follows paginated REST links and reuses cached pages on 304', async () => {
+		const seenUrls: string[] = [];
+		const seenHeaders: Headers[] = [];
+		let pass = 0;
+		const client = new GitHubRestClient({
+			runGh: okGhToken(),
+			fetch: (async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
+				const url = String(input);
+				seenUrls.push(url);
+				seenHeaders.push(new Headers(init?.headers));
+				const isSecondPass = pass >= 2;
+				pass += 1;
+				if (isSecondPass) return new Response(null, { status: 304 });
+				if (url.includes('page=2')) {
+					return new Response(JSON.stringify([{ id: 2 }]), {
+						status: 200,
+						headers: { etag: 'etag-2' },
+					});
+				}
+				return new Response(JSON.stringify([{ id: 1 }]), {
+					status: 200,
+					headers: {
+						etag: 'etag-1',
+						link: '<https://api.github.com/repos/sarp/miko/issues/1/comments?page=2>; rel="next"',
+					},
+				});
+			}) as unknown as typeof fetch,
+		});
+
+		await expect(
+			client.requestJsonPages<Array<{ id: number }>, { id: number }>(
+				'comments',
+				'/repos/sarp/miko/issues/1/comments?per_page=100',
+				(page) => page,
+			),
+		).resolves.toEqual({ status: 'ok', data: [{ id: 1 }, { id: 2 }] });
+		await expect(
+			client.requestJsonPages<Array<{ id: number }>, { id: number }>(
+				'comments',
+				'/repos/sarp/miko/issues/1/comments?per_page=100',
+				(page) => page,
+			),
+		).resolves.toEqual({ status: 'ok', data: [{ id: 1 }, { id: 2 }] });
+
+		expect(seenUrls.filter((url) => url.includes('page=2'))).toHaveLength(2);
+		expect(seenHeaders[2]?.get('if-none-match')).toBe('etag-1');
+		expect(seenHeaders[3]?.get('if-none-match')).toBe('etag-2');
 	});
 
 	test('surfaces retry-after rate limit errors', async () => {
