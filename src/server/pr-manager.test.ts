@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { WorkspaceRecord } from './event';
 import { EventStore } from './event-store';
+import type { GitHubRestResult } from './github-rest-client';
 import { PrManager } from './pr-manager';
 
 type GhResult = { stdout: string; stderr: string; exitCode: number };
@@ -584,5 +585,93 @@ describe('PrManager.mergeWorkspacePullRequest', () => {
 		});
 
 		await expect(manager.mergeWorkspacePullRequest(workspace.id)).rejects.toThrow('merge failed');
+	});
+});
+
+describe('PrManager REST refresh', () => {
+	test('uses conditional REST data to refresh PR snapshots without gh PR commands', async () => {
+		const { store, workspace } = await createWorkspace();
+		const calls: string[] = [];
+		const okRest = <T>(data: unknown): GitHubRestResult<T> => ({ status: 'ok', data: data as T });
+		const manager = new PrManager(store, {
+			runGh: async (args) => {
+				if (args[0] === 'auth') return okText('token');
+				return failed(`unexpected gh command: ${args.join(' ')}`);
+			},
+			github: {
+				requestJson: async (_cacheKey, requestPath) => {
+					calls.push(requestPath);
+					if (requestPath.includes('/pulls?')) {
+						return okRest([
+							{
+								number: 12,
+								title: 'List title',
+								html_url: 'https://github.com/sarp/miko/pull/12',
+								state: 'open',
+								head: { ref: 'atlas' },
+								base: { ref: 'main' },
+								created_at: '2026-01-01T00:00:00Z',
+							},
+						]);
+					}
+					if (requestPath.endsWith('/pulls/12')) {
+						return okRest({
+							number: 12,
+							title: 'REST title',
+							body: 'REST body',
+							html_url: 'https://github.com/sarp/miko/pull/12',
+							state: 'open',
+							mergeable_state: 'dirty',
+							head: { ref: 'atlas', sha: 'sha-1' },
+							base: { ref: 'main' },
+							created_at: '2026-01-01T00:00:00Z',
+							additions: 3,
+							deletions: 1,
+						});
+					}
+					if (requestPath.includes('/issues/12/comments')) {
+						return okRest([
+							{
+								id: 5,
+								user: { login: 'bot[bot]', type: 'Bot' },
+								body: 'issue comment',
+								html_url: 'https://github.com/sarp/miko/pull/12#issuecomment-5',
+								created_at: '2026-01-01T00:00:00Z',
+							},
+						]);
+					}
+					if (requestPath.includes('/pulls/12/reviews')) return okRest([]);
+					if (requestPath.includes('/check-runs')) {
+						return okRest({
+							check_runs: [
+								{
+									name: 'test',
+									status: 'completed',
+									conclusion: 'success',
+									html_url: 'https://github.com/sarp/miko/actions/runs/1',
+								},
+							],
+						});
+					}
+					throw new Error(`unexpected REST path: ${requestPath}`);
+				},
+			},
+		});
+
+		const snapshot = await manager.refreshWorkspacePrState(workspace.id);
+
+		expect(calls).toHaveLength(5);
+		expect(snapshot).toMatchObject({
+			status: 'open',
+			title: 'REST title',
+			body: 'REST body',
+			mergeStateStatus: 'DIRTY',
+			hasMergeConflicts: true,
+			ciStatus: 'passing',
+			additions: 3,
+			deletions: 1,
+		});
+		expect(snapshot.comments[0]).toMatchObject({ id: 'issue-5', isBot: true });
+		expect(snapshot.checks[0]).toMatchObject({ name: 'test', status: 'passing' });
 	});
 });

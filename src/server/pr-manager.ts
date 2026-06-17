@@ -6,11 +6,13 @@ import type {
 import { runCommand } from './diff-store';
 import type { WorkspaceRecord } from './event';
 import type { EventStore } from './event-store';
+import { GitHubRestClient, type GitHubRestResult } from './github-rest-client';
 
 type GhResult = Awaited<ReturnType<typeof runCommand>>;
 
 interface PrManagerDeps {
 	runGh?: (args: string[]) => Promise<GhResult>;
+	github?: Pick<GitHubRestClient, 'requestJson'>;
 }
 
 interface GitHubPullRequestSearchItem {
@@ -18,10 +20,14 @@ interface GitHubPullRequestSearchItem {
 	title?: string;
 	url?: string;
 	state?: string;
+	merged_at?: string | null;
 	isDraft?: boolean;
 	headRefName?: string;
+	head?: { ref?: string };
 	baseRefName?: string;
+	base?: { ref?: string };
 	createdAt?: string;
+	created_at?: string;
 }
 
 interface GitHubCommentAuthor {
@@ -55,13 +61,20 @@ interface GitHubPullRequestView {
 	number?: number;
 	title?: string;
 	body?: string;
+	html_url?: string;
 	url?: string;
 	state?: string;
+	merged_at?: string | null;
+	mergeable_state?: string;
 	mergeStateStatus?: string;
 	isDraft?: boolean;
+	draft?: boolean;
 	headRefName?: string;
+	head?: { ref?: string; sha?: string };
 	baseRefName?: string;
+	base?: { ref?: string };
 	createdAt?: string;
+	created_at?: string;
 	additions?: number;
 	deletions?: number;
 	comments?: GitHubPullRequestComment[];
@@ -77,6 +90,42 @@ interface GitHubPullRequestView {
 	statusCheckRollup?: GitHubPullRequestCheck[];
 }
 
+interface GitHubRestIssueComment {
+	id?: number;
+	user?: { login?: string; type?: string };
+	author_association?: string;
+	body?: string;
+	html_url?: string;
+	path?: string;
+	line?: number;
+	created_at?: string;
+	updated_at?: string;
+}
+
+interface GitHubRestReview {
+	id?: number;
+	user?: { login?: string; type?: string };
+	author_association?: string;
+	body?: string;
+	html_url?: string;
+	state?: string;
+	submitted_at?: string;
+}
+
+interface GitHubRestCheckRun {
+	name?: string;
+	status?: string;
+	conclusion?: string;
+	html_url?: string;
+	started_at?: string;
+	completed_at?: string;
+	check_suite?: { app?: { name?: string } };
+}
+
+interface GitHubRestCheckRunsResponse {
+	check_runs?: GitHubRestCheckRun[];
+}
+
 function parseJson<T>(value: string): T | null {
 	try {
 		return JSON.parse(value) as T;
@@ -85,7 +134,11 @@ function parseJson<T>(value: string): T | null {
 	}
 }
 
-function normalizePrStatus(state: string | undefined): WorkspaceGitHubSnapshot['status'] {
+function normalizePrStatus(
+	state: string | undefined,
+	mergedAt?: string | null,
+): WorkspaceGitHubSnapshot['status'] {
+	if (mergedAt) return 'merged';
 	const normalized = state?.toUpperCase();
 	if (normalized === 'OPEN') return 'open';
 	if (normalized === 'MERGED') return 'merged';
@@ -120,6 +173,26 @@ function deriveCiStatus(checks: PullRequestCheckSnapshot[]): WorkspaceGitHubSnap
 
 function hasMergeConflicts(mergeStateStatus: string | undefined) {
 	return mergeStateStatus?.toUpperCase() === 'DIRTY';
+}
+
+function mergeStateStatusFromRest(value: string | undefined) {
+	return value?.toUpperCase();
+}
+
+function sourceUrl(source: GitHubPullRequestView | GitHubPullRequestSearchItem) {
+	return 'html_url' in source && source.html_url ? source.html_url : source.url;
+}
+
+function sourceHeadRef(source: GitHubPullRequestView | GitHubPullRequestSearchItem) {
+	return source.headRefName ?? source.head?.ref;
+}
+
+function sourceBaseRef(source: GitHubPullRequestView | GitHubPullRequestSearchItem) {
+	return source.baseRefName ?? source.base?.ref;
+}
+
+function sourceCreatedAt(source: GitHubPullRequestView | GitHubPullRequestSearchItem) {
+	return source.createdAt ?? source.created_at;
 }
 
 function mapChecks(pr: GitHubPullRequestView): PullRequestCheckSnapshot[] {
@@ -184,6 +257,44 @@ function mapComments(pr: GitHubPullRequestView): PullRequestCommentSnapshot[] {
 	return [...mapIssueComments(pr), ...mapReviewComments(pr)];
 }
 
+function mapRestIssueComments(comments: GitHubRestIssueComment[]): PullRequestCommentSnapshot[] {
+	return comments.flatMap((comment, index) => {
+		if (!comment.body) return [];
+		const author = comment.user?.login;
+		return {
+			id: comment.id !== undefined ? `issue-${comment.id}` : `issue-${index}`,
+			author,
+			authorAssociation: comment.author_association,
+			body: comment.body,
+			url: comment.html_url,
+			path: comment.path,
+			line: comment.line,
+			isBot: Boolean(comment.user?.type === 'Bot' || author?.endsWith('[bot]')),
+			source: 'issue',
+			createdAt: comment.created_at,
+			updatedAt: comment.updated_at,
+		} satisfies PullRequestCommentSnapshot;
+	});
+}
+
+function mapRestReviews(reviews: GitHubRestReview[]): PullRequestCommentSnapshot[] {
+	return reviews.flatMap((review, index) => {
+		if (!review.body) return [];
+		const author = review.user?.login;
+		return {
+			id: review.id !== undefined ? `review-${review.id}` : `review-${index}`,
+			author,
+			authorAssociation: review.author_association,
+			body: review.body,
+			url: review.html_url,
+			isBot: Boolean(review.user?.type === 'Bot' || author?.endsWith('[bot]')),
+			source: 'review',
+			createdAt: review.submitted_at,
+			updatedAt: review.submitted_at,
+		} satisfies PullRequestCommentSnapshot;
+	});
+}
+
 function createNoneSnapshot(owner: string, repo: string): WorkspaceGitHubSnapshot {
 	return {
 		status: 'none',
@@ -225,12 +336,16 @@ function createKnownPrSnapshot(
 export class PrManager {
 	private readonly snapshots = new Map<string, WorkspaceGitHubSnapshot>();
 	private readonly runGhCommand: (args: string[]) => Promise<GhResult>;
+	private readonly github: Pick<GitHubRestClient, 'requestJson'> | null;
+	private readonly useGhForPrRefresh: boolean;
 
 	constructor(
 		private readonly eventStore: EventStore,
 		deps: PrManagerDeps = {},
 	) {
 		this.runGhCommand = deps.runGh ?? ((args) => runCommand(['gh', ...args]));
+		this.github = deps.github ?? (deps.runGh ? null : new GitHubRestClient());
+		this.useGhForPrRefresh = Boolean(deps.runGh && !deps.github);
 	}
 
 	getWorkspaceGitHubSnapshot(workspaceId: string) {
@@ -241,7 +356,14 @@ export class PrManager {
 		return this.runGhCommand(args);
 	}
 
+	private async requestGitHub<T>(cacheKey: string, path: string): Promise<GitHubRestResult<T>> {
+		if (!this.github) throw new Error('GitHub REST client is not configured');
+		return this.github.requestJson<T>(cacheKey, path);
+	}
+
 	private async findPrForBranch(owner: string, repo: string, branchName: string) {
+		if (!this.useGhForPrRefresh) return this.findPrForBranchWithRest(owner, repo, branchName);
+
 		const result = await this.runGh([
 			'pr',
 			'list',
@@ -273,7 +395,50 @@ export class PrManager {
 		);
 	}
 
+	private async findPrForBranchWithRest(owner: string, repo: string, branchName: string) {
+		const path = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls?head=${encodeURIComponent(`${owner}:${branchName}`)}&state=all&per_page=20`;
+		const result = await this.requestGitHub<GitHubPullRequestSearchItem[]>(
+			`pulls:${owner}/${repo}:${branchName}`,
+			path,
+		);
+		if (result.status === 'not_modified') return this.getWorkspaceSnapshotPrSearchItem(branchName);
+
+		const prs = result.data ?? [];
+		return (
+			prs.find((pr) => normalizePrStatus(pr.state, pr.merged_at) === 'open') ??
+			prs.find((pr) => normalizePrStatus(pr.state, pr.merged_at) === 'merged') ??
+			prs.find((pr) => normalizePrStatus(pr.state, pr.merged_at) === 'closed') ??
+			null
+		);
+	}
+
+	private getWorkspaceSnapshotPrSearchItem(branchName: string): GitHubPullRequestSearchItem | null {
+		for (const snapshot of this.snapshots.values()) {
+			if (snapshot.headRefName !== branchName) continue;
+			if (!snapshot.prNumber) continue;
+			return {
+				number: snapshot.prNumber,
+				title: snapshot.title,
+				url: snapshot.url,
+				state:
+					snapshot.status === 'merged'
+						? 'MERGED'
+						: snapshot.status === 'open'
+							? 'OPEN'
+							: snapshot.status === 'closed'
+								? 'CLOSED'
+								: undefined,
+				headRefName: snapshot.headRefName,
+				baseRefName: snapshot.baseRefName,
+				createdAt: snapshot.createdAt ? new Date(snapshot.createdAt).toISOString() : undefined,
+			};
+		}
+		return null;
+	}
+
 	private async viewPr(owner: string, repo: string, prNumber: number) {
+		if (!this.useGhForPrRefresh) return this.viewPrWithRest(owner, repo, prNumber);
+
 		const result = await this.runGh([
 			'pr',
 			'view',
@@ -291,6 +456,180 @@ export class PrManager {
 			);
 		}
 		return parseJson<GitHubPullRequestView>(result.stdout);
+	}
+
+	private async viewPrWithRest(owner: string, repo: string, prNumber: number) {
+		const detailPath = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${prNumber}`;
+		const detail = await this.requestGitHub<GitHubPullRequestView>(
+			`pull:${owner}/${repo}:${prNumber}`,
+			detailPath,
+		);
+		const pr =
+			detail.status === 'not_modified'
+				? this.snapshotToPullRequestView(this.findSnapshot(owner, repo, prNumber))
+				: detail.data;
+		if (!pr) throw new Error('GitHub PR view returned not modified without a cached snapshot');
+		const issueComments = await this.fetchIssueComments(owner, repo, prNumber);
+		const reviews = await this.fetchReviews(owner, repo, prNumber);
+		const checks = await this.fetchCheckRuns(owner, repo, prNumber, pr.head?.sha ?? pr.headRefName);
+
+		return {
+			...pr,
+			url: pr.html_url ?? pr.url,
+			mergeStateStatus: pr.mergeStateStatus ?? mergeStateStatusFromRest(pr.mergeable_state),
+			headRefName: sourceHeadRef(pr),
+			baseRefName: sourceBaseRef(pr),
+			createdAt: sourceCreatedAt(pr),
+			comments: issueComments,
+			reviews,
+			statusCheckRollup: checks,
+		} satisfies GitHubPullRequestView;
+	}
+
+	private findSnapshot(owner: string, repo: string, prNumber: number) {
+		for (const snapshot of this.snapshots.values()) {
+			if (snapshot.owner === owner && snapshot.repo === repo && snapshot.prNumber === prNumber) {
+				return snapshot;
+			}
+		}
+		return null;
+	}
+
+	private snapshotToPullRequestView(
+		snapshot: WorkspaceGitHubSnapshot | null,
+	): GitHubPullRequestView | null {
+		if (!snapshot?.prNumber) return null;
+		return {
+			number: snapshot.prNumber,
+			title: snapshot.title,
+			body: snapshot.body,
+			url: snapshot.url,
+			state:
+				snapshot.status === 'merged'
+					? 'MERGED'
+					: snapshot.status === 'open'
+						? 'OPEN'
+						: snapshot.status === 'closed'
+							? 'CLOSED'
+							: undefined,
+			mergeStateStatus: snapshot.mergeStateStatus,
+			headRefName: snapshot.headRefName,
+			baseRefName: snapshot.baseRefName,
+			createdAt: snapshot.createdAt ? new Date(snapshot.createdAt).toISOString() : undefined,
+			additions: snapshot.additions,
+			deletions: snapshot.deletions,
+			comments: snapshot.comments
+				.filter((comment) => comment.source === 'issue')
+				.map((comment) => ({
+					id: comment.id,
+					author: { login: comment.author, isBot: comment.isBot },
+					authorAssociation: comment.authorAssociation,
+					body: comment.body,
+					url: comment.url,
+					path: comment.path,
+					line: comment.line,
+					createdAt: comment.createdAt,
+					updatedAt: comment.updatedAt,
+				})),
+			reviews: snapshot.comments
+				.filter((comment) => comment.source === 'review')
+				.map((comment) => ({
+					id: comment.id,
+					author: { login: comment.author, isBot: comment.isBot },
+					authorAssociation: comment.authorAssociation,
+					body: comment.body,
+					url: comment.url,
+					submittedAt: comment.createdAt,
+				})),
+			statusCheckRollup: snapshot.checks.map((check) => ({
+				name: check.name,
+				workflowName: check.workflowName,
+				status: check.status === 'pending' ? 'IN_PROGRESS' : 'COMPLETED',
+				conclusion: check.conclusion,
+				detailsUrl: check.detailsUrl,
+				startedAt: check.startedAt,
+				completedAt: check.completedAt,
+			})),
+		};
+	}
+
+	private async fetchIssueComments(owner: string, repo: string, prNumber: number) {
+		const result = await this.requestGitHub<GitHubRestIssueComment[]>(
+			`pull-comments:${owner}/${repo}:${prNumber}:issue`,
+			`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues/${prNumber}/comments?per_page=100`,
+		);
+		if (result.status === 'not_modified') {
+			return (
+				this.snapshotToPullRequestView(this.findSnapshot(owner, repo, prNumber))?.comments ?? []
+			);
+		}
+		return mapRestIssueComments(result.data).map((comment) => ({
+			id: comment.id,
+			author: { login: comment.author, isBot: comment.isBot },
+			authorAssociation: comment.authorAssociation,
+			body: comment.body,
+			url: comment.url,
+			path: comment.path,
+			line: comment.line,
+			createdAt: comment.createdAt,
+			updatedAt: comment.updatedAt,
+		}));
+	}
+
+	private async fetchReviews(owner: string, repo: string, prNumber: number) {
+		const result = await this.requestGitHub<GitHubRestReview[]>(
+			`pull-comments:${owner}/${repo}:${prNumber}:reviews`,
+			`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${prNumber}/reviews?per_page=100`,
+		);
+		if (result.status === 'not_modified') {
+			return (
+				this.snapshotToPullRequestView(this.findSnapshot(owner, repo, prNumber))?.reviews ?? []
+			);
+		}
+		return mapRestReviews(result.data).map((comment) => ({
+			id: comment.id,
+			author: { login: comment.author, isBot: comment.isBot },
+			authorAssociation: comment.authorAssociation,
+			body: comment.body,
+			url: comment.url,
+			submittedAt: comment.createdAt,
+		}));
+	}
+
+	private async fetchCheckRuns(
+		owner: string,
+		repo: string,
+		prNumber: number,
+		ref: string | undefined,
+	) {
+		if (!ref) return this.findSnapshot(owner, repo, prNumber)?.checks ?? [];
+		const result = await this.requestGitHub<GitHubRestCheckRunsResponse>(
+			`check-runs:${owner}/${repo}:${ref}`,
+			`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/commits/${encodeURIComponent(ref)}/check-runs?per_page=100`,
+		);
+		if (result.status === 'not_modified') {
+			return (this.findSnapshot(owner, repo, prNumber)?.checks ?? []).map((check) => ({
+				name: check.name,
+				workflowName: check.workflowName,
+				status: check.status === 'pending' ? 'IN_PROGRESS' : 'COMPLETED',
+				conclusion: check.conclusion,
+				detailsUrl: check.detailsUrl,
+				startedAt: check.startedAt,
+				completedAt: check.completedAt,
+			}));
+		}
+		return (result.data.check_runs ?? []).flatMap((check) => {
+			if (!check.name) return [];
+			return {
+				name: check.name,
+				workflowName: check.check_suite?.app?.name,
+				status: check.status,
+				conclusion: check.conclusion,
+				detailsUrl: check.html_url,
+				startedAt: check.started_at,
+				completedAt: check.completed_at,
+			} satisfies GitHubPullRequestCheck;
+		});
 	}
 
 	private async updateReviewState(
@@ -323,9 +662,9 @@ export class PrManager {
 				? (pr as GitHubPullRequestView)
 				: await this.viewPr(owner, repo, pr.number);
 		const source = detailed ?? pr;
-		const status = normalizePrStatus(source.state);
+		const status = normalizePrStatus(source.state, source.merged_at);
 		const checks = detailed ? mapChecks(detailed) : [];
-		const createdAt = parseGitHubTimestamp(source.createdAt);
+		const createdAt = parseGitHubTimestamp(sourceCreatedAt(source));
 
 		const snapshot: WorkspaceGitHubSnapshot = {
 			status,
@@ -334,9 +673,9 @@ export class PrManager {
 			prNumber: pr.number,
 			title: source.title,
 			body: detailed?.body,
-			url: source.url,
-			headRefName: source.headRefName,
-			baseRefName: source.baseRefName,
+			url: sourceUrl(source),
+			headRefName: sourceHeadRef(source),
+			baseRefName: sourceBaseRef(source),
 			ciStatus: deriveCiStatus(checks),
 			mergeStateStatus: detailed?.mergeStateStatus,
 			hasMergeConflicts: hasMergeConflicts(detailed?.mergeStateStatus),
@@ -355,9 +694,9 @@ export class PrManager {
 				number: pr.number,
 				status,
 				title: source.title,
-				url: source.url,
-				headRefName: source.headRefName,
-				baseRefName: source.baseRefName,
+				url: sourceUrl(source),
+				headRefName: sourceHeadRef(source),
+				baseRefName: sourceBaseRef(source),
 				ciStatus: snapshot.ciStatus,
 				mergeStateStatus: snapshot.mergeStateStatus,
 				hasMergeConflicts: snapshot.hasMergeConflicts,

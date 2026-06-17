@@ -15,6 +15,7 @@ import { KeybindingsManager } from './keybindings';
 import { getMachineDisplayName } from './machine-name';
 import { getWorkspaceUploadDir } from './paths';
 import { PrManager } from './pr-manager';
+import { PrRefreshPoller } from './pr-refresh-poller';
 import { ScratchpadManager } from './scratchpad-manager';
 import { TerminalManager } from './terminal-manager';
 import { UpdateManager } from './update-manager';
@@ -213,6 +214,14 @@ export async function startServer(options: StartServerOptions = {}) {
 		);
 	}
 
+	const prRefreshPoller = new PrRefreshPoller({
+		listWorkspaces: () => store.listWorkspaces(),
+		getWorkspaceGitHubSnapshot: (workspaceId) => prManager.getWorkspaceGitHubSnapshot(workspaceId),
+		refreshWorkspacePrStage: (workspaceId, prOptions) =>
+			refreshWorkspacePrStage(workspaceId, prOptions),
+		broadcastSnapshots: () => router.broadcastSnapshots(),
+	});
+
 	const agent = new AgentCoordinator({
 		store,
 		onStateChange: () => {
@@ -335,12 +344,14 @@ export async function startServer(options: StartServerOptions = {}) {
 
 	cleanupStaleInstructionAttachmentsInBackground();
 	refreshStartupWorkspaceStateInBackground();
+	prRefreshPoller.start();
 
 	const shutdown = async () => {
 		for (const sessionId of [...agent.activeTurns.keys()]) {
 			await agent.cancel(sessionId);
 		}
 
+		prRefreshPoller.stop();
 		router.dispose();
 		keybindings.dispose();
 		terminals.closeAll();
