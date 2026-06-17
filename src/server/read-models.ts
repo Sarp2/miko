@@ -111,6 +111,9 @@ function getWorkspaceSidebarIndicator(args: {
 	if (hasOpenPr && ((git?.files.length ?? 0) > 0 || (git?.aheadCount ?? 0) > 0)) {
 		return 'commit_and_push';
 	}
+	if (hasOpenPr && (github?.isDraft || workspace.pullRequest?.isDraft)) {
+		return 'draft_pr';
+	}
 	if (hasOpenPr) {
 		return 'pr_opened';
 	}

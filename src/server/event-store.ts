@@ -630,6 +630,7 @@ export class EventStore {
 			workspace.pullRequest.headRefName === pullRequest.headRefName &&
 			workspace.pullRequest.baseRefName === pullRequest.baseRefName &&
 			workspace.pullRequest.ciStatus === pullRequest.ciStatus &&
+			workspace.pullRequest.isDraft === pullRequest.isDraft &&
 			workspace.pullRequest.mergeStateStatus === pullRequest.mergeStateStatus &&
 			workspace.pullRequest.hasMergeConflicts === pullRequest.hasMergeConflicts &&
 			workspace.pullRequest.createdAt === pullRequest.createdAt

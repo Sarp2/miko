@@ -19,6 +19,7 @@ interface GitHubPullRequestSearchItem {
 	url?: string;
 	state?: string;
 	isDraft?: boolean;
+	draft?: boolean;
 	headRefName?: string;
 	baseRefName?: string;
 	createdAt?: string;
@@ -59,6 +60,7 @@ interface GitHubPullRequestView {
 	state?: string;
 	mergeStateStatus?: string;
 	isDraft?: boolean;
+	draft?: boolean;
 	headRefName?: string;
 	baseRefName?: string;
 	createdAt?: string;
@@ -120,6 +122,10 @@ function deriveCiStatus(checks: PullRequestCheckSnapshot[]): WorkspaceGitHubSnap
 
 function hasMergeConflicts(mergeStateStatus: string | undefined) {
 	return mergeStateStatus?.toUpperCase() === 'DIRTY';
+}
+
+function sourceIsDraft(source: GitHubPullRequestView | GitHubPullRequestSearchItem) {
+	return source.isDraft ?? ('draft' in source ? source.draft : undefined);
 }
 
 function mapChecks(pr: GitHubPullRequestView): PullRequestCheckSnapshot[] {
@@ -214,6 +220,7 @@ function createKnownPrSnapshot(
 		headRefName: pullRequest.headRefName,
 		baseRefName: pullRequest.baseRefName,
 		ciStatus: pullRequest.ciStatus ?? 'unknown',
+		isDraft: pullRequest.isDraft,
 		mergeStateStatus: pullRequest.mergeStateStatus,
 		hasMergeConflicts: pullRequest.hasMergeConflicts,
 		comments: [],
@@ -338,6 +345,7 @@ export class PrManager {
 			headRefName: source.headRefName,
 			baseRefName: source.baseRefName,
 			ciStatus: deriveCiStatus(checks),
+			isDraft: sourceIsDraft(source),
 			mergeStateStatus: detailed?.mergeStateStatus,
 			hasMergeConflicts: hasMergeConflicts(detailed?.mergeStateStatus),
 			unresolvedCommentCount: undefined,
@@ -359,6 +367,7 @@ export class PrManager {
 				headRefName: source.headRefName,
 				baseRefName: source.baseRefName,
 				ciStatus: snapshot.ciStatus,
+				isDraft: snapshot.isDraft,
 				mergeStateStatus: snapshot.mergeStateStatus,
 				hasMergeConflicts: snapshot.hasMergeConflicts,
 				createdAt,
@@ -522,6 +531,27 @@ export class PrManager {
 			'--repo',
 			`${directory.githubOwner}/${directory.githubRepo}`,
 			'--merge',
+		]);
+
+		if (result.exitCode !== 0) {
+			throw new Error([result.stderr.trim(), result.stdout.trim()].filter(Boolean).join('\n'));
+		}
+
+		return this.refreshWorkspacePrState(workspaceId);
+	}
+
+	async markWorkspacePullRequestReady(workspaceId: string) {
+		const workspace = this.eventStore.requireWorkspace(workspaceId);
+		const directory = this.eventStore.requireDirectory(workspace.directoryId);
+		const prNumber = workspace.pullRequest?.number;
+		if (prNumber === undefined) throw new Error('Workspace does not have a pull request');
+
+		const result = await this.runGh([
+			'pr',
+			'ready',
+			String(prNumber),
+			'--repo',
+			`${directory.githubOwner}/${directory.githubRepo}`,
 		]);
 
 		if (result.exitCode !== 0) {

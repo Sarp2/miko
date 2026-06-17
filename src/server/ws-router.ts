@@ -669,6 +669,11 @@ export function createWsRouter({
 					send(ws, { type: 'ack', id, result });
 					break;
 				}
+				case 'workspace.markPrReady': {
+					const result = await prManager.markWorkspacePullRequestReady(command.workspaceId);
+					send(ws, { type: 'ack', id, result });
+					break;
+				}
 				case 'workspace.addressReviewComments': {
 					const workspace = requireWorkspace(command.workspaceId);
 					const github = prManager.getWorkspaceGitHubSnapshot(workspace.id);

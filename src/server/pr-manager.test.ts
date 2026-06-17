@@ -81,6 +81,7 @@ function openPrView() {
 		url: 'https://github.com/sarp/miko/pull/12',
 		state: 'OPEN',
 		mergeStateStatus: 'CLEAN',
+		isDraft: false,
 		headRefName: 'atlas',
 		baseRefName: 'main',
 		createdAt: '2026-01-01T00:00:00Z',
@@ -178,6 +179,7 @@ describe('PrManager.refreshWorkspacePrState', () => {
 			title: 'Add workspace model',
 			body: 'PR body',
 			ciStatus: 'failing',
+			isDraft: false,
 			mergeStateStatus: 'CLEAN',
 			hasMergeConflicts: false,
 			additions: 52,
@@ -204,9 +206,53 @@ describe('PrManager.refreshWorkspacePrState', () => {
 				number: 12,
 				status: 'open',
 				ciStatus: 'failing',
+				isDraft: false,
 				mergeStateStatus: 'CLEAN',
 				hasMergeConflicts: false,
 			},
+		});
+	});
+
+	test('stores draft pull request state', async () => {
+		const { store, workspace } = await createWorkspace();
+		const manager = new PrManager(store, {
+			runGh: async (args) => {
+				if (args[0] === 'pr' && args[1] === 'list') {
+					return okJson([
+						{
+							number: 12,
+							title: 'Draft PR',
+							url: 'https://github.com/sarp/miko/pull/12',
+							state: 'OPEN',
+							isDraft: true,
+							headRefName: 'atlas',
+							baseRefName: 'main',
+						},
+					]);
+				}
+				if (args[0] === 'pr' && args[1] === 'view') {
+					return okJson({
+						...openPrView(),
+						title: 'Draft PR',
+						isDraft: true,
+						statusCheckRollup: [],
+					});
+				}
+				return failed('unexpected gh command');
+			},
+		});
+
+		const snapshot = await manager.refreshWorkspacePrState(workspace.id);
+
+		expect(snapshot).toMatchObject({
+			status: 'open',
+			title: 'Draft PR',
+			isDraft: true,
+		});
+		expect(store.requireWorkspace(workspace.id).pullRequest).toMatchObject({
+			number: 12,
+			status: 'open',
+			isDraft: true,
 		});
 	});
 
@@ -584,5 +630,38 @@ describe('PrManager.mergeWorkspacePullRequest', () => {
 		});
 
 		await expect(manager.mergeWorkspacePullRequest(workspace.id)).rejects.toThrow('merge failed');
+	});
+});
+
+describe('PrManager.markWorkspacePullRequestReady', () => {
+	test('marks a workspace draft PR ready and refreshes its state', async () => {
+		const { store, workspace } = await createWorkspace();
+		await store.observeWorkspacePullRequest(workspace.id, {
+			number: 12,
+			status: 'open',
+			isDraft: true,
+			lastObservedAt: Date.now(),
+		});
+		const calls: string[][] = [];
+		const manager = new PrManager(store, {
+			runGh: async (args) => {
+				calls.push(args);
+				if (args[0] === 'pr' && args[1] === 'ready') return okText('ready');
+				if (args[0] === 'pr' && args[1] === 'view') {
+					return okJson({ ...openPrView(), isDraft: false, title: 'Ready PR' });
+				}
+				return failed('unexpected gh command');
+			},
+		});
+
+		const snapshot = await manager.markWorkspacePullRequestReady(workspace.id);
+
+		expect(calls[0]).toEqual(['pr', 'ready', '12', '--repo', 'sarp/miko']);
+		expect(snapshot).toMatchObject({ status: 'open', title: 'Ready PR', isDraft: false });
+		expect(store.requireWorkspace(workspace.id).pullRequest).toMatchObject({
+			number: 12,
+			status: 'open',
+			isDraft: false,
+		});
 	});
 });

@@ -153,6 +153,18 @@ describe('deriveWorkspaceCondition', () => {
 			deriveWorkspaceCondition(
 				makeSnapshot({
 					workspace: { reviewState: 'in_review' },
+					github: { status: 'open', isDraft: true },
+				}),
+			),
+		).toMatchObject({
+			stage: 'draft_pr',
+			primaryAction: { kind: 'mark_pr_ready', label: 'Mark ready' },
+		});
+
+		expect(
+			deriveWorkspaceCondition(
+				makeSnapshot({
+					workspace: { reviewState: 'in_review' },
 					github: { status: 'open', ciStatus: 'failing', hasMergeConflicts: true },
 				}),
 			),
@@ -299,6 +311,16 @@ describe('deriveSidebarWorkspaceCondition', () => {
 				kind: 'resolve_merge_conflicts',
 				label: 'Resolve conflicts',
 			},
+		});
+
+		expect(
+			deriveSidebarWorkspaceCondition(
+				makeRow({ reviewState: 'in_progress', indicator: 'draft_pr' }),
+			),
+		).toMatchObject({
+			reviewState: 'in_review',
+			stage: 'draft_pr',
+			primaryAction: { kind: 'mark_pr_ready', label: 'Mark ready' },
 		});
 	});
 });
