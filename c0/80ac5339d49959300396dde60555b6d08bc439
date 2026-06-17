@@ -1,0 +1,48 @@
+src/server/server.ts
+  s_82e93de1bb8ac8::t_fd165a4edcca25 18,217-224,347,354
+src/server/pr-refresh-poller.ts
+  s_82e93de1bb8ac8::t_362568f6d10c55 85-86,91-100,104,106-108
+  s_82e93de1bb8ac8::t_e01d59a769cb94 1-2,4-84,87-90,101-103,105,109-117
+  s_82e93de1bb8ac8::t_cdb63b40d17470 3
+src/server/github-rest-client.test.ts
+  s_82e93de1bb8ac8::t_6c892ca1e02740 23,45
+  s_82e93de1bb8ac8::t_def83466ef9fb1 1-12,14-22,24-44,46-56
+  s_82e93de1bb8ac8::t_85b1914afc471d 13
+src/server/pr-refresh-poller.test.ts
+  s_82e93de1bb8ac8::t_5033361e5ec7c0 102-126
+  s_82e93de1bb8ac8::t_def83466ef9fb1 1-101,127
+src/server/pr-manager.test.ts
+  s_82e93de1bb8ac8::t_e0249eb39180cf 605,633
+  s_82e93de1bb8ac8::t_df941232e5e9dc 606,608,611,614-629,634-641,646-653
+  s_82e93de1bb8ac8::t_c86481850a5df0 7,595,630,643,645,654
+  s_82e93de1bb8ac8::t_7ee622c05f4d30 590-594,596-604,607,609-610,612-613,631-632,642,644,655-677
+src/server/github-rest-client.ts
+  s_82e93de1bb8ac8::t_ad76dc39b8757b 3,38-40
+  s_82e93de1bb8ac8::t_fa753aa0e11162 1-2,4-37,41-99
+src/server/pr-manager.ts
+  s_82e93de1bb8ac8::t_b6ffdad65152af 9,15,23,26,28,30,64,67-68,71,73,75,77,93-126
+  s_82e93de1bb8ac8::t_e9dd35087efee2 665,667,676-678,697-699
+  s_82e93de1bb8ac8::t_2503e8475869ca 359-363
+  s_82e93de1bb8ac8::t_3ce79890b4d5c6 365-366,398-438,440-441,461-466,472-561,565-584,587-609
+  s_82e93de1bb8ac8::t_68329ed4a43f41 467-471,562-564,585-586
+  s_82e93de1bb8ac8::t_ada67b10b59be5 260-297
+  s_82e93de1bb8ac8::t_8e2a3a88d9e617 339-340,347-348
+  s_82e93de1bb8ac8::t_eaf3a87f9d0698 610-632
+  s_82e93de1bb8ac8::t_f2dead44f55084 137-141,178-195
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "c080ac5339d49959300396dde60555b6d08bc439",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
