@@ -1,0 +1,29 @@
+src/server/server.ts
+  s_82e93de1bb8ac8::t_46950cd87d9186 354
+src/server/pr-refresh-poller.test.ts
+  s_82e93de1bb8ac8::t_4a7f6ac3517443 115-116,130,151
+  s_82e93de1bb8ac8::t_2cb984c605292c 103-114,117-123,125-129,131-150,152-157
+  s_82e93de1bb8ac8::t_6312eaf618d099 124
+src/server/pr-refresh-poller.ts
+  s_82e93de1bb8ac8::t_0b23497bb8f8a8 54-55,68,75-78,80,84-85,89-99,121,128
+src/server/github-rest-client.test.ts
+  s_82e93de1bb8ac8::t_2cb984c605292c 88-126
+src/server/github-rest-client.ts
+  s_82e93de1bb8ac8::t_38ab613bb4a9f7 25,27-45,120-121,124,129
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "3aa3b58ea3b3b6e2aa13c0b6c413de3398432085",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
