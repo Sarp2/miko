@@ -1,0 +1,122 @@
+src/client/components/messages/changed-file-line.tsx
+  s_82e93de1bb8ac8::t_d656da0856f61e 9
+  s_82e93de1bb8ac8::t_8767e10c5c9ed5 5,18,65-71,74-75
+src/client/components/transcript-turn.tsx
+  s_82e93de1bb8ac8::t_8767e10c5c9ed5 76
+src/shared/protocol.ts
+  s_82e93de1bb8ac8::t_4165bb8a789c20 89
+src/client/stores/workspace-file-store.test.ts
+  s_82e93de1bb8ac8::t_09959993aaa133 12,49,130-144
+src/client/lib/workspace-file-open-target.test.ts
+  s_82e93de1bb8ac8::t_472c10cd0b7993 109,114
+  s_82e93de1bb8ac8::t_dbf5af54261cf8 1-74,83-108,110-113,115-127,129-173,181-183
+  s_82e93de1bb8ac8::t_c991494ae5f3db 128
+  s_82e93de1bb8ac8::t_dbacf32373496b 75-82,174-180
+src/client/routes/workspace-route.tsx
+  s_82e93de1bb8ac8::t_977bd2dcfae353 13,46-57,99,102-112
+  s_82e93de1bb8ac8::t_c248df69bb7daf 146-149
+  s_82e93de1bb8ac8::t_4f03c462feda3f 246
+  s_82e93de1bb8ac8::t_b8de2f0bc5a177 234-235
+src/server/paths.ts
+  s_82e93de1bb8ac8::t_3222b4ba3334b8 4,49-50
+src/server/uploads.ts
+  s_82e93de1bb8ac8::t_5d5dcfad7fb4a3 169
+  s_82e93de1bb8ac8::t_3222b4ba3334b8 93,98,138,170,184
+src/client/hooks/use-chat-composer.ts
+  s_82e93de1bb8ac8::t_566eb728988e3a 6
+  s_82e93de1bb8ac8::t_d39ad4bdea0191 255-266
+  s_82e93de1bb8ac8::t_b98d550d453ea1 61,175-200,249-250,253-254,267-269,272-277,321,361
+  s_82e93de1bb8ac8::t_54b49a6b4952d8 167-174,251-252,270-271
+src/client/stores/ui-store.test.ts
+  s_82e93de1bb8ac8::t_ed0a876bb82e20 210-236
+  s_82e93de1bb8ac8::t_ebc8e5df57de8a 304-337
+  s_82e93de1bb8ac8::t_b2c4d974ff83b8 505-555,576-610
+  s_82e93de1bb8ac8::t_8674e4cf1d84aa 556-575
+src/server/ws-router.test.ts
+  s_82e93de1bb8ac8::t_e4f5495a14b635 127-136,789-798,856-865,925-933
+  s_82e93de1bb8ac8::t_4b38bfb7e364e7 1010-1040
+CLAUDE.md
+  s_82e93de1bb8ac8::t_88e69583bbcedb 30-36
+src/server/server.test.ts
+  s_82e93de1bb8ac8::t_8d010d1812080b 42-45,47,97,117-118,130,158,368,391,738
+  s_82e93de1bb8ac8::t_1d508ba654d85d 152
+  s_82e93de1bb8ac8::t_3d98dab6757849 11,81-86,608-674
+src/server/server.ts
+  s_82e93de1bb8ac8::t_3222b4ba3334b8 111,123,134-135,422,463,690-691
+  s_82e93de1bb8ac8::t_6a4036de959f22 316-320,613-656
+src/client/stores/ui-store.ts
+  s_82e93de1bb8ac8::t_1a2688efe4d1f6 268-277,438,441-443,450
+  s_82e93de1bb8ac8::t_54b49a6b4952d8 3
+  s_82e93de1bb8ac8::t_1f62d383c60b47 19-20
+  s_82e93de1bb8ac8::t_785ef89c6cbd00 38,135-164,171-174,186,188,190
+  s_82e93de1bb8ac8::t_bdf7190365c289 208
+  s_82e93de1bb8ac8::t_633bd6e3554ed8 165-170,187,252-265
+src/client/components/messages/read-line.tsx
+  s_82e93de1bb8ac8::t_caadb8b2329ed8 76
+  s_82e93de1bb8ac8::t_8767e10c5c9ed5 5-6,67-72
+  s_82e93de1bb8ac8::t_d656da0856f61e 8
+src/client/components/chat-page.tsx
+  s_82e93de1bb8ac8::t_35eea5c0a00381 160
+src/server/diff-store.test.ts
+  s_82e93de1bb8ac8::t_e918727b8f7e6c 777-823
+  s_82e93de1bb8ac8::t_56b7e8a1907a27 28,447-461
+src/client/components/workspace-file-page.tsx
+  s_82e93de1bb8ac8::t_4f03c462feda3f 10,22,147-152,161,173-174,180-181,183-184,186-188,193-196,209,219-223
+  s_82e93de1bb8ac8::t_7614b75f949e21 165,231-237
+  s_82e93de1bb8ac8::t_b8de2f0bc5a177 162,175,182,226-230,262,273
+  s_82e93de1bb8ac8::t_b51347ca0bae8b 185
+src/client/components/chat-composer/chat-composer.tsx
+  s_82e93de1bb8ac8::t_35eea5c0a00381 44
+  s_82e93de1bb8ac8::t_b71f98b17f6e3a 3,70-78
+  s_82e93de1bb8ac8::t_eb3cc5bc1bd174 41,60-62,64-69
+src/client/components/chat-composer/chat-composer-utils.ts
+  s_82e93de1bb8ac8::t_5d56f416f309a4 168-169,172,188-192
+src/server/diff-store.ts
+  s_82e93de1bb8ac8::t_47ab07229a8d50 615-673,1203-1209,1211-1213,1215-1219,1222-1227
+src/client/stores/workspace-store.ts
+  s_82e93de1bb8ac8::t_caadb8b2329ed8 33,263-265
+src/client/stores/workspace-store.test.ts
+  s_82e93de1bb8ac8::t_09959993aaa133 398-442
+src/client/lib/workspace-file-open-target.ts
+  s_82e93de1bb8ac8::t_dbf5af54261cf8 1,3-15,17-53,61-71,73-122,124-152,155-156,158-161,165-168
+  s_82e93de1bb8ac8::t_d656da0856f61e 2,153-154,162-164
+  s_82e93de1bb8ac8::t_19bab43acf9cf7 16,54-60,72,157
+  s_82e93de1bb8ac8::t_305e1a787fc61d 123
+src/client/routes/workspace-route-state.ts
+  s_82e93de1bb8ac8::t_1f62d383c60b47 22,52
+  s_82e93de1bb8ac8::t_a3921ddfa81bb3 4,42
+src/client/hooks/use-workspace-page-openers.ts
+  s_82e93de1bb8ac8::t_ebe60b435c3a04 1,25,44,46-57
+  s_82e93de1bb8ac8::t_fd72d92f235c98 5,59,86,93
+  s_82e93de1bb8ac8::t_35eea5c0a00381 8,19-23,37,40
+  s_82e93de1bb8ac8::t_caadb8b2329ed8 38
+  s_82e93de1bb8ac8::t_b014f44e1cc879 3,45,58,60-73
+src/server/uploads.test.ts
+  s_82e93de1bb8ac8::t_8d010d1812080b 63,71,87,95,103,135,142-143,155-175
+src/server/paths.test.ts
+  s_82e93de1bb8ac8::t_8d010d1812080b 32-33
+src/client/components/chat-composer/chat-composer-types.ts
+  s_82e93de1bb8ac8::t_7956271ccdf0b2 7
+src/client/stores/workspace-file-store.ts
+  s_82e93de1bb8ac8::t_caadb8b2329ed8 54-58,149-194,305-310,312-317
+  s_82e93de1bb8ac8::t_f51af2694820b6 147-148
+  s_82e93de1bb8ac8::t_bf7d7e3f59616d 89-101,250,286
+src/server/ws-router.ts
+  s_82e93de1bb8ac8::t_4165bb8a789c20 63,576-579
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "9c712645a544ed7d7a44b1d7680a2cd72854b3f1",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
