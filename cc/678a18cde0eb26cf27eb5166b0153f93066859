@@ -1,0 +1,19 @@
+src/client/hooks/use-chat-composer.ts
+  s_0e367acc1d4543::t_86631b8432bdf2 119-122,124,126
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "cc678a18cde0eb26cf27eb5166b0153f93066859",
+  "prompts": {},
+  "sessions": {
+    "s_0e367acc1d4543": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "69be67a1-ff07-4389-87f0-35fe33e9d868",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
