@@ -487,7 +487,7 @@ function WorkspaceHoverMeta({
 	const relativeTime = formatRelativeTime(workspaceTimeAt(workspace));
 	const isPrStage = workspace.hasPullRequest;
 	const titleText = isPrStage ? workspaceRowTitle(workspace) : workspace.lastSessionTitle;
-	const bodyText = isPrStage ? null : workspace.lastAssistantPreview;
+	const bodyText = workspace.lastAssistantPreview;
 	const actionNeedsSession =
 		condition.primaryAction?.kind === 'create_pr' ||
 		condition.primaryAction?.kind === 'fix_ci' ||
