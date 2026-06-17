@@ -71,6 +71,10 @@ test('detects agent instruction paths from stale workspace-file routes', () => {
 	});
 
 	expect(agentInstructionContentUrlFromPath('/tmp/not-agent-instructions/notes.md')).toBeNull();
+	expect(agentInstructionContentUrlFromPath('agent-instructions/create-pr-guide.md')).toBeNull();
+	expect(
+		agentInstructionContentUrlFromPath('/repo/agent-instructions/create-pr-workspace-1.md'),
+	).toBeNull();
 	expect(agentInstructionContentUrlFromPath('agent-instructions/../../secret.txt')).toBeNull();
 });
 

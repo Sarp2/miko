@@ -30,6 +30,7 @@ import { type ClientState, createWsRouter } from './ws-router';
 const MAX_UPLOAD_FILES = 50;
 const MAX_UPLOAD_SIZE_BYTES = 100 * 1024 * 1024;
 const MAX_WORKSPACE_FILE_CONTENT_BYTES = 2 * 1024 * 1024;
+const MAX_AGENT_INSTRUCTION_CONTENT_BYTES = MAX_WORKSPACE_FILE_CONTENT_BYTES;
 
 function safeDecodePathSegment(segment: string): string | null {
 	try {
@@ -493,6 +494,9 @@ export async function handleAgentInstructionContent(req: Request, url: URL) {
 		const info = await stat(filePath);
 		if (!info.isFile()) {
 			return Response.json({ error: 'Agent instruction not found' }, { status: 404 });
+		}
+		if (info.size > MAX_AGENT_INSTRUCTION_CONTENT_BYTES) {
+			return Response.json({ error: 'Agent instruction is too large to preview' }, { status: 413 });
 		}
 	} catch {
 		return Response.json({ error: 'Agent instruction not found' }, { status: 404 });

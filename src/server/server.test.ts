@@ -447,6 +447,29 @@ describe('handleAgentInstructionContent', () => {
 			await rm(filePath, { force: true });
 		}
 	});
+
+	test('rejects oversized instruction previews', async () => {
+		const originalRuntimeProfile = process.env.MIKO_RUNTIME_PROFILE;
+		process.env.MIKO_RUNTIME_PROFILE = 'dev';
+		const instructionsDir = path.join(getDataDir(homedir()), 'agent-instructions');
+		const filePath = path.join(instructionsDir, 'failing-ci-workspace-1.txt');
+		try {
+			await mkdir(path.dirname(filePath), { recursive: true });
+			await Bun.write(filePath, 'x'.repeat(2 * 1024 * 1024 + 1));
+			const req = createAgentInstructionContentRequest({
+				url: 'http://localhost/api/agent-instructions/failing-ci-workspace-1.txt/content',
+			});
+			const response = await handleAgentInstructionContent(req, new URL(req.url));
+
+			expect(response?.status).toBe(413);
+			expect(await response?.json()).toEqual({
+				error: 'Agent instruction is too large to preview',
+			});
+		} finally {
+			process.env.MIKO_RUNTIME_PROFILE = originalRuntimeProfile;
+			await rm(filePath, { force: true });
+		}
+	});
 });
 
 describe('handleWorkspaceFileContent', () => {

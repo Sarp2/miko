@@ -78,8 +78,16 @@ const AGENT_INSTRUCTION_FILE_PATTERN =
 export function agentInstructionContentUrlFromPath(filePath: string) {
 	const segments = filePath.replaceAll('\\', '/').split('/').filter(Boolean);
 	const instructionDirIndex = segments.lastIndexOf('agent-instructions');
+	const dataDirIndex = instructionDirIndex - 1;
+	const profileDirIndex = instructionDirIndex - 2;
 	const fileName = instructionDirIndex >= 0 ? segments[instructionDirIndex + 1] : null;
-	if (!fileName || !AGENT_INSTRUCTION_FILE_PATTERN.test(fileName)) return null;
+	const isMikoDataPath =
+		profileDirIndex >= 0 &&
+		(segments[profileDirIndex] === '.miko' || segments[profileDirIndex] === '.miko-dev') &&
+		segments[dataDirIndex] === 'data' &&
+		segments.length === instructionDirIndex + 2;
+
+	if (!isMikoDataPath || !fileName || !AGENT_INSTRUCTION_FILE_PATTERN.test(fileName)) return null;
 	return {
 		fileName,
 		contentUrl: `/api/agent-instructions/${encodeURIComponent(fileName)}/content`,
