@@ -243,6 +243,7 @@ export interface WorkspacePullRequestSummary {
 	headRefName?: string;
 	baseRefName?: string;
 	ciStatus?: 'unknown' | 'pending' | 'passing' | 'failing';
+	isDraft?: boolean;
 	mergeStateStatus?: string;
 	hasMergeConflicts?: boolean;
 	createdAt?: number;
@@ -286,6 +287,7 @@ export type WorkspaceSidebarIndicator =
 	| 'commit_and_push'
 	| 'create_pr'
 	| 'pr_opened'
+	| 'draft_pr'
 	| 'ci_failed'
 	| 'merge_conflicts'
 	| 'merged'
@@ -735,6 +737,7 @@ export interface WorkspaceGitHubSnapshot {
 	headRefName?: string;
 	baseRefName?: string;
 	ciStatus?: 'unknown' | 'pending' | 'passing' | 'failing';
+	isDraft?: boolean;
 	mergeStateStatus?: string;
 	hasMergeConflicts?: boolean;
 	unresolvedCommentCount?: number;

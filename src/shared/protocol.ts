@@ -92,6 +92,7 @@ export type ClientCommand =
 	| { type: 'workspace.createPr'; workspaceId: string; sessionId: string }
 	| { type: 'workspace.fixCi'; workspaceId: string; sessionId: string }
 	| { type: 'workspace.resolveMergeConflicts'; workspaceId: string; sessionId: string }
+	| { type: 'workspace.markPrReady'; workspaceId: string }
 	| {
 			type: 'workspace.addressReviewComments';
 			workspaceId: string;

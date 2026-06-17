@@ -22,6 +22,7 @@ function WorkspaceActionIcon({ action }: { action: WorkspacePrimaryAction }) {
 	if (action.kind === 'archive') return <Archive className="size-3" />;
 	if (action.kind === 'merge') return <GitMerge className="size-3" />;
 	if (action.kind === 'create_pr') return <GitPullRequest className="size-3" />;
+	if (action.kind === 'mark_pr_ready') return <GitPullRequest className="size-3" />;
 	if (action.kind === 'fix_ci') return <WarningCircle className="size-3" />;
 	if (action.kind === 'resolve_merge_conflicts') return <WarningCircle className="size-3" />;
 	if (action.kind === 'commit_and_push') return <ArrowUp className="size-3" />;

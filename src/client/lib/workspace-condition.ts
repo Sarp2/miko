@@ -13,6 +13,7 @@ export type WorkspaceConditionStage =
 	| 'dirty'
 	| 'ready_to_create_pr'
 	| 'pr_open'
+	| 'draft_pr'
 	| 'ci_failed'
 	| 'merge_conflicts'
 	| 'merged'
@@ -26,6 +27,7 @@ export type WorkspacePrimaryActionKind =
 	| 'create_pr'
 	| 'fix_ci'
 	| 'resolve_merge_conflicts'
+	| 'mark_pr_ready'
 	| 'merge'
 	| 'archive';
 
@@ -61,6 +63,7 @@ function reviewStateFromSidebarIndicator(row: SidebarWorkspaceRow): WorkspaceRev
 	if (row.indicator === 'closed') return 'closed';
 	if (
 		row.indicator === 'pr_opened' ||
+		row.indicator === 'draft_pr' ||
 		row.indicator === 'ci_failed' ||
 		row.indicator === 'merge_conflicts' ||
 		row.indicator === 'commit_and_push'
@@ -79,6 +82,7 @@ function deriveStage(args: {
 	mainAheadCount: number;
 	ciStatus?: 'unknown' | 'pending' | 'passing' | 'failing';
 	hasMergeConflicts: boolean;
+	isDraft: boolean;
 }): Pick<WorkspaceCondition, 'stage' | 'primaryAction'> {
 	if (args.setupState === 'creating') return { stage: 'creating', primaryAction: null };
 	if (args.setupState === 'failed') return { stage: 'setup_failed', primaryAction: null };
@@ -107,6 +111,9 @@ function deriveStage(args: {
 				stage: 'dirty',
 				primaryAction: action('commit_and_push', 'Commit and push'),
 			};
+		}
+		if (args.isDraft) {
+			return { stage: 'draft_pr', primaryAction: action('mark_pr_ready', 'Mark ready') };
 		}
 		return { stage: 'pr_open', primaryAction: action('merge', 'Merge') };
 	}
@@ -149,6 +156,7 @@ export function deriveWorkspaceCondition(snapshot: WorkspaceSnapshot): Workspace
 		hasMergeConflicts:
 			snapshot.github?.hasMergeConflicts === true ||
 			snapshot.workspace.pullRequest?.hasMergeConflicts === true,
+		isDraft: snapshot.github?.isDraft ?? snapshot.workspace.pullRequest?.isDraft ?? false,
 	});
 
 	return {
@@ -176,6 +184,7 @@ export function deriveSidebarWorkspaceCondition(row: SidebarWorkspaceRow): Works
 		mainAheadCount: 0,
 		ciStatus: row.indicator === 'ci_failed' ? 'failing' : undefined,
 		hasMergeConflicts: row.indicator === 'merge_conflicts',
+		isDraft: row.indicator === 'draft_pr',
 	});
 
 	return {

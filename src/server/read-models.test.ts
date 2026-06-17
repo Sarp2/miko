@@ -96,6 +96,7 @@ function openPullRequestSnapshot(): WorkspaceGitHubSnapshot {
 		prNumber: 12,
 		title: 'Add workspace model',
 		ciStatus: 'passing',
+		isDraft: false,
 		mergeStateStatus: 'CLEAN',
 		hasMergeConflicts: false,
 		additions: 52,
@@ -349,6 +350,35 @@ describe('deriveSidebarSnapshot', () => {
 			hasDirtyFiles: false,
 			hasUnpushedCommits: false,
 			displayDiffStats: { additions: 52, deletions: 14 },
+		});
+	});
+
+	test('shows draft PRs after higher priority PR work is clear', () => {
+		const state = addDirectoryWorkspaceAndSession();
+		const workspace = state.workspacesById.get('workspace-1');
+		expect(workspace).toBeDefined();
+		if (!workspace) throw new Error('workspace missing');
+		workspace.reviewState = 'in_review';
+		workspace.pullRequest = {
+			number: 12,
+			status: 'open',
+			isDraft: true,
+			lastObservedAt: 10,
+		};
+
+		expect(
+			deriveSidebarSnapshot({
+				state,
+				activeStatuses: new Map(),
+				gitSnapshots: new Map([['workspace-1', { ...dirtyGitSnapshot(), files: [] }]]),
+				githubSnapshots: new Map([
+					['workspace-1', { ...openPullRequestSnapshot(), isDraft: true }],
+				]),
+			}).directoryGroups[0]?.workspaces[0],
+		).toMatchObject({
+			indicator: 'draft_pr',
+			hasDirtyFiles: false,
+			hasUnpushedCommits: false,
 		});
 	});
 

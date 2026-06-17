@@ -730,6 +730,48 @@ describe('createWsRouter.sendWorkspaceInstruction', () => {
 			},
 		]);
 	});
+
+	test('marks a draft pull request ready', async () => {
+		let markedWorkspaceId: string | null = null;
+		const { router, workspaceId } = await createRouter({
+			prManager: {
+				getWorkspaceGitHubSnapshot: () => null,
+				refreshWorkspacePrState: async () => ({
+					status: 'open',
+					owner: 'sarp',
+					repo: 'miko',
+					comments: [],
+					checks: [],
+				}),
+				fetchFailingCheckLogs: async () => [],
+				mergeWorkspacePullRequest: async () => ({ status: 'merged' }),
+				markWorkspacePullRequestReady: async (id: string) => {
+					markedWorkspaceId = id;
+					return { status: 'open', isDraft: false };
+				},
+			},
+		});
+		const ws = new FakeWebSocket();
+
+		await router.handleMessage(
+			ws as never,
+			JSON.stringify({
+				type: 'command',
+				id: 'ready-1',
+				command: {
+					type: 'workspace.markPrReady',
+					workspaceId,
+				},
+			}),
+		);
+
+		expect(markedWorkspaceId as string | null).toBe(workspaceId);
+		expect(ws.sent[0]).toEqual({
+			type: 'ack',
+			id: 'ready-1',
+			result: { status: 'open', isDraft: false },
+		});
+	});
 });
 
 describe('createWsRouter.handleCommand', () => {

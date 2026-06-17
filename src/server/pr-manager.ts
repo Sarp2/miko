@@ -35,6 +35,7 @@ interface GitHubPullRequestSearchItem {
 	state?: string;
 	merged_at?: string | null;
 	isDraft?: boolean;
+	draft?: boolean;
 	headRefName?: string;
 	head?: { ref?: string };
 	baseRefName?: string;
@@ -197,6 +198,10 @@ function deriveCiStatus(checks: PullRequestCheckSnapshot[]): WorkspaceGitHubSnap
 
 function hasMergeConflicts(mergeStateStatus: string | undefined) {
 	return mergeStateStatus?.toUpperCase() === 'DIRTY';
+}
+
+function sourceIsDraft(source: GitHubPullRequestView | GitHubPullRequestSearchItem) {
+	return source.isDraft ?? ('draft' in source ? source.draft : undefined);
 }
 
 function dedupeChecks(checks: GitHubPullRequestCheck[]) {
@@ -398,6 +403,7 @@ function createKnownPrSnapshot(
 		headRefName: pullRequest.headRefName,
 		baseRefName: pullRequest.baseRefName,
 		ciStatus: pullRequest.ciStatus ?? 'unknown',
+		isDraft: pullRequest.isDraft,
 		mergeStateStatus: pullRequest.mergeStateStatus,
 		hasMergeConflicts: pullRequest.hasMergeConflicts,
 		comments: [],
@@ -611,6 +617,7 @@ export class PrManager {
 							? 'CLOSED'
 							: undefined,
 			mergeStateStatus: snapshot.mergeStateStatus,
+			isDraft: snapshot.isDraft,
 			headRefName: snapshot.headRefName,
 			baseRefName: snapshot.baseRefName,
 			createdAt: snapshot.createdAt ? new Date(snapshot.createdAt).toISOString() : undefined,
@@ -841,6 +848,7 @@ export class PrManager {
 			headRefName: sourceHeadRef(source),
 			baseRefName: sourceBaseRef(source),
 			ciStatus: deriveCiStatus(checks),
+			isDraft: sourceIsDraft(source),
 			mergeStateStatus: detailed?.mergeStateStatus,
 			hasMergeConflicts: hasMergeConflicts(detailed?.mergeStateStatus),
 			unresolvedCommentCount: undefined,
@@ -862,6 +870,7 @@ export class PrManager {
 				headRefName: sourceHeadRef(source),
 				baseRefName: sourceBaseRef(source),
 				ciStatus: snapshot.ciStatus,
+				isDraft: snapshot.isDraft,
 				mergeStateStatus: snapshot.mergeStateStatus,
 				hasMergeConflicts: snapshot.hasMergeConflicts,
 				createdAt,
@@ -1026,6 +1035,30 @@ export class PrManager {
 			'--repo',
 			`${directory.githubOwner}/${directory.githubRepo}`,
 			'--merge',
+		]);
+
+		if (result.exitCode !== 0) {
+			throw new Error([result.stderr.trim(), result.stdout.trim()].filter(Boolean).join('\n'));
+		}
+
+		return this.refreshWorkspacePrState(workspaceId);
+	}
+
+	async markWorkspacePullRequestReady(workspaceId: string) {
+		const workspace = this.eventStore.requireWorkspace(workspaceId);
+		const directory = this.eventStore.requireDirectory(workspace.directoryId);
+		const prNumber = workspace.pullRequest?.number;
+		if (prNumber === undefined) throw new Error('Workspace does not have a pull request');
+		if (workspace.pullRequest?.isDraft !== true) {
+			throw new Error('Workspace pull request is not a draft');
+		}
+
+		const result = await this.runGh([
+			'pr',
+			'ready',
+			String(prNumber),
+			'--repo',
+			`${directory.githubOwner}/${directory.githubRepo}`,
 		]);
 
 		if (result.exitCode !== 0) {
