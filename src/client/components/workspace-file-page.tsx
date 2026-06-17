@@ -199,20 +199,27 @@ export function WorkspaceFilePage({ workspaceId, page, revisionKey }: WorkspaceF
 	}, [isWorkspaceFile, path, revisionKey, workspaceId]);
 
 	useEffect(() => {
+		// The revision key should also refresh generated instruction attachments that
+		// reuse the same synthetic id and server path.
+		void revisionKey;
 		if (!agentInstructionAttachment || !agentInstructionAttachmentId) return;
-		void useWorkspaceFileStore.getState().loadAttachmentFile(workspaceId, {
-			id: agentInstructionAttachmentId,
-			kind: 'file',
-			displayName: agentInstructionAttachment.fileName,
-			absolutePath: path ?? agentInstructionAttachment.fileName,
-			relativePath: agentInstructionAttachment.fileName,
-			contentUrl: agentInstructionAttachment.contentUrl,
-			mimeType: agentInstructionAttachment.fileName.endsWith('.md')
-				? 'text/markdown'
-				: 'text/plain',
-			size: 0,
-		});
-	}, [agentInstructionAttachment, agentInstructionAttachmentId, path, workspaceId]);
+		void useWorkspaceFileStore.getState().loadAttachmentFile(
+			workspaceId,
+			{
+				id: agentInstructionAttachmentId,
+				kind: 'file',
+				displayName: agentInstructionAttachment.fileName,
+				absolutePath: path ?? agentInstructionAttachment.fileName,
+				relativePath: agentInstructionAttachment.fileName,
+				contentUrl: agentInstructionAttachment.contentUrl,
+				mimeType: agentInstructionAttachment.fileName.endsWith('.md')
+					? 'text/markdown'
+					: 'text/plain',
+				size: 0,
+			},
+			{ force: true },
+		);
+	}, [agentInstructionAttachment, agentInstructionAttachmentId, path, revisionKey, workspaceId]);
 
 	if (!isWorkspaceFile && !isPastedText && !isGeneratedAttachment) {
 		return (

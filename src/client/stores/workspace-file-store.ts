@@ -35,7 +35,11 @@ interface WorkspaceFileStoreState {
 	getPastedTextResource: (workspaceId: string, sourceId: string) => WorkspaceFileResource;
 	setPastedTextFile: (workspaceId: string, sourceId: string, text: string) => void;
 	getAttachmentResource: (workspaceId: string, attachmentId: string) => WorkspaceFileResource;
-	loadAttachmentFile: (workspaceId: string, attachment: ChatAttachment) => Promise<void>;
+	loadAttachmentFile: (
+		workspaceId: string,
+		attachment: ChatAttachment,
+		options?: { force?: boolean },
+	) => Promise<void>;
 	loadLocalAttachmentFile: (
 		workspaceId: string,
 		attachmentId: string,
@@ -131,9 +135,10 @@ export const useWorkspaceFileStore = create<WorkspaceFileStoreState>((set, get) 
 	async function loadAttachmentInto(
 		key: string,
 		resolve: () => Promise<WorkspaceFileContentsResult>,
+		options: { force?: boolean } = {},
 	) {
 		const current = get().attachmentFileByKey.get(key);
-		if (current?.status === 'loading' || current?.status === 'ready') return;
+		if (!options.force && (current?.status === 'loading' || current?.status === 'ready')) return;
 
 		const requestId = nextRequestId;
 		nextRequestId += 1;
@@ -228,9 +233,11 @@ export const useWorkspaceFileStore = create<WorkspaceFileStoreState>((set, get) 
 			);
 		},
 
-		loadAttachmentFile: async (workspaceId, attachment) => {
-			await loadAttachmentInto(resourceKey(workspaceId, attachment.id), () =>
-				attachmentPreviewResult(attachment),
+		loadAttachmentFile: async (workspaceId, attachment, options = {}) => {
+			await loadAttachmentInto(
+				resourceKey(workspaceId, attachment.id),
+				() => attachmentPreviewResult(attachment),
+				options,
 			);
 		},
 

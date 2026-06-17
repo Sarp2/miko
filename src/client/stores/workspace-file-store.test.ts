@@ -1,5 +1,9 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import type { WorkspaceDiffPatchResult, WorkspaceFileContentsResult } from '../../shared/types';
+import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
+import type {
+	ChatAttachment,
+	WorkspaceDiffPatchResult,
+	WorkspaceFileContentsResult,
+} from '../../shared/types';
 import { useWorkspaceFileStore } from './workspace-file-store';
 import { useWorkspaceStore } from './workspace-store';
 
@@ -118,6 +122,49 @@ describe('useWorkspaceFileStore.loadFileContents', () => {
 		expect(
 			useWorkspaceFileStore.getState().getFileResource('workspace-1', 'src/index.css').status,
 		).toBe('idle');
+	});
+});
+
+describe('useWorkspaceFileStore.loadAttachmentFile', () => {
+	function textAttachment(): ChatAttachment {
+		return {
+			id: 'attachment-1',
+			kind: 'file',
+			displayName: 'create-pr-workspace.md',
+			absolutePath: '/tmp/create-pr-workspace.md',
+			relativePath: 'create-pr-workspace.md',
+			mimeType: 'text/markdown',
+			size: 0,
+			contentUrl: '/api/agent-instructions/create-pr-workspace.md/content',
+		};
+	}
+
+	test('force refetches ready attachment previews with a stable attachment id', async () => {
+		let version = 0;
+		const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation((async () => {
+			version += 1;
+			return new Response(`instructions ${version}`, { status: 200 });
+		}) as unknown as typeof fetch);
+
+		try {
+			await useWorkspaceFileStore.getState().loadAttachmentFile('workspace-1', textAttachment());
+			await useWorkspaceFileStore.getState().loadAttachmentFile('workspace-1', textAttachment());
+			await useWorkspaceFileStore
+				.getState()
+				.loadAttachmentFile('workspace-1', textAttachment(), { force: true });
+
+			const resource = useWorkspaceFileStore
+				.getState()
+				.getAttachmentResource('workspace-1', 'attachment-1');
+
+			expect(resource.data).toMatchObject({
+				kind: 'text',
+				contents: 'instructions 2',
+			});
+			expect(fetchSpy).toHaveBeenCalledTimes(2);
+		} finally {
+			fetchSpy.mockRestore();
+		}
 	});
 });
 
