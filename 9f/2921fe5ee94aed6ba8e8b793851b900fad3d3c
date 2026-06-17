@@ -1,0 +1,25 @@
+src/client/hooks/use-chat-composer.ts
+  s_0e367acc1d4543::t_00ff5103780399 240
+  s_0e367acc1d4543::t_a0263a5c856255 32
+  s_0e367acc1d4543::t_6852fea6a974ca 119-125,131
+  s_0e367acc1d4543::t_8792db012e641f 55-56
+  s_0e367acc1d4543::t_a94107dd7b5782 57
+src/client/stores/composer-draft-store.ts
+  s_0e367acc1d4543::t_ff7ffef6649825 1-34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "9f2921fe5ee94aed6ba8e8b793851b900fad3d3c",
+  "prompts": {},
+  "sessions": {
+    "s_0e367acc1d4543": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "69be67a1-ff07-4389-87f0-35fe33e9d868",
+        "model": "claude-sonnet-4-6"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
