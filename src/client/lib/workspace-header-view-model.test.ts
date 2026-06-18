@@ -7,6 +7,7 @@ import type {
 } from '../../shared/types';
 import {
 	deriveHeaderIdentity,
+	deriveHeaderPullRequestBadge,
 	deriveWorkspaceStage,
 	isBranchEditable,
 } from './workspace-header-view-model';
@@ -110,5 +111,48 @@ describe('deriveHeaderIdentity', () => {
 		expect(isBranchEditable(makeSnapshot({ git: { hasPushedCommits: true } }))).toBe(false);
 		expect(isBranchEditable(makeSnapshot({ git: { hasUpstream: true } }))).toBe(false);
 		expect(isBranchEditable(makeSnapshot({ git: { branchPublishState: 'unknown' } }))).toBe(false);
+	});
+});
+
+describe('deriveHeaderPullRequestBadge', () => {
+	test('prefers live GitHub PR metadata', () => {
+		const snapshot = makeSnapshot({
+			workspace: {
+				pullRequest: {
+					number: 12,
+					status: 'open',
+					url: 'https://github.com/o/r/pull/12',
+					lastObservedAt: 1,
+				},
+			},
+			github: {
+				status: 'open',
+				prNumber: 34,
+				url: 'https://github.com/o/r/pull/34',
+			},
+		});
+
+		expect(deriveHeaderPullRequestBadge(snapshot)).toEqual({
+			number: 34,
+			url: 'https://github.com/o/r/pull/34',
+		});
+	});
+
+	test('falls back to cached workspace PR metadata', () => {
+		const snapshot = makeSnapshot({
+			workspace: {
+				pullRequest: {
+					number: 12,
+					status: 'open',
+					url: 'https://github.com/o/r/pull/12',
+					lastObservedAt: 1,
+				},
+			},
+		});
+
+		expect(deriveHeaderPullRequestBadge(snapshot)).toEqual({
+			number: 12,
+			url: 'https://github.com/o/r/pull/12',
+		});
 	});
 });

@@ -3,7 +3,12 @@ import { useMemo } from 'react';
 import type { WorkspaceSnapshot } from '../../../shared/types';
 import { Icons } from '../../lib/icons';
 import { cn } from '../../lib/utils';
-import { deriveHeaderIdentity, deriveWorkspaceStage } from '../../lib/workspace-header-view-model';
+import { deriveWorkspaceCondition } from '../../lib/workspace-condition';
+import {
+	deriveHeaderIdentity,
+	deriveHeaderPullRequestBadge,
+	deriveWorkspaceStage,
+} from '../../lib/workspace-header-view-model';
 import { useSidebarStore } from '../../stores/sidebar-store';
 import { useUiStore } from '../../stores/ui-store';
 import { useWorkspaceStore } from '../../stores/workspace-store';
@@ -17,6 +22,7 @@ import {
 } from '../ui/breadcrumb';
 import { Button } from '../ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
+import { WorkspaceStageBadge } from '../workspace-stage-badge';
 import { BranchNameEditor } from './branch-name-editor';
 import { ExternalOpenMenu } from './external-open-menu';
 
@@ -60,6 +66,8 @@ export function WorkspaceHeader({
 
 	const identity = useMemo(() => deriveHeaderIdentity(snapshot), [snapshot]);
 	const stage = useMemo(() => deriveWorkspaceStage(snapshot), [snapshot]);
+	const condition = useMemo(() => deriveWorkspaceCondition(snapshot), [snapshot]);
+	const pullRequestBadge = useMemo(() => deriveHeaderPullRequestBadge(snapshot), [snapshot]);
 
 	const repoTitle =
 		directoryGroup?.title ??
@@ -142,6 +150,13 @@ export function WorkspaceHeader({
 			) : null}
 
 			<div className="flex shrink-0 items-center gap-1.5">
+				{leftSidebarCollapsed && pullRequestBadge ? (
+					<WorkspaceStageBadge
+						stage={condition.stage}
+						prNumber={pullRequestBadge.number}
+						prUrl={pullRequestBadge.url}
+					/>
+				) : null}
 				{stage.isBusy ? (
 					<span className="flex items-center gap-1.5 text-[12px] leading-5 text-ink-subtle">
 						{Icons.activeIcon({ ariaLabel: 'streaming', className: 'shrink-0 size-5' })}

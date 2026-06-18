@@ -12,6 +12,11 @@ export interface WorkspaceStageInfo {
 	isBusy: boolean;
 }
 
+export interface WorkspaceHeaderPullRequestBadge {
+	number: number;
+	url?: string;
+}
+
 export function deriveWorkspaceStage(snapshot: WorkspaceSnapshot): WorkspaceStageInfo {
 	const { workspace, hasActiveSession } = snapshot;
 
@@ -22,6 +27,24 @@ export function deriveWorkspaceStage(snapshot: WorkspaceSnapshot): WorkspaceStag
 	if (workspace.reviewState === 'closed') return { stage: 'closed', isBusy: false };
 
 	return { stage: 'idle', isBusy: false };
+}
+
+export function deriveHeaderPullRequestBadge(
+	snapshot: WorkspaceSnapshot,
+): WorkspaceHeaderPullRequestBadge | null {
+	const github = snapshot.github;
+	if (
+		github &&
+		github.status !== 'none' &&
+		github.status !== 'unknown' &&
+		typeof github.prNumber === 'number'
+	) {
+		return { number: github.prNumber, url: github.url };
+	}
+
+	const pullRequest = snapshot.workspace.pullRequest;
+	if (!pullRequest || typeof pullRequest.number !== 'number') return null;
+	return { number: pullRequest.number, url: pullRequest.url };
 }
 
 export function hasPullRequest(snapshot: WorkspaceSnapshot): boolean {
