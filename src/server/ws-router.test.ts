@@ -1007,8 +1007,25 @@ describe('createWsRouter.handleCommand', () => {
 		]);
 	});
 
-	test('reads external file contents', async () => {
-		const { router } = await createRouter();
+	test('reads external file contents when the session transcript references the file', async () => {
+		const localPath = await mkdtemp(path.join(tmpdir(), 'miko-external-ws-router-'));
+		tempDirs.push(localPath);
+		const externalPath = path.join(localPath, 'app.txt');
+		await Bun.write(externalPath, 'external');
+
+		const { router, store, workspaceId, sessionId } = await createRouter();
+		await store.appendMessage(sessionId, {
+			_id: 'tool-call-1',
+			kind: 'tool_call',
+			createdAt: Date.now(),
+			tool: {
+				kind: 'tool',
+				toolKind: 'read_file',
+				toolName: 'Read',
+				toolId: 'tool-call-1',
+				input: { filePath: externalPath },
+			},
+		});
 		const ws = new FakeWebSocket();
 
 		await router.handleMessage(
@@ -1016,7 +1033,7 @@ describe('createWsRouter.handleCommand', () => {
 			JSON.stringify({
 				type: 'command',
 				id: 'external-file-1',
-				command: { type: 'file.readExternal', path: '/tmp/app.txt' },
+				command: { type: 'file.readExternal', workspaceId, sessionId, path: externalPath },
 			}),
 		);
 

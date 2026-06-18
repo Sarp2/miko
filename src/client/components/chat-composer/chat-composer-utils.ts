@@ -192,6 +192,15 @@ export async function uploadAttachments(workspaceId: string, attachments: LocalA
 	);
 }
 
+export async function deleteUploadedAttachment(workspaceId: string, attachment: ChatAttachment) {
+	const storedName = attachment.contentUrl.split('/uploads/')[1]?.split('/')[0];
+	if (!storedName) return;
+	await fetch(
+		`/api/workspaces/${encodeURIComponent(workspaceId)}/uploads/${encodeURIComponent(decodeURIComponent(storedName))}`,
+		{ method: 'DELETE' },
+	);
+}
+
 export const DEFAULT_COMPOSER_MODEL_OPTIONS = {
 	claudeReasoningEffort: DEFAULT_CLAUDE_MODEL_OPTIONS.reasoningEffort,
 	claudeContextWindow: DEFAULT_CLAUDE_MODEL_OPTIONS.contextWindow,

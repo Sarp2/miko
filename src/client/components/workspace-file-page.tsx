@@ -7,7 +7,7 @@ import {
 	MIKO_CODE_FONT_VARS,
 	MIKO_FILE_OPTIONS,
 } from '../lib/miko-diff-renderer';
-import { workspaceFilePath } from '../lib/workspace-file-open-target';
+import { isAbsoluteFilePath, workspaceFilePath } from '../lib/workspace-file-open-target';
 import { agentInstructionContentUrlFromPath } from '../lib/workspace-file-previews';
 import type { WorkspacePage } from '../stores/ui-store';
 import { useWorkspaceFileStore } from '../stores/workspace-file-store';
@@ -159,8 +159,15 @@ export function WorkspaceFilePage({
 		? `agent-instruction:${agentInstructionAttachment.fileName}`
 		: undefined;
 	const resolvedWorkspaceFilePath = path ? workspaceFilePath(path, workspaceRoot) : null;
-	const isExternalFile = page.source === 'external_file';
-	const isWorkspaceFile = page.source === 'workspace_file' && !agentInstructionAttachment;
+	const isUnresolvedAbsoluteWorkspaceFile =
+		page.source === 'workspace_file' &&
+		Boolean(path && isAbsoluteFilePath(path)) &&
+		!resolvedWorkspaceFilePath;
+	const isExternalFile = page.source === 'external_file' || isUnresolvedAbsoluteWorkspaceFile;
+	const isWorkspaceFile =
+		page.source === 'workspace_file' &&
+		!isUnresolvedAbsoluteWorkspaceFile &&
+		!agentInstructionAttachment;
 	const isPastedText = page.source === 'pasted_text';
 	const pageAttachment = page.source === 'generated_attachment' ? page.attachment : undefined;
 	const isGeneratedAttachment =
@@ -223,11 +230,11 @@ export function WorkspaceFilePage({
 	}, [isWorkspaceFile, resolvedWorkspaceFilePath, revisionKey, workspaceId]);
 
 	useEffect(() => {
-		if (!path || !isExternalFile) return;
+		if (!path || !isExternalFile || !page.sourceSessionId) return;
 		void useWorkspaceFileStore
 			.getState()
-			.loadExternalFileContents(workspaceId, path, { force: true });
-	}, [isExternalFile, path, workspaceId]);
+			.loadExternalFileContents(workspaceId, page.sourceSessionId, path, { force: true });
+	}, [isExternalFile, page.sourceSessionId, path, workspaceId]);
 
 	useEffect(() => {
 		if (!pageAttachment) return;
@@ -258,6 +265,17 @@ export function WorkspaceFilePage({
 			{ force: true },
 		);
 	}, [agentInstructionAttachment, agentInstructionAttachmentId, path, revisionKey, workspaceId]);
+
+	if (isExternalFile && !page.sourceSessionId) {
+		return (
+			<WorkspaceCodePageShell path={path ?? page.title} actions={toolbarActions}>
+				<WorkspaceCodePageState
+					title="Preview unavailable"
+					message="This external file is not available from the current session."
+				/>
+			</WorkspaceCodePageShell>
+		);
+	}
 
 	if (!isWorkspaceFile && !isExternalFile && !isPastedText && !isGeneratedAttachment) {
 		return (

@@ -46,7 +46,7 @@ beforeEach(() => {
 	useWorkspaceFileStore.getState().resetForTests();
 	useWorkspaceStore.setState({
 		readFileContents: async () => fileResult(),
-		readExternalFileContents: async (path) => fileResult(path),
+		readExternalFileContents: async (_workspaceId, _sessionId, path) => fileResult(path),
 		readDiffPatch: async () => diffResult(),
 	});
 });
@@ -131,7 +131,7 @@ describe('useWorkspaceFileStore.loadExternalFileContents', () => {
 	test('loads external file contents through the shared file cache', async () => {
 		await useWorkspaceFileStore
 			.getState()
-			.loadExternalFileContents('workspace-1', '/Users/sarp/.claude/plans/plan.md');
+			.loadExternalFileContents('workspace-1', 'session-1', '/Users/sarp/.claude/plans/plan.md');
 
 		expect(
 			useWorkspaceFileStore

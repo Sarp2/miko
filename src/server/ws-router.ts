@@ -1,3 +1,5 @@
+import { realpath } from 'node:fs/promises';
+import path from 'node:path';
 import type { ServerWebSocket } from 'bun';
 import {
 	type ClientEnvelope,
@@ -82,6 +84,44 @@ function ensureSnapshotSignatures(ws: ServerWebSocket<ClientState>) {
 		ws.data.snapshotSignatures = new Map();
 	}
 	return ws.data.snapshotSignatures;
+}
+
+async function realpathOrNull(filePath: string) {
+	try {
+		return await realpath(filePath);
+	} catch {
+		return null;
+	}
+}
+
+function toolInputFilePath(input: unknown) {
+	if (!input || typeof input !== 'object') return null;
+	const filePath = (input as { filePath?: unknown }).filePath;
+	return typeof filePath === 'string' ? filePath : null;
+}
+
+async function sessionTranscriptAllowsExternalPath(args: {
+	store: EventStore;
+	workspaceId: string;
+	sessionId: string;
+	requestedPath: string;
+}) {
+	if (!path.isAbsolute(args.requestedPath)) return false;
+	const session = args.store.getSession(args.sessionId);
+	if (!session || session.workspaceId !== args.workspaceId) return false;
+
+	const requestedRealPath = await realpathOrNull(args.requestedPath);
+	if (!requestedRealPath) return false;
+
+	for (const entry of args.store.getMessages(args.sessionId)) {
+		if (entry.kind !== 'tool_call') continue;
+		const filePath = toolInputFilePath(entry.tool.input);
+		if (!filePath || !path.isAbsolute(filePath)) continue;
+		const candidateRealPath = await realpathOrNull(filePath);
+		if (candidateRealPath === requestedRealPath) return true;
+	}
+
+	return false;
 }
 
 function createGitSnapshots(store: EventStore, diffStore: CreateWsRouterArgs['diffStore']) {
@@ -576,6 +616,13 @@ export function createWsRouter({
 					return;
 				}
 				case 'file.readExternal': {
+					const allowed = await sessionTranscriptAllowsExternalPath({
+						store,
+						workspaceId: command.workspaceId,
+						sessionId: command.sessionId,
+						requestedPath: command.path,
+					});
+					if (!allowed) throw new Error('External file is not available in this session.');
 					const result = await diffStore.readExternalFileContents({ path: command.path });
 					send(ws, { type: 'ack', id, result });
 					return;

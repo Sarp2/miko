@@ -809,7 +809,7 @@ describe('DiffStore.readFileContents', () => {
 			size: 4,
 		});
 		if (result.kind !== 'image') throw new Error('Expected image preview result');
-		expect(result.contentUrl).toStartWith('/api/external-files/content?path=');
+		expect(result.contentUrl).toStartWith('/api/external-files/content?token=');
 		expect(result.contentUrl).toContain('&v=');
 	});
 

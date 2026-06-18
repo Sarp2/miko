@@ -30,7 +30,11 @@ interface WorkspaceStoreState {
 	refreshPrStage: (workspaceId: string) => Promise<unknown>;
 	readDiffPatch: (workspaceId: string, path: string) => Promise<WorkspaceDiffPatchResult>;
 	readFileContents: (workspaceId: string, path: string) => Promise<WorkspaceFileContentsResult>;
-	readExternalFileContents: (path: string) => Promise<WorkspaceFileContentsResult>;
+	readExternalFileContents: (
+		workspaceId: string,
+		sessionId: string,
+		path: string,
+	) => Promise<WorkspaceFileContentsResult>;
 	searchFiles: (
 		workspaceId: string,
 		query: string,
@@ -260,9 +264,11 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
 		return parseWorkspaceFileContentsResult(result);
 	},
 
-	readExternalFileContents: async (path) => {
+	readExternalFileContents: async (workspaceId, sessionId, path) => {
 		const result = await useWsStore.getState().command<unknown>({
 			type: 'file.readExternal',
+			workspaceId,
+			sessionId,
 			path,
 		});
 		return parseWorkspaceFileContentsResult(result);

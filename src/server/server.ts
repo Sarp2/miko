@@ -11,6 +11,7 @@ import type { UpdateInstallAttemptResult } from './cli-runtime';
 import { DiffStore } from './diff-store';
 import type { WorkspaceRecord } from './event';
 import { EventStore } from './event-store';
+import { resolveExternalFileAccessToken } from './external-file-access';
 import { KeybindingsManager } from './keybindings';
 import { getMachineDisplayName } from './machine-name';
 import { getWorkspaceUploadDir } from './paths';
@@ -624,15 +625,16 @@ export async function handleExternalFileContent(req: Request, url: URL) {
 		});
 	}
 
-	const requestedPath = url.searchParams.get('path')?.trim();
-	if (!requestedPath || !path.isAbsolute(requestedPath)) {
-		return Response.json({ error: 'Invalid external file path' }, { status: 400 });
+	const token = url.searchParams.get('token');
+	const grantedPath = token ? resolveExternalFileAccessToken(token) : null;
+	if (!grantedPath) {
+		return Response.json({ error: 'Invalid external file token' }, { status: 403 });
 	}
 
 	let targetRealPath: string;
 	let info: Awaited<ReturnType<typeof stat>>;
 	try {
-		targetRealPath = await realpath(requestedPath);
+		targetRealPath = await realpath(grantedPath);
 		info = await stat(targetRealPath);
 		if (!info.isFile()) {
 			return Response.json({ error: 'File not found' }, { status: 404 });

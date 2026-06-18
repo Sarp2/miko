@@ -403,13 +403,15 @@ describe('useWorkspaceStore.readFileContents', () => {
 
 		const resultPromise = useWorkspaceStore
 			.getState()
-			.readExternalFileContents('/Users/sarp/.claude/plans/plan.md');
+			.readExternalFileContents('workspace-1', 'session-1', '/Users/sarp/.claude/plans/plan.md');
 		const sent = JSON.parse(socket.sent[0]);
 
 		expect(sent).toMatchObject({
 			type: 'command',
 			command: {
 				type: 'file.readExternal',
+				workspaceId: 'workspace-1',
+				sessionId: 'session-1',
 				path: '/Users/sarp/.claude/plans/plan.md',
 			},
 		});

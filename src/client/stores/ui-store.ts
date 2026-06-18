@@ -265,7 +265,7 @@ export function withScratchpadFirst(workspaceId: string, tabs: MiddleTabDescript
 	];
 }
 
-function mergeWorkspacePages(existing: WorkspacePage, next: WorkspacePage): WorkspacePage {
+export function mergeWorkspacePages(existing: WorkspacePage, next: WorkspacePage): WorkspacePage {
 	if (existing.type !== next.type) return next;
 	if (existing.type === 'file' && next.type === 'file') {
 		return {

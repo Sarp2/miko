@@ -10,7 +10,7 @@ import { WorkspaceFilePage } from '../components/workspace-file-page';
 import { WorkspaceHeader } from '../components/workspace-header/workspace-header';
 import { useScratchpadStore } from '../stores/scratchpad-store';
 import { useSessionStore } from '../stores/session-store';
-import { pageTabId, useUiStore, type WorkspacePage } from '../stores/ui-store';
+import { mergeWorkspacePages, pageTabId, useUiStore } from '../stores/ui-store';
 import { useWorkspaceStore } from '../stores/workspace-store';
 import {
 	deriveWorkspaceRoutePage,
@@ -41,18 +41,6 @@ function selectComposerSessionId(sessions: SessionSummary[], preferredSessionId?
 			return right - left;
 		})[0]?.id ?? null
 	);
-}
-
-function mergeRoutePageWithStoredTab(page: WorkspacePage | null, storedPage: WorkspacePage | null) {
-	if (!page || !storedPage || page.type !== storedPage.type) return page;
-	if (page.type === 'file' && storedPage.type === 'file') {
-		return {
-			...storedPage,
-			...page,
-			attachment: page.attachment ?? storedPage.attachment,
-		};
-	}
-	return page;
 }
 
 function PageWithComposer({ children, composer }: { children: ReactNode; composer: ReactNode }) {
@@ -106,10 +94,10 @@ export function WorkspaceRoute({ kind }: WorkspaceRouteProps) {
 			state.middleTabsByWorkspaceId[workspaceId]?.find((tab) => tab.id === tabId)?.page ?? null
 		);
 	});
-	const page = useMemo(
-		() => mergeRoutePageWithStoredTab(routePage, storedRoutePage),
-		[routePage, storedRoutePage],
-	);
+	const page = useMemo(() => {
+		if (!routePage || !storedRoutePage || routePage.type !== storedRoutePage.type) return routePage;
+		return mergeWorkspacePages(storedRoutePage, routePage);
+	}, [routePage, storedRoutePage]);
 	const sessionRouteTargetId = useMemo(() => {
 		if (page?.type !== 'chat') return null;
 		return selectSessionRouteTarget(sessions, page.sessionId);

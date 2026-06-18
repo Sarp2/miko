@@ -12,6 +12,7 @@ import type {
 } from '../../shared/types';
 import type { LocalAttachment } from '../components/chat-composer/chat-composer-types';
 import {
+	deleteUploadedAttachment,
 	modelForProvider,
 	modelOptionsForSubmit,
 	preferredClaudeContextWindowForComposer,
@@ -198,15 +199,39 @@ export function useChatComposer({
 		[markAttachmentsUploaded, workspaceId],
 	);
 
-	const removeAttachment = useCallback((attachmentId: string) => {
-		attachmentsRef.current = attachmentsRef.current.filter((item) => item.id !== attachmentId);
-		setAttachments(attachmentsRef.current);
-		setParts((current) =>
-			compactPromptParts(
-				current.filter((part) => part.type !== 'attachment' || part.attachmentId !== attachmentId),
-			),
-		);
-	}, []);
+	const deleteUnsubmittedUpload = useCallback(
+		(attachment: ChatAttachment) => {
+			void deleteUploadedAttachment(workspaceId, attachment).catch((error) => {
+				console.warn('[chat-composer] failed to delete unsubmitted attachment upload', error);
+			});
+		},
+		[workspaceId],
+	);
+
+	useEffect(() => {
+		return () => {
+			for (const attachment of attachmentsRef.current) {
+				if (attachment.uploaded) deleteUnsubmittedUpload(attachment.uploaded);
+			}
+		};
+	}, [deleteUnsubmittedUpload]);
+
+	const removeAttachment = useCallback(
+		(attachmentId: string) => {
+			const removedAttachment = attachmentsRef.current.find((item) => item.id === attachmentId);
+			if (removedAttachment?.uploaded) deleteUnsubmittedUpload(removedAttachment.uploaded);
+			attachmentsRef.current = attachmentsRef.current.filter((item) => item.id !== attachmentId);
+			setAttachments(attachmentsRef.current);
+			setParts((current) =>
+				compactPromptParts(
+					current.filter(
+						(part) => part.type !== 'attachment' || part.attachmentId !== attachmentId,
+					),
+				),
+			);
+		},
+		[deleteUnsubmittedUpload],
+	);
 
 	const changeProvider = useCallback(
 		(nextProvider: AgentProvider) => {

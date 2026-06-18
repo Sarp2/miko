@@ -53,6 +53,7 @@ interface WorkspaceFileStoreState {
 	) => Promise<void>;
 	loadExternalFileContents: (
 		workspaceId: string,
+		sessionId: string,
 		path: string,
 		options?: { force?: boolean },
 	) => Promise<void>;
@@ -309,10 +310,10 @@ export const useWorkspaceFileStore = create<WorkspaceFileStoreState>((set, get) 
 			);
 		},
 
-		loadExternalFileContents: async (workspaceId, path, options = {}) => {
+		loadExternalFileContents: async (workspaceId, sessionId, path, options = {}) => {
 			await loadFileInto(
 				resourceKey(workspaceId, path),
-				() => useWorkspaceStore.getState().readExternalFileContents(path),
+				() => useWorkspaceStore.getState().readExternalFileContents(workspaceId, sessionId, path),
 				options,
 			);
 		},

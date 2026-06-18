@@ -15,6 +15,7 @@ import type {
 	WorkspaceFileContentsResult,
 	WorkspaceGitSnapshot,
 } from '../shared/types';
+import { registerExternalFileAccess } from './external-file-access';
 import { inferWorkspaceFileContentType } from './uploads';
 
 interface StoredWorkspaceGitState extends BranchMetadata, UpstreamStatus {
@@ -1209,7 +1210,7 @@ export class DiffStore {
 	}
 
 	async readExternalFileContents(args: { path: string }): Promise<WorkspaceFileContentsResult> {
-		const requestedPath = args.path.trim();
+		const requestedPath = args.path;
 		if (!path.isAbsolute(requestedPath)) throw new Error('External file path must be absolute.');
 
 		let filePath: string;
@@ -1222,8 +1223,10 @@ export class DiffStore {
 		return previewFileAtPath({
 			filePath,
 			displayPath: filePath,
-			contentUrl: (metadataDigest) =>
-				`/api/external-files/content?path=${encodeURIComponent(filePath)}&v=${encodeURIComponent(metadataDigest)}`,
+			contentUrl: (metadataDigest) => {
+				const token = registerExternalFileAccess(filePath);
+				return `/api/external-files/content?token=${encodeURIComponent(token)}&v=${encodeURIComponent(metadataDigest)}`;
+			},
 		});
 	}
 

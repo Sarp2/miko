@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { ChatAttachment } from '../shared/types';
 import type { WorkspaceRecord } from './event';
+import { registerExternalFileAccess } from './external-file-access';
 import { getWorkspaceUploadDir } from './paths';
 import {
 	handleAgentInstructionContent,
@@ -621,19 +622,20 @@ describe('handleExternalFileContent', () => {
 		expect(response?.headers.get('Allow')).toBe('GET');
 	});
 
-	test('returns 400 when path is missing or not absolute', async () => {
+	test('returns 403 when token is missing or invalid', async () => {
 		const req = createExternalFileContentRequest({
 			url: 'http://localhost/api/external-files/content?path=notes.md',
 		});
 		const response = await handleExternalFileContent(req, new URL(req.url));
-		expect(response?.status).toBe(400);
-		expect(await response?.json()).toEqual({ error: 'Invalid external file path' });
+		expect(response?.status).toBe(403);
+		expect(await response?.json()).toEqual({ error: 'Invalid external file token' });
 	});
 
-	test('returns 404 when external file is missing', async () => {
+	test('returns 404 when token points at a missing external file', async () => {
 		const missingPath = path.join(tmpdir(), 'miko-missing-external-file.txt');
+		const token = registerExternalFileAccess(missingPath);
 		const req = createExternalFileContentRequest({
-			url: `http://localhost/api/external-files/content?path=${encodeURIComponent(missingPath)}`,
+			url: `http://localhost/api/external-files/content?token=${encodeURIComponent(token)}`,
 		});
 		const response = await handleExternalFileContent(req, new URL(req.url));
 		expect(response?.status).toBe(404);
@@ -647,7 +649,7 @@ describe('handleExternalFileContent', () => {
 			await Bun.write(filePath, '# external file');
 
 			const req = createExternalFileContentRequest({
-				url: `http://localhost/api/external-files/content?path=${encodeURIComponent(filePath)}`,
+				url: `http://localhost/api/external-files/content?token=${encodeURIComponent(registerExternalFileAccess(filePath))}`,
 			});
 			const response = await handleExternalFileContent(req, new URL(req.url));
 			expect(response?.status).toBe(200);
@@ -666,7 +668,7 @@ describe('handleExternalFileContent', () => {
 			await Bun.write(filePath, '<svg><script>alert(1)</script></svg>');
 
 			const req = createExternalFileContentRequest({
-				url: `http://localhost/api/external-files/content?path=${encodeURIComponent(filePath)}`,
+				url: `http://localhost/api/external-files/content?token=${encodeURIComponent(registerExternalFileAccess(filePath))}`,
 			});
 			const response = await handleExternalFileContent(req, new URL(req.url));
 			expect(response?.status).toBe(200);
