@@ -1,0 +1,52 @@
+src/server/server.ts
+  s_82e93de1bb8ac8::t_254728ddce686d 14,628-631,637
+src/server/external-file-access.ts
+  s_82e93de1bb8ac8::t_254728ddce686d 1-48
+src/client/stores/workspace-store.test.ts
+  s_82e93de1bb8ac8::t_1ae40017a9c5e7 406,413-414
+src/server/ws-router.test.ts
+  s_82e93de1bb8ac8::t_1172cf94828d5b 1010-1028,1036
+src/client/components/chat-composer/chat-composer-utils.ts
+  s_82e93de1bb8ac8::t_86c86e0536110e 195-203
+src/client/stores/workspace-file-store.test.ts
+  s_82e93de1bb8ac8::t_1ae40017a9c5e7 134
+  s_82e93de1bb8ac8::t_b57773942abf6c 49
+src/client/routes/workspace-route.tsx
+  s_82e93de1bb8ac8::t_2efe814750db8f 13,97-100
+src/server/diff-store.ts
+  s_82e93de1bb8ac8::t_254728ddce686d 18,1213,1226-1229
+src/client/stores/ui-store.ts
+  s_82e93de1bb8ac8::t_2efe814750db8f 268
+src/shared/protocol.ts
+  s_82e93de1bb8ac8::t_b14bd8777205db 89
+src/client/hooks/use-chat-composer.ts
+  s_82e93de1bb8ac8::t_86c86e0536110e 15,202-234
+src/client/stores/workspace-file-store.ts
+  s_82e93de1bb8ac8::t_f576f6e383aed5 56,313,316
+src/server/diff-store.test.ts
+  s_82e93de1bb8ac8::t_1ae40017a9c5e7 812
+src/server/ws-router.ts
+  s_82e93de1bb8ac8::t_b14bd8777205db 1-2,89-126,619-625
+src/server/server.test.ts
+  s_82e93de1bb8ac8::t_fdd8a06fa601d5 7,625,630-631,634,636,638,652,671
+src/client/components/workspace-file-page.tsx
+  s_82e93de1bb8ac8::t_191d3652fb1f72 10,162-170,233,236-237,269-278
+src/client/stores/workspace-store.ts
+  s_82e93de1bb8ac8::t_f576f6e383aed5 33-37,267,270-271
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "1e6f33a69191e1b5d0ff1fa1e8b2dd8a19721f96",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
