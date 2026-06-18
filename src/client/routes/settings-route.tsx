@@ -341,7 +341,7 @@ function workspaceStatusLabel(workspace: WorkspaceSummary) {
 
 function WorkspacesSettings() {
 	const snapshot = useDirectoryListStore((state) => state.snapshot);
-	const [busyId, setBusyId] = useState<string | null>(null);
+	const [busyIds, setBusyIds] = useState<Set<string>>(() => new Set());
 	const workspacesByDirectory = useMemo(() => {
 		const groups = new Map<string, WorkspaceSummary[]>();
 		for (const workspace of snapshot?.workspaces ?? []) {
@@ -355,14 +355,18 @@ function WorkspacesSettings() {
 	const removeWorkspaceUi = useUiStore((state) => state.removeWorkspaceUi);
 
 	const runAction = async (id: string, action: () => Promise<void>, success: string) => {
-		setBusyId(id);
+		setBusyIds((current) => new Set(current).add(id));
 		try {
 			await action();
 			toast.success(success);
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : 'Action failed');
 		} finally {
-			setBusyId(null);
+			setBusyIds((current) => {
+				const next = new Set(current);
+				next.delete(id);
+				return next;
+			});
 		}
 	};
 
@@ -421,7 +425,7 @@ function WorkspacesSettings() {
 										title={`Remove ${directory.title} from Miko?`}
 										description={`This removes the directory from Miko and deletes Miko-owned data for ${workspaces.length} workspace${workspaces.length === 1 ? '' : 's'}: sessions, transcripts, scratchpads, uploads, and generated attachments. Repository files and worktrees stay on disk.`}
 										confirmLabel="Remove"
-										disabled={busyId === `directory:${directory.id}`}
+										disabled={busyIds.has(`directory:${directory.id}`)}
 										className="h-7 rounded-md px-2 text-[12px] text-destructive hover:bg-destructive/10 hover:text-destructive"
 										onConfirm={() => removeDirectory(directory)}
 									>
@@ -454,7 +458,7 @@ function WorkspacesSettings() {
 														type="button"
 														variant="ghost"
 														size="sm"
-														disabled={busyId === `workspace:${workspace.id}`}
+														disabled={busyIds.has(`workspace:${workspace.id}`)}
 														className="h-7 rounded-md px-2 text-[12px] text-ink-muted hover:bg-surface-2 hover:text-ink"
 														onClick={() => {
 															const next =
@@ -478,7 +482,7 @@ function WorkspacesSettings() {
 														title={`Delete ${workspace.branchName} from Miko?`}
 														description="This deletes Miko-owned data for this workspace: sessions, transcripts, scratchpad, uploads, pasted text, and generated attachments. The repository/worktree folder stays on disk."
 														confirmLabel="Delete"
-														disabled={busyId === `workspace:${workspace.id}`}
+														disabled={busyIds.has(`workspace:${workspace.id}`)}
 														className="h-7 rounded-md px-2 text-[12px] text-destructive hover:bg-destructive/10 hover:text-destructive"
 														onConfirm={() => removeWorkspace(workspace)}
 													>

@@ -623,7 +623,7 @@ export const useUiStore = create<UiStoreState>()(
 			},
 
 			resetLocalUiState: () => {
-				set(DEFAULT_UI_STATE);
+				set(structuredClone(DEFAULT_UI_STATE));
 			},
 		}),
 		{

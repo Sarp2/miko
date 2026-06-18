@@ -449,14 +449,13 @@ export class EventStore {
 		await rm(this.transcriptPath(sessionId), { force: true });
 	}
 
-	private async deleteWorkspaceOwnedData(workspaceId: string, sessionIds: string[]) {
+	private async deleteWorkspaceOwnedData(workspaceId: string) {
 		await Promise.all([
 			rm(this.workspaceUploadDir(workspaceId), { recursive: true, force: true }),
 			rm(this.scratchpadPath(workspaceId), { force: true }),
 			...this.workspaceInstructionAttachmentPaths(workspaceId).map((filePath) =>
 				rm(filePath, { force: true }),
 			),
-			...sessionIds.map((sessionId) => this.deleteSessionData(sessionId)),
 		]);
 	}
 
@@ -590,10 +589,7 @@ export class EventStore {
 		};
 
 		await this.append(this.workspacesLogPath, event);
-		await this.deleteWorkspaceOwnedData(
-			workspaceId,
-			sessions.map((session) => session.id),
-		);
+		await this.deleteWorkspaceOwnedData(workspaceId);
 	}
 
 	async markWorkspaceSetupCompleted(workspaceId: string) {
