@@ -27,6 +27,13 @@ Before changing architecture, read these current maps:
 
 Old large specs in `.context/` are not final authority if they conflict with current source or the source maps above.
 
+
+## Current Critical Boundaries
+
+- Worktrees are source code; Miko app data is separate. Do not write uploads, pasted-text preview files, instruction cache, or other app-owned artifacts inside a worktree.
+- Uploaded attachments live under `~/.miko[-dev]/data/uploads/<workspaceId>/...` and are served through `/api/workspaces/:workspaceId/uploads/:storedName/content`. They must never affect git dirty files or diff stats.
+- Absolute files outside a workspace should use the external-file preview path, not `workspace.readFile` / `workspace_file`.
+
 ## Commands
 
 Use Bun for package management and scripts. Do not use npm, yarn, or pnpm in this repo.

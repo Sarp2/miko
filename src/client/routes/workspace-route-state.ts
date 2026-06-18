@@ -1,6 +1,7 @@
 import type { SessionSummary } from '../../shared/types';
 import { PASTED_TEXT_LABEL } from '../lib/prompt-parts';
 import { basename } from '../lib/relative-path';
+import { isAbsoluteFilePath } from '../lib/workspace-file-open-target';
 import type { WorkspaceFileSource, WorkspacePage } from '../stores/ui-store';
 
 export type WorkspaceRouteKind = 'workspace' | 'session' | 'diff' | 'file';
@@ -18,6 +19,7 @@ const FILE_SOURCES = new Set<WorkspaceFileSource>([
 	'pr_comment',
 	'generated_attachment',
 	'pasted_text',
+	'external_file',
 ]);
 
 export function selectFirstSessionId(sessions: Pick<SessionSummary, 'id' | 'createdAt'>[] = []) {
@@ -37,6 +39,7 @@ export function selectSessionRouteTarget(
 
 function parseFileSource(value: string | null, path: string | null): WorkspaceFileSource {
 	if (value && FILE_SOURCES.has(value as WorkspaceFileSource)) return value as WorkspaceFileSource;
+	if (path && isAbsoluteFilePath(path)) return 'external_file';
 	return path ? 'workspace_file' : 'generated_attachment';
 }
 
@@ -46,6 +49,7 @@ function fallbackFileTitle(source: WorkspaceFileSource, path: string | null) {
 	if (source === 'ci_log') return 'CI Log';
 	if (source === 'pr_comment') return 'PR Comment';
 	if (source === 'pasted_text') return PASTED_TEXT_LABEL;
+	if (source === 'external_file' && path) return basename(path);
 	return 'Attachment';
 }
 

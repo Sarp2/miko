@@ -2,8 +2,10 @@ import { FileText, WarningCircle } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router-dom';
 import type { HydratedTranscriptMessage } from '../../../shared/types';
 import { Icons } from '../../lib/icons';
-import { basename, toRelativePath } from '../../lib/relative-path';
+import { workspacePagePath } from '../../lib/middle-tabs';
+import { basename } from '../../lib/relative-path';
 import { cn } from '../../lib/utils';
+import { resolveTranscriptReadFileOpenTarget } from '../../lib/workspace-file-open-target';
 import { FileNameIcon } from '../icons/file-name-icon';
 import type { ChangedFileLineContext } from './changed-file-line';
 
@@ -62,14 +64,16 @@ export function ReadLine({
 		);
 
 	const workspaceId = context?.workspaceId ?? '';
-	const relativePath = toRelativePath(filePath, context?.workspaceRoot ?? '');
-	const canOpenFile = workspaceId.length > 0;
+	const target = resolveTranscriptReadFileOpenTarget({
+		path: filePath,
+		workspaceRoot: context?.workspaceRoot,
+		sourceSessionId: context?.sessionId,
+	});
+	const canOpenFile = workspaceId.length > 0 && target.kind !== 'unavailable';
 
 	const openFile = () => {
 		if (!canOpenFile) return;
-		const params = new URLSearchParams({ path: relativePath });
-		if (context?.sessionId) params.set('sessionId', context.sessionId);
-		navigate(`/workspaces/${encodeURIComponent(workspaceId)}/file?${params.toString()}`);
+		if (target.kind === 'page') navigate(workspacePagePath(workspaceId, target.page));
 	};
 
 	return (

@@ -157,6 +157,7 @@ export function ChatPage({ workspaceId, sessionId, workspaceSnapshot }: ChatPage
 	const { openWorkspaceFile, openPastedText, openAttachment } = useWorkspacePageOpeners(
 		workspaceId,
 		sessionId,
+		workspaceSnapshot.workspace.localPath,
 	);
 
 	const loadOlder = () => {

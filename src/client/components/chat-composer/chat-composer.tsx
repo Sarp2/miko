@@ -1,5 +1,6 @@
 import { ArrowUp, Lightning, MapTrifold, Plus, StopCircle } from '@phosphor-icons/react';
 import { useRef, useState } from 'react';
+import { toast } from 'sonner';
 
 import type { PromptPart, SessionSnapshot, WorkspaceSnapshot } from '../../../shared/types';
 import { useChatComposer } from '../../hooks/use-chat-composer';
@@ -37,9 +38,10 @@ export function ChatComposer({
 		workspaceId,
 		workspaceSnapshot,
 	});
-	const { openWorkspaceFile, openPastedText, openLocalAttachment } = useWorkspacePageOpeners(
+	const { openWorkspaceFile, openPastedText, openAttachment } = useWorkspacePageOpeners(
 		workspaceId,
 		sessionId,
+		workspaceSnapshot.workspace.localPath,
 	);
 	const composerReadonly = composer.disabled || composer.isStreaming;
 
@@ -55,12 +57,25 @@ export function ChatComposer({
 	};
 
 	const openTokenPart = (part: Exclude<PromptPart, { type: 'text' }>) => {
-		if (part.type === 'mention') openWorkspaceFile(part.path);
-		else if (part.type === 'pasted_text') openPastedText(part.id, part.text);
-		else {
-			const attachment = composer.attachments.find((item) => item.id === part.attachmentId);
-			if (attachment) openLocalAttachment(attachment);
+		if (part.type === 'mention') {
+			openWorkspaceFile(part.path);
+			return;
 		}
+
+		if (part.type === 'pasted_text') {
+			void openPastedText(part.id, part.text);
+			return;
+		}
+
+		void composer
+			.ensureAttachmentUploaded(part.attachmentId)
+			.then((attachment) => {
+				if (attachment) openAttachment(attachment);
+			})
+			.catch((error) => {
+				console.warn('[chat-composer] failed to persist attachment before preview', error);
+				toast.error('Could not open attachment');
+			});
 	};
 
 	const handleEditorClick = (event: React.MouseEvent<HTMLDivElement>) => {

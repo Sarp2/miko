@@ -29,8 +29,8 @@ describe('resolveLocalPath', () => {
 
 describe('getWorkspaceUploadDir', () => {
 	test('appends paths correctly', () => {
-		const result = getWorkspaceUploadDir('/Users/test/workspace');
-		expect(result).toBe('/Users/test/workspace/.miko/uploads');
+		const result = getWorkspaceUploadDir('workspace-1', '/Users/test/.miko-dev/data');
+		expect(result).toBe('/Users/test/.miko-dev/data/uploads/workspace-1');
 	});
 });
 

@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 
 import type {
 	AgentProvider,
+	ChatAttachment,
 	ClaudeContextWindow,
 	ClaudeReasoningEffort,
 	PromptPart,
@@ -11,6 +12,7 @@ import type {
 } from '../../shared/types';
 import type { LocalAttachment } from '../components/chat-composer/chat-composer-types';
 import {
+	deleteUploadedAttachment,
 	modelForProvider,
 	modelOptionsForSubmit,
 	preferredClaudeContextWindowForComposer,
@@ -57,7 +59,10 @@ export function useChatComposer({
 	);
 	const [attachments, setAttachments] = useState<LocalAttachment[]>([]);
 	const attachmentsRef = useRef<LocalAttachment[]>([]);
+	const uploadingAttachmentByIdRef = useRef(new Map<string, Promise<ChatAttachment | null>>());
 	const [submitting, setSubmitting] = useState(false);
+	const submittingRef = useRef(false);
+	const submittingAttachmentIdsRef = useRef(new Set<string>());
 	const rawAvailableProviders = providerCatalogs(sessionSnapshot);
 	const providerCatalogKey = providerCatalogSignature(rawAvailableProviders);
 	const stableAvailableProvidersRef = useRef({
@@ -125,16 +130,6 @@ export function useChatComposer({
 		}
 	}, [parts]);
 
-	useEffect(() => {
-		if (previousSessionIdRef.current === sessionId) return;
-
-		previousSessionIdRef.current = sessionId;
-		attachmentsRef.current = [];
-		setParts(useComposerDraftStore.getState().getDraft(sessionId));
-		setAttachments([]);
-		setSubmitting(false);
-	}, [sessionId]);
-
 	const addFiles = useCallback((files: File[]) => {
 		const remaining = Math.max(MAX_ATTACHMENTS - attachmentsRef.current.length, 0);
 		const created = files.slice(0, remaining).map(
@@ -162,15 +157,107 @@ export function useChatComposer({
 		);
 	}, []);
 
-	const removeAttachment = useCallback((attachmentId: string) => {
-		attachmentsRef.current = attachmentsRef.current.filter((item) => item.id !== attachmentId);
+	const markAttachmentsUploaded = useCallback((uploadedByLocalId: Map<string, ChatAttachment>) => {
+		if (uploadedByLocalId.size === 0) return;
+		attachmentsRef.current = attachmentsRef.current.map((attachment) => {
+			const uploaded = uploadedByLocalId.get(attachment.id);
+			return uploaded ? { ...attachment, uploaded } : attachment;
+		});
 		setAttachments(attachmentsRef.current);
-		setParts((current) =>
-			compactPromptParts(
-				current.filter((part) => part.type !== 'attachment' || part.attachmentId !== attachmentId),
-			),
-		);
 	}, []);
+
+	const ensureAttachmentUploaded = useCallback(
+		async (attachmentId: string) => {
+			const attachment = attachmentsRef.current.find((item) => item.id === attachmentId);
+			if (!attachment) return null;
+			if (attachment.uploaded) return attachment.uploaded;
+
+			const inFlight = uploadingAttachmentByIdRef.current.get(attachmentId);
+			if (inFlight) return await inFlight;
+
+			const upload = uploadAttachments(workspaceId, [attachment])
+				.then((uploadedAttachments) => {
+					const uploaded = uploadedAttachments[0] ?? null;
+					if (uploaded) markAttachmentsUploaded(new Map([[attachmentId, uploaded]]));
+					return uploaded;
+				})
+				.finally(() => {
+					uploadingAttachmentByIdRef.current.delete(attachmentId);
+				});
+
+			uploadingAttachmentByIdRef.current.set(attachmentId, upload);
+			return await upload;
+		},
+		[markAttachmentsUploaded, workspaceId],
+	);
+
+	const deleteUnsubmittedUpload = useCallback(
+		(attachment: ChatAttachment) => {
+			void deleteUploadedAttachment(workspaceId, attachment).catch((error) => {
+				console.warn('[chat-composer] failed to delete unsubmitted attachment upload', error);
+			});
+		},
+		[workspaceId],
+	);
+
+	const cleanupUnsubmittedAttachments = useCallback(
+		(items: LocalAttachment[]) => {
+			const submittedAttachmentIds = submittingAttachmentIdsRef.current;
+			for (const attachment of items) {
+				if (submittingRef.current && submittedAttachmentIds.has(attachment.id)) continue;
+				if (attachment.uploaded) {
+					deleteUnsubmittedUpload(attachment.uploaded);
+					continue;
+				}
+
+				const inFlightUpload = uploadingAttachmentByIdRef.current.get(attachment.id);
+				if (!inFlightUpload) continue;
+				void inFlightUpload
+					.then((uploadedAttachment) => {
+						if (!uploadedAttachment) return;
+						if (submittingRef.current && submittedAttachmentIds.has(attachment.id)) return;
+						deleteUnsubmittedUpload(uploadedAttachment);
+					})
+					.catch(() => undefined);
+			}
+		},
+		[deleteUnsubmittedUpload],
+	);
+
+	useEffect(() => {
+		if (previousSessionIdRef.current === sessionId) return;
+
+		cleanupUnsubmittedAttachments(attachmentsRef.current);
+		previousSessionIdRef.current = sessionId;
+		attachmentsRef.current = [];
+		setParts(useComposerDraftStore.getState().getDraft(sessionId));
+		setAttachments([]);
+		setSubmitting(false);
+		submittingRef.current = false;
+	}, [cleanupUnsubmittedAttachments, sessionId]);
+
+	useEffect(() => {
+		return () => {
+			cleanupUnsubmittedAttachments(attachmentsRef.current);
+		};
+	}, [cleanupUnsubmittedAttachments]);
+
+	const removeAttachment = useCallback(
+		(attachmentId: string) => {
+			const removedAttachment = attachmentsRef.current.find((item) => item.id === attachmentId);
+			if (removedAttachment) cleanupUnsubmittedAttachments([removedAttachment]);
+			attachmentsRef.current = attachmentsRef.current.filter((item) => item.id !== attachmentId);
+			setAttachments(attachmentsRef.current);
+			setParts((current) =>
+				compactPromptParts(
+					current.filter(
+						(part) => part.type !== 'attachment' || part.attachmentId !== attachmentId,
+					),
+				),
+			);
+		},
+		[cleanupUnsubmittedAttachments],
+	);
 
 	const changeProvider = useCallback(
 		(nextProvider: AgentProvider) => {
@@ -202,6 +289,7 @@ export function useChatComposer({
 
 	const submit = useCallback(async () => {
 		if (!canSubmit || !model) return;
+		submittingRef.current = true;
 		setSubmitting(true);
 		try {
 			const visibleAttachmentIds = new Set(
@@ -210,10 +298,38 @@ export function useChatComposer({
 			const visibleAttachments = attachments.filter((attachment) =>
 				visibleAttachmentIds.has(attachment.id),
 			);
-			const uploadedAttachments = await uploadAttachments(workspaceId, visibleAttachments);
-			const uploadedAttachmentByLocalId = new Map(
-				visibleAttachments.map((attachment, index) => [attachment.id, uploadedAttachments[index]]),
+			submittingAttachmentIdsRef.current = new Set(
+				visibleAttachments.map((attachment) => attachment.id),
 			);
+			const uploadedAttachmentByLocalId = new Map<string, ChatAttachment>();
+			for (const attachment of visibleAttachments) {
+				if (attachment.uploaded)
+					uploadedAttachmentByLocalId.set(attachment.id, attachment.uploaded);
+			}
+
+			const attachmentsToUpload: LocalAttachment[] = [];
+			for (const attachment of visibleAttachments) {
+				if (attachment.uploaded) continue;
+				const inFlight = uploadingAttachmentByIdRef.current.get(attachment.id);
+				if (inFlight) {
+					const uploaded = await inFlight;
+					if (uploaded) uploadedAttachmentByLocalId.set(attachment.id, uploaded);
+					continue;
+				}
+				attachmentsToUpload.push(attachment);
+			}
+
+			const newlyUploadedAttachments = await uploadAttachments(workspaceId, attachmentsToUpload);
+			for (const [index, uploaded] of newlyUploadedAttachments.entries()) {
+				const localAttachment = attachmentsToUpload[index];
+				if (localAttachment && uploaded)
+					uploadedAttachmentByLocalId.set(localAttachment.id, uploaded);
+			}
+			markAttachmentsUploaded(uploadedAttachmentByLocalId);
+			const uploadedAttachments = visibleAttachments.flatMap((attachment) => {
+				const uploaded = uploadedAttachmentByLocalId.get(attachment.id);
+				return uploaded ? [uploaded] : [];
+			});
 			const submittedParts = compactPromptParts(
 				parts.flatMap((part): PromptPart[] => {
 					if (part.type !== 'attachment') return [part];
@@ -244,9 +360,12 @@ export function useChatComposer({
 			attachmentsRef.current = [];
 			setAttachments([]);
 		} catch (error) {
+			cleanupUnsubmittedAttachments(attachmentsRef.current);
 			const message = error instanceof Error ? error.message : 'Could not send message';
 			toast.error(message);
 		} finally {
+			submittingRef.current = false;
+			submittingAttachmentIdsRef.current = new Set();
 			setSubmitting(false);
 		}
 	}, [
@@ -257,6 +376,8 @@ export function useChatComposer({
 		codexFastMode,
 		codexReasoningEffort,
 		parts,
+		cleanupUnsubmittedAttachments,
+		markAttachmentsUploaded,
 		model,
 		planMode,
 		provider,
@@ -296,6 +417,7 @@ export function useChatComposer({
 		canSubmit,
 		addFiles,
 		removeAttachment,
+		ensureAttachmentUploaded,
 		changeModel,
 		submit,
 		stop,

@@ -395,6 +395,53 @@ describe('useWorkspaceStore.readFileContents', () => {
 
 		await expect(resultPromise).rejects.toThrow('Invalid workspace file response');
 	});
+
+	test('forwards external file reads and validates the response shape', async () => {
+		useWsStore.getState().connect();
+		const socket = FakeWebSocket.instances[0];
+		socket.open();
+
+		const resultPromise = useWorkspaceStore
+			.getState()
+			.readExternalFileContents('workspace-1', 'session-1', '/Users/sarp/.claude/plans/plan.md');
+		const sent = JSON.parse(socket.sent[0]);
+
+		expect(sent).toMatchObject({
+			type: 'command',
+			command: {
+				type: 'file.readExternal',
+				workspaceId: 'workspace-1',
+				sessionId: 'session-1',
+				path: '/Users/sarp/.claude/plans/plan.md',
+			},
+		});
+
+		socket.receive({
+			type: 'ack',
+			id: sent.id,
+			result: {
+				kind: 'text',
+				path: '/Users/sarp/.claude/plans/plan.md',
+				name: 'plan.md',
+				contents: '# plan',
+				mimeType: 'text/markdown; charset=utf-8',
+				size: 6,
+				encoding: 'utf-8',
+				cacheKey: '/Users/sarp/.claude/plans/plan.md:digest',
+			},
+		});
+
+		await expect(resultPromise).resolves.toEqual({
+			kind: 'text',
+			path: '/Users/sarp/.claude/plans/plan.md',
+			name: 'plan.md',
+			contents: '# plan',
+			mimeType: 'text/markdown; charset=utf-8',
+			size: 6,
+			encoding: 'utf-8',
+			cacheKey: '/Users/sarp/.claude/plans/plan.md:digest',
+		});
+	});
 });
 
 describe('useWorkspaceStore.renameBranch', () => {

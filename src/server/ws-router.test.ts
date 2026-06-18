@@ -124,6 +124,16 @@ async function createRouter(overrides: Record<string, unknown> = {}) {
 			encoding: 'utf-8' as const,
 			cacheKey: 'app.txt:digest',
 		}),
+		readExternalFileContents: async () => ({
+			kind: 'text' as const,
+			path: '/tmp/app.txt',
+			name: 'app.txt',
+			contents: 'external',
+			mimeType: 'text/plain; charset=utf-8',
+			size: 8,
+			encoding: 'utf-8' as const,
+			cacheKey: '/tmp/app.txt:digest',
+		}),
 	};
 
 	const workspaceManager = {
@@ -818,6 +828,16 @@ describe('createWsRouter.handleCommand', () => {
 					encoding: 'utf-8' as const,
 					cacheKey: 'app.txt:digest',
 				}),
+				readExternalFileContents: async () => ({
+					kind: 'text' as const,
+					path: '/tmp/app.txt',
+					name: 'app.txt',
+					contents: 'external',
+					mimeType: 'text/plain; charset=utf-8',
+					size: 8,
+					encoding: 'utf-8' as const,
+					cacheKey: '/tmp/app.txt:digest',
+				}),
 			},
 		});
 		const ws = new FakeWebSocket();
@@ -874,6 +894,16 @@ describe('createWsRouter.handleCommand', () => {
 					size: 5,
 					encoding: 'utf-8' as const,
 					cacheKey: 'app.txt:digest',
+				}),
+				readExternalFileContents: async () => ({
+					kind: 'text' as const,
+					path: '/tmp/app.txt',
+					name: 'app.txt',
+					contents: 'external',
+					mimeType: 'text/plain; charset=utf-8',
+					size: 8,
+					encoding: 'utf-8' as const,
+					cacheKey: '/tmp/app.txt:digest',
 				}),
 			},
 		});
@@ -933,6 +963,16 @@ describe('createWsRouter.handleCommand', () => {
 					size: 5,
 					encoding: 'utf-8' as const,
 					cacheKey: 'app.txt:digest',
+				}),
+				readExternalFileContents: async () => ({
+					kind: 'text' as const,
+					path: '/tmp/app.txt',
+					name: 'app.txt',
+					contents: 'external',
+					mimeType: 'text/plain; charset=utf-8',
+					size: 8,
+					encoding: 'utf-8' as const,
+					cacheKey: '/tmp/app.txt:digest',
 				}),
 			},
 		});
@@ -1004,6 +1044,54 @@ describe('createWsRouter.handleCommand', () => {
 					size: 5,
 					encoding: 'utf-8',
 					cacheKey: 'app.txt:digest',
+				},
+			},
+		]);
+	});
+
+	test('reads external file contents when the session transcript references the file', async () => {
+		const localPath = await mkdtemp(path.join(tmpdir(), 'miko-external-ws-router-'));
+		tempDirs.push(localPath);
+		const externalPath = path.join(localPath, 'app.txt');
+		await Bun.write(externalPath, 'external');
+
+		const { router, store, workspaceId, sessionId } = await createRouter();
+		await store.appendMessage(sessionId, {
+			_id: 'tool-call-1',
+			kind: 'tool_call',
+			createdAt: Date.now(),
+			tool: {
+				kind: 'tool',
+				toolKind: 'read_file',
+				toolName: 'Read',
+				toolId: 'tool-call-1',
+				input: { filePath: externalPath },
+			},
+		});
+		const ws = new FakeWebSocket();
+
+		await router.handleMessage(
+			ws as never,
+			JSON.stringify({
+				type: 'command',
+				id: 'external-file-1',
+				command: { type: 'file.readExternal', workspaceId, sessionId, path: externalPath },
+			}),
+		);
+
+		expect(ws.sent).toEqual([
+			{
+				type: 'ack',
+				id: 'external-file-1',
+				result: {
+					kind: 'text',
+					path: '/tmp/app.txt',
+					name: 'app.txt',
+					contents: 'external',
+					mimeType: 'text/plain; charset=utf-8',
+					size: 8,
+					encoding: 'utf-8',
+					cacheKey: '/tmp/app.txt:digest',
 				},
 			},
 		]);

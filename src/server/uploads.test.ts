@@ -60,7 +60,7 @@ describe('persistWorkspaceUpload', () => {
 
 		const attachment = await persistWorkspaceUpload({
 			workspaceId: 'workspace-123',
-			localPath,
+			dataDir: localPath,
 			fileName: '../../my report.txt',
 			bytes,
 			fallbackMimeType: 'text/plain; charset=utf-8',
@@ -68,7 +68,7 @@ describe('persistWorkspaceUpload', () => {
 
 		expect(attachment.kind).toBe('file');
 		expect(attachment.displayName).toBe('../../my report.txt');
-		expect(attachment.relativePath).toBe('./.miko/uploads/my-report.txt');
+		expect(attachment.relativePath).toBe('miko://uploads/workspace-123/my-report.txt');
 		expect(attachment.contentUrl).toBe(
 			'/api/workspaces/workspace-123/uploads/my-report.txt/content',
 		);
@@ -84,7 +84,7 @@ describe('persistWorkspaceUpload', () => {
 		const localPath = await createTempWorkspaceDir();
 		const first = await persistWorkspaceUpload({
 			workspaceId: 'workspace-123',
-			localPath,
+			dataDir: localPath,
 			fileName: 'report.txt',
 			bytes: new TextEncoder().encode('first'),
 			fallbackMimeType: 'text/plain; charset=utf-8',
@@ -92,7 +92,7 @@ describe('persistWorkspaceUpload', () => {
 
 		const second = await persistWorkspaceUpload({
 			workspaceId: 'workspace-123',
-			localPath,
+			dataDir: localPath,
 			fileName: 'report.txt',
 			bytes: new TextEncoder().encode('second'),
 			fallbackMimeType: 'text/plain; charset=utf-8',
@@ -100,7 +100,7 @@ describe('persistWorkspaceUpload', () => {
 
 		expect(path.basename(first.absolutePath)).toBe('report.txt');
 		expect(path.basename(second.absolutePath)).toBe('report-1.txt');
-		expect(second.relativePath).toBe('./.miko/uploads/report-1.txt');
+		expect(second.relativePath).toBe('miko://uploads/workspace-123/report-1.txt');
 		expect(second.contentUrl).toBe('/api/workspaces/workspace-123/uploads/report-1.txt/content');
 
 		const storedText = await Bun.file(second.absolutePath).text();
@@ -132,14 +132,15 @@ describe('deleteWorkspaceUpload', () => {
 		const localPath = await createTempWorkspaceDir();
 		const attachment = await persistWorkspaceUpload({
 			workspaceId: 'workspace-123',
-			localPath,
+			dataDir: localPath,
 			fileName: 'report.txt',
 			bytes: new TextEncoder().encode('delete me'),
 			fallbackMimeType: 'text/plain; charset=utf-8',
 		});
 
 		const deleted = await deleteWorkspaceUpload({
-			localPath,
+			workspaceId: 'workspace-123',
+			dataDir: localPath,
 			storedName: path.basename(attachment.absolutePath),
 		});
 
@@ -150,14 +151,28 @@ describe('deleteWorkspaceUpload', () => {
 	test('returns false for invalid stored names that are not plain file names', async () => {
 		const localPath = await createTempWorkspaceDir();
 
-		await expect(deleteWorkspaceUpload({ localPath, storedName: '' })).resolves.toBe(false);
-		await expect(deleteWorkspaceUpload({ localPath, storedName: 'nested/file.txt' })).resolves.toBe(
-			false,
-		);
 		await expect(
-			deleteWorkspaceUpload({ localPath, storedName: 'nested\\file.txt' }),
+			deleteWorkspaceUpload({ workspaceId: 'workspace-123', dataDir: localPath, storedName: '' }),
 		).resolves.toBe(false);
-		await expect(deleteWorkspaceUpload({ localPath, storedName: '.' })).resolves.toBe(false);
-		await expect(deleteWorkspaceUpload({ localPath, storedName: '..' })).resolves.toBe(false);
+		await expect(
+			deleteWorkspaceUpload({
+				workspaceId: 'workspace-123',
+				dataDir: localPath,
+				storedName: 'nested/file.txt',
+			}),
+		).resolves.toBe(false);
+		await expect(
+			deleteWorkspaceUpload({
+				workspaceId: 'workspace-123',
+				dataDir: localPath,
+				storedName: 'nested\\file.txt',
+			}),
+		).resolves.toBe(false);
+		await expect(
+			deleteWorkspaceUpload({ workspaceId: 'workspace-123', dataDir: localPath, storedName: '.' }),
+		).resolves.toBe(false);
+		await expect(
+			deleteWorkspaceUpload({ workspaceId: 'workspace-123', dataDir: localPath, storedName: '..' }),
+		).resolves.toBe(false);
 	});
 });

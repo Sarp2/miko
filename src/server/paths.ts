@@ -1,6 +1,7 @@
 import { mkdir, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
+import { getDataDir } from '../shared/branding';
 
 export function resolveLocalPath(localPath: string) {
 	const trimmed = localPath.trim();
@@ -45,6 +46,6 @@ export async function ensureDirectoryPath(localPath: string) {
 	}
 }
 
-export function getWorkspaceUploadDir(localPath: string) {
-	return path.join(resolveLocalPath(localPath), '.miko', 'uploads');
+export function getWorkspaceUploadDir(workspaceId: string, dataDir = getDataDir(homedir())) {
+	return path.join(resolveLocalPath(dataDir), 'uploads', workspaceId);
 }

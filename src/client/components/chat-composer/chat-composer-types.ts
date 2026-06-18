@@ -4,6 +4,7 @@ export interface LocalAttachment {
 	id: string;
 	file: File;
 	kind: AttachmentKind;
+	uploaded?: ChatAttachment;
 }
 
 export interface UploadResponse {

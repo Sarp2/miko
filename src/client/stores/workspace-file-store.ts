@@ -31,6 +31,11 @@ interface WorkspaceFileStoreState {
 	pastedTextFileByKey: Map<string, WorkspaceFileResource>;
 	attachmentFileByKey: Map<string, WorkspaceFileResource>;
 	getFileResource: (workspaceId: string, path: string) => WorkspaceFileResource;
+	getExternalFileResource: (
+		workspaceId: string,
+		sessionId: string,
+		path: string,
+	) => WorkspaceFileResource;
 	getDiffResource: (workspaceId: string, path: string) => WorkspaceDiffResource;
 	getPastedTextResource: (workspaceId: string, sourceId: string) => WorkspaceFileResource;
 	setPastedTextFile: (workspaceId: string, sourceId: string, text: string) => void;
@@ -48,6 +53,12 @@ interface WorkspaceFileStoreState {
 	) => Promise<void>;
 	loadFileContents: (
 		workspaceId: string,
+		path: string,
+		options?: { force?: boolean },
+	) => Promise<void>;
+	loadExternalFileContents: (
+		workspaceId: string,
+		sessionId: string,
 		path: string,
 		options?: { force?: boolean },
 	) => Promise<void>;
@@ -81,9 +92,19 @@ const MAX_CACHED_PASTED_TEXT_RESOURCES = 60;
 
 let nextRequestId = 1;
 
-function missingResource(error: string): WorkspaceFileResource {
-	return { status: 'error', data: null, error, requestId: null };
-}
+const MISSING_PASTED_TEXT_RESOURCE: WorkspaceFileResource = {
+	status: 'error',
+	data: null,
+	error: 'This pasted text is no longer available. Reopen it from the original prompt.',
+	requestId: null,
+};
+
+const MISSING_ATTACHMENT_RESOURCE: WorkspaceFileResource = {
+	status: 'error',
+	data: null,
+	error: 'This attachment is no longer available. Reopen it from the original prompt.',
+	requestId: null,
+};
 
 function pruneResourceMap<TKey, TValue extends { status: WorkspaceResourceStatus }>(
 	resources: Map<TKey, TValue>,
@@ -103,6 +124,10 @@ function pruneResourceMap<TKey, TValue extends { status: WorkspaceResourceStatus
 
 function resourceKey(workspaceId: string, path: string) {
 	return JSON.stringify([workspaceId, path]);
+}
+
+function externalResourceKey(workspaceId: string, sessionId: string, path: string) {
+	return JSON.stringify([workspaceId, 'external', sessionId, path]);
 }
 
 function errorMessage(error: unknown) {
@@ -129,9 +154,54 @@ export const useWorkspaceFileStore = create<WorkspaceFileStoreState>((set, get) 
 		});
 	}
 
-	// Shared machinery for both local (File) and remote (uploaded) attachments: show a
-	// loading state, resolve the preview, then store the result or error. The requestId
-	// guard discards results from superseded or reset requests, and the cache is bounded.
+	// Shared machinery for workspace and external file previews. The requestId guard
+	// discards results from superseded or reset requests, and the cache is bounded.
+	async function loadFileInto(
+		key: string,
+		resolve: () => Promise<WorkspaceFileContentsResult>,
+		options: { force?: boolean } = {},
+	) {
+		const current = get().fileByKey.get(key);
+		if (current?.status === 'loading') return;
+		if (!options.force && current?.status === 'ready') return;
+
+		const requestId = nextRequestId;
+		nextRequestId += 1;
+
+		set((state) => {
+			const fileByKey = new Map(state.fileByKey);
+			fileByKey.set(key, {
+				status: 'loading',
+				data: current?.data ?? null,
+				error: null,
+				requestId,
+			});
+			return { fileByKey: pruneResourceMap(fileByKey, MAX_CACHED_FILE_RESOURCES) };
+		});
+
+		try {
+			const data = await resolve();
+			set((state) => {
+				if (state.fileByKey.get(key)?.requestId !== requestId) return state;
+				const fileByKey = new Map(state.fileByKey);
+				fileByKey.set(key, { status: 'ready', data, error: null, requestId: null });
+				return { fileByKey: pruneResourceMap(fileByKey, MAX_CACHED_FILE_RESOURCES) };
+			});
+		} catch (error) {
+			set((state) => {
+				if (state.fileByKey.get(key)?.requestId !== requestId) return state;
+				const fileByKey = new Map(state.fileByKey);
+				fileByKey.set(key, {
+					status: 'error',
+					data: current?.data ?? null,
+					error: errorMessage(error),
+					requestId: null,
+				});
+				return { fileByKey: pruneResourceMap(fileByKey, MAX_CACHED_FILE_RESOURCES) };
+			});
+		}
+	}
+
 	async function loadAttachmentInto(
 		key: string,
 		resolve: () => Promise<WorkspaceFileContentsResult>,
@@ -180,6 +250,12 @@ export const useWorkspaceFileStore = create<WorkspaceFileStoreState>((set, get) 
 			return get().fileByKey.get(resourceKey(workspaceId, path)) ?? IDLE_FILE_RESOURCE;
 		},
 
+		getExternalFileResource: (workspaceId, sessionId, path) => {
+			return (
+				get().fileByKey.get(externalResourceKey(workspaceId, sessionId, path)) ?? IDLE_FILE_RESOURCE
+			);
+		},
+
 		getDiffResource: (workspaceId, path) => {
 			return get().diffByKey.get(resourceKey(workspaceId, path)) ?? IDLE_DIFF_RESOURCE;
 		},
@@ -187,7 +263,7 @@ export const useWorkspaceFileStore = create<WorkspaceFileStoreState>((set, get) 
 		getPastedTextResource: (workspaceId, sourceId) => {
 			return (
 				get().pastedTextFileByKey.get(resourceKey(workspaceId, sourceId)) ??
-				missingResource('This pasted text is no longer available in memory.')
+				MISSING_PASTED_TEXT_RESOURCE
 			);
 		},
 
@@ -223,7 +299,7 @@ export const useWorkspaceFileStore = create<WorkspaceFileStoreState>((set, get) 
 		getAttachmentResource: (workspaceId, attachmentId) => {
 			return (
 				get().attachmentFileByKey.get(resourceKey(workspaceId, attachmentId)) ??
-				missingResource('This attachment is no longer available in memory.')
+				MISSING_ATTACHMENT_RESOURCE
 			);
 		},
 
@@ -242,46 +318,19 @@ export const useWorkspaceFileStore = create<WorkspaceFileStoreState>((set, get) 
 		},
 
 		loadFileContents: async (workspaceId, path, options = {}) => {
-			const key = resourceKey(workspaceId, path);
-			const current = get().fileByKey.get(key);
-			if (current?.status === 'loading') return;
-			if (!options.force && current?.status === 'ready') return;
+			await loadFileInto(
+				resourceKey(workspaceId, path),
+				() => useWorkspaceStore.getState().readFileContents(workspaceId, path),
+				options,
+			);
+		},
 
-			const requestId = nextRequestId;
-			nextRequestId += 1;
-
-			set((state) => {
-				const fileByKey = new Map(state.fileByKey);
-				fileByKey.set(key, {
-					status: 'loading',
-					data: current?.data ?? null,
-					error: null,
-					requestId,
-				});
-				return { fileByKey: pruneResourceMap(fileByKey, MAX_CACHED_FILE_RESOURCES) };
-			});
-
-			try {
-				const data = await useWorkspaceStore.getState().readFileContents(workspaceId, path);
-				set((state) => {
-					if (state.fileByKey.get(key)?.requestId !== requestId) return state;
-					const fileByKey = new Map(state.fileByKey);
-					fileByKey.set(key, { status: 'ready', data, error: null, requestId: null });
-					return { fileByKey: pruneResourceMap(fileByKey, MAX_CACHED_FILE_RESOURCES) };
-				});
-			} catch (error) {
-				set((state) => {
-					if (state.fileByKey.get(key)?.requestId !== requestId) return state;
-					const fileByKey = new Map(state.fileByKey);
-					fileByKey.set(key, {
-						status: 'error',
-						data: current?.data ?? null,
-						error: errorMessage(error),
-						requestId: null,
-					});
-					return { fileByKey: pruneResourceMap(fileByKey, MAX_CACHED_FILE_RESOURCES) };
-				});
-			}
+		loadExternalFileContents: async (workspaceId, sessionId, path, options = {}) => {
+			await loadFileInto(
+				externalResourceKey(workspaceId, sessionId, path),
+				() => useWorkspaceStore.getState().readExternalFileContents(workspaceId, sessionId, path),
+				options,
+			);
 		},
 
 		loadDiffPatch: async (workspaceId, path, options = {}) => {

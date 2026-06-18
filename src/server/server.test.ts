@@ -4,10 +4,12 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { ChatAttachment } from '../shared/types';
 import type { WorkspaceRecord } from './event';
+import { registerExternalFileAccess } from './external-file-access';
 import { getWorkspaceUploadDir } from './paths';
 import {
 	handleAgentInstructionContent,
 	handleAttachmentContent,
+	handleExternalFileContent,
 	handleWorkspaceFileContent,
 	handleWorkspaceUpload,
 	handleWorkspaceUploadDelete,
@@ -38,8 +40,12 @@ function createUploadRequest(args: {
 	});
 }
 
-function createStore(workspace: { id: string; localPath: string } | null) {
+function createStore(
+	workspace: { id: string; localPath: string } | null,
+	dataDir = workspace?.localPath,
+) {
 	return {
+		dataDir,
 		getWorkspace(workspaceId: string) {
 			return workspace && workspace.id === workspaceId ? workspace : null;
 		},
@@ -73,6 +79,12 @@ function createWorkspaceFileContentRequest(args: { method?: string; url?: string
 	);
 }
 
+function createExternalFileContentRequest(args: { method?: string; url?: string }) {
+	return new Request(args.url ?? 'http://localhost/api/external-files/content', {
+		method: args.method ?? 'GET',
+	});
+}
+
 function createUploadDeleteRequest(args: { method?: string; url?: string }) {
 	return new Request(args.url ?? 'http://localhost/api/workspaces/workspace-1/uploads/notes.md', {
 		method: args.method ?? 'DELETE',
@@ -83,7 +95,7 @@ describe('persistUploadedFiles', () => {
 	test('persists every file and forwards upload metadata', async () => {
 		const calls: Array<{
 			workspaceId: string;
-			localPath: string;
+			dataDir?: string;
 			fileName: string;
 			bytes: Uint8Array;
 			fallbackMimeType?: string;
@@ -96,7 +108,6 @@ describe('persistUploadedFiles', () => {
 
 		const attachments = await persistUploadedFiles({
 			workspaceId: 'workspace-1',
-			localPath: '/tmp/workspace-1',
 			files,
 			persistUpload: async (args) => {
 				calls.push(args);
@@ -104,8 +115,8 @@ describe('persistUploadedFiles', () => {
 					id: `attachment-${calls.length}`,
 					kind: 'file',
 					displayName: args.fileName,
-					absolutePath: `/tmp/workspace-1/${args.fileName}`,
-					relativePath: `./.miko/uploads/${args.fileName}`,
+					absolutePath: `/tmp/miko-data/uploads/workspace-1/${args.fileName}`,
+					relativePath: `miko://uploads/${args.workspaceId}/${args.fileName}`,
 					contentUrl: `/api/workspaces/${args.workspaceId}/uploads/${args.fileName}/content`,
 					mimeType: args.fallbackMimeType ?? 'application/octet-stream',
 					size: args.bytes.byteLength,
@@ -117,7 +128,7 @@ describe('persistUploadedFiles', () => {
 		expect(calls).toHaveLength(2);
 		expect(calls[0]).toMatchObject({
 			workspaceId: 'workspace-1',
-			localPath: '/tmp/workspace-1',
+			dataDir: undefined,
 			fileName: 'hello.txt',
 			fallbackMimeType: 'text/plain;charset=utf-8',
 		});
@@ -139,13 +150,13 @@ describe('persistUploadedFiles', () => {
 			await expect(
 				persistUploadedFiles({
 					workspaceId: 'workspace-1',
-					localPath,
+					dataDir: localPath,
 					files: [new File(['first'], 'first.txt'), new File(['second'], tooLongFileName)],
 				}),
 			).rejects.toThrow();
 
 			const firstUploadExists = await Bun.file(
-				path.join(getWorkspaceUploadDir(localPath), 'first.txt'),
+				path.join(getWorkspaceUploadDir('workspace-1', localPath), 'first.txt'),
 			).exists();
 			expect(firstUploadExists).toBe(false);
 		} finally {
@@ -355,7 +366,7 @@ describe('handleAttachmentContent', () => {
 	test('returns 404 when attachment path points to a directory', async () => {
 		const localPath = await mkdtemp(path.join(tmpdir(), 'miko-server-'));
 		try {
-			const uploadDir = getWorkspaceUploadDir(localPath);
+			const uploadDir = getWorkspaceUploadDir('workspace-1', localPath);
 			await mkdir(path.join(uploadDir, 'folder.txt'), { recursive: true });
 
 			const req = createAttachmentContentRequest({
@@ -378,7 +389,7 @@ describe('handleAttachmentContent', () => {
 	test('returns attachment content with inferred content type', async () => {
 		const localPath = await mkdtemp(path.join(tmpdir(), 'miko-server-'));
 		try {
-			const uploadDir = getWorkspaceUploadDir(localPath);
+			const uploadDir = getWorkspaceUploadDir('workspace-1', localPath);
 			await mkdir(uploadDir, { recursive: true });
 			const filePath = path.join(uploadDir, 'notes.md');
 			await Bun.write(filePath, '# hello');
@@ -595,6 +606,80 @@ describe('handleWorkspaceFileContent', () => {
 	});
 });
 
+describe('handleExternalFileContent', () => {
+	test('returns null for non-matching paths', async () => {
+		const req = createExternalFileContentRequest({
+			url: 'http://localhost/api/external-files',
+		});
+		const response = await handleExternalFileContent(req, new URL(req.url));
+		expect(response).toBeNull();
+	});
+
+	test('returns 405 for non-GET methods', async () => {
+		const req = createExternalFileContentRequest({ method: 'POST' });
+		const response = await handleExternalFileContent(req, new URL(req.url));
+		expect(response?.status).toBe(405);
+		expect(response?.headers.get('Allow')).toBe('GET');
+	});
+
+	test('returns 403 when token is missing or invalid', async () => {
+		const req = createExternalFileContentRequest({
+			url: 'http://localhost/api/external-files/content?path=notes.md',
+		});
+		const response = await handleExternalFileContent(req, new URL(req.url));
+		expect(response?.status).toBe(403);
+		expect(await response?.json()).toEqual({ error: 'Invalid external file token' });
+	});
+
+	test('returns 404 when token points at a missing external file', async () => {
+		const missingPath = path.join(tmpdir(), 'miko-missing-external-file.txt');
+		const token = registerExternalFileAccess(missingPath);
+		const req = createExternalFileContentRequest({
+			url: `http://localhost/api/external-files/content?token=${encodeURIComponent(token)}`,
+		});
+		const response = await handleExternalFileContent(req, new URL(req.url));
+		expect(response?.status).toBe(404);
+		expect(await response?.json()).toEqual({ error: 'File not found' });
+	});
+
+	test('returns external file content with inferred content type', async () => {
+		const localPath = await mkdtemp(path.join(tmpdir(), 'miko-external-file-'));
+		try {
+			const filePath = path.join(localPath, 'notes.md');
+			await Bun.write(filePath, '# external file');
+
+			const req = createExternalFileContentRequest({
+				url: `http://localhost/api/external-files/content?token=${encodeURIComponent(registerExternalFileAccess(filePath))}`,
+			});
+			const response = await handleExternalFileContent(req, new URL(req.url));
+			expect(response?.status).toBe(200);
+			expect(response?.headers.get('Content-Type')).toBe('text/markdown; charset=utf-8');
+			expect(response?.headers.get('X-Content-Type-Options')).toBe('nosniff');
+			expect(await response?.text()).toBe('# external file');
+		} finally {
+			await rm(localPath, { recursive: true, force: true });
+		}
+	});
+
+	test('serves external svg content as text to avoid document execution', async () => {
+		const localPath = await mkdtemp(path.join(tmpdir(), 'miko-external-svg-'));
+		try {
+			const filePath = path.join(localPath, 'image.svg');
+			await Bun.write(filePath, '<svg><script>alert(1)</script></svg>');
+
+			const req = createExternalFileContentRequest({
+				url: `http://localhost/api/external-files/content?token=${encodeURIComponent(registerExternalFileAccess(filePath))}`,
+			});
+			const response = await handleExternalFileContent(req, new URL(req.url));
+			expect(response?.status).toBe(200);
+			expect(response?.headers.get('Content-Type')).toBe('text/plain; charset=utf-8');
+			expect(response?.headers.get('X-Content-Type-Options')).toBe('nosniff');
+		} finally {
+			await rm(localPath, { recursive: true, force: true });
+		}
+	});
+});
+
 describe('handleWorkspaceUploadDelete', () => {
 	test('returns null for non-DELETE requests', async () => {
 		const req = createUploadDeleteRequest({ method: 'GET' });
@@ -652,7 +737,7 @@ describe('handleWorkspaceUploadDelete', () => {
 		try {
 			const attachment = await persistWorkspaceUpload({
 				workspaceId: 'workspace-1',
-				localPath,
+				dataDir: localPath,
 				fileName: 'notes.md',
 				bytes: new TextEncoder().encode('delete me'),
 				fallbackMimeType: 'text/markdown; charset=utf-8',
