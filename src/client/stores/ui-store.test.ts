@@ -449,6 +449,25 @@ describe('useUiStore.removeWorkspaceUi', () => {
 	});
 });
 
+describe('useUiStore.resetLocalUiState', () => {
+	test('resets local UI preferences to defaults', () => {
+		useUiStore.getState().setLeftSidebarCollapsed(true);
+		useUiStore.getState().setWorkspacePinned('workspace-1', true);
+		useUiStore.getState().openMiddleTab('workspace-1', {
+			type: 'chat',
+			sessionId: 'session-1',
+		});
+		useUiStore.getState().setDiffPathViewed('workspace-1', 'README.md', 'digest', true);
+
+		useUiStore.getState().resetLocalUiState();
+
+		expect(useUiStore.getState().leftSidebarCollapsed).toBe(false);
+		expect(useUiStore.getState().pinnedWorkspaceIds).toEqual([]);
+		expect(useUiStore.getState().middleTabsByWorkspaceId).toEqual({});
+		expect(useUiStore.getState().viewedDiffDigestByWorkspaceId).toEqual({});
+	});
+});
+
 describe('useUiStore.persist', () => {
 	test('uses the miko:v1 storage key', () => {
 		expect(useUiStore.persist.getOptions().name).toBe(UI_STORAGE_KEY);

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { DirectoryListSnapshot } from '../../shared/types';
+import type { DirectoryListSnapshot, WorkspaceVisibilityState } from '../../shared/types';
 import { useWsStore } from './ws-store';
 
 export const DIRECTORY_LIST_SUBSCRIPTION_ID = 'directories';
@@ -9,6 +9,12 @@ interface DirectoryListStoreState {
 	isSubscribed: boolean;
 	connectDirectoryList: () => void;
 	disconnectDirectoryList: () => void;
+	removeDirectory: (directoryId: string) => Promise<void>;
+	removeWorkspace: (workspaceId: string) => Promise<void>;
+	setWorkspaceVisibility: (
+		workspaceId: string,
+		visibilityState: WorkspaceVisibilityState,
+	) => Promise<void>;
 }
 
 let unsubscribeFromWsStore: (() => void) | null = null;
@@ -47,5 +53,19 @@ export const useDirectoryListStore = create<DirectoryListStoreState>((set) => ({
 		unsubscribeFromWsStore?.();
 		unsubscribeFromWsStore = null;
 		set({ isSubscribed: false, snapshot: null });
+	},
+
+	removeDirectory: async (directoryId) => {
+		await useWsStore.getState().command({ type: 'directory.remove', directoryId });
+	},
+
+	removeWorkspace: async (workspaceId) => {
+		await useWsStore.getState().command({ type: 'workspace.remove', workspaceId });
+	},
+
+	setWorkspaceVisibility: async (workspaceId, visibilityState) => {
+		await useWsStore
+			.getState()
+			.command({ type: 'workspace.setVisibility', workspaceId, visibilityState });
 	},
 }));

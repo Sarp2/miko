@@ -136,3 +136,62 @@ describe('useDirectoryListStore.connectDirectoryList', () => {
 		);
 	});
 });
+
+describe('useDirectoryListStore management commands', () => {
+	test('forwards directory removal through the websocket command flow', async () => {
+		useWsStore.getState().connect();
+		const socket = FakeWebSocket.instances[0];
+		socket.open();
+
+		const resultPromise = useDirectoryListStore.getState().removeDirectory('directory-1');
+		const sent = JSON.parse(socket.sent[0]);
+
+		expect(sent).toMatchObject({
+			type: 'command',
+			command: { type: 'directory.remove', directoryId: 'directory-1' },
+		});
+
+		socket.receive({ type: 'ack', id: sent.id });
+		await expect(resultPromise).resolves.toBeUndefined();
+	});
+
+	test('forwards workspace removal through the websocket command flow', async () => {
+		useWsStore.getState().connect();
+		const socket = FakeWebSocket.instances[0];
+		socket.open();
+
+		const resultPromise = useDirectoryListStore.getState().removeWorkspace('workspace-1');
+		const sent = JSON.parse(socket.sent[0]);
+
+		expect(sent).toMatchObject({
+			type: 'command',
+			command: { type: 'workspace.remove', workspaceId: 'workspace-1' },
+		});
+
+		socket.receive({ type: 'ack', id: sent.id });
+		await expect(resultPromise).resolves.toBeUndefined();
+	});
+
+	test('forwards workspace visibility changes through the websocket command flow', async () => {
+		useWsStore.getState().connect();
+		const socket = FakeWebSocket.instances[0];
+		socket.open();
+
+		const resultPromise = useDirectoryListStore
+			.getState()
+			.setWorkspaceVisibility('workspace-1', 'archived');
+		const sent = JSON.parse(socket.sent[0]);
+
+		expect(sent).toMatchObject({
+			type: 'command',
+			command: {
+				type: 'workspace.setVisibility',
+				workspaceId: 'workspace-1',
+				visibilityState: 'archived',
+			},
+		});
+
+		socket.receive({ type: 'ack', id: sent.id });
+		await expect(resultPromise).resolves.toBeUndefined();
+	});
+});

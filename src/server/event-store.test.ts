@@ -317,6 +317,41 @@ describe('EventStore.createWorkspace', () => {
 		expect(store.listWorkspaces()).toEqual([]);
 	});
 
+	test('removing a workspace deletes Miko-owned workspace data but leaves the worktree untouched', async () => {
+		const dataDir = await createTempDataDir();
+		const store = new EventStore(dataDir);
+		await store.initialize();
+		const { workspace } = await createReadyWorkspace(store);
+		const session = await store.createSession(workspace.id);
+		await store.appendMessage(session.id, entry('user_prompt', 100, { content: 'hello' }));
+
+		const uploadDir = join(dataDir, 'uploads', workspace.id);
+		const scratchpadPath = join(dataDir, 'scratchpads', `${workspace.id}.md`);
+		const instructionPath = join(dataDir, 'agent-instructions', `create-pr-${workspace.id}.md`);
+		const worktreeFilePath = join(workspace.localPath, 'README.md');
+		await mkdir(uploadDir, { recursive: true });
+		await mkdir(join(dataDir, 'scratchpads'), { recursive: true });
+		await mkdir(join(dataDir, 'agent-instructions'), { recursive: true });
+		await mkdir(workspace.localPath, { recursive: true });
+		await Bun.write(join(uploadDir, 'paste.txt'), 'pasted text');
+		await Bun.write(scratchpadPath, 'scratchpad');
+		await Bun.write(instructionPath, 'instructions');
+		await Bun.write(worktreeFilePath, 'repo data');
+
+		const transcriptPath = join(dataDir, 'transcripts', `${session.id}.jsonl`);
+		expect(existsSync(transcriptPath)).toBe(true);
+
+		await store.removeWorkspace(workspace.id);
+
+		expect(store.getWorkspace(workspace.id)).toBeNull();
+		expect(store.getSession(session.id)).toBeNull();
+		expect(existsSync(transcriptPath)).toBe(false);
+		expect(existsSync(uploadDir)).toBe(false);
+		expect(existsSync(scratchpadPath)).toBe(false);
+		expect(existsSync(instructionPath)).toBe(false);
+		expect(existsSync(worktreeFilePath)).toBe(true);
+	});
+
 	test('records setup failures and lets setup completion clear the error', async () => {
 		const dataDir = await createTempDataDir();
 		const store = new EventStore(dataDir);
@@ -692,6 +727,27 @@ describe('EventStore.listWorkspaces', () => {
 
 		expect(store.getWorkspace(workspace.id)).toBeNull();
 		expect(store.listWorkspaces()).toEqual([]);
+	});
+
+	test('removing a directory deletes Miko-owned data for its workspaces', async () => {
+		const dataDir = await createTempDataDir();
+		const store = new EventStore(dataDir);
+		await store.initialize();
+		const { directory, workspace } = await createReadyWorkspace(store);
+		const session = await store.createSession(workspace.id);
+		await store.appendMessage(session.id, entry('user_prompt', 100, { content: 'hello' }));
+
+		const uploadDir = join(dataDir, 'uploads', workspace.id);
+		await mkdir(uploadDir, { recursive: true });
+		await Bun.write(join(uploadDir, 'attachment.txt'), 'attachment');
+
+		await store.removeDirectory(directory.id);
+
+		expect(store.getDirectory(directory.id)).toBeNull();
+		expect(store.getWorkspace(workspace.id)).toBeNull();
+		expect(store.getSession(session.id)).toBeNull();
+		expect(existsSync(join(dataDir, 'transcripts', `${session.id}.jsonl`))).toBe(false);
+		expect(existsSync(uploadDir)).toBe(false);
 	});
 });
 
