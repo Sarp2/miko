@@ -360,7 +360,6 @@ export function useChatComposer({
 			attachmentsRef.current = [];
 			setAttachments([]);
 		} catch (error) {
-			submittingRef.current = false;
 			cleanupUnsubmittedAttachments(attachmentsRef.current);
 			const message = error instanceof Error ? error.message : 'Could not send message';
 			toast.error(message);
