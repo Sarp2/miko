@@ -354,8 +354,25 @@ function WorkspacesSettings() {
 
 	const removeWorkspaceUi = useUiStore((state) => state.removeWorkspaceUi);
 
-	const runAction = async (id: string, action: () => Promise<void>, success: string) => {
-		setBusyIds((current) => new Set(current).add(id));
+	const directoryBusyIds = (directoryId: string) => [
+		`directory:${directoryId}`,
+		...(workspacesByDirectory.get(directoryId) ?? []).map(
+			(workspace) => `workspace:${workspace.id}`,
+		),
+	];
+	const workspaceBusyIds = (workspace: WorkspaceSummary) => [
+		`directory:${workspace.directoryId}`,
+		`workspace:${workspace.id}`,
+	];
+	const hasBusyId = (ids: string[]) => ids.some((id) => busyIds.has(id));
+
+	const runAction = async (ids: string[], action: () => Promise<void>, success: string) => {
+		if (hasBusyId(ids)) return;
+		setBusyIds((current) => {
+			const next = new Set(current);
+			for (const id of ids) next.add(id);
+			return next;
+		});
 		try {
 			await action();
 			toast.success(success);
@@ -364,7 +381,7 @@ function WorkspacesSettings() {
 		} finally {
 			setBusyIds((current) => {
 				const next = new Set(current);
-				next.delete(id);
+				for (const id of ids) next.delete(id);
 				return next;
 			});
 		}
@@ -373,7 +390,7 @@ function WorkspacesSettings() {
 	const removeDirectory = (directory: DirectorySummary) => {
 		const workspaces = workspacesByDirectory.get(directory.id) ?? [];
 		return runAction(
-			`directory:${directory.id}`,
+			directoryBusyIds(directory.id),
 			async () => {
 				await useDirectoryListStore.getState().removeDirectory(directory.id);
 				for (const workspace of workspaces) removeWorkspaceUi(workspace.id);
@@ -384,7 +401,7 @@ function WorkspacesSettings() {
 
 	const removeWorkspace = (workspace: WorkspaceSummary) => {
 		return runAction(
-			`workspace:${workspace.id}`,
+			workspaceBusyIds(workspace),
 			async () => {
 				await useDirectoryListStore.getState().removeWorkspace(workspace.id);
 				removeWorkspaceUi(workspace.id);
@@ -425,7 +442,7 @@ function WorkspacesSettings() {
 										title={`Remove ${directory.title} from Miko?`}
 										description={`This removes the directory from Miko and deletes Miko-owned data for ${workspaces.length} workspace${workspaces.length === 1 ? '' : 's'}: sessions, transcripts, scratchpads, uploads, and generated attachments. Repository files and worktrees stay on disk.`}
 										confirmLabel="Remove"
-										disabled={busyIds.has(`directory:${directory.id}`)}
+										disabled={hasBusyId(directoryBusyIds(directory.id))}
 										className="h-7 rounded-md px-2 text-[12px] text-destructive hover:bg-destructive/10 hover:text-destructive"
 										onConfirm={() => removeDirectory(directory)}
 									>
@@ -458,13 +475,13 @@ function WorkspacesSettings() {
 														type="button"
 														variant="ghost"
 														size="sm"
-														disabled={busyIds.has(`workspace:${workspace.id}`)}
+														disabled={hasBusyId(workspaceBusyIds(workspace))}
 														className="h-7 rounded-md px-2 text-[12px] text-ink-muted hover:bg-surface-2 hover:text-ink"
 														onClick={() => {
 															const next =
 																workspace.visibilityState === 'archived' ? 'active' : 'archived';
 															void runAction(
-																`workspace:${workspace.id}`,
+																workspaceBusyIds(workspace),
 																async () => {
 																	await useDirectoryListStore
 																		.getState()
@@ -482,7 +499,7 @@ function WorkspacesSettings() {
 														title={`Delete ${workspace.branchName} from Miko?`}
 														description="This deletes Miko-owned data for this workspace: sessions, transcripts, scratchpad, uploads, pasted text, and generated attachments. The repository/worktree folder stays on disk."
 														confirmLabel="Delete"
-														disabled={busyIds.has(`workspace:${workspace.id}`)}
+														disabled={hasBusyId(workspaceBusyIds(workspace))}
 														className="h-7 rounded-md px-2 text-[12px] text-destructive hover:bg-destructive/10 hover:text-destructive"
 														onConfirm={() => removeWorkspace(workspace)}
 													>
