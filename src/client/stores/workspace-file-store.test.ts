@@ -136,12 +136,25 @@ describe('useWorkspaceFileStore.loadExternalFileContents', () => {
 		expect(
 			useWorkspaceFileStore
 				.getState()
-				.getFileResource('workspace-1', '/Users/sarp/.claude/plans/plan.md'),
+				.getExternalFileResource('workspace-1', 'session-1', '/Users/sarp/.claude/plans/plan.md'),
 		).toMatchObject({
 			status: 'ready',
 			data: fileResult('/Users/sarp/.claude/plans/plan.md'),
 			error: null,
 		});
+	});
+
+	test('keys external file contents by session id', async () => {
+		await useWorkspaceFileStore
+			.getState()
+			.loadExternalFileContents('workspace-1', 'session-1', '/Users/sarp/.claude/plans/plan.md');
+
+		expect(
+			useWorkspaceFileStore
+				.getState()
+				.getExternalFileResource('workspace-1', 'session-2', '/Users/sarp/.claude/plans/plan.md')
+				.status,
+		).toBe('idle');
 	});
 });
 

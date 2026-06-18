@@ -61,6 +61,7 @@ export function useChatComposer({
 	const attachmentsRef = useRef<LocalAttachment[]>([]);
 	const uploadingAttachmentByIdRef = useRef(new Map<string, Promise<ChatAttachment | null>>());
 	const [submitting, setSubmitting] = useState(false);
+	const submittingRef = useRef(false);
 	const rawAvailableProviders = providerCatalogs(sessionSnapshot);
 	const providerCatalogKey = providerCatalogSignature(rawAvailableProviders);
 	const stableAvailableProvidersRef = useRef({
@@ -127,16 +128,6 @@ export function useChatComposer({
 			useComposerDraftStore.getState().clearDraft(targetSessionId);
 		}
 	}, [parts]);
-
-	useEffect(() => {
-		if (previousSessionIdRef.current === sessionId) return;
-
-		previousSessionIdRef.current = sessionId;
-		attachmentsRef.current = [];
-		setParts(useComposerDraftStore.getState().getDraft(sessionId));
-		setAttachments([]);
-		setSubmitting(false);
-	}, [sessionId]);
 
 	const addFiles = useCallback((files: File[]) => {
 		const remaining = Math.max(MAX_ATTACHMENTS - attachmentsRef.current.length, 0);
@@ -208,18 +199,50 @@ export function useChatComposer({
 		[workspaceId],
 	);
 
+	const cleanupUnsubmittedAttachments = useCallback(
+		(items: LocalAttachment[]) => {
+			if (submittingRef.current) return;
+			for (const attachment of items) {
+				if (attachment.uploaded) {
+					deleteUnsubmittedUpload(attachment.uploaded);
+					continue;
+				}
+
+				const inFlightUpload = uploadingAttachmentByIdRef.current.get(attachment.id);
+				if (!inFlightUpload) continue;
+				void inFlightUpload
+					.then((uploadedAttachment) => {
+						if (uploadedAttachment && !submittingRef.current)
+							deleteUnsubmittedUpload(uploadedAttachment);
+					})
+					.catch(() => undefined);
+			}
+		},
+		[deleteUnsubmittedUpload],
+	);
+
+	useEffect(() => {
+		if (previousSessionIdRef.current === sessionId) return;
+
+		cleanupUnsubmittedAttachments(attachmentsRef.current);
+		previousSessionIdRef.current = sessionId;
+		attachmentsRef.current = [];
+		setParts(useComposerDraftStore.getState().getDraft(sessionId));
+		setAttachments([]);
+		setSubmitting(false);
+		submittingRef.current = false;
+	}, [cleanupUnsubmittedAttachments, sessionId]);
+
 	useEffect(() => {
 		return () => {
-			for (const attachment of attachmentsRef.current) {
-				if (attachment.uploaded) deleteUnsubmittedUpload(attachment.uploaded);
-			}
+			cleanupUnsubmittedAttachments(attachmentsRef.current);
 		};
-	}, [deleteUnsubmittedUpload]);
+	}, [cleanupUnsubmittedAttachments]);
 
 	const removeAttachment = useCallback(
 		(attachmentId: string) => {
 			const removedAttachment = attachmentsRef.current.find((item) => item.id === attachmentId);
-			if (removedAttachment?.uploaded) deleteUnsubmittedUpload(removedAttachment.uploaded);
+			if (removedAttachment) cleanupUnsubmittedAttachments([removedAttachment]);
 			attachmentsRef.current = attachmentsRef.current.filter((item) => item.id !== attachmentId);
 			setAttachments(attachmentsRef.current);
 			setParts((current) =>
@@ -230,7 +253,7 @@ export function useChatComposer({
 				),
 			);
 		},
-		[deleteUnsubmittedUpload],
+		[cleanupUnsubmittedAttachments],
 	);
 
 	const changeProvider = useCallback(
@@ -263,6 +286,7 @@ export function useChatComposer({
 
 	const submit = useCallback(async () => {
 		if (!canSubmit || !model) return;
+		submittingRef.current = true;
 		setSubmitting(true);
 		try {
 			const visibleAttachmentIds = new Set(
@@ -333,6 +357,7 @@ export function useChatComposer({
 			const message = error instanceof Error ? error.message : 'Could not send message';
 			toast.error(message);
 		} finally {
+			submittingRef.current = false;
 			setSubmitting(false);
 		}
 	}, [

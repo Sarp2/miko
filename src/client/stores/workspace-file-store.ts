@@ -31,6 +31,11 @@ interface WorkspaceFileStoreState {
 	pastedTextFileByKey: Map<string, WorkspaceFileResource>;
 	attachmentFileByKey: Map<string, WorkspaceFileResource>;
 	getFileResource: (workspaceId: string, path: string) => WorkspaceFileResource;
+	getExternalFileResource: (
+		workspaceId: string,
+		sessionId: string,
+		path: string,
+	) => WorkspaceFileResource;
 	getDiffResource: (workspaceId: string, path: string) => WorkspaceDiffResource;
 	getPastedTextResource: (workspaceId: string, sourceId: string) => WorkspaceFileResource;
 	setPastedTextFile: (workspaceId: string, sourceId: string, text: string) => void;
@@ -119,6 +124,10 @@ function pruneResourceMap<TKey, TValue extends { status: WorkspaceResourceStatus
 
 function resourceKey(workspaceId: string, path: string) {
 	return JSON.stringify([workspaceId, path]);
+}
+
+function externalResourceKey(workspaceId: string, sessionId: string, path: string) {
+	return JSON.stringify([workspaceId, 'external', sessionId, path]);
 }
 
 function errorMessage(error: unknown) {
@@ -241,6 +250,12 @@ export const useWorkspaceFileStore = create<WorkspaceFileStoreState>((set, get) 
 			return get().fileByKey.get(resourceKey(workspaceId, path)) ?? IDLE_FILE_RESOURCE;
 		},
 
+		getExternalFileResource: (workspaceId, sessionId, path) => {
+			return (
+				get().fileByKey.get(externalResourceKey(workspaceId, sessionId, path)) ?? IDLE_FILE_RESOURCE
+			);
+		},
+
 		getDiffResource: (workspaceId, path) => {
 			return get().diffByKey.get(resourceKey(workspaceId, path)) ?? IDLE_DIFF_RESOURCE;
 		},
@@ -312,7 +327,7 @@ export const useWorkspaceFileStore = create<WorkspaceFileStoreState>((set, get) 
 
 		loadExternalFileContents: async (workspaceId, sessionId, path, options = {}) => {
 			await loadFileInto(
-				resourceKey(workspaceId, path),
+				externalResourceKey(workspaceId, sessionId, path),
 				() => useWorkspaceStore.getState().readExternalFileContents(workspaceId, sessionId, path),
 				options,
 			);

@@ -195,10 +195,14 @@ export async function uploadAttachments(workspaceId: string, attachments: LocalA
 export async function deleteUploadedAttachment(workspaceId: string, attachment: ChatAttachment) {
 	const storedName = attachment.contentUrl.split('/uploads/')[1]?.split('/')[0];
 	if (!storedName) return;
-	await fetch(
+	const response = await fetch(
 		`/api/workspaces/${encodeURIComponent(workspaceId)}/uploads/${encodeURIComponent(decodeURIComponent(storedName))}`,
 		{ method: 'DELETE' },
 	);
+	if (!response.ok) {
+		const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+		throw new Error(payload?.error ?? 'Could not delete uploaded attachment');
+	}
 }
 
 export const DEFAULT_COMPOSER_MODEL_OPTIONS = {

@@ -179,7 +179,8 @@ export function WorkspaceFilePage({
 		(state: ReturnType<typeof useWorkspaceFileStore.getState>) => {
 			if (isWorkspaceFile && resolvedWorkspaceFilePath)
 				return state.getFileResource(workspaceId, resolvedWorkspaceFilePath);
-			if (isExternalFile && path) return state.getFileResource(workspaceId, path);
+			if (isExternalFile && page.sourceSessionId && path)
+				return state.getExternalFileResource(workspaceId, page.sourceSessionId, path);
 			if (pastedTextSourceId) return state.getPastedTextResource(workspaceId, pastedTextSourceId);
 			if (attachmentSourceId) return state.getAttachmentResource(workspaceId, attachmentSourceId);
 			return null;
@@ -188,6 +189,7 @@ export function WorkspaceFilePage({
 			attachmentSourceId,
 			isExternalFile,
 			isWorkspaceFile,
+			page.sourceSessionId,
 			pastedTextSourceId,
 			path,
 			resolvedWorkspaceFilePath,
@@ -268,7 +270,7 @@ export function WorkspaceFilePage({
 
 	if (isExternalFile && !page.sourceSessionId) {
 		return (
-			<WorkspaceCodePageShell path={path ?? page.title} actions={toolbarActions}>
+			<WorkspaceCodePageShell path={path ?? page.title}>
 				<WorkspaceCodePageState
 					title="Preview unavailable"
 					message="This external file is not available from the current session."
