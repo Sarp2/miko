@@ -1,0 +1,32 @@
+src/client/components/transcript-turn.tsx
+  s_85788a13129bf7::t_5c5c81bffcf96f 26,75,97
+  s_85788a13129bf7::t_dbd69c51114fec 31
+  s_85788a13129bf7::t_45b24e283aaad0 20-25,27-30,32,34-41
+src/client/components/messages/tool-line.tsx
+  s_85788a13129bf7::t_45b24e283aaad0 122
+src/client/components/messages/bash-line.tsx
+  s_85788a13129bf7::t_45b24e283aaad0 24
+src/client/components/messages/read-line.tsx
+  s_85788a13129bf7::t_45b24e283aaad0 58,80
+src/client/components/workspace-action-button.tsx
+  s_85788a13129bf7::t_b71f6c1593a7ca 10,33-36,50-52,55-71,90,115,140-141,150,156
+  s_85788a13129bf7::t_5ce4e2a81f0c38 153-155
+src/client/components/messages/changed-file-line.tsx
+  s_85788a13129bf7::t_45b24e283aaad0 55,92
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "c19835049041177b5c705437f1752418b6135caf",
+  "prompts": {},
+  "sessions": {
+    "s_85788a13129bf7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ecbe7-9667-7663-b230-74a1c17dfc92",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
