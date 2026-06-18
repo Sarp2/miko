@@ -1,0 +1,26 @@
+src/client/stores/ui-store.ts
+  s_82e93de1bb8ac8::t_6e089381d45a41 626
+src/client/components/ui/switch.tsx
+  s_82e93de1bb8ac8::t_9fdc88c016fa0c 18
+  s_82e93de1bb8ac8::t_e82bbe4f9c8286 25
+src/client/routes/settings-route.tsx
+  s_82e93de1bb8ac8::t_02afb61fe0af93 344,358,365-369,428,461,485
+src/server/event-store.ts
+  s_82e93de1bb8ac8::t_b0900ee38354a0 452,592
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "aa8aea67e1cad1e49f8808ba55021c26d9db9117",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
