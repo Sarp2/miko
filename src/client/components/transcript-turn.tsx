@@ -17,10 +17,28 @@ function ActivityList({
 }) {
 	return (
 		<>
-			{activity.map((item) => {
-				if (item.kind === 'tool') return <ToolLine key={item.id} tool={item} context={context} />;
+			{activity.map((item, index) => {
+				const previous = activity[index - 1];
+				const boundaryClassName =
+					previous &&
+					((previous.kind === 'tool' && item.kind === 'assistant_text') ||
+						(previous.kind === 'assistant_text' && item.kind === 'tool'))
+						? 'mt-3'
+						: undefined;
+
+				if (item.kind === 'tool')
+					return (
+						<ToolLine key={item.id} tool={item} context={context} className={boundaryClassName} />
+					);
 				if (item.kind === 'assistant_text')
-					return <AssistantText key={item.id} text={item.text} mode="markdown" className="py-1" />;
+					return (
+						<AssistantText
+							key={item.id}
+							text={item.text}
+							mode="markdown"
+							className={boundaryClassName}
+						/>
+					);
 				return null;
 			})}
 		</>
@@ -54,7 +72,7 @@ function TurnActivity({ turn, context }: { turn: TranscriptTurn; context: ToolLi
 					))}
 				</span>
 			</CollapsibleTrigger>
-			<CollapsibleContent className="mt-1.5 ml-[7px] flex flex-col border-l border-hairline pl-3">
+			<CollapsibleContent className="mt-2.5 ml-[7px] flex flex-col border-l border-hairline pl-3">
 				<ActivityList activity={turn.activity} context={context} />
 			</CollapsibleContent>
 		</Collapsible>
@@ -76,7 +94,7 @@ export function TranscriptTurnView({
 	const context: ToolLineContext = { sessionId, workspaceId, workspaceRoot, turnId: turn.id };
 
 	return (
-		<div className="flex flex-col gap-2">
+		<div className="flex flex-col gap-3.5">
 			{turn.activity.length > 0 ? <TurnActivity turn={turn} context={context} /> : null}
 
 			{turn.finalText ? <AssistantText text={turn.finalText.text} mode="markdown" /> : null}

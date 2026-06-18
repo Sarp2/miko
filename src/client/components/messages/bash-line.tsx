@@ -21,7 +21,7 @@ export function BashLine({ tool, className }: { tool: BashMessage; className?: s
 	const command = tool.input.command?.trim();
 
 	return (
-		<div className={cn('flex items-center gap-2 py-1 text-body-sm', className)}>
+		<div className={cn('flex items-center gap-2 py-1 text-body-sm leading-5', className)}>
 			<span className="shrink-0">
 				<BashStatusIcon tool={tool} />
 			</span>

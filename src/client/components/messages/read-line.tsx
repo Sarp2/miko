@@ -55,7 +55,7 @@ export function ReadLine({
 
 	if (!name)
 		return (
-			<div className={cn('flex items-center gap-2 py-1 text-body-sm', className)}>
+			<div className={cn('flex items-center gap-2 py-1 text-body-sm leading-5', className)}>
 				<span className="shrink-0">
 					<ReadStatusIcon tool={tool} />
 				</span>
@@ -77,7 +77,7 @@ export function ReadLine({
 	};
 
 	return (
-		<div className={cn('flex items-center gap-2 py-1 text-body-sm', className)}>
+		<div className={cn('flex items-center gap-2 py-1 text-body-sm leading-5', className)}>
 			<span className="shrink-0">
 				<ReadStatusIcon tool={tool} />
 			</span>

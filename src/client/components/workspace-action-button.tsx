@@ -7,6 +7,7 @@ import {
 	GitPullRequest,
 	WarningCircle,
 } from '@phosphor-icons/react';
+import { useState } from 'react';
 import { Icons } from '../lib/icons';
 import { cn } from '../lib/utils';
 import type { WorkspacePrimaryAction } from '../lib/workspace-condition';
@@ -29,6 +30,10 @@ function WorkspaceActionIcon({ action }: { action: WorkspacePrimaryAction }) {
 	return null;
 }
 
+function usesLocalPendingState(action: WorkspacePrimaryAction) {
+	return action.kind === 'merge' || action.kind === 'mark_pr_ready' || action.kind === 'archive';
+}
+
 export function WorkspaceActionButton({
 	action,
 	className,
@@ -42,7 +47,27 @@ export function WorkspaceActionButton({
 	manualCreatePrUrl?: string;
 	onPrimaryAction?: (action: WorkspacePrimaryAction) => void | Promise<void>;
 }) {
+	const [pendingActionKind, setPendingActionKind] = useState<WorkspacePrimaryAction['kind'] | null>(
+		null,
+	);
 	if (!action) return null;
+
+	const isPending = pendingActionKind === action.kind;
+	const isDisabled = disabled || isPending;
+	const runPrimaryAction = async () => {
+		if (isDisabled) return;
+		if (!usesLocalPendingState(action)) {
+			await onPrimaryAction?.(action);
+			return;
+		}
+
+		setPendingActionKind(action.kind);
+		try {
+			await onPrimaryAction?.(action);
+		} finally {
+			setPendingActionKind(null);
+		}
+	};
 
 	if (action.kind === 'active') {
 		return Icons.activeIcon({ className: cn('size-3.5', className) });
@@ -62,7 +87,7 @@ export function WorkspaceActionButton({
 						disabled={disabled}
 						className="inline-flex min-w-0 cursor-pointer items-center gap-1 px-1.5 outline-none transition-colors hover:bg-surface-3 focus-visible:bg-surface-3 disabled:pointer-events-none disabled:opacity-50"
 						onClick={() => {
-							void onPrimaryAction?.(action);
+							void runPrimaryAction();
 						}}
 					>
 						<GitPullRequest className="size-3 shrink-0" />
@@ -87,7 +112,7 @@ export function WorkspaceActionButton({
 						className="cursor-pointer rounded-md px-1.5 py-0.5 text-[11.5px] font-medium leading-5 text-ink focus:bg-surface-2 focus:text-ink"
 						disabled={disabled}
 						onSelect={() => {
-							void onPrimaryAction?.(action);
+							void runPrimaryAction();
 						}}
 					>
 						<GitPullRequest className="size-3 text-ink-muted" />
@@ -112,7 +137,8 @@ export function WorkspaceActionButton({
 	return (
 		<button
 			type="button"
-			disabled={disabled}
+			disabled={isDisabled}
+			aria-busy={isPending}
 			className={cn(
 				'inline-flex h-6 max-w-full cursor-pointer items-center gap-1 overflow-hidden rounded-md border border-hairline bg-surface-2 px-1.5 text-[11px] font-medium leading-4 text-ink outline-none transition-colors hover:bg-surface-3 focus-visible:bg-surface-3 disabled:pointer-events-none disabled:opacity-50',
 				action.kind === 'merge' &&
@@ -121,10 +147,13 @@ export function WorkspaceActionButton({
 				className,
 			)}
 			onClick={() => {
-				void onPrimaryAction?.(action);
+				void runPrimaryAction();
 			}}
 		>
-			<WorkspaceActionIcon action={action} />
+			{isPending
+				? Icons.activeIcon({ ariaLabel: `${action.label} pending`, className: 'size-3' })
+				: null}
+			{isPending ? null : <WorkspaceActionIcon action={action} />}
 			<span className="truncate">{action.label}</span>
 		</button>
 	);
