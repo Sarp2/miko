@@ -119,7 +119,7 @@ export function ToolLine({
 	const { name, detail } = toolParts(tool);
 
 	return (
-		<div className={cn('flex items-center gap-2 py-1 text-body-sm', className)}>
+		<div className={cn('flex items-center gap-2 py-1 text-body-sm leading-5', className)}>
 			<span className="shrink-0">
 				<ToolStatusIcon tool={tool} />
 			</span>
