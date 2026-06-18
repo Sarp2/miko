@@ -1,5 +1,5 @@
 import { existsSync, readFileSync as readFileSyncImmediate } from 'node:fs';
-import { appendFile, mkdir } from 'node:fs/promises';
+import { appendFile, mkdir, rm } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { getDataDir, LOG_PREFIX } from 'src/shared/branding';
@@ -424,6 +424,41 @@ export class EventStore {
 		return path.join(this.transcriptsDir, `${sessionId}.jsonl`);
 	}
 
+	private workspaceUploadDir(workspaceId: string) {
+		return path.join(this.dataDir, 'uploads', workspaceId);
+	}
+
+	private scratchpadPath(workspaceId: string) {
+		return path.join(this.dataDir, 'scratchpads', `${workspaceId}.md`);
+	}
+
+	private workspaceInstructionAttachmentPaths(workspaceId: string) {
+		const instructionsDir = path.join(this.dataDir, 'agent-instructions');
+		return [
+			path.join(instructionsDir, `create-pr-${workspaceId}.md`),
+			path.join(instructionsDir, `failing-ci-${workspaceId}.txt`),
+			path.join(instructionsDir, `merge-conflict-${workspaceId}.md`),
+			path.join(instructionsDir, `selected-review-comments-${workspaceId}.txt`),
+		];
+	}
+
+	private async deleteSessionData(sessionId: string) {
+		if (this.cachedTranscript?.sessionId === sessionId) {
+			this.cachedTranscript = null;
+		}
+		await rm(this.transcriptPath(sessionId), { force: true });
+	}
+
+	private async deleteWorkspaceOwnedData(workspaceId: string) {
+		await Promise.all([
+			rm(this.workspaceUploadDir(workspaceId), { recursive: true, force: true }),
+			rm(this.scratchpadPath(workspaceId), { force: true }),
+			...this.workspaceInstructionAttachmentPaths(workspaceId).map((filePath) =>
+				rm(filePath, { force: true }),
+			),
+		]);
+	}
+
 	private loadTranscriptFromDisk(sessionId: string) {
 		const transcriptPath = this.transcriptPath(sessionId);
 		if (!existsSync(transcriptPath)) return [];
@@ -497,6 +532,10 @@ export class EventStore {
 
 	async removeDirectory(directoryId: string) {
 		this.requireDirectory(directoryId);
+		const workspaces = this.listWorkspacesByDirectory(directoryId);
+		for (const workspace of workspaces) {
+			await this.removeWorkspace(workspace.id);
+		}
 		const event: DirectoryEvent = {
 			type: 'directory_removed',
 			timestamp: Date.now(),
@@ -539,6 +578,10 @@ export class EventStore {
 
 	async removeWorkspace(workspaceId: string) {
 		this.requireWorkspace(workspaceId);
+		const sessions = this.listSessionsByWorkspace(workspaceId);
+		for (const session of sessions) {
+			await this.removeSession(session.id);
+		}
 		const event: WorkspaceEvent = {
 			type: 'workspace_removed',
 			timestamp: Date.now(),
@@ -546,6 +589,7 @@ export class EventStore {
 		};
 
 		await this.append(this.workspacesLogPath, event);
+		await this.deleteWorkspaceOwnedData(workspaceId);
 	}
 
 	async markWorkspaceSetupCompleted(workspaceId: string) {
@@ -706,6 +750,7 @@ export class EventStore {
 		};
 
 		await this.append(this.sessionsLogPath, event);
+		await this.deleteSessionData(sessionId);
 	}
 
 	async setSessionProvider(sessionId: string, provider: AgentProvider) {

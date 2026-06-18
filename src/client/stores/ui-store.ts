@@ -110,11 +110,29 @@ interface UiStoreState extends PersistedUiState {
 	setActiveTerminal: (workspaceId: string, terminalId: string) => void;
 	closeTerminalTab: (workspaceId: string, terminalId: string) => void;
 	removeWorkspaceUi: (workspaceId: string) => void;
+	resetLocalUiState: () => void;
 }
 
 const DEFAULT_LEFT_SIDEBAR_WIDTH = 292;
 const DEFAULT_TERMINAL_HEIGHT = 260;
 const DEFAULT_EXTERNAL_OPEN_APP: ExternalOpenApp = 'finder';
+const DEFAULT_UI_STATE: PersistedUiState = {
+	leftSidebarCollapsed: false,
+	leftSidebarWidth: DEFAULT_LEFT_SIDEBAR_WIDTH,
+	externalOpenApp: DEFAULT_EXTERNAL_OPEN_APP,
+	expandedDirectoryIds: [],
+	pinnedWorkspaceIds: [],
+	sidebarDirectorySort: 'updated',
+	sidebarWorkspaceSort: 'updated',
+	rightSidebarTabByWorkspaceId: {},
+	middleTabsByWorkspaceId: {},
+	activeTabIdByWorkspaceId: {},
+	terminalPanelByWorkspaceId: {},
+	terminalTabsByWorkspaceId: {},
+	activeTerminalIdByWorkspaceId: {},
+	diffViewModeByWorkspaceId: {},
+	viewedDiffDigestByWorkspaceId: {},
+};
 
 export function scratchpadTabId(workspaceId: string) {
 	return `scratchpad:${workspaceId}`;
@@ -290,21 +308,7 @@ function clampPanelSize(value: number, min: number, max: number) {
 export const useUiStore = create<UiStoreState>()(
 	persist(
 		(set, get) => ({
-			leftSidebarCollapsed: false,
-			leftSidebarWidth: DEFAULT_LEFT_SIDEBAR_WIDTH,
-			externalOpenApp: DEFAULT_EXTERNAL_OPEN_APP,
-			expandedDirectoryIds: [],
-			pinnedWorkspaceIds: [],
-			sidebarDirectorySort: 'updated',
-			sidebarWorkspaceSort: 'updated',
-			rightSidebarTabByWorkspaceId: {},
-			middleTabsByWorkspaceId: {},
-			activeTabIdByWorkspaceId: {},
-			terminalPanelByWorkspaceId: {},
-			terminalTabsByWorkspaceId: {},
-			activeTerminalIdByWorkspaceId: {},
-			diffViewModeByWorkspaceId: {},
-			viewedDiffDigestByWorkspaceId: {},
+			...DEFAULT_UI_STATE,
 
 			getRightSidebarTab: (workspaceId) => {
 				return get().rightSidebarTabByWorkspaceId[workspaceId] ?? 'all_files';
@@ -616,6 +620,10 @@ export const useUiStore = create<UiStoreState>()(
 					),
 					pinnedWorkspaceIds: state.pinnedWorkspaceIds.filter((id) => id !== workspaceId),
 				}));
+			},
+
+			resetLocalUiState: () => {
+				set(structuredClone(DEFAULT_UI_STATE));
 			},
 		}),
 		{
