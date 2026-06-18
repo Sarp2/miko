@@ -1,0 +1,25 @@
+src/client/lib/workspace-header-view-model.test.ts
+  s_85788a13129bf7::t_9e83a6f5123387 10,116-156
+src/client/lib/workspace-header-view-model.ts
+  s_85788a13129bf7::t_9e83a6f5123387 15-19,32-47
+src/client/components/workspace-stage-badge.tsx
+  s_85788a13129bf7::t_9e83a6f5123387 1-61
+src/client/components/workspace-header/workspace-header.tsx
+  s_85788a13129bf7::t_9e83a6f5123387 6-11,25,69-70,153-159
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "0236496ae6041ebafcd622ed7199eb053c1097b6",
+  "prompts": {},
+  "sessions": {
+    "s_85788a13129bf7": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ecbe7-9667-7663-b230-74a1c17dfc92",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
