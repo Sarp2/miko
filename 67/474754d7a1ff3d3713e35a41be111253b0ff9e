@@ -1,0 +1,19 @@
+src/client/routes/settings-route.tsx
+  s_82e93de1bb8ac8::t_837dba90b49a28 357-375,384,393,404,445,478,484,502
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "67474754d7a1ff3d3713e35a41be111253b0ff9e",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
