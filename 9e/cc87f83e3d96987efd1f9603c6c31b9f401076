@@ -1,0 +1,31 @@
+src/client/components/workspace-file-page.tsx
+  s_82e93de1bb8ac8::t_098f627818c30b 182-183,192,273
+src/client/components/chat-composer/chat-composer-utils.ts
+  s_82e93de1bb8ac8::t_d3afbc8448b3b7 198,202-205
+src/client/stores/workspace-file-store.ts
+  s_82e93de1bb8ac8::t_36529f38771829 34-38,129-132,253,330
+  s_82e93de1bb8ac8::t_9d7bc649bbd65d 254-256
+src/client/stores/workspace-file-store.test.ts
+  s_82e93de1bb8ac8::t_3dfc4fe5386652 139,146-157
+src/client/hooks/use-chat-composer.ts
+  s_82e93de1bb8ac8::t_06cc6e2cdc325b 202-223,227,234-235,238,240,245,256
+  s_82e93de1bb8ac8::t_60588ec3ba747a 224-226,228-233
+  s_82e93de1bb8ac8::t_a57554786040bc 64,289
+  s_82e93de1bb8ac8::t_72d1e09d90eab2 360
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "9ecc87f83e3d96987efd1f9603c6c31b9f401076",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
