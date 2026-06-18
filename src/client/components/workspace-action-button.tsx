@@ -52,7 +52,7 @@ export function WorkspaceActionButton({
 	);
 	if (!action) return null;
 
-	const isPending = pendingActionKind === action.kind;
+	const isPending = pendingActionKind !== null;
 	const isDisabled = disabled || isPending;
 	const runPrimaryAction = async () => {
 		if (isDisabled) return;
@@ -84,7 +84,7 @@ export function WorkspaceActionButton({
 				>
 					<button
 						type="button"
-						disabled={disabled}
+						disabled={isDisabled}
 						className="inline-flex min-w-0 cursor-pointer items-center gap-1 px-1.5 outline-none transition-colors hover:bg-surface-3 focus-visible:bg-surface-3 disabled:pointer-events-none disabled:opacity-50"
 						onClick={() => {
 							void runPrimaryAction();
@@ -97,7 +97,8 @@ export function WorkspaceActionButton({
 						<button
 							type="button"
 							aria-label={`${action.label} options`}
-							className="flex w-6 shrink-0 cursor-pointer items-center justify-center border-l border-hairline text-ink-subtle outline-none transition-colors hover:bg-surface-3 hover:text-ink focus-visible:bg-surface-3 focus-visible:text-ink"
+							disabled={isDisabled}
+							className="flex w-6 shrink-0 cursor-pointer items-center justify-center border-l border-hairline text-ink-subtle outline-none transition-colors hover:bg-surface-3 hover:text-ink focus-visible:bg-surface-3 focus-visible:text-ink disabled:pointer-events-none disabled:opacity-50"
 						>
 							<CaretDown className="size-2.5" />
 						</button>
@@ -110,7 +111,7 @@ export function WorkspaceActionButton({
 				>
 					<DropdownMenuItem
 						className="cursor-pointer rounded-md px-1.5 py-0.5 text-[11.5px] font-medium leading-5 text-ink focus:bg-surface-2 focus:text-ink"
-						disabled={disabled}
+						disabled={isDisabled}
 						onSelect={() => {
 							void runPrimaryAction();
 						}}
@@ -120,7 +121,7 @@ export function WorkspaceActionButton({
 					</DropdownMenuItem>
 					<DropdownMenuItem
 						className="cursor-pointer rounded-md px-1.5 py-0.5 text-[11.5px] font-medium leading-5 text-ink focus:bg-surface-2 focus:text-ink"
-						disabled={!manualCreatePrUrl}
+						disabled={isDisabled || !manualCreatePrUrl}
 						onSelect={() => {
 							if (!manualCreatePrUrl) return;
 							window.open(manualCreatePrUrl, '_blank', 'noopener,noreferrer');
