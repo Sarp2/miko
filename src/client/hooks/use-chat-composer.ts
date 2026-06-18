@@ -62,6 +62,7 @@ export function useChatComposer({
 	const uploadingAttachmentByIdRef = useRef(new Map<string, Promise<ChatAttachment | null>>());
 	const [submitting, setSubmitting] = useState(false);
 	const submittingRef = useRef(false);
+	const submittingAttachmentIdsRef = useRef(new Set<string>());
 	const rawAvailableProviders = providerCatalogs(sessionSnapshot);
 	const providerCatalogKey = providerCatalogSignature(rawAvailableProviders);
 	const stableAvailableProvidersRef = useRef({
@@ -201,8 +202,9 @@ export function useChatComposer({
 
 	const cleanupUnsubmittedAttachments = useCallback(
 		(items: LocalAttachment[]) => {
-			if (submittingRef.current) return;
+			const submittedAttachmentIds = submittingAttachmentIdsRef.current;
 			for (const attachment of items) {
+				if (submittingRef.current && submittedAttachmentIds.has(attachment.id)) continue;
 				if (attachment.uploaded) {
 					deleteUnsubmittedUpload(attachment.uploaded);
 					continue;
@@ -212,8 +214,9 @@ export function useChatComposer({
 				if (!inFlightUpload) continue;
 				void inFlightUpload
 					.then((uploadedAttachment) => {
-						if (uploadedAttachment && !submittingRef.current)
-							deleteUnsubmittedUpload(uploadedAttachment);
+						if (!uploadedAttachment) return;
+						if (submittingRef.current && submittedAttachmentIds.has(attachment.id)) return;
+						deleteUnsubmittedUpload(uploadedAttachment);
 					})
 					.catch(() => undefined);
 			}
@@ -295,6 +298,9 @@ export function useChatComposer({
 			const visibleAttachments = attachments.filter((attachment) =>
 				visibleAttachmentIds.has(attachment.id),
 			);
+			submittingAttachmentIdsRef.current = new Set(
+				visibleAttachments.map((attachment) => attachment.id),
+			);
 			const uploadedAttachmentByLocalId = new Map<string, ChatAttachment>();
 			for (const attachment of visibleAttachments) {
 				if (attachment.uploaded)
@@ -354,10 +360,13 @@ export function useChatComposer({
 			attachmentsRef.current = [];
 			setAttachments([]);
 		} catch (error) {
+			submittingRef.current = false;
+			cleanupUnsubmittedAttachments(attachmentsRef.current);
 			const message = error instanceof Error ? error.message : 'Could not send message';
 			toast.error(message);
 		} finally {
 			submittingRef.current = false;
+			submittingAttachmentIdsRef.current = new Set();
 			setSubmitting(false);
 		}
 	}, [
@@ -368,6 +377,7 @@ export function useChatComposer({
 		codexFastMode,
 		codexReasoningEffort,
 		parts,
+		cleanupUnsubmittedAttachments,
 		markAttachmentsUploaded,
 		model,
 		planMode,
