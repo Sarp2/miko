@@ -7,7 +7,7 @@ const MIKO_DIFF_THEME = {
 	name: 'miko-dark',
 	type: 'dark' as const,
 	colors: {
-		'editor.background': '#111112',
+		'editor.background': '#070707',
 		'editor.foreground': '#f4f4f5',
 	},
 	tokenColors: [
@@ -61,8 +61,8 @@ export function ensureMikoDiffTheme() {
 
 export const MIKO_CODE_FONT_VARS = {
 	'--diffs-font-family': 'var(--font-mono)',
-	'--diffs-font-size': '12px',
-	'--diffs-line-height': '1.6',
+	'--diffs-font-size': '13px',
+	'--diffs-line-height': '1.55',
 	'--diffs-header-font-family': 'var(--font-sans)',
 	'--diffs-font-features': 'normal',
 } as CSSProperties;

@@ -90,8 +90,8 @@ function ToolbarSegment({
 export function WorkspaceCodeToolbar({ actions, path }: { actions?: ReactNode; path: string }) {
 	return (
 		<div className="flex min-w-0 items-center justify-between gap-2 border-b border-hairline px-3 py-1.5">
-			<div className="flex min-w-0 items-center gap-1.5 font-mono text-[10.5px] text-ink-subtle">
-				<FileNameIcon name={path} className="size-3 shrink-0 text-ink-subtle" />
+			<div className="flex min-w-0 items-center gap-1.5 font-mono text-[11px] text-ink-muted">
+				<FileNameIcon name={path} className="size-3.5 shrink-0 text-ink-subtle" />
 				<span className="truncate">{path}</span>
 			</div>
 			{actions ? <div className="flex shrink-0 items-center gap-1.5">{actions}</div> : null}
