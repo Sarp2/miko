@@ -1,0 +1,31 @@
+src/client/components/workspace-diff-page.tsx
+  s_1278913cf0af38::t_a19ab7585ca43b 76
+  s_1278913cf0af38::t_9853dfba918305 68
+src/client/components/workspace-file-page.tsx
+  s_1278913cf0af38::t_a085f70f9a644d 74
+  s_1278913cf0af38::t_63ec7556eaad21 37
+  s_1278913cf0af38::t_e2f447ee1be394 45
+  s_1278913cf0af38::t_203074e8eec86e 109
+  s_1278913cf0af38::t_0f810f78d71efc 115,118
+src/client/lib/miko-diff-renderer.ts
+  s_1278913cf0af38::t_6aacc6fdf5858d 64-65
+  s_1278913cf0af38::t_07ef330eb9c672 10
+src/client/components/workspace-code-toolbar.tsx
+  s_1278913cf0af38::t_a17875187a3d2d 93-94
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "547b738f12c1d3f3e24ba84a6e3000e553357286",
+  "prompts": {},
+  "sessions": {
+    "s_1278913cf0af38": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e6540ce6-2135-4aba-a038-90cb6e877ff7",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
