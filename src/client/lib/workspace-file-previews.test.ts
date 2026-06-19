@@ -70,6 +70,15 @@ test('detects agent instruction paths from stale workspace-file routes', () => {
 		contentUrl: '/api/agent-instructions/create-pr-workspace-1.md/content',
 	});
 
+	expect(
+		agentInstructionContentUrlFromPath(
+			'Users/sarp/.miko-dev/data/agent-instructions/review-workspace-1.md',
+		),
+	).toEqual({
+		fileName: 'review-workspace-1.md',
+		contentUrl: '/api/agent-instructions/review-workspace-1.md/content',
+	});
+
 	expect(agentInstructionContentUrlFromPath('/tmp/not-agent-instructions/notes.md')).toBeNull();
 	expect(agentInstructionContentUrlFromPath('agent-instructions/create-pr-guide.md')).toBeNull();
 	expect(

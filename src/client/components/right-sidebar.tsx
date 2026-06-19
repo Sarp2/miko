@@ -240,7 +240,7 @@ export function RightSidebar({ workspaceId }: RightSidebarProps) {
 				collapsible="none"
 				position="inline"
 				className={cn(
-					'bg-surface-1 p-0 text-ink',
+					'border-l border-hairline bg-surface-1 p-0 text-ink',
 					!isResizing && 'transition-[width] duration-150 ease-out',
 				)}
 				aria-label="Workspace detail sidebar"
