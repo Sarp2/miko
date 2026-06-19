@@ -1,0 +1,30 @@
+src/client/components/right-sidebar.tsx
+  s_82e93de1bb8ac8::t_16fe33268d2a0c 306
+  s_82e93de1bb8ac8::t_d53154caec5456 327-330
+src/server/ws-router.test.ts
+  s_82e93de1bb8ac8::t_a3d9f45626853e 1143-1173
+  s_82e93de1bb8ac8::t_a2c32bbcb81c66 1090-1142
+src/client/components/right-sidebar-terminal-panel.tsx
+  s_82e93de1bb8ac8::t_d53154caec5456 5,20,30-33,52,54,69,85-86,91,120,155,198,207-216
+src/server/ws-router.ts
+  s_82e93de1bb8ac8::t_a391ffc47b814d 669,676
+  s_82e93de1bb8ac8::t_d53154caec5456 899
+src/client/components/right-sidebar-all-files.tsx
+  s_82e93de1bb8ac8::t_a391ffc47b814d 4,14,110,118,120-136
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "ca1e6f7b80f00ab94643243ab29abe023967cd98",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
