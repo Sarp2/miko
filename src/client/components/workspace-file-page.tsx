@@ -34,7 +34,7 @@ function WorkspaceCodePageShell({
 	return (
 		<div className="flex h-full min-h-0 flex-col bg-canvas text-ink">
 			{path ? <WorkspaceCodeToolbar path={path} actions={actions} /> : null}
-			<div className="scrollbar-miko min-h-0 flex-1 overflow-auto">{children}</div>
+			<div className="scrollbar-miko min-h-0 flex-1 overflow-auto bg-canvas">{children}</div>
 		</div>
 	);
 }
@@ -42,7 +42,7 @@ function WorkspaceCodePageShell({
 function WorkspaceCodePageState({ title, message }: { title: string; message: string }) {
 	return (
 		<div className="flex h-full items-center justify-center px-6 text-center">
-			<div className="max-w-sm rounded-md border border-hairline bg-surface-1 px-3 py-2.5 shadow-sm">
+			<div className="max-w-sm rounded-lg border border-hairline-strong bg-surface-2 px-4 py-3 shadow-sm">
 				<div className="text-[12px] font-medium text-ink">{title}</div>
 				<div className="mt-1 text-[11px] leading-relaxed text-ink-subtle">{message}</div>
 			</div>
@@ -71,7 +71,7 @@ function WorkspaceImagePreview({
 			<img
 				src={file.contentUrl}
 				alt={file.name}
-				className="max-h-full max-w-full rounded-md border border-hairline bg-surface-1 object-contain shadow-sm"
+				className="max-h-full max-w-full rounded-md border border-hairline-strong bg-surface-2 object-contain shadow-sm"
 			/>
 		</div>
 	);
@@ -106,16 +106,16 @@ function WorkspacePlainTextPreview({
 
 	return (
 		<pre
-			className="m-0 grid min-w-max grid-cols-[auto_1fr] bg-canvas font-mono text-[12px] leading-[1.6] text-ink"
+			className="m-0 grid min-w-max grid-cols-[auto_1fr] bg-canvas py-2 font-mono text-[13px] leading-[1.55] text-ink"
 			style={MIKO_CODE_FONT_VARS}
 		>
 			{lines.map((line, index) => (
 				// biome-ignore lint/suspicious/noArrayIndexKey: file viewer lines are static for a loaded cache key.
 				<code key={index} className="contents">
-					<span className="select-none border-r border-hairline bg-surface-1 px-3 text-right text-ink-tertiary">
+					<span className="select-none pl-4 pr-4 text-right text-ink-tertiary tabular-nums">
 						{index + 1}
 					</span>
-					<span className="whitespace-pre px-3 text-ink">{line || ' '}</span>
+					<span className="whitespace-pre pr-4 text-ink">{line || ' '}</span>
 				</code>
 			))}
 		</pre>

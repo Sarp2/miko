@@ -65,7 +65,7 @@ function WorkspaceDiffPageShell({
 					Changes
 				</div>
 			)}
-			<div className="scrollbar-miko min-h-0 flex-1 overflow-auto">{children}</div>
+			<div className="scrollbar-miko min-h-0 flex-1 overflow-auto bg-canvas">{children}</div>
 		</div>
 	);
 }
@@ -73,7 +73,7 @@ function WorkspaceDiffPageShell({
 function WorkspaceDiffPageState({ title, message }: { title: string; message: string }) {
 	return (
 		<div className="flex h-full items-center justify-center px-6 text-center">
-			<div className="max-w-sm rounded-md border border-hairline bg-surface-1 px-3 py-2.5 shadow-sm">
+			<div className="max-w-sm rounded-lg border border-hairline-strong bg-surface-2 px-4 py-3 shadow-sm">
 				<div className="text-[12px] font-medium text-ink">{title}</div>
 				<div className="mt-1 text-[11px] leading-relaxed text-ink-subtle">{message}</div>
 			</div>
