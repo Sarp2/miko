@@ -7,13 +7,13 @@ import type { WorkspaceSnapshot } from '../../shared/types';
 import { MAX_WIDTH, MIN_WIDTH, useSidebarResize } from '../hooks/use-sidebar-resize';
 import { useWorkspacePageOpeners } from '../hooks/use-workspace-page-openers';
 import { rightSidebarStageLabel } from '../lib/right-sidebar-stage';
-import { selectWorkspaceChangeFiles } from '../lib/workspace-diff-files';
 import { cn } from '../lib/utils';
 import {
 	deriveWorkspaceCondition,
 	type WorkspaceCondition,
 	type WorkspacePrimaryAction,
 } from '../lib/workspace-condition';
+import { selectWorkspaceChangeFiles } from '../lib/workspace-diff-files';
 import { type RightSidebarTab, useUiStore } from '../stores/ui-store';
 import { useWorkspaceStore } from '../stores/workspace-store';
 import { RightSidebarAllFiles } from './right-sidebar-all-files';
@@ -56,7 +56,7 @@ function selectActionSessionId(snapshot: WorkspaceSnapshot) {
 function manualCreatePrUrl(snapshot: WorkspaceSnapshot) {
 	const git = snapshot.git;
 	if (!git?.originRepoSlug || !git.defaultBranchName || !git.branchName) return undefined;
-	if ((snapshot.git?.files.length ?? 0) > 0 || git.hasPushedCommits) return undefined;
+	if (git.files.length > 0 || (git.aheadCount ?? 0) > 0 || !git.hasPushedCommits) return undefined;
 	const [owner, repo] = git.originRepoSlug.split('/');
 	if (!owner || !repo) return undefined;
 	return `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/compare/${encodeURIComponent(git.defaultBranchName)}...${encodeURIComponent(git.branchName)}?body=&expand=1`;
@@ -160,6 +160,7 @@ export function RightSidebar({ workspaceId }: RightSidebarProps) {
 	const fixCi = useWorkspaceStore((state) => state.fixCi);
 	const resolveMergeConflicts = useWorkspaceStore((state) => state.resolveMergeConflicts);
 	const markPrReady = useWorkspaceStore((state) => state.markPrReady);
+	const archiveWorkspace = useWorkspaceStore((state) => state.archiveWorkspace);
 	const mergePr = useWorkspaceStore((state) => state.mergePr);
 	const reviewChanges = useWorkspaceStore((state) => state.reviewChanges);
 	const navigate = useNavigate();
@@ -188,6 +189,10 @@ export function RightSidebar({ workspaceId }: RightSidebarProps) {
 		}
 		if (action.kind === 'mark_pr_ready') {
 			await markPrReady(workspaceId);
+			return;
+		}
+		if (action.kind === 'archive') {
+			await archiveWorkspace(workspaceId);
 			return;
 		}
 		if (!actionSessionId) return;

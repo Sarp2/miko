@@ -1,5 +1,9 @@
 import { describe, expect, test } from 'bun:test';
-import type { WorkspaceDiffFile, WorkspaceGitHubSnapshot, WorkspaceSnapshot } from '../../shared/types';
+import type {
+	WorkspaceDiffFile,
+	WorkspaceGitHubSnapshot,
+	WorkspaceSnapshot,
+} from '../../shared/types';
 import { selectWorkspaceChangeFiles } from './workspace-diff-files';
 
 function file(path: string, patchDigest = path): WorkspaceDiffFile {
@@ -60,9 +64,9 @@ function snapshot({
 
 describe('selectWorkspaceChangeFiles', () => {
 	test('uses local dirty files when there is no pull request', () => {
-		expect(selectWorkspaceChangeFiles(snapshot({ localFiles: [file('b.ts')] })).map((item) => item.path)).toEqual([
-			'b.ts',
-		]);
+		expect(
+			selectWorkspaceChangeFiles(snapshot({ localFiles: [file('b.ts')] })).map((item) => item.path),
+		).toEqual(['b.ts']);
 	});
 
 	test('uses PR files for PR workspaces and merges local dirty files deterministically', () => {

@@ -1326,7 +1326,7 @@ export class DiffStore {
 		});
 		const branchEntry = comparisonRef
 			? (await listBranchDiffPaths(repo.repoRoot, comparisonRef)).find(
-					(candidate) => stripTrailingSlash(candidate.path) === relativePath,
+					(candidate) => stripTrailingSlash(candidate.path) === stripTrailingSlash(relativePath),
 				)
 			: null;
 		if (!branchEntry || !comparisonRef)

@@ -314,6 +314,7 @@ export class WorkspaceManager {
 			intent === 'fix_ci' ||
 			intent === 'resolve_merge_conflicts' ||
 			intent === 'address_review_comments' ||
+			intent === 'review' ||
 			workspace.reviewState === 'in_review';
 		if (shouldRefreshPrStage) {
 			try {
@@ -322,7 +323,8 @@ export class WorkspaceManager {
 						intent === 'create_pr' ||
 						intent === 'fix_ci' ||
 						intent === 'resolve_merge_conflicts' ||
-						intent === 'address_review_comments',
+						intent === 'address_review_comments' ||
+						intent === 'review',
 				});
 				changed = prResult.refreshed || changed;
 			} catch (error) {

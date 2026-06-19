@@ -793,13 +793,18 @@ export function createWsRouter({
 						git: diffStore.getWorkspaceGitSnapshot(workspace.id),
 					});
 					const session = await store.createSession(workspace.id);
-					await sendWorkspaceInstruction(
-						command.workspaceId,
-						session.id,
-						'Review the changes in this workspace using the attached instructions.',
-						[attachment],
-						'review',
-					);
+					try {
+						await sendWorkspaceInstruction(
+							command.workspaceId,
+							session.id,
+							'Review the changes in this workspace using the attached instructions.',
+							[attachment],
+							'review',
+						);
+					} catch (error) {
+						await store.removeSession(session.id);
+						throw error;
+					}
 					send(ws, { type: 'ack', id, result: { sessionId: session.id } });
 					break;
 				}

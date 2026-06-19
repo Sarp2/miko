@@ -1,6 +1,7 @@
 import { CaretDown, CaretUp, Plus, X } from '@phosphor-icons/react';
 import type { PointerEvent } from 'react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { toast } from 'sonner';
 import { cn } from '../lib/utils';
 import { useTerminalStore } from '../stores/terminal-store';
 import { useUiStore } from '../stores/ui-store';
@@ -61,9 +62,14 @@ export function RightSidebarTerminalPanel({ workspaceId }: RightSidebarTerminalP
 	}, [createTerminal, openTerminalTab, setTerminalPanelCollapsed, workspaceId]);
 
 	const closeTab = useCallback(
-		(terminalId: string) => {
-			void closeTerminal(terminalId).catch(() => undefined);
-			closeTerminalTab(workspaceId, terminalId);
+		async (terminalId: string) => {
+			try {
+				await closeTerminal(terminalId);
+				closeTerminalTab(workspaceId, terminalId);
+			} catch (error) {
+				console.warn('[right-sidebar-terminal] failed to close terminal', error);
+				toast.error('Could not close terminal');
+			}
 		},
 		[closeTerminal, closeTerminalTab, workspaceId],
 	);
@@ -162,7 +168,9 @@ export function RightSidebarTerminalPanel({ workspaceId }: RightSidebarTerminalP
 								<button
 									type="button"
 									className="ml-1 inline-flex size-4 cursor-pointer items-center justify-center text-ink-subtle opacity-0 focus-visible:opacity-100 group-hover:opacity-100"
-									onClick={() => closeTab(tab.terminalId)}
+									onClick={() => {
+										void closeTab(tab.terminalId);
+									}}
 									aria-label={`Close ${tab.title}`}
 								>
 									<X className="size-2.5" />

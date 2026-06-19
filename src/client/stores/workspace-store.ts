@@ -49,6 +49,7 @@ interface WorkspaceStoreState {
 	fixCi: (workspaceId: string, sessionId: string) => Promise<unknown>;
 	resolveMergeConflicts: (workspaceId: string, sessionId: string) => Promise<unknown>;
 	markPrReady: (workspaceId: string) => Promise<unknown>;
+	archiveWorkspace: (workspaceId: string) => Promise<unknown>;
 	addressReviewComments: (
 		workspaceId: string,
 		sessionId: string,
@@ -335,6 +336,12 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
 
 	markPrReady: (workspaceId) => {
 		return useWsStore.getState().command({ type: 'workspace.markPrReady', workspaceId });
+	},
+
+	archiveWorkspace: (workspaceId) => {
+		return useWsStore
+			.getState()
+			.command({ type: 'workspace.setVisibility', workspaceId, visibilityState: 'archived' });
 	},
 
 	addressReviewComments: (workspaceId, sessionId, commentIds) => {

@@ -116,6 +116,7 @@ interface GitHubPullRequestFile {
 	additions?: number;
 	deletions?: number;
 	patch?: string;
+	patchDigest?: string;
 	previous_filename?: string;
 	previousFilename?: string;
 }
@@ -341,6 +342,7 @@ function normalizePrFileStatus(status: string | undefined): WorkspaceDiffFile['c
 }
 
 function hashPrFile(file: GitHubPullRequestFile, filePath: string) {
+	if (file.patchDigest) return file.patchDigest;
 	return createHash('sha256')
 		.update(
 			[
@@ -692,6 +694,7 @@ export class PrManager {
 				status: file.changeType,
 				additions: file.additions,
 				deletions: file.deletions,
+				patchDigest: file.patchDigest,
 			})),
 			comments: snapshot.comments
 				.filter((comment) => comment.source === 'issue')

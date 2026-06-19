@@ -47,7 +47,7 @@ function selectActionSessionId(snapshot: WorkspaceSnapshot) {
 function manualCreatePrUrl(snapshot: WorkspaceSnapshot) {
 	const git = snapshot.git;
 	if (!git?.originRepoSlug || !git.defaultBranchName || !git.branchName) return undefined;
-	if ((snapshot.git?.files.length ?? 0) > 0 || git.hasPushedCommits) return undefined;
+	if (git.files.length > 0 || (git.aheadCount ?? 0) > 0 || !git.hasPushedCommits) return undefined;
 	const [owner, repo] = git.originRepoSlug.split('/');
 	if (!owner || !repo) return undefined;
 	return `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/compare/${encodeURIComponent(git.defaultBranchName)}...${encodeURIComponent(git.branchName)}?body=&expand=1`;
@@ -68,6 +68,7 @@ export function WorkspaceHeader({ workspaceId, snapshot }: WorkspaceHeaderProps)
 	const fixCi = useWorkspaceStore((state) => state.fixCi);
 	const resolveMergeConflicts = useWorkspaceStore((state) => state.resolveMergeConflicts);
 	const markPrReady = useWorkspaceStore((state) => state.markPrReady);
+	const archiveWorkspace = useWorkspaceStore((state) => state.archiveWorkspace);
 	const mergePr = useWorkspaceStore((state) => state.mergePr);
 
 	const identity = useMemo(() => deriveHeaderIdentity(snapshot), [snapshot]);
@@ -91,6 +92,10 @@ export function WorkspaceHeader({ workspaceId, snapshot }: WorkspaceHeaderProps)
 		}
 		if (action.kind === 'mark_pr_ready') {
 			await markPrReady(workspaceId);
+			return;
+		}
+		if (action.kind === 'archive') {
+			await archiveWorkspace(workspaceId);
 			return;
 		}
 		if (!actionSessionId) return;

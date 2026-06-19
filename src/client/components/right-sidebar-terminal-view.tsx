@@ -70,6 +70,7 @@ export function RightSidebarTerminalView({ terminalId }: RightSidebarTerminalVie
 		const container = containerRef.current;
 		if (!container) return;
 
+		lastSerializedStateRef.current = null;
 		const terminalBackground = cssVariable('--surface-1', '#111112');
 		paintXtermBackground(container, terminalBackground);
 
