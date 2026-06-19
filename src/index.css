@@ -319,6 +319,45 @@
 		background: var(--ink-tertiary);
 		background-clip: content-box;
 	}
+
+	.terminal-miko .xterm,
+	.terminal-miko .xterm-screen,
+	.terminal-miko .xterm-rows,
+	.terminal-miko .xterm-viewport {
+		background-color: var(--surface-1);
+	}
+
+	.terminal-miko canvas {
+		background-color: var(--surface-1);
+	}
+
+	.terminal-miko .xterm .xterm-viewport {
+		background-color: var(--surface-1);
+		scrollbar-color: var(--hairline-tertiary) transparent;
+		scrollbar-width: thin;
+	}
+
+	.terminal-miko .xterm .xterm-viewport::-webkit-scrollbar {
+		width: 8px;
+		height: 8px;
+	}
+
+	.terminal-miko .xterm .xterm-viewport::-webkit-scrollbar-track,
+	.terminal-miko .xterm .xterm-viewport::-webkit-scrollbar-corner {
+		background: transparent;
+	}
+
+	.terminal-miko .xterm .xterm-viewport::-webkit-scrollbar-thumb {
+		background: var(--hairline-tertiary);
+		border: 2px solid transparent;
+		border-radius: var(--radius-pill);
+		background-clip: content-box;
+	}
+
+	.terminal-miko .xterm .xterm-viewport::-webkit-scrollbar-thumb:hover {
+		background: var(--ink-tertiary);
+		background-clip: content-box;
+	}
 }
 
 @media (max-width: 768px) {

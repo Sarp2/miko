@@ -15,6 +15,7 @@ export type WorkspaceConditionStage =
 	| 'pr_open'
 	| 'draft_pr'
 	| 'ci_failed'
+	| 'ci_pending'
 	| 'merge_conflicts'
 	| 'merged'
 	| 'closed'
@@ -103,6 +104,9 @@ function deriveStage(args: {
 				primaryAction: action('resolve_merge_conflicts', 'Resolve conflicts'),
 			};
 		}
+		if (args.isDraft) {
+			return { stage: 'draft_pr', primaryAction: action('mark_pr_ready', 'Mark ready') };
+		}
 		if (args.ciStatus === 'failing') {
 			return { stage: 'ci_failed', primaryAction: action('fix_ci', 'Fix CI') };
 		}
@@ -112,8 +116,8 @@ function deriveStage(args: {
 				primaryAction: action('commit_and_push', 'Commit and push'),
 			};
 		}
-		if (args.isDraft) {
-			return { stage: 'draft_pr', primaryAction: action('mark_pr_ready', 'Mark ready') };
+		if (args.ciStatus === 'pending') {
+			return { stage: 'ci_pending', primaryAction: null };
 		}
 		return { stage: 'pr_open', primaryAction: action('merge', 'Merge') };
 	}
@@ -156,7 +160,7 @@ export function deriveWorkspaceCondition(snapshot: WorkspaceSnapshot): Workspace
 		hasMergeConflicts:
 			snapshot.github?.hasMergeConflicts === true ||
 			snapshot.workspace.pullRequest?.hasMergeConflicts === true,
-		isDraft: snapshot.github?.isDraft ?? snapshot.workspace.pullRequest?.isDraft ?? false,
+		isDraft: snapshot.github?.isDraft === true || snapshot.workspace.pullRequest?.isDraft === true,
 	});
 
 	return {

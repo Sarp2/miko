@@ -317,6 +317,63 @@ describe('EventStore.createWorkspace', () => {
 		expect(store.listWorkspaces()).toEqual([]);
 	});
 
+	test('persists PR observations when only the PR file list changes', async () => {
+		const dataDir = await createTempDataDir();
+		const store = new EventStore(dataDir);
+		await store.initialize();
+		const { workspace } = await createReadyWorkspace(store);
+
+		const basePullRequest = {
+			number: 12,
+			status: 'open' as const,
+			title: 'Add workspace model',
+			url: 'https://github.com/sarp/miko/pull/12',
+			headRefName: 'orion',
+			baseRefName: 'main',
+			ciStatus: 'passing' as const,
+			lastObservedAt: 100,
+		};
+
+		await store.observeWorkspacePullRequest(workspace.id, {
+			...basePullRequest,
+			files: [
+				{
+					path: 'README.md',
+					changeType: 'modified',
+					isUntracked: false,
+					additions: 1,
+					deletions: 0,
+					patchDigest: 'digest-1',
+				},
+			],
+		});
+		await store.observeWorkspacePullRequest(workspace.id, {
+			...basePullRequest,
+			lastObservedAt: 200,
+			files: [
+				{
+					path: 'README.md',
+					changeType: 'modified',
+					isUntracked: false,
+					additions: 2,
+					deletions: 0,
+					patchDigest: 'digest-2',
+				},
+			],
+		});
+
+		expect(store.getWorkspace(workspace.id)?.pullRequest?.files).toEqual([
+			{
+				path: 'README.md',
+				changeType: 'modified',
+				isUntracked: false,
+				additions: 2,
+				deletions: 0,
+				patchDigest: 'digest-2',
+			},
+		]);
+	});
+
 	test('removing a workspace deletes Miko-owned workspace data but leaves the worktree untouched', async () => {
 		const dataDir = await createTempDataDir();
 		const store = new EventStore(dataDir);

@@ -1,6 +1,8 @@
+import { createHash } from 'node:crypto';
 import type {
 	PullRequestCheckSnapshot,
 	PullRequestCommentSnapshot,
+	WorkspaceDiffFile,
 	WorkspaceGitHubSnapshot,
 } from 'src/shared/types';
 import { runCommand } from './diff-store';
@@ -11,6 +13,7 @@ import {
 	GitHubRestClient,
 	type GitHubRestResult,
 } from './github-rest-client';
+import { inferWorkspaceFileContentType } from './uploads';
 
 type GhResult = Awaited<ReturnType<typeof runCommand>>;
 
@@ -103,6 +106,18 @@ interface GitHubPullRequestView {
 	}>;
 	reviewLineComments?: GitHubPullRequestComment[];
 	statusCheckRollup?: GitHubPullRequestCheck[];
+	files?: GitHubPullRequestFile[];
+}
+
+interface GitHubPullRequestFile {
+	path?: string;
+	filename?: string;
+	status?: string;
+	additions?: number;
+	deletions?: number;
+	patch?: string;
+	previous_filename?: string;
+	previousFilename?: string;
 }
 
 interface GitHubRestIssueComment {
@@ -150,6 +165,8 @@ interface GitHubRestCombinedStatus {
 		updated_at?: string;
 	}>;
 }
+
+type GitHubRestPullRequestFile = GitHubPullRequestFile;
 
 function parseJson<T>(value: string): T | null {
 	try {
@@ -315,6 +332,50 @@ function mapComments(pr: GitHubPullRequestView): PullRequestCommentSnapshot[] {
 	return [...mapIssueComments(pr), ...mapReviewComments(pr), ...mapReviewLineComments(pr)];
 }
 
+function normalizePrFileStatus(status: string | undefined): WorkspaceDiffFile['changeType'] {
+	const normalized = status?.toLowerCase();
+	if (normalized === 'added') return 'added';
+	if (normalized === 'removed' || normalized === 'deleted') return 'deleted';
+	if (normalized === 'renamed') return 'renamed';
+	return 'modified';
+}
+
+function hashPrFile(file: GitHubPullRequestFile, filePath: string) {
+	return createHash('sha256')
+		.update(
+			[
+				filePath,
+				file.previous_filename ?? file.previousFilename ?? '',
+				file.status ?? '',
+				String(file.additions ?? 0),
+				String(file.deletions ?? 0),
+				file.patch ?? '',
+			].join('\0'),
+		)
+		.digest('hex');
+}
+
+function mapPrFiles(files: GitHubPullRequestFile[] | undefined): WorkspaceDiffFile[] {
+	return (files ?? [])
+		.flatMap((file) => {
+			const filePath = file.path ?? file.filename;
+			if (!filePath) return [];
+			return {
+				path: filePath,
+				changeType: normalizePrFileStatus(file.status),
+				isUntracked: false,
+				additions: file.additions ?? 0,
+				deletions: file.deletions ?? 0,
+				patchDigest: hashPrFile(file, filePath),
+				mimeType:
+					normalizePrFileStatus(file.status) === 'deleted'
+						? undefined
+						: inferWorkspaceFileContentType(filePath),
+			} satisfies WorkspaceDiffFile;
+		})
+		.sort((left, right) => left.path.localeCompare(right.path));
+}
+
 function mapRestIssueComments(comments: GitHubRestIssueComment[]): PullRequestCommentSnapshot[] {
 	return comments.flatMap((comment, index) => {
 		if (!comment.body) return [];
@@ -406,6 +467,7 @@ function createKnownPrSnapshot(
 		isDraft: pullRequest.isDraft,
 		mergeStateStatus: pullRequest.mergeStateStatus,
 		hasMergeConflicts: pullRequest.hasMergeConflicts,
+		files: pullRequest.files ?? [],
 		comments: [],
 		checks: [],
 		lastRefreshedAt: Date.now(),
@@ -546,7 +608,7 @@ export class PrManager {
 			'--repo',
 			`${owner}/${repo}`,
 			'--json',
-			'number,title,body,url,state,mergeStateStatus,isDraft,headRefName,baseRefName,createdAt,additions,deletions,comments,reviews,statusCheckRollup',
+			'number,title,body,url,state,mergeStateStatus,isDraft,headRefName,baseRefName,createdAt,additions,deletions,files,comments,reviews,statusCheckRollup',
 		]);
 
 		if (result.exitCode !== 0) {
@@ -569,11 +631,12 @@ export class PrManager {
 				? this.snapshotToPullRequestView(this.findSnapshot(owner, repo, prNumber))
 				: detail.data;
 		if (!pr) throw new Error('GitHub PR view returned not modified without a cached snapshot');
-		const [issueComments, reviewComments, lineComments, checks] = await Promise.all([
+		const [issueComments, reviewComments, lineComments, checks, files] = await Promise.all([
 			this.fetchIssueComments(owner, repo, prNumber),
 			this.fetchReviews(owner, repo, prNumber),
 			this.fetchReviewLineComments(owner, repo, prNumber),
 			this.fetchChecks(owner, repo, prNumber, pr.head?.sha ?? pr.headRefName),
+			this.fetchPrFiles(owner, repo, prNumber),
 		]);
 
 		return {
@@ -587,6 +650,7 @@ export class PrManager {
 			reviews: reviewComments,
 			reviewLineComments: lineComments,
 			statusCheckRollup: checks,
+			files,
 		} satisfies GitHubPullRequestView;
 	}
 
@@ -623,6 +687,12 @@ export class PrManager {
 			createdAt: snapshot.createdAt ? new Date(snapshot.createdAt).toISOString() : undefined,
 			additions: snapshot.additions,
 			deletions: snapshot.deletions,
+			files: snapshot.files?.map((file) => ({
+				filename: file.path,
+				status: file.changeType,
+				additions: file.additions,
+				deletions: file.deletions,
+			})),
 			comments: snapshot.comments
 				.filter((comment) => comment.source === 'issue')
 				.map((comment) => ({
@@ -729,6 +799,21 @@ export class PrManager {
 			);
 		}
 		return mapRestReviewLineComments(result.data);
+	}
+
+	private async fetchPrFiles(owner: string, repo: string, prNumber: number) {
+		const result = await this.requestGitHubPages<
+			GitHubRestPullRequestFile[],
+			GitHubRestPullRequestFile
+		>(
+			`pull-files:${owner}/${repo}:${prNumber}`,
+			`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${prNumber}/files?per_page=100`,
+			(page) => page,
+		);
+		if (result.status === 'not_modified') {
+			return this.snapshotToPullRequestView(this.findSnapshot(owner, repo, prNumber))?.files ?? [];
+		}
+		return result.data;
 	}
 
 	private async fetchChecks(
@@ -854,6 +939,7 @@ export class PrManager {
 			unresolvedCommentCount: undefined,
 			additions: detailed?.additions,
 			deletions: detailed?.deletions,
+			files: detailed ? mapPrFiles(detailed.files) : [],
 			comments: detailed ? mapComments(detailed) : [],
 			checks,
 			createdAt,
@@ -873,6 +959,7 @@ export class PrManager {
 				isDraft: snapshot.isDraft,
 				mergeStateStatus: snapshot.mergeStateStatus,
 				hasMergeConflicts: snapshot.hasMergeConflicts,
+				files: snapshot.files,
 				createdAt,
 				lastObservedAt: snapshot.lastRefreshedAt ?? Date.now(),
 			});

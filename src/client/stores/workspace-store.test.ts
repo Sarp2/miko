@@ -230,6 +230,45 @@ describe('useWorkspaceStore.searchFiles', () => {
 	});
 });
 
+describe('useWorkspaceStore.listFiles', () => {
+	test('forwards file list requests and validates response entries', async () => {
+		useWsStore.getState().connect();
+		const socket = FakeWebSocket.instances[0];
+		socket.open();
+
+		const resultPromise = useWorkspaceStore.getState().listFiles('workspace-1', 100);
+		const sent = JSON.parse(socket.sent[0]);
+
+		expect(sent).toMatchObject({
+			type: 'command',
+			command: {
+				type: 'workspace.listFiles',
+				workspaceId: 'workspace-1',
+				limit: 100,
+			},
+		});
+
+		socket.receive({
+			type: 'ack',
+			id: sent.id,
+			result: [
+				{ id: 'README.md', name: 'README.md', relativePath: 'README.md' },
+				{ relativePath: 'src/client/app.tsx' },
+				{ id: 'bad' },
+			],
+		});
+
+		await expect(resultPromise).resolves.toEqual([
+			{ id: 'README.md', name: 'README.md', relativePath: 'README.md' },
+			{
+				id: 'src/client/app.tsx',
+				name: 'app.tsx',
+				relativePath: 'src/client/app.tsx',
+			},
+		]);
+	});
+});
+
 describe('useWorkspaceStore.readDiffPatch', () => {
 	test('forwards diff reads and validates the response shape', async () => {
 		useWsStore.getState().connect();

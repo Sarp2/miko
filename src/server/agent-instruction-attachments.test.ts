@@ -10,6 +10,7 @@ import {
 	writeCreatePrInstructionsAttachment,
 	writeFailingCiLogsAttachment,
 	writeMergeConflictInstructionsAttachment,
+	writeReviewInstructionsAttachment,
 	writeSelectedReviewCommentsAttachment,
 } from './agent-instruction-attachments';
 import type { DirectoryRecord, WorkspaceRecord } from './event';
@@ -247,6 +248,39 @@ describe('writeSelectedReviewCommentsAttachment', () => {
 		expect(body).toContain('File: src/server/pr-manager.ts:42');
 		expect(body).toContain('Bot: yes');
 		expect(body).toContain('Please handle the null case.');
+	});
+});
+
+describe('writeReviewInstructionsAttachment', () => {
+	test('writes a read-only review brief covering the required dimensions', async () => {
+		useDevDataRoot();
+		const filePath = instructionPath('review-workspace-test-attachment.md');
+		writtenFiles.push(filePath);
+
+		const attachment = await writeReviewInstructionsAttachment({
+			workspace: workspace(),
+			directory: directory(),
+			git: gitSnapshot({
+				files: [{ path: 'src/app.ts' } as WorkspaceGitSnapshot['files'][number]],
+			}),
+		});
+
+		expect(attachment).toMatchObject({
+			id: 'review-workspace-test-attachment',
+			displayName: 'review-instructions.md',
+			mimeType: 'text/markdown',
+			absolutePath: filePath,
+			contentUrl: '/api/agent-instructions/review-workspace-test-attachment.md/content',
+		});
+		const body = await Bun.file(filePath).text();
+		expect(body).toContain('thorough code review');
+		expect(body).toContain('read-only review');
+		expect(body).toContain('git diff origin/main...HEAD');
+		expect(body).toContain('search the repository for all call sites');
+		expect(body).toContain('Architectural constraints');
+		expect(body).toContain('Modularity & abstraction');
+		expect(body).toContain('Maintainability');
+		expect(body).toContain('include them in the review');
 	});
 });
 

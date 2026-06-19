@@ -19,6 +19,7 @@ import {
 	writeCreatePrInstructionsAttachment,
 	writeFailingCiLogsAttachment,
 	writeMergeConflictInstructionsAttachment,
+	writeReviewInstructionsAttachment,
 	writeSelectedReviewCommentsAttachment,
 } from './agent-instruction-attachments';
 import type { DiffStore } from './diff-store';
@@ -36,7 +37,7 @@ import {
 import type { ScratchpadManager } from './scratchpad-manager';
 import type { TerminalManager } from './terminal-manager';
 import type { UpdateManager } from './update-manager';
-import { searchWorkspaceFiles } from './workspace-file-search';
+import { listWorkspaceFiles, searchWorkspaceFiles } from './workspace-file-search';
 import type { WorkspaceManager, WorkspaceTurnIntent } from './workspace-manager';
 
 const DEFAULT_SESSION_RECENT_LIMIT = 300;
@@ -605,6 +606,16 @@ export function createWsRouter({
 					send(ws, { type: 'ack', id, result });
 					return;
 				}
+				case 'workspace.discardFile': {
+					const workspace = requireWorkspace(command.workspaceId);
+					const result = await diffStore.discardFile({
+						workspaceId: workspace.id,
+						workspacePath: workspace.localPath,
+						path: command.path,
+					});
+					send(ws, { type: 'ack', id, result });
+					break;
+				}
 				case 'workspace.readFile': {
 					const workspace = requireWorkspace(command.workspaceId);
 					const result = await diffStore.readFileContents({
@@ -624,6 +635,13 @@ export function createWsRouter({
 					});
 					if (!allowed) throw new Error('External file is not available in this session.');
 					const result = await diffStore.readExternalFileContents({ path: command.path });
+					send(ws, { type: 'ack', id, result });
+					return;
+				}
+
+				case 'workspace.listFiles': {
+					const workspace = requireWorkspace(command.workspaceId);
+					const result = await listWorkspaceFiles(workspace.localPath, command.limit);
 					send(ws, { type: 'ack', id, result });
 					return;
 				}
@@ -763,6 +781,26 @@ export function createWsRouter({
 				case 'workspace.mergePr': {
 					const result = await prManager.mergeWorkspacePullRequest(command.workspaceId);
 					send(ws, { type: 'ack', id, result });
+					break;
+				}
+				case 'workspace.reviewChanges': {
+					const workspace = requireWorkspace(command.workspaceId);
+					const directory = store.requireDirectory(workspace.directoryId);
+					await diffStore.refreshWorkspaceGitSnapshot(workspace.id, workspace.localPath);
+					const attachment = await writeReviewInstructionsAttachment({
+						workspace,
+						directory,
+						git: diffStore.getWorkspaceGitSnapshot(workspace.id),
+					});
+					const session = await store.createSession(workspace.id);
+					await sendWorkspaceInstruction(
+						command.workspaceId,
+						session.id,
+						'Review the changes in this workspace using the attached instructions.',
+						[attachment],
+						'review',
+					);
+					send(ws, { type: 'ack', id, result: { sessionId: session.id } });
 					break;
 				}
 				case 'workspace.updateScratchpad': {

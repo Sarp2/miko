@@ -1,0 +1,149 @@
+import { FolderIcon, FolderOpenIcon } from '@phosphor-icons/react';
+import type { ReactNode } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { buildWorkspaceFileTree, type WorkspaceFileTreeNode } from '../lib/workspace-file-tree';
+import { useRightSidebarFileStore } from '../stores/right-sidebar-file-store';
+import { FileNameIcon } from './icons/file-name-icon';
+import { Button } from './ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
+
+interface RightSidebarAllFilesProps {
+	onOpenFile: (path: string) => void;
+	workspaceId: string;
+}
+
+function FileTreeRow({ depth, children }: { depth: number; children: ReactNode }) {
+	return (
+		<div
+			className="min-w-0"
+			style={{ paddingLeft: depth > 0 ? `${Math.min(depth, 8) * 14}px` : undefined }}
+		>
+			{children}
+		</div>
+	);
+}
+
+function FolderNode({
+	node,
+	depth,
+	onOpenFile,
+}: {
+	node: Extract<WorkspaceFileTreeNode, { type: 'folder' }>;
+	depth: number;
+	onOpenFile: (path: string) => void;
+}) {
+	const [open, setOpen] = useState(depth < 1);
+
+	return (
+		<Collapsible open={open} onOpenChange={setOpen}>
+			<FileTreeRow depth={depth}>
+				<CollapsibleTrigger className="group flex h-7 w-full min-w-0 cursor-pointer items-center gap-1.5 rounded-md px-2 text-left font-mono text-[11.5px] font-normal leading-5 text-ink outline-none hover:bg-surface-2 hover:text-ink focus-visible:ring-1 focus-visible:ring-primary">
+					{open ? (
+						<FolderOpenIcon className="size-3.5 shrink-0 text-ink-subtle" />
+					) : (
+						<FolderIcon className="size-3.5 shrink-0 text-ink-subtle" />
+					)}
+					<span className="min-w-0 truncate">{node.name}</span>
+				</CollapsibleTrigger>
+			</FileTreeRow>
+			<CollapsibleContent>
+				{node.children.map((child) => (
+					<FileTreeNode key={child.id} node={child} depth={depth + 1} onOpenFile={onOpenFile} />
+				))}
+			</CollapsibleContent>
+		</Collapsible>
+	);
+}
+
+function FileNode({
+	node,
+	depth,
+	onOpenFile,
+}: {
+	node: Extract<WorkspaceFileTreeNode, { type: 'file' }>;
+	depth: number;
+	onOpenFile: (path: string) => void;
+}) {
+	return (
+		<FileTreeRow depth={depth}>
+			<button
+				type="button"
+				className="group flex h-7 w-full min-w-0 cursor-pointer items-center gap-1.5 rounded-md px-2 text-left font-mono text-[11.5px] font-normal leading-5 text-ink outline-none hover:bg-surface-2 hover:text-ink focus-visible:ring-1 focus-visible:ring-primary"
+				title={node.path}
+				onClick={() => onOpenFile(node.path)}
+			>
+				<FileNameIcon name={node.name} className="size-3.5 shrink-0" />
+				<span className="min-w-0 truncate">{node.name}</span>
+			</button>
+		</FileTreeRow>
+	);
+}
+
+function FileTreeNode({
+	node,
+	depth,
+	onOpenFile,
+}: {
+	node: WorkspaceFileTreeNode;
+	depth: number;
+	onOpenFile: (path: string) => void;
+}) {
+	if (node.type === 'folder')
+		return <FolderNode node={node} depth={depth} onOpenFile={onOpenFile} />;
+	return <FileNode node={node} depth={depth} onOpenFile={onOpenFile} />;
+}
+
+function AllFilesEmptyState() {
+	return (
+		<div className="flex h-full items-center justify-center px-8 text-center text-[12px] leading-5 text-ink-tertiary">
+			No files found in this workspace.
+		</div>
+	);
+}
+
+export function RightSidebarAllFiles({ onOpenFile, workspaceId }: RightSidebarAllFilesProps) {
+	const resource = useRightSidebarFileStore((state) => state.getFileList(workspaceId));
+	const loadFileList = useRightSidebarFileStore((state) => state.loadFileList);
+	const nodes = useMemo(() => buildWorkspaceFileTree(resource.files), [resource.files]);
+
+	useEffect(() => {
+		void loadFileList(workspaceId);
+	}, [loadFileList, workspaceId]);
+
+	if (resource.status === 'loading' && resource.files.length === 0) {
+		return (
+			<div className="flex h-full items-center justify-center text-[12px] text-ink-tertiary">
+				Loading files...
+			</div>
+		);
+	}
+
+	if (resource.status === 'error' && resource.files.length === 0) {
+		return (
+			<div className="flex h-full flex-col items-center justify-center gap-2 px-8 text-center">
+				<div className="text-[12px] leading-5 text-ink-tertiary">{resource.error}</div>
+				<Button
+					type="button"
+					variant="ghost"
+					size="sm"
+					className="h-7 rounded-md px-2 text-[12px] text-ink-muted hover:bg-surface-2 hover:text-ink"
+					onClick={() => {
+						void loadFileList(workspaceId, { force: true });
+					}}
+				>
+					Try again
+				</Button>
+			</div>
+		);
+	}
+
+	if (nodes.length === 0) return <AllFilesEmptyState />;
+
+	return (
+		<div className="min-w-0 space-y-0.5 px-2 py-2">
+			{nodes.map((node) => (
+				<FileTreeNode key={node.id} node={node} depth={0} onOpenFile={onOpenFile} />
+			))}
+		</div>
+	);
+}

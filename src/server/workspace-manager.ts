@@ -46,7 +46,8 @@ export type WorkspaceTurnIntent =
 	| 'create_pr'
 	| 'fix_ci'
 	| 'resolve_merge_conflicts'
-	| 'address_review_comments';
+	| 'address_review_comments'
+	| 'review';
 
 export interface WorkspaceCreateResult {
 	workspace: WorkspaceRecord;
@@ -270,7 +271,8 @@ export class WorkspaceManager {
 			args.intent !== 'create_pr' &&
 			args.intent !== 'fix_ci' &&
 			args.intent !== 'resolve_merge_conflicts' &&
-			args.intent !== 'address_review_comments'
+			args.intent !== 'address_review_comments' &&
+			args.intent !== 'review'
 		) {
 			throw new Error('Unknown workspace instruction turn intent');
 		}

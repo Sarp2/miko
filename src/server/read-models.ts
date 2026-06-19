@@ -46,7 +46,10 @@ function getWorkspaceDiffStats(
 	git: WorkspaceGitSnapshot | null | undefined,
 	github: WorkspaceGitHubSnapshot | null | undefined,
 ) {
-	if (github?.status === 'open' && hasPrDiffStats(github)) {
+	if (
+		(github?.status === 'open' || github?.status === 'merged' || github?.status === 'closed') &&
+		hasPrDiffStats(github)
+	) {
 		return {
 			additions: github.additions ?? 0,
 			deletions: github.deletions ?? 0,
@@ -105,14 +108,14 @@ function getWorkspaceSidebarIndicator(args: {
 	if (hasOpenPr && (github?.hasMergeConflicts || workspace.pullRequest?.hasMergeConflicts)) {
 		return 'merge_conflicts';
 	}
+	if (hasOpenPr && (github?.isDraft || workspace.pullRequest?.isDraft)) {
+		return 'draft_pr';
+	}
 	if (github?.ciStatus === 'failing' || workspace.pullRequest?.ciStatus === 'failing') {
 		return 'ci_failed';
 	}
 	if (hasOpenPr && ((git?.files.length ?? 0) > 0 || (git?.aheadCount ?? 0) > 0)) {
 		return 'commit_and_push';
-	}
-	if (hasOpenPr && (github?.isDraft || workspace.pullRequest?.isDraft)) {
-		return 'draft_pr';
 	}
 	if (hasOpenPr) {
 		return 'pr_opened';

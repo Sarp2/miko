@@ -248,6 +248,12 @@ export interface WorkspacePullRequestSummary {
 	hasMergeConflicts?: boolean;
 	createdAt?: number;
 	lastObservedAt: number;
+	/**
+	 * Snapshot of the PR's changed files at the time it was observed. Persisted so the
+	 * right-sidebar Changes list survives a merge/close, when live PR refresh is skipped
+	 * and the local branch...main diff has collapsed to empty.
+	 */
+	files?: WorkspaceDiffFile[];
 }
 
 export interface WorkspaceSummary {
@@ -720,6 +726,7 @@ export interface UpstreamStatus {
 export interface WorkspaceGitSnapshot extends BranchMetadata, UpstreamStatus {
 	status: 'unknown' | 'ready' | 'no_repo';
 	files: WorkspaceDiffFile[];
+	pullRequestFiles?: WorkspaceDiffFile[];
 	hasPushedCommits?: boolean;
 	branchPublishState?: 'unknown' | 'local_only' | 'published';
 	mainAheadCount?: number;
@@ -743,6 +750,7 @@ export interface WorkspaceGitHubSnapshot {
 	unresolvedCommentCount?: number;
 	additions?: number;
 	deletions?: number;
+	files?: WorkspaceDiffFile[];
 	comments: PullRequestCommentSnapshot[];
 	checks: PullRequestCheckSnapshot[];
 	createdAt?: number;

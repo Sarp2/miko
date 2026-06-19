@@ -21,6 +21,7 @@ import { inferWorkspaceFileContentType } from './uploads';
 interface StoredWorkspaceGitState extends BranchMetadata, UpstreamStatus {
 	status: WorkspaceGitSnapshot['status'];
 	files: WorkspaceDiffFile[];
+	pullRequestFiles?: WorkspaceDiffFile[];
 	hasPushedCommits?: boolean;
 	branchPublishState?: WorkspaceGitSnapshot['branchPublishState'];
 	mainAheadCount?: number;
@@ -61,6 +62,7 @@ function createEmptyState(): StoredWorkspaceGitState {
 		behindCount: undefined,
 		lastFetchedAt: undefined,
 		files: [],
+		pullRequestFiles: [],
 		hasPushedCommits: undefined,
 		branchPublishState: 'unknown',
 		mainAheadCount: undefined,
@@ -113,7 +115,11 @@ export function snapshotsEqual(
 	right: StoredWorkspaceGitState,
 ) {
 	if (!left) {
-		return right.status === 'unknown' && right.files.length === 0;
+		return (
+			right.status === 'unknown' &&
+			right.files.length === 0 &&
+			(right.pullRequestFiles?.length ?? 0) === 0
+		);
 	}
 
 	if (left.status !== right.status) return false;
@@ -123,10 +129,17 @@ export function snapshotsEqual(
 	if (left.branchPublishState !== right.branchPublishState) return false;
 	if (left.mainAheadCount !== right.mainAheadCount) return false;
 	if (!branchHistoryEqual(left.branchHistory, right.branchHistory)) return false;
-	if (left.files.length !== right.files.length) return false;
+	if (!diffFilesEqual(left.files, right.files)) return false;
+	if (!diffFilesEqual(left.pullRequestFiles ?? [], right.pullRequestFiles ?? [])) return false;
 
-	return left.files.every((file, index) => {
-		const other = right.files[index];
+	return true;
+}
+
+function diffFilesEqual(left: WorkspaceDiffFile[], right: WorkspaceDiffFile[]) {
+	if (left.length !== right.length) return false;
+
+	return left.every((file, index) => {
+		const other = right[index];
 		return (
 			Boolean(other) &&
 			file.path === other.path &&
@@ -475,6 +488,76 @@ export async function getMainAheadCount(args: { repoRoot: string; defaultBranchN
 	return Number.isFinite(count) ? count : undefined;
 }
 
+async function resolveBranchComparisonRef(args: {
+	repoRoot: string;
+	branchName?: string;
+	defaultBranchName?: string;
+}) {
+	if (!args.defaultBranchName || args.branchName === args.defaultBranchName) return null;
+
+	const candidates = [
+		`refs/remotes/origin/${args.defaultBranchName}`,
+		`refs/heads/${args.defaultBranchName}`,
+		args.defaultBranchName,
+	];
+
+	for (const candidate of candidates) {
+		if (await refExists(args.repoRoot, candidate)) return candidate;
+	}
+
+	return null;
+}
+
+function parseNameStatusCode(status: string): WorkspaceDiffFile['changeType'] {
+	if (status.startsWith('A')) return 'added';
+	if (status.startsWith('D')) return 'deleted';
+	if (status.startsWith('R')) return 'renamed';
+	return 'modified';
+}
+
+export function parseNameStatusEntries(output: string) {
+	const parts = output.split('\0').filter(Boolean);
+	const entries: DirtyPathEntry[] = [];
+
+	for (let index = 0; index < parts.length; ) {
+		const status = parts[index++];
+		if (!status) continue;
+
+		if (status.startsWith('R')) {
+			const previousPath = parts[index++];
+			const nextPath = parts[index++];
+			if (!previousPath || !nextPath) continue;
+			entries.push({
+				path: normalizeRepoRelativePath(nextPath),
+				previousPath: normalizeRepoRelativePath(previousPath),
+				changeType: 'renamed',
+				isUntracked: false,
+			});
+			continue;
+		}
+
+		const filePath = parts[index++];
+		if (!filePath) continue;
+		entries.push({
+			path: normalizeRepoRelativePath(filePath),
+			changeType: parseNameStatusCode(status),
+			isUntracked: false,
+		});
+	}
+
+	return entries;
+}
+
+export async function listBranchDiffPaths(repoRoot: string, comparisonRef: string) {
+	const result = await runGit(
+		['diff', '--name-status', '--find-renames', '-z', `${comparisonRef}...HEAD`],
+		repoRoot,
+	);
+
+	if (result.exitCode !== 0) return [];
+	return parseNameStatusEntries(result.stdout);
+}
+
 export function parseStatusLine(line: string): DirtyPathEntry | null {
 	if (!line.trim()) return null;
 
@@ -721,6 +804,30 @@ export async function readPatchForEntry(
 	return result.stdout;
 }
 
+export async function readPatchForBranchEntry(
+	repoRoot: string,
+	comparisonRef: string,
+	entry: DirtyPathEntry,
+): Promise<string> {
+	const targetPath = stripTrailingSlash(entry.path);
+	const diffArgs = [
+		'diff',
+		'--no-ext-diff',
+		'--no-color',
+		'--find-renames',
+		`${comparisonRef}...HEAD`,
+		'--',
+		targetPath,
+	];
+
+	if (entry.previousPath && entry.previousPath !== entry.path) {
+		diffArgs.push(stripTrailingSlash(entry.previousPath));
+	}
+
+	const result = await runGit(diffArgs, repoRoot);
+	return result.stdout;
+}
+
 function countPatchChanges(patch: string) {
 	let additions = 0;
 	let deletions = 0;
@@ -734,27 +841,48 @@ function countPatchChanges(patch: string) {
 	return { additions, deletions };
 }
 
+async function diffFileFromEntry(
+	repoRoot: string,
+	entry: DirtyPathEntry,
+	patch: string,
+): Promise<WorkspaceDiffFile> {
+	const { additions, deletions } = countPatchChanges(patch);
+	const absolutePath = path.join(repoRoot, stripTrailingSlash(entry.path));
+	const exists = await fileExists(absolutePath);
+	const size = exists ? (await stat(absolutePath)).size : undefined;
+
+	return {
+		path: entry.path,
+		changeType: entry.changeType,
+		isUntracked: entry.isUntracked,
+		additions,
+		deletions,
+		patchDigest: hashPatch(patch),
+		mimeType: exists ? inferWorkspaceFileContentType(entry.path) : undefined,
+		size,
+	};
+}
+
 export async function computeCurrentFiles(repoRoot: string, baseCommit: string | null) {
 	const dirtyPaths = await listDirtyPaths(repoRoot);
 	const files = await Promise.all(
 		dirtyPaths.map(async (entry) => {
 			const patch = await readPatchForEntry(repoRoot, baseCommit, entry);
-			const { additions, deletions } = countPatchChanges(patch);
+			return diffFileFromEntry(repoRoot, entry, patch);
+		}),
+	);
 
-			const absolutePath = path.join(repoRoot, stripTrailingSlash(entry.path));
-			const exists = await fileExists(absolutePath);
-			const size = exists ? (await stat(absolutePath)).size : undefined;
+	return files.sort((left, right) => left.path.localeCompare(right.path));
+}
 
-			return {
-				path: entry.path,
-				changeType: entry.changeType,
-				isUntracked: entry.isUntracked,
-				additions,
-				deletions,
-				patchDigest: hashPatch(patch),
-				mimeType: exists ? inferWorkspaceFileContentType(entry.path) : undefined,
-				size,
-			} satisfies WorkspaceDiffFile;
+export async function computeBranchFiles(repoRoot: string, comparisonRef: string | null) {
+	if (!comparisonRef) return [];
+
+	const entries = await listBranchDiffPaths(repoRoot, comparisonRef);
+	const files = await Promise.all(
+		entries.map(async (entry) => {
+			const patch = await readPatchForBranchEntry(repoRoot, comparisonRef, entry);
+			return diffFileFromEntry(repoRoot, entry, patch);
 		}),
 	);
 
@@ -1131,6 +1259,7 @@ export class DiffStore {
 			behindCount: state.behindCount,
 			lastFetchedAt: state.lastFetchedAt,
 			files: [...state.files],
+			pullRequestFiles: [...(state.pullRequestFiles ?? [])],
 			hasPushedCommits: state.hasPushedCommits,
 			branchPublishState: state.branchPublishState,
 			mainAheadCount: state.mainAheadCount,
@@ -1181,10 +1310,30 @@ export class DiffStore {
 		if (!repo) throw new Error('Workspace is not in a git repository');
 
 		const entry = await findDirtyPath(repo.repoRoot, relativePath);
-		if (!entry) throw new Error(`File is no longer changed: ${relativePath}`);
-		const patch = await readPatchForEntry(repo.repoRoot, repo.baseCommit, entry);
+		if (entry) {
+			const patch = await readPatchForEntry(repo.repoRoot, repo.baseCommit, entry);
+			return { path: entry.path, patch, patchDigest: hashPatch(patch) };
+		}
 
-		return { path: entry.path, patch, patchDigest: hashPatch(patch) };
+		const [branchName, defaultBranchName] = await Promise.all([
+			getBranchName(repo.repoRoot),
+			resolveDefaultBranchName(repo.repoRoot),
+		]);
+		const comparisonRef = await resolveBranchComparisonRef({
+			repoRoot: repo.repoRoot,
+			branchName,
+			defaultBranchName,
+		});
+		const branchEntry = comparisonRef
+			? (await listBranchDiffPaths(repo.repoRoot, comparisonRef)).find(
+					(candidate) => stripTrailingSlash(candidate.path) === relativePath,
+				)
+			: null;
+		if (!branchEntry || !comparisonRef)
+			throw new Error(`File is no longer changed: ${relativePath}`);
+
+		const patch = await readPatchForBranchEntry(repo.repoRoot, comparisonRef, branchEntry);
+		return { path: branchEntry.path, patch, patchDigest: hashPatch(patch) };
 	}
 
 	async readFileContents(args: {
@@ -1244,6 +1393,7 @@ export class DiffStore {
 				behindCount: undefined,
 				lastFetchedAt: undefined,
 				files: [],
+				pullRequestFiles: [],
 				hasPushedCommits: undefined,
 				branchPublishState: 'unknown',
 				mainAheadCount: undefined,
@@ -1264,6 +1414,12 @@ export class DiffStore {
 				hasUpstreamBranch(repo.repoRoot),
 				getLastFetchedAt(repo.repoRoot),
 			]);
+		const comparisonRef = await resolveBranchComparisonRef({
+			repoRoot: repo.repoRoot,
+			branchName,
+			defaultBranchName,
+		});
+		const pullRequestFiles = await computeBranchFiles(repo.repoRoot, comparisonRef);
 
 		const originRepoSlug = extractGitHubRepoSlug(originRemoteUrl) ?? undefined;
 		const { aheadCount, behindCount } = hasUpstream
@@ -1296,6 +1452,7 @@ export class DiffStore {
 			behindCount,
 			lastFetchedAt,
 			files,
+			pullRequestFiles,
 			hasPushedCommits: pushedCommits,
 			branchPublishState,
 			mainAheadCount,

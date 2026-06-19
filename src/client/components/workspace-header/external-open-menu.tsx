@@ -173,6 +173,64 @@ export function ExternalOpenMenu({ localPath }: { localPath: string }) {
 	);
 }
 
+/**
+ * Compact caret-only trigger that opens the external-open apps menu for a single
+ * file. Used in dense hover rows (e.g. the right-sidebar changes list) where there
+ * is no room for the bordered button + caret of {@link ExternalOpenMenu}.
+ */
+export function FileExternalOpenMenu({
+	localPath,
+	triggerClassName,
+}: {
+	localPath: string;
+	triggerClassName?: string;
+}) {
+	const { externalOpenApp, setExternalOpenApp, open, copyPath } = useExternalOpenMenu(localPath);
+
+	return (
+		<DropdownMenu>
+			<DropdownMenuTrigger asChild>
+				<button type="button" className={triggerClassName} aria-label="Open file externally">
+					<CaretDown className="size-3.5" />
+				</button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent
+				align="end"
+				className="min-w-[190px] rounded-lg border border-hairline bg-surface-1 p-1 shadow-xl ring-0"
+			>
+				<DropdownMenuGroup>
+					{EXTERNAL_OPEN_APPS.map((app) => (
+						<DropdownMenuItem
+							key={app.value}
+							className={cn(
+								'flex h-9 cursor-default items-center gap-2 rounded-md px-2 text-[13px] text-ink focus:bg-surface-3 focus:text-ink',
+								app.value === externalOpenApp && 'bg-surface-3',
+							)}
+							onSelect={() => {
+								setExternalOpenApp(app.value);
+								void open(app.value);
+							}}
+						>
+							<ExternalAppIcon option={app} className="size-5 rounded-sm" />
+							<span className="min-w-0 flex-1 truncate">{app.label}</span>
+						</DropdownMenuItem>
+					))}
+				</DropdownMenuGroup>
+				<DropdownMenuSeparator className="bg-hairline" />
+				<DropdownMenuItem
+					className="flex h-9 cursor-default items-center gap-2 rounded-md px-2 text-[13px] text-ink focus:bg-surface-3 focus:text-ink"
+					onSelect={() => void copyPath()}
+				>
+					<span className="flex size-5 items-center justify-center text-ink-subtle">
+						<Copy className="size-4" />
+					</span>
+					<span className="min-w-0 flex-1 truncate">Copy path</span>
+				</DropdownMenuItem>
+			</DropdownMenuContent>
+		</DropdownMenu>
+	);
+}
+
 export function WorktreeLocationMenu({ localPath }: { localPath: string }) {
 	const { externalOpenApp, setExternalOpenApp, open, copyPath } = useExternalOpenMenu(localPath);
 	const folderName = basename(localPath);

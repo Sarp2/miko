@@ -40,6 +40,15 @@ export function useWorkspacePageOpeners(
 		[openFilePage, sourceSessionId, workspaceRoot],
 	);
 
+	const openWorkspaceDiff = useCallback(
+		(path: string) => {
+			const page: WorkspacePage = { type: 'diff', path, source: 'workspace' };
+			useUiStore.getState().openMiddleTab(workspaceId, page);
+			navigate(workspacePagePath(workspaceId, page));
+		},
+		[navigate, workspaceId],
+	);
+
 	const openPastedText = useCallback(
 		async (id: string, text: string) => {
 			try {
@@ -90,5 +99,5 @@ export function useWorkspacePageOpeners(
 		[openFilePage, sourceSessionId, workspaceId],
 	);
 
-	return { openWorkspaceFile, openPastedText, openAttachment };
+	return { openWorkspaceFile, openWorkspaceDiff, openPastedText, openAttachment };
 }

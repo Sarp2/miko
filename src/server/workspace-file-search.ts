@@ -5,6 +5,8 @@ import { runGit } from './diff-store';
 
 const DEFAULT_FILE_SEARCH_LIMIT = 20;
 const MAX_FILE_SEARCH_LIMIT = 50;
+const DEFAULT_FILE_LIST_LIMIT = 2_000;
+const MAX_FILE_LIST_LIMIT = 5_000;
 const FILE_LIST_CACHE_TTL_MS = 15_000;
 const MAX_FILE_LIST_CACHE_ENTRIES = 50;
 
@@ -137,6 +139,24 @@ export function clearWorkspaceFileSearchCache(workspacePath?: string) {
 		return;
 	}
 	fileListCacheByWorkspacePath.clear();
+}
+
+export async function listWorkspaceFiles(
+	workspacePath: string,
+	limit = DEFAULT_FILE_LIST_LIMIT,
+): Promise<WorkspaceFileSearchResult[]> {
+	const requestedLimit = Number.isFinite(limit) ? Math.trunc(limit) : DEFAULT_FILE_LIST_LIMIT;
+	const safeLimit = Math.max(1, Math.min(requestedLimit, MAX_FILE_LIST_LIMIT));
+	const filePaths = await getWorkspaceFileList(workspacePath);
+
+	return filePaths
+		.toSorted((left, right) => left.localeCompare(right))
+		.slice(0, safeLimit)
+		.map((relativePath) => ({
+			id: relativePath,
+			name: resultName(relativePath),
+			relativePath,
+		}));
 }
 
 export async function searchWorkspaceFiles(
