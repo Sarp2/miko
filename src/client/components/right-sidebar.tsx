@@ -47,12 +47,11 @@ function allFilesRevisionKey(snapshot: WorkspaceSnapshot | null) {
 	if (!snapshot?.git) return undefined;
 	return [
 		snapshot.git.branchName ?? snapshot.workspace.branchName,
-		snapshot.git.files.map((file) => `${file.path}:${file.patchDigest}`).join('|'),
-		snapshot.git.pullRequestFiles?.map((file) => `${file.path}:${file.patchDigest}`).join('|') ??
-			'',
-		snapshot.github?.files?.map((file) => `${file.path}:${file.patchDigest}`).join('|') ?? '',
+		snapshot.git.files.map((file) => `${file.path}:${file.changeType}`).join('|'),
+		snapshot.git.pullRequestFiles?.map((file) => `${file.path}:${file.changeType}`).join('|') ?? '',
+		snapshot.github?.files?.map((file) => `${file.path}:${file.changeType}`).join('|') ?? '',
 		snapshot.workspace.pullRequest?.files
-			?.map((file) => `${file.path}:${file.patchDigest}`)
+			?.map((file) => `${file.path}:${file.changeType}`)
 			.join('|') ?? '',
 	].join('\n');
 }

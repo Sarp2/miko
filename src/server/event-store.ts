@@ -39,7 +39,6 @@ function workspaceDiffFilesSignature(files: WorkspaceDiffFile[] | undefined) {
 				additions: file.additions,
 				deletions: file.deletions,
 				patchDigest: file.patchDigest,
-				patch: file.patch,
 				mimeType: file.mimeType,
 				size: file.size,
 			}))
