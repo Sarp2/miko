@@ -2,6 +2,7 @@ import { CaretDown, CaretUp, Plus, X } from '@phosphor-icons/react';
 import type { PointerEvent } from 'react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
+import type { WorkspaceSetupState } from '../../shared/types';
 import { cn } from '../lib/utils';
 import { useTerminalStore } from '../stores/terminal-store';
 import { useUiStore } from '../stores/ui-store';
@@ -16,6 +17,7 @@ const MIN_TERMINAL_HEIGHT = 120;
 const MAX_TERMINAL_HEIGHT = 720;
 
 interface RightSidebarTerminalPanelProps {
+	setupState: WorkspaceSetupState;
 	workspaceId: string;
 }
 
@@ -25,7 +27,10 @@ function createTerminalId(workspaceId: string) {
 	return `${workspaceId}:${id}`;
 }
 
-export function RightSidebarTerminalPanel({ workspaceId }: RightSidebarTerminalPanelProps) {
+export function RightSidebarTerminalPanel({
+	setupState,
+	workspaceId,
+}: RightSidebarTerminalPanelProps) {
 	const panel = useUiStore((state) => state.getTerminalPanel(workspaceId));
 	const tabs = useUiStore((state) => state.getTerminalTabs(workspaceId));
 	const activeTerminalId = useUiStore((state) => state.activeTerminalIdByWorkspaceId[workspaceId]);
@@ -44,7 +49,9 @@ export function RightSidebarTerminalPanel({ workspaceId }: RightSidebarTerminalP
 		[activeTerminalId, tabs],
 	);
 
+	const terminalReady = setupState === 'ready';
 	const openNewTerminal = useCallback(async () => {
+		if (!terminalReady) return;
 		const terminalId = createTerminalId(workspaceId);
 		setTerminalPanelCollapsed(workspaceId, false);
 		try {
@@ -59,7 +66,7 @@ export function RightSidebarTerminalPanel({ workspaceId }: RightSidebarTerminalP
 		} catch (error) {
 			console.warn('[right-sidebar-terminal] failed to create terminal', error);
 		}
-	}, [createTerminal, openTerminalTab, setTerminalPanelCollapsed, workspaceId]);
+	}, [createTerminal, openTerminalTab, setTerminalPanelCollapsed, terminalReady, workspaceId]);
 
 	const closeTab = useCallback(
 		async (terminalId: string) => {
@@ -75,12 +82,13 @@ export function RightSidebarTerminalPanel({ workspaceId }: RightSidebarTerminalP
 	);
 
 	useEffect(() => {
-		if (panel.collapsed || tabs.length > 0 || creatingInitialTerminalRef.current) return;
+		if (!terminalReady || panel.collapsed || tabs.length > 0 || creatingInitialTerminalRef.current)
+			return;
 		creatingInitialTerminalRef.current = true;
 		void openNewTerminal().finally(() => {
 			creatingInitialTerminalRef.current = false;
 		});
-	}, [openNewTerminal, panel.collapsed, tabs.length]);
+	}, [openNewTerminal, panel.collapsed, tabs.length, terminalReady]);
 
 	const onResizePointerDown = useCallback(
 		(event: PointerEvent<HTMLDivElement>) => {
@@ -109,6 +117,7 @@ export function RightSidebarTerminalPanel({ workspaceId }: RightSidebarTerminalP
 	const bodyHeight = expanded ? panel.height : 0;
 	const ToggleIcon = expanded ? CaretDown : CaretUp;
 	const openOrToggleTerminal = () => {
+		if (!terminalReady) return;
 		if (tabs.length === 0) {
 			void openNewTerminal();
 			return;
@@ -143,6 +152,7 @@ export function RightSidebarTerminalPanel({ workspaceId }: RightSidebarTerminalP
 					className="mr-4 inline-flex size-5 shrink-0 cursor-pointer items-center justify-center text-ink-muted"
 					onClick={openOrToggleTerminal}
 					aria-label={expanded ? 'Collapse terminal' : 'Open terminal'}
+					disabled={!terminalReady}
 				>
 					<ToggleIcon className="size-3.5" />
 				</button>
@@ -185,6 +195,7 @@ export function RightSidebarTerminalPanel({ workspaceId }: RightSidebarTerminalP
 					variant="ghost"
 					size="icon-sm"
 					className="ml-3 size-6 shrink-0 text-ink-subtle"
+					disabled={!terminalReady}
 					onClick={() => {
 						void openNewTerminal();
 					}}
@@ -193,10 +204,16 @@ export function RightSidebarTerminalPanel({ workspaceId }: RightSidebarTerminalP
 					<Plus className="size-3.5" />
 				</Button>
 			</div>
-			{expanded && activeTab ? (
-				<div className="h-[calc(100%-32px)] min-h-0 bg-surface-1">
-					<RightSidebarTerminalView terminalId={activeTab.terminalId} />
-				</div>
+			{expanded ? (
+				activeTab ? (
+					<div className="h-[calc(100%-32px)] min-h-0 bg-surface-1">
+						<RightSidebarTerminalView terminalId={activeTab.terminalId} />
+					</div>
+				) : !terminalReady ? (
+					<div className="flex h-[calc(100%-32px)] items-center justify-center text-[12px] text-ink-tertiary">
+						Preparing workspace...
+					</div>
+				) : null
 			) : null}
 		</section>
 	);

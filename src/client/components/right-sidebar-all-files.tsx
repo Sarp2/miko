@@ -1,6 +1,7 @@
 import { FolderIcon, FolderOpenIcon } from '@phosphor-icons/react';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import type { WorkspaceSetupState } from '../../shared/types';
 import { buildWorkspaceFileTree, type WorkspaceFileTreeNode } from '../lib/workspace-file-tree';
 import { useRightSidebarFileStore } from '../stores/right-sidebar-file-store';
 import { FileNameIcon } from './icons/file-name-icon';
@@ -10,6 +11,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collap
 interface RightSidebarAllFilesProps {
 	onOpenFile: (path: string) => void;
 	revisionKey?: string;
+	setupState: WorkspaceSetupState;
 	workspaceId: string;
 }
 
@@ -105,6 +107,7 @@ function AllFilesEmptyState() {
 export function RightSidebarAllFiles({
 	onOpenFile,
 	revisionKey,
+	setupState,
 	workspaceId,
 }: RightSidebarAllFilesProps) {
 	const resource = useRightSidebarFileStore((state) => state.getFileList(workspaceId));
@@ -112,8 +115,25 @@ export function RightSidebarAllFiles({
 	const nodes = useMemo(() => buildWorkspaceFileTree(resource.files), [resource.files]);
 
 	useEffect(() => {
+		if (setupState !== 'ready') return;
 		void loadFileList(workspaceId, { force: Boolean(revisionKey) });
-	}, [loadFileList, revisionKey, workspaceId]);
+	}, [loadFileList, revisionKey, setupState, workspaceId]);
+
+	if (setupState === 'creating') {
+		return (
+			<div className="flex h-full items-center justify-center text-[12px] text-ink-tertiary">
+				Preparing workspace...
+			</div>
+		);
+	}
+
+	if (setupState === 'failed') {
+		return (
+			<div className="flex h-full items-center justify-center px-8 text-center text-[12px] leading-5 text-ink-tertiary">
+				Workspace setup failed. Files are unavailable.
+			</div>
+		);
+	}
 
 	if (resource.status === 'loading' && resource.files.length === 0) {
 		return (

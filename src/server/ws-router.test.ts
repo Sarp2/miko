@@ -1087,6 +1087,90 @@ describe('createWsRouter.handleCommand', () => {
 		]);
 	});
 
+	test('does not list files before workspace setup completes', async () => {
+		const { router, store } = await createRouter({
+			diffStore: {
+				getWorkspaceGitSnapshot: () => unknownGitSnapshot(),
+				refreshWorkspaceGitSnapshot: async () => false,
+				fetchWorkspaceGit: async () => ({ ok: true, snapshotChanged: false }),
+				initializeGit: async () => ({ ok: true, snapshotChanged: false }),
+				getGitHubPublishInfo: async () => ({
+					ghInstalled: true,
+					authenticated: true,
+					owners: ['sarp'],
+					suggestedRepoName: 'miko',
+				}),
+				checkGitHubRepoAvailability: async () => ({ available: true, message: 'available' }),
+				publishToGitHub: async () => ({ ok: true, snapshotChanged: false }),
+				inspectGitHubBackedRepo: async () => ({
+					ok: true,
+					githubOwner: 'sarp',
+					githubRepo: 'miko',
+				}),
+				discardFile: async () => ({ snapshotChanged: false }),
+				ignoreFile: async () => ({ snapshotChanged: false }),
+				readPatch: async () => ({ path: 'app.txt', patch: 'diff', patchDigest: 'digest' }),
+				readFileContents: async () => {
+					throw new Error('not used');
+				},
+				readExternalFileContents: async () => {
+					throw new Error('not used');
+				},
+			},
+		});
+		const directory = store.listDirectories()[0];
+		const workspace = await store.createWorkspace({
+			directoryId: directory.id,
+			localPath: '/repo/miko/creating',
+			branchName: 'creating',
+		});
+		const ws = new FakeWebSocket();
+
+		await router.handleMessage(
+			ws as never,
+			JSON.stringify({
+				type: 'command',
+				id: 'list-creating',
+				command: { type: 'workspace.listFiles', workspaceId: workspace.id },
+			}),
+		);
+
+		expect(ws.sent).toEqual([
+			{ type: 'error', id: 'list-creating', message: 'Workspace is not ready yet' },
+		]);
+	});
+
+	test('does not create terminals before workspace setup completes', async () => {
+		const { router, store } = await createRouter();
+		const directory = store.listDirectories()[0];
+		const workspace = await store.createWorkspace({
+			directoryId: directory.id,
+			localPath: '/repo/miko/creating-terminal',
+			branchName: 'creating-terminal',
+		});
+		const ws = new FakeWebSocket();
+
+		await router.handleMessage(
+			ws as never,
+			JSON.stringify({
+				type: 'command',
+				id: 'terminal-creating',
+				command: {
+					type: 'terminal.create',
+					workspaceId: workspace.id,
+					terminalId: 'terminal-creating',
+					cols: 80,
+					rows: 24,
+					scrollback: 1000,
+				},
+			}),
+		);
+
+		expect(ws.sent).toEqual([
+			{ type: 'error', id: 'terminal-creating', message: 'Workspace is not ready yet' },
+		]);
+	});
+
 	test('reads workspace file contents', async () => {
 		const { router, workspaceId } = await createRouter();
 		const ws = new FakeWebSocket();

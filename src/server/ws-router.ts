@@ -666,12 +666,14 @@ export function createWsRouter({
 
 				case 'workspace.listFiles': {
 					const workspace = requireWorkspace(command.workspaceId);
+					if (workspace.setupState !== 'ready') throw new Error('Workspace is not ready yet');
 					const result = await listWorkspaceFiles(workspace.localPath, command.limit);
 					send(ws, { type: 'ack', id, result });
 					return;
 				}
 				case 'workspace.searchFiles': {
 					const workspace = requireWorkspace(command.workspaceId);
+					if (workspace.setupState !== 'ready') throw new Error('Workspace is not ready yet');
 					const result = await searchWorkspaceFiles(
 						workspace.localPath,
 						command.query,
@@ -894,6 +896,7 @@ export function createWsRouter({
 				}
 				case 'terminal.create': {
 					const workspace = requireWorkspace(command.workspaceId);
+					if (workspace.setupState !== 'ready') throw new Error('Workspace is not ready yet');
 					const snapshot = terminals.createTerminal({
 						workspacePath: workspace.localPath,
 						terminalId: command.terminalId,

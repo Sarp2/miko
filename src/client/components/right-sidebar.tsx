@@ -303,6 +303,7 @@ export function RightSidebar({ workspaceId }: RightSidebarProps) {
 								workspaceId={workspaceId}
 								onOpenFile={openWorkspaceFile}
 								revisionKey={fileListRevisionKey}
+								setupState={snapshot?.workspace.setupState ?? 'creating'}
 							/>
 						) : tab === 'changes' && snapshot ? (
 							<RightSidebarChanges
@@ -323,7 +324,10 @@ export function RightSidebar({ workspaceId }: RightSidebarProps) {
 						)}
 					</SidebarPrimitiveContent>
 
-					<RightSidebarTerminalPanel workspaceId={workspaceId} />
+					<RightSidebarTerminalPanel
+						setupState={snapshot?.workspace.setupState ?? 'creating'}
+						workspaceId={workspaceId}
+					/>
 
 					{/* biome-ignore lint/a11y/useFocusableInteractive: Pointer drag rail; keyboard collapse is available from the workspace header toggle. */}
 					{/* biome-ignore lint/a11y/useSemanticElements: This is a pointer drag rail, not a document separator. */}
