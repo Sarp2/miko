@@ -8,6 +8,7 @@ import { MiddleTabs } from '../components/middle-tabs';
 import { WorkspaceDiffPage } from '../components/workspace-diff-page';
 import { WorkspaceFilePage } from '../components/workspace-file-page';
 import { WorkspaceHeader } from '../components/workspace-header/workspace-header';
+import { selectWorkspaceChangeFiles } from '../lib/workspace-diff-files';
 import { useScratchpadStore } from '../stores/scratchpad-store';
 import { useSessionStore } from '../stores/session-store';
 import { mergeWorkspacePages, pageTabId, useUiStore } from '../stores/ui-store';
@@ -143,12 +144,16 @@ export function WorkspaceRoute({ kind }: WorkspaceRouteProps) {
 	const chatSessionIsReady = chatActive && sessionRouteTargetId === page.sessionId;
 	const activeDiffFile =
 		page?.type === 'diff' && page.path
-			? (workspaceSnapshot?.git?.files.find((file) => file.path === page.path) ?? null)
+			? (selectWorkspaceChangeFiles(workspaceSnapshot).find((file) => file.path === page.path) ??
+				null)
 			: null;
 	const activeFileRevisionKey =
 		page?.type === 'file' && page.path && workspaceSnapshot?.git
-			? (workspaceSnapshot.git.files.find((file) => file.path === page.path)?.patchDigest ??
-				workspaceSnapshot.git.files.map((file) => `${file.path}:${file.patchDigest}`).join('\n'))
+			? (selectWorkspaceChangeFiles(workspaceSnapshot).find((file) => file.path === page.path)
+					?.patchDigest ??
+				selectWorkspaceChangeFiles(workspaceSnapshot)
+					.map((file) => `${file.path}:${file.patchDigest}`)
+					.join('\n'))
 			: null;
 	const composer =
 		workspaceSnapshot && composerSessionId ? (

@@ -73,7 +73,7 @@ export function isTextLikeAttachment(name: string, mimeType: string) {
 }
 
 const AGENT_INSTRUCTION_FILE_PATTERN =
-	/^(?:create-pr|failing-ci|merge-conflict|selected-review-comments)-[^/\\]+\.(?:md|txt)$/u;
+	/^(?:create-pr|failing-ci|merge-conflict|selected-review-comments|review)-[^/\\]+\.(?:md|txt)$/u;
 
 export function agentInstructionContentUrlFromPath(filePath: string) {
 	const segments = filePath.replaceAll('\\', '/').split('/').filter(Boolean);

@@ -57,6 +57,9 @@ export function useChatComposer({
 	const [parts, setParts] = useState<PromptPart[]>(() =>
 		useComposerDraftStore.getState().getDraft(sessionId),
 	);
+	const pendingAppend = useComposerDraftStore((state) =>
+		state.pendingAppendBySessionId.get(sessionId),
+	);
 	const [attachments, setAttachments] = useState<LocalAttachment[]>([]);
 	const attachmentsRef = useRef<LocalAttachment[]>([]);
 	const uploadingAttachmentByIdRef = useRef(new Map<string, Promise<ChatAttachment | null>>());
@@ -235,6 +238,28 @@ export function useChatComposer({
 		setSubmitting(false);
 		submittingRef.current = false;
 	}, [cleanupUnsubmittedAttachments, sessionId]);
+
+	// Drain externally-queued parts (e.g. Checks "Add to chat") into the live
+	// editor. Runs on mount and whenever the queue changes for this session, so it
+	// reaches an already-open composer instead of only updating the stored draft.
+	useEffect(() => {
+		if (!pendingAppend || pendingAppend.length === 0) return;
+		const appended = useComposerDraftStore.getState().consumePendingAppend(sessionId);
+		if (appended.length === 0) return;
+		setParts((previous) => {
+			const last = previous.at(-1);
+			const [first, ...rest] = appended;
+			if (last?.type === 'text' && first?.type === 'text') {
+				const separator = last.text.trim() ? '\n\n' : '';
+				return [
+					...previous.slice(0, -1),
+					{ type: 'text', text: `${last.text}${separator}${first.text}` },
+					...rest,
+				];
+			}
+			return [...previous, ...appended];
+		});
+	}, [pendingAppend, sessionId]);
 
 	useEffect(() => {
 		return () => {

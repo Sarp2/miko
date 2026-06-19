@@ -10,11 +10,13 @@ export function useSidebarResize({
 	width,
 	onCollapsedChange,
 	onWidthChange,
+	side = 'left',
 }: {
 	collapsed: boolean | undefined;
 	width: number | undefined;
 	onCollapsedChange?: (collapsed: boolean) => void;
 	onWidthChange?: (width: number) => void;
+	side?: 'left' | 'right';
 }) {
 	const rootRef = React.useRef<HTMLDivElement | null>(null);
 	const isCollapsedControlled = collapsed !== undefined;
@@ -68,7 +70,8 @@ export function useSidebarResize({
 			event.preventDefault();
 			resizeCleanupRef.current?.();
 
-			const left = rootRef.current.getBoundingClientRect().left;
+			const rect = rootRef.current.getBoundingClientRect();
+			const edge = side === 'right' ? rect.right : rect.left;
 			let nextWidth = internalWidth;
 			let nextRawWidth = internalWidth;
 			let didFinish = false;
@@ -107,7 +110,7 @@ export function useSidebarResize({
 			};
 
 			function onPointerMove(moveEvent: PointerEvent) {
-				const rawWidth = moveEvent.clientX - left;
+				const rawWidth = side === 'right' ? edge - moveEvent.clientX : moveEvent.clientX - edge;
 				nextRawWidth = rawWidth;
 				nextWidth = Math.max(0, Math.min(MAX_WIDTH, rawWidth));
 				setInternalWidth(nextWidth);
@@ -126,7 +129,7 @@ export function useSidebarResize({
 			document.addEventListener('pointerup', onPointerUp);
 			document.addEventListener('pointercancel', onPointerCancel);
 		},
-		[isCollapsed, applyCollapsed, internalWidth, onWidthChange],
+		[isCollapsed, applyCollapsed, internalWidth, onWidthChange, side],
 	);
 
 	const openWidth = isResizing

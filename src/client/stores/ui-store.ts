@@ -7,6 +7,13 @@ import { getLocalStorage } from './persist-storage';
 export const UI_STORAGE_KEY = 'miko:v1';
 
 export type RightSidebarTab = 'all_files' | 'changes' | 'checks';
+
+export interface ChecksTodo {
+	id: string;
+	text: string;
+	done: boolean;
+	createdAt: number;
+}
 export type DiffViewMode = 'unified' | 'split';
 export type SidebarSortField = 'updated' | 'created';
 export type ExternalOpenApp = 'finder' | 'cursor' | 'warp' | 'terminal' | 'antigravity';
@@ -66,6 +73,8 @@ export interface PersistedUiState {
 	sidebarDirectorySort: SidebarSortField;
 	sidebarWorkspaceSort: SidebarSortField;
 	rightSidebarTabByWorkspaceId: Record<string, RightSidebarTab>;
+	rightSidebarCollapsedByWorkspaceId: Record<string, boolean>;
+	rightSidebarWidthByWorkspaceId: Record<string, number>;
 	middleTabsByWorkspaceId: Record<string, MiddleTabDescriptor[]>;
 	activeTabIdByWorkspaceId: Record<string, string>;
 	terminalPanelByWorkspaceId: Record<string, TerminalPanelState>;
@@ -73,10 +82,14 @@ export interface PersistedUiState {
 	activeTerminalIdByWorkspaceId: Record<string, string>;
 	diffViewModeByWorkspaceId: Record<string, DiffViewMode>;
 	viewedDiffDigestByWorkspaceId: Record<string, Record<string, string>>;
+	checksTodosByWorkspaceId: Record<string, ChecksTodo[]>;
+	hiddenCommentIdsByWorkspaceId: Record<string, string[]>;
 }
 
 interface UiStoreState extends PersistedUiState {
 	getRightSidebarTab: (workspaceId: string) => RightSidebarTab;
+	getRightSidebarCollapsed: (workspaceId: string) => boolean;
+	getRightSidebarWidth: (workspaceId: string) => number;
 	getDiffViewMode: (workspaceId: string) => DiffViewMode;
 	setDiffViewMode: (workspaceId: string, mode: DiffViewMode) => void;
 	isDiffPathViewed: (workspaceId: string, path: string, patchDigest?: string | null) => boolean;
@@ -86,7 +99,15 @@ interface UiStoreState extends PersistedUiState {
 		patchDigest: string,
 		viewed: boolean,
 	) => void;
+	getChecksTodos: (workspaceId: string) => ChecksTodo[];
+	addChecksTodo: (workspaceId: string, text: string) => void;
+	toggleChecksTodo: (workspaceId: string, todoId: string) => void;
+	removeChecksTodo: (workspaceId: string, todoId: string) => void;
+	isCommentHidden: (workspaceId: string, commentId: string) => boolean;
+	setCommentHidden: (workspaceId: string, commentId: string, hidden: boolean) => void;
 	setRightSidebarTab: (workspaceId: string, tab: RightSidebarTab) => void;
+	setRightSidebarCollapsed: (workspaceId: string, collapsed: boolean) => void;
+	setRightSidebarWidth: (workspaceId: string, width: number) => void;
 	setLeftSidebarCollapsed: (collapsed: boolean) => void;
 	setLeftSidebarWidth: (width: number) => void;
 	setExternalOpenApp: (app: ExternalOpenApp) => void;
@@ -115,6 +136,11 @@ interface UiStoreState extends PersistedUiState {
 
 const DEFAULT_LEFT_SIDEBAR_WIDTH = 292;
 const DEFAULT_TERMINAL_HEIGHT = 260;
+const DEFAULT_TERMINAL_PANEL_STATE: TerminalPanelState = {
+	collapsed: false,
+	height: DEFAULT_TERMINAL_HEIGHT,
+};
+const EMPTY_TERMINAL_TABS: TerminalTabDescriptor[] = [];
 const DEFAULT_EXTERNAL_OPEN_APP: ExternalOpenApp = 'finder';
 const DEFAULT_UI_STATE: PersistedUiState = {
 	leftSidebarCollapsed: false,
@@ -125,6 +151,8 @@ const DEFAULT_UI_STATE: PersistedUiState = {
 	sidebarDirectorySort: 'updated',
 	sidebarWorkspaceSort: 'updated',
 	rightSidebarTabByWorkspaceId: {},
+	rightSidebarCollapsedByWorkspaceId: {},
+	rightSidebarWidthByWorkspaceId: {},
 	middleTabsByWorkspaceId: {},
 	activeTabIdByWorkspaceId: {},
 	terminalPanelByWorkspaceId: {},
@@ -132,7 +160,11 @@ const DEFAULT_UI_STATE: PersistedUiState = {
 	activeTerminalIdByWorkspaceId: {},
 	diffViewModeByWorkspaceId: {},
 	viewedDiffDigestByWorkspaceId: {},
+	checksTodosByWorkspaceId: {},
+	hiddenCommentIdsByWorkspaceId: {},
 };
+
+const EMPTY_TODOS: ChecksTodo[] = [];
 
 export function scratchpadTabId(workspaceId: string) {
 	return `scratchpad:${workspaceId}`;
@@ -231,6 +263,10 @@ export function normalizePersistedUiState(state: PersistedUiState): PersistedUiS
 		...state,
 		middleTabsByWorkspaceId,
 		activeTabIdByWorkspaceId,
+		// Terminal sessions are server-memory resources. Never revive tab ids
+		// from localStorage after a renderer/server restart.
+		terminalTabsByWorkspaceId: {},
+		activeTerminalIdByWorkspaceId: {},
 	};
 }
 
@@ -314,6 +350,14 @@ export const useUiStore = create<UiStoreState>()(
 				return get().rightSidebarTabByWorkspaceId[workspaceId] ?? 'all_files';
 			},
 
+			getRightSidebarCollapsed: (workspaceId) => {
+				return get().rightSidebarCollapsedByWorkspaceId[workspaceId] ?? false;
+			},
+
+			getRightSidebarWidth: (workspaceId) => {
+				return get().rightSidebarWidthByWorkspaceId[workspaceId] ?? DEFAULT_LEFT_SIDEBAR_WIDTH;
+			},
+
 			getDiffViewMode: (workspaceId) => {
 				return get().diffViewModeByWorkspaceId[workspaceId] ?? 'unified';
 			},
@@ -349,11 +393,103 @@ export const useUiStore = create<UiStoreState>()(
 				});
 			},
 
+			getChecksTodos: (workspaceId) => {
+				return get().checksTodosByWorkspaceId[workspaceId] ?? EMPTY_TODOS;
+			},
+
+			addChecksTodo: (workspaceId, text) => {
+				const trimmed = text.trim();
+				if (!trimmed) return;
+				set((state) => {
+					const todos = state.checksTodosByWorkspaceId[workspaceId] ?? [];
+					const todo: ChecksTodo = {
+						id: crypto.randomUUID(),
+						text: trimmed,
+						done: false,
+						createdAt: Date.now(),
+					};
+					return {
+						checksTodosByWorkspaceId: {
+							...state.checksTodosByWorkspaceId,
+							[workspaceId]: [...todos, todo],
+						},
+					};
+				});
+			},
+
+			toggleChecksTodo: (workspaceId, todoId) => {
+				set((state) => {
+					const todos = state.checksTodosByWorkspaceId[workspaceId];
+					if (!todos) return state;
+					return {
+						checksTodosByWorkspaceId: {
+							...state.checksTodosByWorkspaceId,
+							[workspaceId]: todos.map((todo) =>
+								todo.id === todoId ? { ...todo, done: !todo.done } : todo,
+							),
+						},
+					};
+				});
+			},
+
+			removeChecksTodo: (workspaceId, todoId) => {
+				set((state) => {
+					const todos = state.checksTodosByWorkspaceId[workspaceId];
+					if (!todos) return state;
+					return {
+						checksTodosByWorkspaceId: {
+							...state.checksTodosByWorkspaceId,
+							[workspaceId]: todos.filter((todo) => todo.id !== todoId),
+						},
+					};
+				});
+			},
+
+			isCommentHidden: (workspaceId, commentId) => {
+				return get().hiddenCommentIdsByWorkspaceId[workspaceId]?.includes(commentId) ?? false;
+			},
+
+			setCommentHidden: (workspaceId, commentId, hidden) => {
+				set((state) => {
+					const current = state.hiddenCommentIdsByWorkspaceId[workspaceId] ?? [];
+					const next = hidden
+						? current.includes(commentId)
+							? current
+							: [...current, commentId]
+						: current.filter((id) => id !== commentId);
+					if (next === current) return state;
+					return {
+						hiddenCommentIdsByWorkspaceId: {
+							...state.hiddenCommentIdsByWorkspaceId,
+							[workspaceId]: next,
+						},
+					};
+				});
+			},
+
 			setRightSidebarTab: (workspaceId, tab) => {
 				set((state) => ({
 					rightSidebarTabByWorkspaceId: {
 						...state.rightSidebarTabByWorkspaceId,
 						[workspaceId]: tab,
+					},
+				}));
+			},
+
+			setRightSidebarCollapsed: (workspaceId, collapsed) => {
+				set((state) => ({
+					rightSidebarCollapsedByWorkspaceId: {
+						...state.rightSidebarCollapsedByWorkspaceId,
+						[workspaceId]: collapsed,
+					},
+				}));
+			},
+
+			setRightSidebarWidth: (workspaceId, width) => {
+				set((state) => ({
+					rightSidebarWidthByWorkspaceId: {
+						...state.rightSidebarWidthByWorkspaceId,
+						[workspaceId]: width <= 0 ? 0 : clampPanelSize(width, 256, 420),
 					},
 				}));
 			},
@@ -508,12 +644,7 @@ export const useUiStore = create<UiStoreState>()(
 			},
 
 			getTerminalPanel: (workspaceId) => {
-				return (
-					get().terminalPanelByWorkspaceId[workspaceId] ?? {
-						collapsed: false,
-						height: DEFAULT_TERMINAL_HEIGHT,
-					}
-				);
+				return get().terminalPanelByWorkspaceId[workspaceId] ?? DEFAULT_TERMINAL_PANEL_STATE;
 			},
 
 			setTerminalPanelCollapsed: (workspaceId, collapsed) => {
@@ -538,7 +669,7 @@ export const useUiStore = create<UiStoreState>()(
 			},
 
 			getTerminalTabs: (workspaceId) => {
-				return get().terminalTabsByWorkspaceId[workspaceId] ?? [];
+				return get().terminalTabsByWorkspaceId[workspaceId] ?? EMPTY_TERMINAL_TABS;
 			},
 
 			openTerminalTab: (workspaceId, terminalId, title = 'Terminal') => {
@@ -596,6 +727,14 @@ export const useUiStore = create<UiStoreState>()(
 						state.rightSidebarTabByWorkspaceId,
 						workspaceId,
 					),
+					rightSidebarCollapsedByWorkspaceId: removeWorkspaceKey(
+						state.rightSidebarCollapsedByWorkspaceId,
+						workspaceId,
+					),
+					rightSidebarWidthByWorkspaceId: removeWorkspaceKey(
+						state.rightSidebarWidthByWorkspaceId,
+						workspaceId,
+					),
 					middleTabsByWorkspaceId: removeWorkspaceKey(state.middleTabsByWorkspaceId, workspaceId),
 					activeTabIdByWorkspaceId: removeWorkspaceKey(state.activeTabIdByWorkspaceId, workspaceId),
 					terminalPanelByWorkspaceId: removeWorkspaceKey(
@@ -616,6 +755,11 @@ export const useUiStore = create<UiStoreState>()(
 					),
 					viewedDiffDigestByWorkspaceId: removeWorkspaceKey(
 						state.viewedDiffDigestByWorkspaceId,
+						workspaceId,
+					),
+					checksTodosByWorkspaceId: removeWorkspaceKey(state.checksTodosByWorkspaceId, workspaceId),
+					hiddenCommentIdsByWorkspaceId: removeWorkspaceKey(
+						state.hiddenCommentIdsByWorkspaceId,
 						workspaceId,
 					),
 					pinnedWorkspaceIds: state.pinnedWorkspaceIds.filter((id) => id !== workspaceId),
@@ -648,13 +792,17 @@ export const useUiStore = create<UiStoreState>()(
 				sidebarDirectorySort: state.sidebarDirectorySort,
 				sidebarWorkspaceSort: state.sidebarWorkspaceSort,
 				rightSidebarTabByWorkspaceId: state.rightSidebarTabByWorkspaceId,
+				rightSidebarCollapsedByWorkspaceId: state.rightSidebarCollapsedByWorkspaceId,
+				rightSidebarWidthByWorkspaceId: state.rightSidebarWidthByWorkspaceId,
 				middleTabsByWorkspaceId: state.middleTabsByWorkspaceId,
 				activeTabIdByWorkspaceId: state.activeTabIdByWorkspaceId,
 				terminalPanelByWorkspaceId: state.terminalPanelByWorkspaceId,
-				terminalTabsByWorkspaceId: state.terminalTabsByWorkspaceId,
-				activeTerminalIdByWorkspaceId: state.activeTerminalIdByWorkspaceId,
+				terminalTabsByWorkspaceId: {},
+				activeTerminalIdByWorkspaceId: {},
 				diffViewModeByWorkspaceId: state.diffViewModeByWorkspaceId,
 				viewedDiffDigestByWorkspaceId: state.viewedDiffDigestByWorkspaceId,
+				checksTodosByWorkspaceId: state.checksTodosByWorkspaceId,
+				hiddenCommentIdsByWorkspaceId: state.hiddenCommentIdsByWorkspaceId,
 			}),
 		},
 	),

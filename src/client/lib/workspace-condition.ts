@@ -15,6 +15,7 @@ export type WorkspaceConditionStage =
 	| 'pr_open'
 	| 'draft_pr'
 	| 'ci_failed'
+	| 'ci_pending'
 	| 'merge_conflicts'
 	| 'merged'
 	| 'closed'
@@ -80,6 +81,7 @@ function deriveStage(args: {
 	dirtyFileCount: number;
 	hasPushedCommits: boolean;
 	mainAheadCount: number;
+	unpushedCommitCount: number;
 	ciStatus?: 'unknown' | 'pending' | 'passing' | 'failing';
 	hasMergeConflicts: boolean;
 	isDraft: boolean;
@@ -103,17 +105,20 @@ function deriveStage(args: {
 				primaryAction: action('resolve_merge_conflicts', 'Resolve conflicts'),
 			};
 		}
-		if (args.ciStatus === 'failing') {
-			return { stage: 'ci_failed', primaryAction: action('fix_ci', 'Fix CI') };
+		if (args.isDraft) {
+			return { stage: 'draft_pr', primaryAction: action('mark_pr_ready', 'Mark ready') };
 		}
-		if (args.dirtyFileCount > 0) {
+		if (args.dirtyFileCount > 0 || args.unpushedCommitCount > 0) {
 			return {
 				stage: 'dirty',
 				primaryAction: action('commit_and_push', 'Commit and push'),
 			};
 		}
-		if (args.isDraft) {
-			return { stage: 'draft_pr', primaryAction: action('mark_pr_ready', 'Mark ready') };
+		if (args.ciStatus === 'failing') {
+			return { stage: 'ci_failed', primaryAction: action('fix_ci', 'Fix CI') };
+		}
+		if (args.ciStatus === 'pending') {
+			return { stage: 'ci_pending', primaryAction: null };
 		}
 		return { stage: 'pr_open', primaryAction: action('merge', 'Merge') };
 	}
@@ -152,11 +157,12 @@ export function deriveWorkspaceCondition(snapshot: WorkspaceSnapshot): Workspace
 		dirtyFileCount,
 		hasPushedCommits: snapshot.git?.hasPushedCommits === true,
 		mainAheadCount: snapshot.git?.mainAheadCount ?? 0,
+		unpushedCommitCount: snapshot.git?.aheadCount ?? 0,
 		ciStatus: snapshot.github?.ciStatus ?? snapshot.workspace.pullRequest?.ciStatus,
 		hasMergeConflicts:
 			snapshot.github?.hasMergeConflicts === true ||
 			snapshot.workspace.pullRequest?.hasMergeConflicts === true,
-		isDraft: snapshot.github?.isDraft ?? snapshot.workspace.pullRequest?.isDraft ?? false,
+		isDraft: snapshot.github?.isDraft === true || snapshot.workspace.pullRequest?.isDraft === true,
 	});
 
 	return {
@@ -182,6 +188,7 @@ export function deriveSidebarWorkspaceCondition(row: SidebarWorkspaceRow): Works
 		dirtyFileCount: hasLocalPrWork ? 1 : 0,
 		hasPushedCommits: row.indicator === 'create_pr',
 		mainAheadCount: 0,
+		unpushedCommitCount: row.hasUnpushedCommits ? 1 : 0,
 		ciStatus: row.indicator === 'ci_failed' ? 'failing' : undefined,
 		hasMergeConflicts: row.indicator === 'merge_conflicts',
 		isDraft: row.indicator === 'draft_pr',

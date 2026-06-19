@@ -13,8 +13,9 @@ const CREATE_PR_INSTRUCTIONS_FILE_NAME = 'create-pr-instructions.md';
 const FAILING_CI_LOGS_FILE_NAME = 'failing-ci-logs.txt';
 const MERGE_CONFLICT_INSTRUCTIONS_FILE_NAME = 'merge-conflict-instructions.md';
 const SELECTED_REVIEW_COMMENTS_FILE_NAME = 'selected-review-comments.txt';
+const REVIEW_INSTRUCTIONS_FILE_NAME = 'review-instructions.md';
 const INSTRUCTION_FILE_PATTERN =
-	/^(?:create-pr|failing-ci|merge-conflict|selected-review-comments)-(.+)\.(?:md|txt)$/u;
+	/^(?:create-pr|failing-ci|merge-conflict|selected-review-comments|review)-(.+)\.(?:md|txt)$/u;
 
 export function getAgentInstructionsDir() {
 	return path.join(getDataDir(homedir()), 'agent-instructions');
@@ -122,6 +123,97 @@ export async function writeCreatePrInstructionsAttachment(args: {
 		displayName: CREATE_PR_INSTRUCTIONS_FILE_NAME,
 		absolutePath,
 		relativePath: CREATE_PR_INSTRUCTIONS_FILE_NAME,
+		contentUrl: agentInstructionContentUrl(path.basename(absolutePath)),
+		mimeType: 'text/markdown',
+		size: info.size,
+	};
+}
+
+export function buildReviewInstructionsMarkdown(args: {
+	workspaceId: string;
+	directoryPath: string;
+	workspacePath: string;
+	branchName: string;
+	githubOwner: string;
+	githubRepo: string;
+	hasUncommittedChanges: boolean;
+}) {
+	const dirtyLine = args.hasUncommittedChanges
+		? 'There are uncommitted changes in this workspace; include them in the review.'
+		: 'There are no uncommitted changes currently detected; review the committed branch diff.';
+
+	return `The user requested a thorough code review of the changes on this branch. Produce a single Markdown report. Do not modify any files, commit, push, or open a PR — this is a read-only review.
+
+Workspace ID: ${args.workspaceId}
+Directory: ${args.directoryPath}
+Worktree: ${args.workspacePath}
+Current branch: ${args.branchName}
+Target branch: origin/main
+GitHub repository: ${args.githubOwner}/${args.githubRepo}
+
+${dirtyLine}
+
+## How to gather context
+
+- If you have any code-review skills or project review conventions, invoke them first; they take precedence over these instructions.
+- Determine the full scope of changes: run \`git status\`, \`git diff origin/main...HEAD\`, and \`git diff\` for any uncommitted work. Review every changed file, not just the most recent edit.
+- Read the surrounding code, not only the diff hunks, so you understand how changed code is actually used.
+- For every public/exported API, function, type, constant, route, event, or config key that the diff adds, changes, renames, or removes, **search the repository for all call sites and usages** (e.g. ripgrep) before judging it. Confirm callers, tests, serialized/persisted shapes, and docs are consistent and that nothing was missed.
+- Prefer evidence from the code over assumptions. Cite concrete \`path:line\` references for each finding.
+
+## What to evaluate
+
+Cover each of these explicitly:
+
+- **Real bugs & correctness**: logic errors, wrong conditions, off-by-one, null/undefined and error handling, async/await and race conditions, resource leaks, boundary/trust validation, and security issues. Prioritize bugs that will actually trigger in real usage over hypotheticals; state how each is reached.
+- **Architectural constraints**: does the change respect the project's boundaries, layering, ownership rules, and existing patterns (per CLAUDE.md and the .context architecture maps)? Flag violations such as server-only logic leaking into client code, bypassing the typed protocol/event store, or persisting derived state.
+- **Modularity & abstraction**: are responsibilities well separated and placed in the right module? Are abstractions at the right altitude — neither leaky nor over-engineered? Flag premature abstraction and helpers that should be inlined, as well as duplicated logic that should be shared.
+- **Maintainability**: naming, readability, consistency with surrounding style, dead code, comments that explain non-obvious protocol/security/process behavior, and reasonable test coverage for the changed behavior.
+- **API surface & reuse**: are new public APIs necessary, minimal, and consistent with existing ones? Could existing utilities be reused instead? Are breaking changes to existing APIs handled at every call site found in the search above?
+
+## Output format
+
+Write the report as Markdown with these sections:
+
+1. **Summary** — 2-4 sentences on what the change does and overall assessment.
+2. **Blocking issues** — real bugs or constraint violations that must be fixed, each with a \`path:line\` reference, why it matters, and a concrete fix.
+3. **Improvements** — modularity, abstraction, maintainability, and reuse suggestions, each with references.
+4. **Nits** — minor/optional polish.
+5. **Open questions** — anything you could not verify and what you would need.
+
+Order findings by severity. If a section has nothing, write "None". Be specific and concise; skip generic praise.
+`;
+}
+
+export async function writeReviewInstructionsAttachment(args: {
+	workspace: WorkspaceRecord;
+	directory: DirectoryRecord;
+	git: WorkspaceGitSnapshot;
+}): Promise<ChatAttachment> {
+	const { workspace, directory, git } = args;
+	const instructionsDir = getAgentInstructionsDir();
+	await mkdir(instructionsDir, { recursive: true });
+
+	const absolutePath = path.join(instructionsDir, `review-${workspace.id}.md`);
+	const markdown = buildReviewInstructionsMarkdown({
+		workspaceId: workspace.id,
+		directoryPath: directory.localPath,
+		workspacePath: workspace.localPath,
+		branchName: workspace.branchName,
+		githubOwner: directory.githubOwner,
+		githubRepo: directory.githubRepo,
+		hasUncommittedChanges: git.files.length > 0,
+	});
+
+	await Bun.write(absolutePath, markdown);
+	const info = await stat(absolutePath);
+
+	return {
+		id: `review-${workspace.id}`,
+		kind: 'file',
+		displayName: REVIEW_INSTRUCTIONS_FILE_NAME,
+		absolutePath,
+		relativePath: REVIEW_INSTRUCTIONS_FILE_NAME,
 		contentUrl: agentInstructionContentUrl(path.basename(absolutePath)),
 		mimeType: 'text/markdown',
 		size: info.size,

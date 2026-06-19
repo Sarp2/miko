@@ -43,11 +43,49 @@ afterEach(() => {
 	removeMockedBrowserGlobals();
 });
 
+describe('useUiStore.addChecksTodo', () => {
+	test('adds, toggles, removes per-workspace todos and ignores blank text', () => {
+		const store = useUiStore.getState();
+		store.addChecksTodo('workspace-1', '  ship checks panel  ');
+		store.addChecksTodo('workspace-1', '   ');
+		store.addChecksTodo('workspace-2', 'other workspace');
+
+		const todos = useUiStore.getState().getChecksTodos('workspace-1');
+		expect(todos.map((todo) => todo.text)).toEqual(['ship checks panel']);
+		expect(useUiStore.getState().getChecksTodos('workspace-2')).toHaveLength(1);
+
+		const todoId = todos[0].id;
+		store.toggleChecksTodo('workspace-1', todoId);
+		expect(useUiStore.getState().getChecksTodos('workspace-1')[0].done).toBe(true);
+
+		store.removeChecksTodo('workspace-1', todoId);
+		expect(useUiStore.getState().getChecksTodos('workspace-1')).toEqual([]);
+	});
+});
+
+describe('useUiStore.setCommentHidden', () => {
+	test('hides and restores comments per workspace without duplicates', () => {
+		const store = useUiStore.getState();
+		store.setCommentHidden('workspace-1', 'comment-1', true);
+		store.setCommentHidden('workspace-1', 'comment-1', true);
+		expect(useUiStore.getState().isCommentHidden('workspace-1', 'comment-1')).toBe(true);
+		expect(useUiStore.getState().hiddenCommentIdsByWorkspaceId['workspace-1']).toEqual([
+			'comment-1',
+		]);
+		expect(useUiStore.getState().isCommentHidden('workspace-2', 'comment-1')).toBe(false);
+
+		store.setCommentHidden('workspace-1', 'comment-1', false);
+		expect(useUiStore.getState().isCommentHidden('workspace-1', 'comment-1')).toBe(false);
+	});
+});
+
 describe('useUiStore.setRightSidebarTab', () => {
 	test('stores the selected right sidebar tab per workspace', () => {
 		expect(useUiStore.getState().getRightSidebarTab('workspace-1')).toBe('all_files');
 
 		useUiStore.getState().setRightSidebarTab('workspace-1', 'checks');
+		useUiStore.getState().setRightSidebarCollapsed('workspace-1', true);
+		useUiStore.getState().setRightSidebarWidth('workspace-1', 320);
 		useUiStore.getState().setRightSidebarTab('workspace-2', 'changes');
 
 		expect(useUiStore.getState().getRightSidebarTab('workspace-1')).toBe('checks');
@@ -443,6 +481,8 @@ describe('useUiStore.removeWorkspaceUi', () => {
 		useUiStore.getState().removeWorkspaceUi('workspace-1');
 
 		expect(useUiStore.getState().rightSidebarTabByWorkspaceId['workspace-1']).toBeUndefined();
+		expect(useUiStore.getState().rightSidebarCollapsedByWorkspaceId['workspace-1']).toBeUndefined();
+		expect(useUiStore.getState().rightSidebarWidthByWorkspaceId['workspace-1']).toBeUndefined();
 		expect(useUiStore.getState().middleTabsByWorkspaceId['workspace-1']).toBeUndefined();
 		expect(useUiStore.getState().terminalPanelByWorkspaceId['workspace-1']).toBeUndefined();
 		expect(useUiStore.getState().terminalTabsByWorkspaceId['workspace-1']).toBeUndefined();
@@ -473,6 +513,37 @@ describe('useUiStore.persist', () => {
 		expect(useUiStore.persist.getOptions().name).toBe(UI_STORAGE_KEY);
 	});
 
+	test('drops persisted terminal tabs because terminal sessions are memory-only', () => {
+		const persisted: PersistedUiState = {
+			leftSidebarCollapsed: false,
+			leftSidebarWidth: 292,
+			externalOpenApp: 'finder',
+			expandedDirectoryIds: [],
+			pinnedWorkspaceIds: [],
+			sidebarDirectorySort: 'updated',
+			sidebarWorkspaceSort: 'updated',
+			rightSidebarTabByWorkspaceId: {},
+			rightSidebarCollapsedByWorkspaceId: {},
+			rightSidebarWidthByWorkspaceId: {},
+			middleTabsByWorkspaceId: {},
+			activeTabIdByWorkspaceId: {},
+			terminalPanelByWorkspaceId: {},
+			terminalTabsByWorkspaceId: {
+				'workspace-1': [{ terminalId: 'terminal-1', title: 'Terminal', createdAt: 1 }],
+			},
+			activeTerminalIdByWorkspaceId: { 'workspace-1': 'terminal-1' },
+			diffViewModeByWorkspaceId: {},
+			viewedDiffDigestByWorkspaceId: {},
+			checksTodosByWorkspaceId: {},
+			hiddenCommentIdsByWorkspaceId: {},
+		};
+
+		const normalized = normalizePersistedUiState(persisted);
+
+		expect(normalized.terminalTabsByWorkspaceId).toEqual({});
+		expect(normalized.activeTerminalIdByWorkspaceId).toEqual({});
+	});
+
 	test('normalizes legacy diff tab ids and stale active tab ids', () => {
 		const persisted: PersistedUiState = {
 			leftSidebarCollapsed: false,
@@ -483,6 +554,8 @@ describe('useUiStore.persist', () => {
 			sidebarDirectorySort: 'updated',
 			sidebarWorkspaceSort: 'updated',
 			rightSidebarTabByWorkspaceId: {},
+			rightSidebarCollapsedByWorkspaceId: {},
+			rightSidebarWidthByWorkspaceId: {},
 			middleTabsByWorkspaceId: {
 				'workspace-1': [
 					{
@@ -510,6 +583,8 @@ describe('useUiStore.persist', () => {
 			activeTerminalIdByWorkspaceId: {},
 			diffViewModeByWorkspaceId: {},
 			viewedDiffDigestByWorkspaceId: {},
+			checksTodosByWorkspaceId: {},
+			hiddenCommentIdsByWorkspaceId: {},
 		};
 
 		expect(normalizePersistedUiState(persisted).middleTabsByWorkspaceId['workspace-1'][0].id).toBe(
@@ -533,6 +608,8 @@ describe('normalizePersistedUiState durable file tabs', () => {
 			sidebarDirectorySort: 'updated',
 			sidebarWorkspaceSort: 'updated',
 			rightSidebarTabByWorkspaceId: {},
+			rightSidebarCollapsedByWorkspaceId: {},
+			rightSidebarWidthByWorkspaceId: {},
 			middleTabsByWorkspaceId: {},
 			activeTabIdByWorkspaceId: {},
 			terminalPanelByWorkspaceId: {},
@@ -540,6 +617,8 @@ describe('normalizePersistedUiState durable file tabs', () => {
 			activeTerminalIdByWorkspaceId: {},
 			diffViewModeByWorkspaceId: {},
 			viewedDiffDigestByWorkspaceId: {},
+			checksTodosByWorkspaceId: {},
+			hiddenCommentIdsByWorkspaceId: {},
 		};
 	}
 

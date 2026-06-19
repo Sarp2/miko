@@ -89,6 +89,7 @@ function openPrView() {
 		createdAt: '2026-01-01T00:00:00Z',
 		additions: 52,
 		deletions: 14,
+		files: [{ path: 'src/app.ts', additions: 3, deletions: 1, status: 'modified' }],
 		comments: [
 			{
 				id: 'issue-comment-1',
@@ -165,6 +166,7 @@ describe('PrManager.getWorkspaceGitHubSnapshot', () => {
 						});
 					}
 					if (requestPath.includes('/repos/sarp/other/pulls?')) return { status: 'not_modified' };
+					if (requestPath.includes('/files')) return okRest([]);
 					if (requestPath.includes('/comments') || requestPath.includes('/reviews'))
 						return okRest([]);
 					if (requestPath.includes('/check-runs')) return okRest({ check_runs: [] });
@@ -244,7 +246,7 @@ describe('PrManager.refreshWorkspacePrState', () => {
 			'number,title,url,state,headRefName,baseRefName,isDraft,createdAt',
 		]);
 		expect(calls[1]).toContain(
-			'number,title,body,url,state,mergeStateStatus,isDraft,headRefName,baseRefName,createdAt,additions,deletions,comments,reviews,statusCheckRollup',
+			'number,title,body,url,state,mergeStateStatus,isDraft,headRefName,baseRefName,createdAt,additions,deletions,files,comments,reviews,statusCheckRollup',
 		);
 		expect(snapshot).toMatchObject({
 			status: 'open',
@@ -260,6 +262,12 @@ describe('PrManager.refreshWorkspacePrState', () => {
 			additions: 52,
 			deletions: 14,
 			createdAt: Date.parse('2026-01-01T00:00:00Z'),
+		});
+		expect(snapshot.files?.[0]).toMatchObject({
+			path: 'src/app.ts',
+			changeType: 'modified',
+			additions: 3,
+			deletions: 1,
 		});
 		expect(snapshot.comments).toHaveLength(2);
 		expect(snapshot.comments[0]).toMatchObject({
@@ -433,6 +441,34 @@ describe('PrManager.refreshWorkspacePrState', () => {
 			number: 12,
 			status: 'open',
 		});
+	});
+
+	test('replays persisted PR files in the known-PR snapshot after a merge', async () => {
+		const { store, workspace } = await createWorkspace();
+		await store.observeWorkspacePullRequest(workspace.id, {
+			number: 12,
+			status: 'open',
+			lastObservedAt: Date.now(),
+		});
+		const manager = new PrManager(store, {
+			runGh: async (args) =>
+				args[0] === 'pr' && args[1] === 'view'
+					? okJson({ ...openPrView(), state: 'MERGED', title: 'Merged PR' })
+					: failed('unexpected gh command'),
+		});
+
+		// First refresh observes the merge and persists the PR's files before
+		// reviewState flips to 'done' and live refresh stops.
+		await manager.refreshWorkspacePrState(workspace.id);
+		expect(store.requireWorkspace(workspace.id).pullRequest?.files).toMatchObject([
+			{ path: 'src/app.ts', additions: 3, deletions: 1, changeType: 'modified' },
+		]);
+
+		// Subsequent refresh short-circuits to the known-PR snapshot, which must
+		// still expose the changed files for the right-sidebar Changes list.
+		const snapshot = await manager.refreshWorkspacePrState(workspace.id);
+		expect(snapshot.status).toBe('merged');
+		expect(snapshot.files).toMatchObject([{ path: 'src/app.ts' }]);
 	});
 
 	test('caches a none snapshot when no pull request is found', async () => {
@@ -829,6 +865,17 @@ describe('PrManager REST refresh', () => {
 							},
 						]);
 					}
+					if (requestPath.includes('/pulls/12/files')) {
+						return okRest([
+							{
+								filename: 'README.md',
+								status: 'modified',
+								additions: 3,
+								deletions: 1,
+								patch: '@@ -1 +1 @@',
+							},
+						]);
+					}
 					if (requestPath.includes('/check-runs')) {
 						return okRest({
 							check_runs: [
@@ -859,7 +906,7 @@ describe('PrManager REST refresh', () => {
 
 		const snapshot = await manager.refreshWorkspacePrState(workspace.id);
 
-		expect(calls).toHaveLength(7);
+		expect(calls).toHaveLength(8);
 		expect(snapshot).toMatchObject({
 			status: 'open',
 			title: 'REST title',
@@ -867,6 +914,12 @@ describe('PrManager REST refresh', () => {
 			mergeStateStatus: 'DIRTY',
 			hasMergeConflicts: true,
 			ciStatus: 'passing',
+			additions: 3,
+			deletions: 1,
+		});
+		expect(snapshot.files?.[0]).toMatchObject({
+			path: 'README.md',
+			changeType: 'modified',
 			additions: 3,
 			deletions: 1,
 		});

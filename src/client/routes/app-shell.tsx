@@ -1,11 +1,17 @@
 import { useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { LeftSidebar } from '../components/left-sidebar';
+import { RightSidebar } from '../components/right-sidebar';
 import { useSidebarStore } from '../stores/sidebar-store';
+
+function workspaceIdFromPath(pathname: string) {
+	const match = pathname.match(/^\/workspaces\/([^/]+)/);
+	return match ? decodeURIComponent(match[1]) : null;
+}
 
 export function AppShell() {
 	const location = useLocation();
-	const showRightSidebar = location.pathname.startsWith('/workspaces/');
+	const workspaceId = workspaceIdFromPath(location.pathname);
 
 	useEffect(() => {
 		useSidebarStore.getState().connectSidebar();
@@ -21,14 +27,7 @@ export function AppShell() {
 			<main data-testid="middle-surface" className="min-w-0 flex-1 overflow-hidden bg-canvas">
 				<Outlet />
 			</main>
-			{showRightSidebar ? (
-				<aside
-					data-testid="right-sidebar"
-					className="w-[320px] shrink-0 border-l border-hairline bg-surface-1 text-ink-muted"
-				>
-					Inspector
-				</aside>
-			) : null}
+			{workspaceId ? <RightSidebar workspaceId={workspaceId} /> : null}
 		</div>
 	);
 }

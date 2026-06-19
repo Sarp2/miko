@@ -29,6 +29,7 @@ interface WorkspaceStoreState {
 	refreshGit: (workspaceId: string) => Promise<unknown>;
 	refreshPrStage: (workspaceId: string) => Promise<unknown>;
 	readDiffPatch: (workspaceId: string, path: string) => Promise<WorkspaceDiffPatchResult>;
+	discardFile: (workspaceId: string, path: string) => Promise<unknown>;
 	readFileContents: (workspaceId: string, path: string) => Promise<WorkspaceFileContentsResult>;
 	readExternalFileContents: (
 		workspaceId: string,
@@ -40,6 +41,7 @@ interface WorkspaceStoreState {
 		query: string,
 		limit?: number,
 	) => Promise<WorkspaceFileSearchResult[]>;
+	listFiles: (workspaceId: string, limit?: number) => Promise<WorkspaceFileSearchResult[]>;
 	renameBranch: (workspaceId: string, branchName: string) => Promise<unknown>;
 	commitAndPush: (workspaceId: string, sessionId: string) => Promise<unknown>;
 	pullLatestMain: (workspaceId: string, sessionId: string) => Promise<unknown>;
@@ -47,12 +49,14 @@ interface WorkspaceStoreState {
 	fixCi: (workspaceId: string, sessionId: string) => Promise<unknown>;
 	resolveMergeConflicts: (workspaceId: string, sessionId: string) => Promise<unknown>;
 	markPrReady: (workspaceId: string) => Promise<unknown>;
+	archiveWorkspace: (workspaceId: string) => Promise<unknown>;
 	addressReviewComments: (
 		workspaceId: string,
 		sessionId: string,
 		commentIds: string[],
 	) => Promise<unknown>;
 	mergePr: (workspaceId: string) => Promise<unknown>;
+	reviewChanges: (workspaceId: string) => Promise<{ sessionId: string }>;
 	openExternal: (args: OpenExternalArgs) => Promise<unknown>;
 }
 
@@ -256,6 +260,10 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
 		return parseWorkspaceDiffPatchResult(result);
 	},
 
+	discardFile: (workspaceId, path) => {
+		return useWsStore.getState().command({ type: 'workspace.discardFile', workspaceId, path });
+	},
+
 	readFileContents: async (workspaceId, path) => {
 		const result = await useWsStore.getState().command<unknown>({
 			type: 'workspace.readFile',
@@ -280,6 +288,15 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
 			type: 'workspace.searchFiles',
 			workspaceId,
 			query,
+			limit,
+		});
+		return parseWorkspaceFileSearchResults(result);
+	},
+
+	listFiles: async (workspaceId, limit) => {
+		const result = await useWsStore.getState().command<unknown>({
+			type: 'workspace.listFiles',
+			workspaceId,
 			limit,
 		});
 		return parseWorkspaceFileSearchResults(result);
@@ -321,6 +338,12 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
 		return useWsStore.getState().command({ type: 'workspace.markPrReady', workspaceId });
 	},
 
+	archiveWorkspace: (workspaceId) => {
+		return useWsStore
+			.getState()
+			.command({ type: 'workspace.setVisibility', workspaceId, visibilityState: 'archived' });
+	},
+
 	addressReviewComments: (workspaceId, sessionId, commentIds) => {
 		return useWsStore
 			.getState()
@@ -329,6 +352,10 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
 
 	mergePr: (workspaceId) => {
 		return useWsStore.getState().command({ type: 'workspace.mergePr', workspaceId });
+	},
+
+	reviewChanges: (workspaceId) => {
+		return useWsStore.getState().command({ type: 'workspace.reviewChanges', workspaceId });
 	},
 
 	openExternal: ({ localPath, action, editor }) => {

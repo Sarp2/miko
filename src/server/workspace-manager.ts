@@ -46,7 +46,8 @@ export type WorkspaceTurnIntent =
 	| 'create_pr'
 	| 'fix_ci'
 	| 'resolve_merge_conflicts'
-	| 'address_review_comments';
+	| 'address_review_comments'
+	| 'review';
 
 export interface WorkspaceCreateResult {
 	workspace: WorkspaceRecord;
@@ -270,7 +271,8 @@ export class WorkspaceManager {
 			args.intent !== 'create_pr' &&
 			args.intent !== 'fix_ci' &&
 			args.intent !== 'resolve_merge_conflicts' &&
-			args.intent !== 'address_review_comments'
+			args.intent !== 'address_review_comments' &&
+			args.intent !== 'review'
 		) {
 			throw new Error('Unknown workspace instruction turn intent');
 		}
@@ -312,6 +314,7 @@ export class WorkspaceManager {
 			intent === 'fix_ci' ||
 			intent === 'resolve_merge_conflicts' ||
 			intent === 'address_review_comments' ||
+			intent === 'review' ||
 			workspace.reviewState === 'in_review';
 		if (shouldRefreshPrStage) {
 			try {
@@ -320,7 +323,8 @@ export class WorkspaceManager {
 						intent === 'create_pr' ||
 						intent === 'fix_ci' ||
 						intent === 'resolve_merge_conflicts' ||
-						intent === 'address_review_comments',
+						intent === 'address_review_comments' ||
+						intent === 'review',
 				});
 				changed = prResult.refreshed || changed;
 			} catch (error) {

@@ -19,6 +19,7 @@ import {
 	writeCreatePrInstructionsAttachment,
 	writeFailingCiLogsAttachment,
 	writeMergeConflictInstructionsAttachment,
+	writeReviewInstructionsAttachment,
 	writeSelectedReviewCommentsAttachment,
 } from './agent-instruction-attachments';
 import type { DiffStore } from './diff-store';
@@ -36,7 +37,7 @@ import {
 import type { ScratchpadManager } from './scratchpad-manager';
 import type { TerminalManager } from './terminal-manager';
 import type { UpdateManager } from './update-manager';
-import { searchWorkspaceFiles } from './workspace-file-search';
+import { listWorkspaceFiles, searchWorkspaceFiles } from './workspace-file-search';
 import type { WorkspaceManager, WorkspaceTurnIntent } from './workspace-manager';
 
 const DEFAULT_SESSION_RECENT_LIMIT = 300;
@@ -411,6 +412,20 @@ export function createWsRouter({
 		return store.requireWorkspace(workspaceId);
 	}
 
+	function stripTrailingSlash(value: string) {
+		return value.replace(/\/+$/u, '');
+	}
+
+	function readPersistedPullRequestPatch(workspaceId: string, filePath: string) {
+		const workspace = store.getWorkspace(workspaceId);
+		const normalizedPath = stripTrailingSlash(filePath);
+		const file = workspace?.pullRequest?.files?.find(
+			(candidate) => stripTrailingSlash(candidate.path) === normalizedPath,
+		);
+		if (!file?.patch) return null;
+		return { path: file.path, patch: file.patch, patchDigest: file.patchDigest };
+	}
+
 	async function sendWorkspaceInstruction(
 		workspaceId: string,
 		sessionId: string,
@@ -598,12 +613,33 @@ export function createWsRouter({
 				}
 				case 'workspace.readDiffPatch': {
 					const workspace = requireWorkspace(command.workspaceId);
-					const result = await diffStore.readPatch({
+					try {
+						const result = await diffStore.readPatch({
+							workspacePath: workspace.localPath,
+							path: command.path,
+						});
+						send(ws, { type: 'ack', id, result });
+						return;
+					} catch (error) {
+						const canUsePersistedPatch =
+							error instanceof Error && error.message.startsWith('File is no longer changed:');
+						const fallback = canUsePersistedPatch
+							? readPersistedPullRequestPatch(command.workspaceId, command.path)
+							: null;
+						if (!fallback) throw error;
+						send(ws, { type: 'ack', id, result: fallback });
+						return;
+					}
+				}
+				case 'workspace.discardFile': {
+					const workspace = requireWorkspace(command.workspaceId);
+					const result = await diffStore.discardFile({
+						workspaceId: workspace.id,
 						workspacePath: workspace.localPath,
 						path: command.path,
 					});
 					send(ws, { type: 'ack', id, result });
-					return;
+					break;
 				}
 				case 'workspace.readFile': {
 					const workspace = requireWorkspace(command.workspaceId);
@@ -627,8 +663,17 @@ export function createWsRouter({
 					send(ws, { type: 'ack', id, result });
 					return;
 				}
+
+				case 'workspace.listFiles': {
+					const workspace = requireWorkspace(command.workspaceId);
+					if (workspace.setupState !== 'ready') throw new Error('Workspace is not ready yet');
+					const result = await listWorkspaceFiles(workspace.localPath, command.limit);
+					send(ws, { type: 'ack', id, result });
+					return;
+				}
 				case 'workspace.searchFiles': {
 					const workspace = requireWorkspace(command.workspaceId);
+					if (workspace.setupState !== 'ready') throw new Error('Workspace is not ready yet');
 					const result = await searchWorkspaceFiles(
 						workspace.localPath,
 						command.query,
@@ -765,6 +810,34 @@ export function createWsRouter({
 					send(ws, { type: 'ack', id, result });
 					break;
 				}
+				case 'workspace.reviewChanges': {
+					const workspace = requireWorkspace(command.workspaceId);
+					const directory = store.requireDirectory(workspace.directoryId);
+					await diffStore.refreshWorkspaceGitSnapshot(workspace.id, workspace.localPath);
+					const attachment = await writeReviewInstructionsAttachment({
+						workspace,
+						directory,
+						git: diffStore.getWorkspaceGitSnapshot(workspace.id),
+					});
+					const session = await store.createSession(workspace.id);
+					try {
+						await sendWorkspaceInstruction(
+							command.workspaceId,
+							session.id,
+							'Review the changes in this workspace using the attached instructions.',
+							[attachment],
+							'review',
+						);
+					} catch (error) {
+						await agent.cancel(session.id);
+						await agent.closeSession(session.id);
+						await store.removeSession(session.id);
+						throw error;
+					}
+					await broadcastSnapshots();
+					send(ws, { type: 'ack', id, result: { sessionId: session.id } });
+					return;
+				}
 				case 'workspace.updateScratchpad': {
 					requireWorkspace(command.workspaceId);
 					const snapshot = await scratchpadManager.updateScratchpad(
@@ -823,6 +896,7 @@ export function createWsRouter({
 				}
 				case 'terminal.create': {
 					const workspace = requireWorkspace(command.workspaceId);
+					if (workspace.setupState !== 'ready') throw new Error('Workspace is not ready yet');
 					const snapshot = terminals.createTerminal({
 						workspacePath: workspace.localPath,
 						terminalId: command.terminalId,

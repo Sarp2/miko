@@ -8,6 +8,7 @@ import type {
 	SessionHistoryPage,
 	SessionHistorySnapshot,
 	TranscriptEntry,
+	WorkspaceDiffFile,
 	WorkspacePullRequestSummary,
 	WorkspaceReviewState,
 	WorkspaceVisibilityState,
@@ -27,6 +28,30 @@ import { resolveLocalPath } from './paths';
 
 const COMPACTION_THRESHOLD_BYTES = 2 * 1024 * 1024;
 const SESSION_MESSAGE_PREVIEW_MAX_LENGTH = 140;
+
+function workspaceDiffFilesSignature(files: WorkspaceDiffFile[] | undefined) {
+	return JSON.stringify(
+		(files ?? [])
+			.map((file) => ({
+				path: file.path,
+				changeType: file.changeType,
+				isUntracked: file.isUntracked,
+				additions: file.additions,
+				deletions: file.deletions,
+				patchDigest: file.patchDigest,
+				mimeType: file.mimeType,
+				size: file.size,
+			}))
+			.sort((left, right) => left.path.localeCompare(right.path)),
+	);
+}
+
+function pullRequestFilesEqual(
+	left: WorkspacePullRequestSummary['files'],
+	right: WorkspacePullRequestSummary['files'],
+) {
+	return workspaceDiffFilesSignature(left) === workspaceDiffFilesSignature(right);
+}
 
 interface TranscriptPageResult {
 	entries: TranscriptEntry[];
@@ -677,7 +702,8 @@ export class EventStore {
 			workspace.pullRequest.isDraft === pullRequest.isDraft &&
 			workspace.pullRequest.mergeStateStatus === pullRequest.mergeStateStatus &&
 			workspace.pullRequest.hasMergeConflicts === pullRequest.hasMergeConflicts &&
-			workspace.pullRequest.createdAt === pullRequest.createdAt
+			workspace.pullRequest.createdAt === pullRequest.createdAt &&
+			pullRequestFilesEqual(workspace.pullRequest.files, pullRequest.files)
 		) {
 			return;
 		}

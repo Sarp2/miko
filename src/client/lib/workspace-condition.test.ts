@@ -143,6 +143,18 @@ describe('deriveWorkspaceCondition', () => {
 		});
 
 		expect(
+			deriveWorkspaceCondition(
+				makeSnapshot({
+					workspace: { reviewState: 'in_review' },
+					github: { status: 'open', ciStatus: 'pending' },
+				}),
+			),
+		).toMatchObject({
+			stage: 'ci_pending',
+			primaryAction: null,
+		});
+
+		expect(
 			deriveWorkspaceCondition(makeSnapshot({ workspace: { reviewState: 'in_review' } })),
 		).toMatchObject({
 			stage: 'pr_open',
@@ -153,7 +165,31 @@ describe('deriveWorkspaceCondition', () => {
 			deriveWorkspaceCondition(
 				makeSnapshot({
 					workspace: { reviewState: 'in_review' },
+					git: { aheadCount: 1 },
+				}),
+			),
+		).toMatchObject({
+			stage: 'dirty',
+			primaryAction: { kind: 'commit_and_push', label: 'Commit and push' },
+		});
+
+		expect(
+			deriveWorkspaceCondition(
+				makeSnapshot({
+					workspace: { reviewState: 'in_review' },
 					github: { status: 'open', isDraft: true },
+				}),
+			),
+		).toMatchObject({
+			stage: 'draft_pr',
+			primaryAction: { kind: 'mark_pr_ready', label: 'Mark ready' },
+		});
+
+		expect(
+			deriveWorkspaceCondition(
+				makeSnapshot({
+					workspace: { reviewState: 'in_review' },
+					github: { status: 'open', isDraft: true, ciStatus: 'pending' },
 				}),
 			),
 		).toMatchObject({
@@ -177,8 +213,8 @@ describe('deriveWorkspaceCondition', () => {
 				}),
 			),
 		).toMatchObject({
-			stage: 'pr_open',
-			primaryAction: { kind: 'merge', label: 'Merge' },
+			stage: 'draft_pr',
+			primaryAction: { kind: 'mark_pr_ready', label: 'Mark ready' },
 		});
 
 		expect(

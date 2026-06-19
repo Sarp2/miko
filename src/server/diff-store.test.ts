@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import {
 	appendGitIgnoreEntry,
+	computeBranchFiles,
 	computeCurrentFiles,
 	DiffStore,
 	discardRenamedPath,
@@ -15,6 +16,7 @@ import {
 	hasPushedCommits,
 	listDirtyPaths,
 	normalizeRepoRelativePath,
+	parseNameStatusEntries,
 	parseStatusLine,
 	readPatchForEntry,
 	resolveDefaultBranchName,
@@ -340,6 +342,24 @@ describe('parseStatusLine', () => {
 	});
 });
 
+describe('parseNameStatusEntries', () => {
+	test('parses branch diff name-status output including renames', () => {
+		expect(parseNameStatusEntries('M\0src/app.ts\0R100\0old.ts\0new.ts\0')).toEqual([
+			{
+				path: 'src/app.ts',
+				changeType: 'modified',
+				isUntracked: false,
+			},
+			{
+				path: 'new.ts',
+				previousPath: 'old.ts',
+				changeType: 'renamed',
+				isUntracked: false,
+			},
+		]);
+	});
+});
+
 describe('listDirtyPaths', () => {
 	test('returns normalized dirty path entries for modified and untracked files', async () => {
 		const repoRoot = await createRepoWithInitialCommit();
@@ -459,6 +479,27 @@ describe('computeCurrentFiles', () => {
 		});
 
 		await expect(computeCurrentFiles(repoRoot, head.stdout.trim())).resolves.toEqual([]);
+	});
+});
+
+describe('computeBranchFiles', () => {
+	test('returns committed branch changes relative to the default branch', async () => {
+		const repoRoot = await createRepoWithInitialCommit({ branch: 'main' });
+		await runGit(['update-ref', 'refs/remotes/origin/main', 'main'], repoRoot);
+		await runGit(['checkout', '-b', 'feature'], repoRoot);
+		await commitFile(repoRoot, 'feature.txt', 'feature\n', 'feature');
+
+		const files = await computeBranchFiles(repoRoot, 'refs/remotes/origin/main');
+
+		expect(files).toHaveLength(1);
+		expect(files[0]).toMatchObject({
+			path: 'feature.txt',
+			changeType: 'added',
+			isUntracked: false,
+			additions: 1,
+			deletions: 0,
+		});
+		expect(files[0]?.patchDigest).toMatch(/^[a-f0-9]{64}$/u);
 	});
 });
 
@@ -608,6 +649,21 @@ describe('DiffStore.readPatch', () => {
 		expect(result.path).toBe('README.md');
 		expect(result.patch).toContain('diff --git a/README.md b/README.md');
 		expect(result.patch).toContain('+second line');
+		expect(result.patchDigest).toMatch(/^[a-f0-9]{64}$/u);
+	});
+
+	test('returns the branch diff patch for a clean PR file', async () => {
+		const repoRoot = await createRepoWithInitialCommit({ branch: 'main' });
+		await runGit(['update-ref', 'refs/remotes/origin/main', 'main'], repoRoot);
+		await runGit(['checkout', '-b', 'feature'], repoRoot);
+		await commitFile(repoRoot, 'feature.txt', 'feature\n', 'feature');
+		const store = new DiffStore(repoRoot);
+
+		const result = await store.readPatch({ workspacePath: repoRoot, path: 'feature.txt' });
+
+		expect(result.path).toBe('feature.txt');
+		expect(result.patch).toContain('diff --git a/feature.txt b/feature.txt');
+		expect(result.patch).toContain('+feature');
 		expect(result.patchDigest).toMatch(/^[a-f0-9]{64}$/u);
 	});
 });
@@ -857,6 +913,11 @@ describe('DiffStore.refreshWorkspaceGitSnapshot', () => {
 		});
 		expect(snapshot.files).toHaveLength(1);
 		expect(snapshot.files[0]).toMatchObject({ path: 'feature.txt', changeType: 'modified' });
+		expect(snapshot.pullRequestFiles).toHaveLength(1);
+		expect(snapshot.pullRequestFiles?.[0]).toMatchObject({
+			path: 'feature.txt',
+			changeType: 'added',
+		});
 		expect(snapshot.branchHistory?.entries[0]?.summary).toBe('feature');
 	});
 

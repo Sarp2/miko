@@ -353,7 +353,7 @@ describe('deriveSidebarSnapshot', () => {
 		});
 	});
 
-	test('shows draft PRs after higher priority PR work is clear', () => {
+	test('shows draft PRs ahead of CI and dirty work', () => {
 		const state = addDirectoryWorkspaceAndSession();
 		const workspace = state.workspacesById.get('workspace-1');
 		expect(workspace).toBeDefined();
@@ -370,14 +370,14 @@ describe('deriveSidebarSnapshot', () => {
 			deriveSidebarSnapshot({
 				state,
 				activeStatuses: new Map(),
-				gitSnapshots: new Map([['workspace-1', { ...dirtyGitSnapshot(), files: [] }]]),
+				gitSnapshots: new Map([['workspace-1', dirtyGitSnapshot()]]),
 				githubSnapshots: new Map([
-					['workspace-1', { ...openPullRequestSnapshot(), isDraft: true }],
+					['workspace-1', { ...openPullRequestSnapshot(), isDraft: true, ciStatus: 'failing' }],
 				]),
 			}).directoryGroups[0]?.workspaces[0],
 		).toMatchObject({
 			indicator: 'draft_pr',
-			hasDirtyFiles: false,
+			hasDirtyFiles: true,
 			hasUnpushedCommits: false,
 		});
 	});

@@ -106,6 +106,50 @@ function useExternalOpenMenu(localPath: string) {
 	return { externalOpenApp, selectedOption, setExternalOpenApp, open, copyPath };
 }
 
+function ExternalOpenMenuContent({
+	externalOpenApp,
+	onCopyPath,
+	onSelectApp,
+	copyIcon = 'squares',
+}: {
+	externalOpenApp: ExternalOpenApp;
+	onCopyPath: () => void;
+	onSelectApp: (app: ExternalOpenApp) => void;
+	copyIcon?: 'copy' | 'squares';
+}) {
+	const CopyIcon = copyIcon === 'copy' ? Copy : SquaresFour;
+
+	return (
+		<>
+			<DropdownMenuGroup>
+				{EXTERNAL_OPEN_APPS.map((app) => (
+					<DropdownMenuItem
+						key={app.value}
+						className={cn(
+							'flex h-9 cursor-default items-center gap-2 rounded-md px-2 text-[13px] text-ink focus:bg-surface-3 focus:text-ink',
+							app.value === externalOpenApp && 'bg-surface-3',
+						)}
+						onSelect={() => onSelectApp(app.value)}
+					>
+						<ExternalAppIcon option={app} className="size-5 rounded-sm" />
+						<span className="min-w-0 flex-1 truncate">{app.label}</span>
+					</DropdownMenuItem>
+				))}
+			</DropdownMenuGroup>
+			<DropdownMenuSeparator className="bg-hairline" />
+			<DropdownMenuItem
+				className="flex h-9 cursor-default items-center gap-2 rounded-md px-2 text-[13px] text-ink focus:bg-surface-3 focus:text-ink"
+				onSelect={onCopyPath}
+			>
+				<span className="flex size-5 items-center justify-center text-ink-subtle">
+					<CopyIcon className="size-4" />
+				</span>
+				<span className="min-w-0 flex-1 truncate">Copy path</span>
+			</DropdownMenuItem>
+		</>
+	);
+}
+
 export function ExternalOpenMenu({ localPath }: { localPath: string }) {
 	const { externalOpenApp, selectedOption, setExternalOpenApp, open, copyPath } =
 		useExternalOpenMenu(localPath);
@@ -140,36 +184,60 @@ export function ExternalOpenMenu({ localPath }: { localPath: string }) {
 					align="end"
 					className="min-w-[190px] rounded-lg border border-hairline bg-surface-1 p-1 shadow-xl ring-0"
 				>
-					<DropdownMenuGroup>
-						{EXTERNAL_OPEN_APPS.map((app) => (
-							<DropdownMenuItem
-								key={app.value}
-								className={cn(
-									'flex h-9 cursor-default items-center gap-2 rounded-md px-2 text-[13px] text-ink focus:bg-surface-3 focus:text-ink',
-									app.value === externalOpenApp && 'bg-surface-3',
-								)}
-								onSelect={() => setExternalOpenApp(app.value)}
-							>
-								<ExternalAppIcon option={app} className="size-5 rounded-sm" />
-								<span className="min-w-0 flex-1 truncate">{app.label}</span>
-							</DropdownMenuItem>
-						))}
-					</DropdownMenuGroup>
-					<DropdownMenuSeparator className="bg-hairline" />
-					<DropdownMenuGroup>
-						<DropdownMenuItem
-							className="flex h-9 cursor-default items-center gap-2 rounded-md px-2 text-[13px] text-ink focus:bg-surface-3 focus:text-ink"
-							onSelect={() => void copyPath()}
-						>
-							<span className="flex size-5 items-center justify-center text-ink-subtle">
-								<SquaresFour className="size-4" />
-							</span>
-							<span className="min-w-0 flex-1 truncate">Copy path</span>
-						</DropdownMenuItem>
-					</DropdownMenuGroup>
+					<ExternalOpenMenuContent
+						externalOpenApp={externalOpenApp}
+						onCopyPath={() => void copyPath()}
+						onSelectApp={setExternalOpenApp}
+					/>
 				</DropdownMenuContent>
 			</DropdownMenu>
 		</div>
+	);
+}
+
+/**
+ * Compact caret-only trigger that opens the external-open apps menu for a single
+ * file. Used in dense hover rows (e.g. the right-sidebar changes list) where there
+ * is no room for the bordered button + caret of {@link ExternalOpenMenu}.
+ */
+export function FileExternalOpenMenu({
+	localPath,
+	triggerClassName,
+}: {
+	localPath: string;
+	triggerClassName?: string;
+}) {
+	const { externalOpenApp, setExternalOpenApp, open, copyPath } = useExternalOpenMenu(localPath);
+
+	return (
+		<DropdownMenu>
+			<DropdownMenuTrigger asChild>
+				<button
+					type="button"
+					className={cn(
+						'outline-none focus-visible:ring-1 focus-visible:ring-primary',
+						triggerClassName,
+					)}
+					aria-label="Open file externally"
+				>
+					<CaretDown className="size-3.5" />
+				</button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent
+				align="end"
+				className="min-w-[190px] rounded-lg border border-hairline bg-surface-1 p-1 shadow-xl ring-0"
+			>
+				<ExternalOpenMenuContent
+					externalOpenApp={externalOpenApp}
+					copyIcon="copy"
+					onCopyPath={() => void copyPath()}
+					onSelectApp={(app) => {
+						setExternalOpenApp(app);
+						void open(app);
+					}}
+				/>
+			</DropdownMenuContent>
+		</DropdownMenu>
 	);
 }
 
@@ -193,34 +261,15 @@ export function WorktreeLocationMenu({ localPath }: { localPath: string }) {
 				align="start"
 				className="min-w-[190px] rounded-lg border border-hairline bg-surface-1 p-1 shadow-xl ring-0"
 			>
-				<DropdownMenuGroup>
-					{EXTERNAL_OPEN_APPS.map((app) => (
-						<DropdownMenuItem
-							key={app.value}
-							className={cn(
-								'flex h-9 cursor-default items-center gap-2 rounded-md px-2 text-[13px] text-ink focus:bg-surface-3 focus:text-ink',
-								app.value === externalOpenApp && 'bg-surface-3',
-							)}
-							onSelect={() => {
-								setExternalOpenApp(app.value);
-								void open(app.value);
-							}}
-						>
-							<ExternalAppIcon option={app} className="size-5 rounded-sm" />
-							<span className="min-w-0 flex-1 truncate">{app.label}</span>
-						</DropdownMenuItem>
-					))}
-				</DropdownMenuGroup>
-				<DropdownMenuSeparator className="bg-hairline" />
-				<DropdownMenuItem
-					className="flex h-9 cursor-default items-center gap-2 rounded-md px-2 text-[13px] text-ink focus:bg-surface-3 focus:text-ink"
-					onSelect={() => void copyPath()}
-				>
-					<span className="flex size-5 items-center justify-center text-ink-subtle">
-						<Copy className="size-4" />
-					</span>
-					<span className="min-w-0 flex-1 truncate">Copy path</span>
-				</DropdownMenuItem>
+				<ExternalOpenMenuContent
+					externalOpenApp={externalOpenApp}
+					copyIcon="copy"
+					onCopyPath={() => void copyPath()}
+					onSelectApp={(app) => {
+						setExternalOpenApp(app);
+						void open(app);
+					}}
+				/>
 			</DropdownMenuContent>
 		</DropdownMenu>
 	);
