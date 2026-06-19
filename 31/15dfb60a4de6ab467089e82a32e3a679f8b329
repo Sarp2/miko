@@ -1,0 +1,41 @@
+src/client/components/workspace-header/external-open-menu.tsx
+  s_82e93de1bb8ac8::t_100525b6dd1812 109-152,187-191,215-222,230-238,264-272
+src/client/lib/workspace-diff-files.test.ts
+  s_82e93de1bb8ac8::t_499f7748a25645 2-6,67-69
+src/server/pr-manager.ts
+  s_82e93de1bb8ac8::t_35b1090bba07a0 119,345,697
+src/client/stores/workspace-store.ts
+  s_82e93de1bb8ac8::t_afb81a9bc8b4d0 52,341-344
+src/server/ws-router.ts
+  s_82e93de1bb8ac8::t_b7033b4bd363c7 796-807
+src/client/components/workspace-header/workspace-header.tsx
+  s_82e93de1bb8ac8::t_fd9cc328dac99c 50,71,97-98
+src/client/components/right-sidebar-terminal-panel.tsx
+  s_82e93de1bb8ac8::t_0e90ed257ca2de 4,65-72,171
+  s_82e93de1bb8ac8::t_499f7748a25645 172-173
+src/client/components/right-sidebar.tsx
+  s_82e93de1bb8ac8::t_499f7748a25645 16
+  s_82e93de1bb8ac8::t_fd9cc328dac99c 59,163,194-195
+src/server/workspace-manager.ts
+  s_82e93de1bb8ac8::t_e945ac71831b40 317,326-327
+src/server/diff-store.ts
+  s_82e93de1bb8ac8::t_0a152e124d7b1b 1329
+src/client/components/right-sidebar-terminal-view.tsx
+  s_82e93de1bb8ac8::t_e945ac71831b40 73
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "3115dfb60a4de6ab467089e82a32e3a679f8b329",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
