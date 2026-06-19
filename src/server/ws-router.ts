@@ -412,6 +412,20 @@ export function createWsRouter({
 		return store.requireWorkspace(workspaceId);
 	}
 
+	function stripTrailingSlash(value: string) {
+		return value.replace(/\/+$/u, '');
+	}
+
+	function readPersistedPullRequestPatch(workspaceId: string, filePath: string) {
+		const workspace = store.getWorkspace(workspaceId);
+		const normalizedPath = stripTrailingSlash(filePath);
+		const file = workspace?.pullRequest?.files?.find(
+			(candidate) => stripTrailingSlash(candidate.path) === normalizedPath,
+		);
+		if (!file?.patch) return null;
+		return { path: file.path, patch: file.patch, patchDigest: file.patchDigest };
+	}
+
 	async function sendWorkspaceInstruction(
 		workspaceId: string,
 		sessionId: string,
@@ -599,12 +613,23 @@ export function createWsRouter({
 				}
 				case 'workspace.readDiffPatch': {
 					const workspace = requireWorkspace(command.workspaceId);
-					const result = await diffStore.readPatch({
-						workspacePath: workspace.localPath,
-						path: command.path,
-					});
-					send(ws, { type: 'ack', id, result });
-					return;
+					try {
+						const result = await diffStore.readPatch({
+							workspacePath: workspace.localPath,
+							path: command.path,
+						});
+						send(ws, { type: 'ack', id, result });
+						return;
+					} catch (error) {
+						const canUsePersistedPatch =
+							error instanceof Error && error.message.startsWith('File is no longer changed:');
+						const fallback = canUsePersistedPatch
+							? readPersistedPullRequestPatch(command.workspaceId, command.path)
+							: null;
+						if (!fallback) throw error;
+						send(ws, { type: 'ack', id, result: fallback });
+						return;
+					}
 				}
 				case 'workspace.discardFile': {
 					const workspace = requireWorkspace(command.workspaceId);
@@ -802,11 +827,14 @@ export function createWsRouter({
 							'review',
 						);
 					} catch (error) {
+						await agent.cancel(session.id);
+						await agent.closeSession(session.id);
 						await store.removeSession(session.id);
 						throw error;
 					}
+					await broadcastSnapshots();
 					send(ws, { type: 'ack', id, result: { sessionId: session.id } });
-					break;
+					return;
 				}
 				case 'workspace.updateScratchpad': {
 					requireWorkspace(command.workspaceId);

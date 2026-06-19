@@ -603,6 +603,7 @@ export interface WorkspaceDiffFile {
 	additions: number;
 	deletions: number;
 	patchDigest: string;
+	patch?: string;
 	mimeType?: string;
 	size?: number;
 }

@@ -1,24 +1,34 @@
 import type { WorkspaceDiffFile, WorkspaceSnapshot } from '../../shared/types';
 
-export function workspaceHasPullRequest(snapshot: WorkspaceSnapshot | null) {
-	const status = snapshot?.github?.status;
+function isPullRequestStatus(status: string | undefined) {
 	return status === 'open' || status === 'merged' || status === 'closed';
 }
 
+export function workspaceHasPullRequest(snapshot: WorkspaceSnapshot | null) {
+	return (
+		isPullRequestStatus(snapshot?.github?.status) ||
+		isPullRequestStatus(snapshot?.workspace.pullRequest?.status)
+	);
+}
+
 export function mergeWorkspaceDiffFiles(
-	primary: WorkspaceDiffFile[],
-	secondary: WorkspaceDiffFile[],
+	baseFiles: WorkspaceDiffFile[],
+	overrideFiles: WorkspaceDiffFile[],
 ) {
-	const filesByPath = new Map(primary.map((file) => [file.path, file]));
-	for (const file of secondary) filesByPath.set(file.path, file);
-	return [...filesByPath.values()].sort((left, right) => left.path.localeCompare(right.path));
+	const filesByPath = new Map<string, WorkspaceDiffFile>();
+	for (const file of baseFiles) filesByPath.set(file.path, file);
+	for (const file of overrideFiles) filesByPath.set(file.path, file);
+	return Array.from(filesByPath.values()).sort((a, b) => a.path.localeCompare(b.path));
 }
 
 export function selectWorkspaceChangeFiles(snapshot: WorkspaceSnapshot | null) {
 	if (!snapshot?.git) return [];
 	if (!workspaceHasPullRequest(snapshot)) return snapshot.git.files;
 	return mergeWorkspaceDiffFiles(
-		snapshot.github?.files ?? snapshot.git.pullRequestFiles ?? [],
+		snapshot.github?.files ??
+			snapshot.workspace.pullRequest?.files ??
+			snapshot.git.pullRequestFiles ??
+			[],
 		snapshot.git.files,
 	);
 }

@@ -9,6 +9,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collap
 
 interface RightSidebarAllFilesProps {
 	onOpenFile: (path: string) => void;
+	revisionKey?: string;
 	workspaceId: string;
 }
 
@@ -101,14 +102,18 @@ function AllFilesEmptyState() {
 	);
 }
 
-export function RightSidebarAllFiles({ onOpenFile, workspaceId }: RightSidebarAllFilesProps) {
+export function RightSidebarAllFiles({
+	onOpenFile,
+	revisionKey,
+	workspaceId,
+}: RightSidebarAllFilesProps) {
 	const resource = useRightSidebarFileStore((state) => state.getFileList(workspaceId));
 	const loadFileList = useRightSidebarFileStore((state) => state.loadFileList);
 	const nodes = useMemo(() => buildWorkspaceFileTree(resource.files), [resource.files]);
 
 	useEffect(() => {
-		void loadFileList(workspaceId);
-	}, [loadFileList, workspaceId]);
+		void loadFileList(workspaceId, { force: Boolean(revisionKey) });
+	}, [loadFileList, revisionKey, workspaceId]);
 
 	if (resource.status === 'loading' && resource.files.length === 0) {
 		return (

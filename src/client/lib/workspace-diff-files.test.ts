@@ -20,11 +20,13 @@ function file(path: string, patchDigest = path): WorkspaceDiffFile {
 function snapshot({
 	githubStatus = 'none',
 	githubFiles,
+	persistedPullRequestFiles,
 	pullRequestFiles = [],
 	localFiles = [],
 }: {
 	githubStatus?: WorkspaceGitHubSnapshot['status'];
 	githubFiles?: WorkspaceDiffFile[];
+	persistedPullRequestFiles?: WorkspaceDiffFile[];
 	pullRequestFiles?: WorkspaceDiffFile[];
 	localFiles?: WorkspaceDiffFile[];
 }): WorkspaceSnapshot {
@@ -38,6 +40,17 @@ function snapshot({
 			reviewState: 'in_review',
 			visibilityState: 'active',
 			hasUnreadAgentResult: false,
+			...(persistedPullRequestFiles
+				? {
+						pullRequest: {
+							number: 1,
+							status:
+								githubStatus === 'merged' || githubStatus === 'closed' ? githubStatus : 'open',
+							lastObservedAt: 1,
+							files: persistedPullRequestFiles,
+						},
+					}
+				: {}),
 			createdAt: 1,
 			updatedAt: 1,
 		},
@@ -87,5 +100,16 @@ describe('selectWorkspaceChangeFiles', () => {
 				snapshot({ githubStatus: 'open', pullRequestFiles: [file('branch.ts')] }),
 			).map((item) => item.path),
 		).toEqual(['branch.ts']);
+	});
+
+	test('uses persisted PR files when live GitHub snapshot is absent', () => {
+		expect(
+			selectWorkspaceChangeFiles(
+				snapshot({
+					githubStatus: 'none',
+					persistedPullRequestFiles: [file('persisted.ts')],
+				}),
+			).map((item) => item.path),
+		).toEqual(['persisted.ts']);
 	});
 });

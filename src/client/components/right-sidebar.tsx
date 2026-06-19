@@ -43,6 +43,20 @@ function formatCount(count: number | undefined) {
 	return count && count > 0 ? ` ${count}` : count === 0 ? ' 0' : '';
 }
 
+function allFilesRevisionKey(snapshot: WorkspaceSnapshot | null) {
+	if (!snapshot?.git) return undefined;
+	return [
+		snapshot.git.branchName ?? snapshot.workspace.branchName,
+		snapshot.git.files.map((file) => `${file.path}:${file.patchDigest}`).join('|'),
+		snapshot.git.pullRequestFiles?.map((file) => `${file.path}:${file.patchDigest}`).join('|') ??
+			'',
+		snapshot.github?.files?.map((file) => `${file.path}:${file.patchDigest}`).join('|') ?? '',
+		snapshot.workspace.pullRequest?.files
+			?.map((file) => `${file.path}:${file.patchDigest}`)
+			.join('|') ?? '',
+	].join('\n');
+}
+
 function selectActionSessionId(snapshot: WorkspaceSnapshot) {
 	return (
 		snapshot.sessions.toSorted((a, b) => {
@@ -142,6 +156,7 @@ export function RightSidebar({ workspaceId }: RightSidebarProps) {
 		[snapshot],
 	);
 	const changeCount = changeFiles.length;
+	const fileListRevisionKey = useMemo(() => allFilesRevisionKey(snapshot), [snapshot]);
 
 	const condition = useMemo(
 		() => (snapshot ? deriveWorkspaceCondition(snapshot) : null),
@@ -204,6 +219,8 @@ export function RightSidebar({ workspaceId }: RightSidebarProps) {
 		}
 	}
 
+	if (isCollapsed) return null;
+
 	return (
 		<SidebarPrimitiveProvider
 			open={!isCollapsed}
@@ -220,7 +237,7 @@ export function RightSidebar({ workspaceId }: RightSidebarProps) {
 				ref={rootRef}
 				data-testid="right-sidebar"
 				side="right"
-				collapsible="offcanvas"
+				collapsible="none"
 				position="inline"
 				className={cn(
 					'bg-surface-1 p-0 text-ink',
@@ -283,7 +300,11 @@ export function RightSidebar({ workspaceId }: RightSidebarProps) {
 
 					<SidebarPrimitiveContent className="scrollbar-miko min-h-0 flex-1 overflow-y-auto p-0">
 						{tab === 'all_files' ? (
-							<RightSidebarAllFiles workspaceId={workspaceId} onOpenFile={openWorkspaceFile} />
+							<RightSidebarAllFiles
+								workspaceId={workspaceId}
+								onOpenFile={openWorkspaceFile}
+								revisionKey={fileListRevisionKey}
+							/>
 						) : tab === 'changes' && snapshot ? (
 							<RightSidebarChanges
 								discardablePaths={discardableChangePaths}

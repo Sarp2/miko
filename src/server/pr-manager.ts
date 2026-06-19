@@ -369,6 +369,7 @@ function mapPrFiles(files: GitHubPullRequestFile[] | undefined): WorkspaceDiffFi
 				additions: file.additions ?? 0,
 				deletions: file.deletions ?? 0,
 				patchDigest: hashPrFile(file, filePath),
+				patch: file.patch,
 				mimeType:
 					normalizePrFileStatus(file.status) === 'deleted'
 						? undefined
@@ -695,6 +696,7 @@ export class PrManager {
 				additions: file.additions,
 				deletions: file.deletions,
 				patchDigest: file.patchDigest,
+				patch: file.patch,
 			})),
 			comments: snapshot.comments
 				.filter((comment) => comment.source === 'issue')

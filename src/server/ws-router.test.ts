@@ -1018,6 +1018,75 @@ describe('createWsRouter.handleCommand', () => {
 		]);
 	});
 
+	test('falls back to persisted pull request patches when local diff is gone', async () => {
+		const { router, store, workspaceId } = await createRouter({
+			diffStore: {
+				getWorkspaceGitSnapshot: () => unknownGitSnapshot(),
+				refreshWorkspaceGitSnapshot: async () => false,
+				fetchWorkspaceGit: async () => ({ ok: true, snapshotChanged: false }),
+				initializeGit: async () => ({ ok: true, snapshotChanged: false }),
+				getGitHubPublishInfo: async () => ({
+					ghInstalled: true,
+					authenticated: true,
+					owners: ['sarp'],
+					suggestedRepoName: 'miko',
+				}),
+				checkGitHubRepoAvailability: async () => ({ available: true, message: 'available' }),
+				publishToGitHub: async () => ({ ok: true, snapshotChanged: false }),
+				inspectGitHubBackedRepo: async () => ({
+					ok: true,
+					githubOwner: 'sarp',
+					githubRepo: 'miko',
+				}),
+				discardFile: async () => ({ snapshotChanged: false }),
+				ignoreFile: async () => ({ snapshotChanged: false }),
+				readPatch: async () => {
+					throw new Error('File is no longer changed: app.txt');
+				},
+				readFileContents: async () => {
+					throw new Error('not used');
+				},
+				readExternalFileContents: async () => {
+					throw new Error('not used');
+				},
+			},
+		});
+		await store.observeWorkspacePullRequest(workspaceId, {
+			number: 12,
+			status: 'merged',
+			lastObservedAt: 1,
+			files: [
+				{
+					path: 'app.txt/',
+					changeType: 'modified',
+					isUntracked: false,
+					additions: 1,
+					deletions: 0,
+					patchDigest: 'persisted-digest',
+					patch: 'persisted diff',
+				},
+			],
+		});
+		const ws = new FakeWebSocket();
+
+		await router.handleMessage(
+			ws as never,
+			JSON.stringify({
+				type: 'command',
+				id: 'patch-persisted',
+				command: { type: 'workspace.readDiffPatch', workspaceId, path: 'app.txt' },
+			}),
+		);
+
+		expect(ws.sent).toEqual([
+			{
+				type: 'ack',
+				id: 'patch-persisted',
+				result: { path: 'app.txt/', patch: 'persisted diff', patchDigest: 'persisted-digest' },
+			},
+		]);
+	});
+
 	test('reads workspace file contents', async () => {
 		const { router, workspaceId } = await createRouter();
 		const ws = new FakeWebSocket();

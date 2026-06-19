@@ -263,6 +263,10 @@ export function normalizePersistedUiState(state: PersistedUiState): PersistedUiS
 		...state,
 		middleTabsByWorkspaceId,
 		activeTabIdByWorkspaceId,
+		// Terminal sessions are server-memory resources. Never revive tab ids
+		// from localStorage after a renderer/server restart.
+		terminalTabsByWorkspaceId: {},
+		activeTerminalIdByWorkspaceId: {},
 	};
 }
 
@@ -793,8 +797,8 @@ export const useUiStore = create<UiStoreState>()(
 				middleTabsByWorkspaceId: state.middleTabsByWorkspaceId,
 				activeTabIdByWorkspaceId: state.activeTabIdByWorkspaceId,
 				terminalPanelByWorkspaceId: state.terminalPanelByWorkspaceId,
-				terminalTabsByWorkspaceId: state.terminalTabsByWorkspaceId,
-				activeTerminalIdByWorkspaceId: state.activeTerminalIdByWorkspaceId,
+				terminalTabsByWorkspaceId: {},
+				activeTerminalIdByWorkspaceId: {},
 				diffViewModeByWorkspaceId: state.diffViewModeByWorkspaceId,
 				viewedDiffDigestByWorkspaceId: state.viewedDiffDigestByWorkspaceId,
 				checksTodosByWorkspaceId: state.checksTodosByWorkspaceId,

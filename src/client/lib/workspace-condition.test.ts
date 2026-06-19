@@ -165,6 +165,18 @@ describe('deriveWorkspaceCondition', () => {
 			deriveWorkspaceCondition(
 				makeSnapshot({
 					workspace: { reviewState: 'in_review' },
+					git: { aheadCount: 1 },
+				}),
+			),
+		).toMatchObject({
+			stage: 'dirty',
+			primaryAction: { kind: 'commit_and_push', label: 'Commit and push' },
+		});
+
+		expect(
+			deriveWorkspaceCondition(
+				makeSnapshot({
+					workspace: { reviewState: 'in_review' },
 					github: { status: 'open', isDraft: true },
 				}),
 			),

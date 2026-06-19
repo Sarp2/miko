@@ -513,6 +513,37 @@ describe('useUiStore.persist', () => {
 		expect(useUiStore.persist.getOptions().name).toBe(UI_STORAGE_KEY);
 	});
 
+	test('drops persisted terminal tabs because terminal sessions are memory-only', () => {
+		const persisted: PersistedUiState = {
+			leftSidebarCollapsed: false,
+			leftSidebarWidth: 292,
+			externalOpenApp: 'finder',
+			expandedDirectoryIds: [],
+			pinnedWorkspaceIds: [],
+			sidebarDirectorySort: 'updated',
+			sidebarWorkspaceSort: 'updated',
+			rightSidebarTabByWorkspaceId: {},
+			rightSidebarCollapsedByWorkspaceId: {},
+			rightSidebarWidthByWorkspaceId: {},
+			middleTabsByWorkspaceId: {},
+			activeTabIdByWorkspaceId: {},
+			terminalPanelByWorkspaceId: {},
+			terminalTabsByWorkspaceId: {
+				'workspace-1': [{ terminalId: 'terminal-1', title: 'Terminal', createdAt: 1 }],
+			},
+			activeTerminalIdByWorkspaceId: { 'workspace-1': 'terminal-1' },
+			diffViewModeByWorkspaceId: {},
+			viewedDiffDigestByWorkspaceId: {},
+			checksTodosByWorkspaceId: {},
+			hiddenCommentIdsByWorkspaceId: {},
+		};
+
+		const normalized = normalizePersistedUiState(persisted);
+
+		expect(normalized.terminalTabsByWorkspaceId).toEqual({});
+		expect(normalized.activeTerminalIdByWorkspaceId).toEqual({});
+	});
+
 	test('normalizes legacy diff tab ids and stale active tab ids', () => {
 		const persisted: PersistedUiState = {
 			leftSidebarCollapsed: false,
