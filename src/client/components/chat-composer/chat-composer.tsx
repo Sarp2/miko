@@ -55,13 +55,16 @@ export function ChatComposer({
 	});
 	const commandActive = promptEditor.commandRange !== null;
 	const mentionActive = promptEditor.mentionRange !== null;
+	// Commands belong to the session the message will be sent to (the "Sending to" target), which can
+	// differ from the draft session in the diff/file composer.
+	const commandSessionId = targetSessionId ?? sessionId;
 	// Tracks whether the user has engaged this composer, so we only warm commands on intent (not on
-	// every mount) yet still re-warm when the provider changes while engaged.
+	// every mount) yet still re-warm when the send target or provider changes while engaged.
 	const composerEngagedRef = useRef(false);
 	const { warmCommands } = promptEditor;
 	useEffect(() => {
-		if (composerEngagedRef.current) warmCommands(composer.provider);
-	}, [composer.provider, warmCommands]);
+		if (composerEngagedRef.current) warmCommands(commandSessionId, composer.provider);
+	}, [commandSessionId, composer.provider, warmCommands]);
 	const { openWorkspaceFile, openPastedText, openAttachment } = useWorkspacePageOpeners(
 		workspaceId,
 		sessionId,
@@ -217,7 +220,7 @@ export function ChatComposer({
 								suppressContentEditableWarning
 								onFocus={() => {
 									composerEngagedRef.current = true;
-									warmCommands(composer.provider);
+									warmCommands(commandSessionId, composer.provider);
 								}}
 								onInput={promptEditor.syncPartsFromDom}
 								onClick={handleEditorClick}
@@ -239,17 +242,19 @@ export function ChatComposer({
 										return;
 									}
 
+									// Only intercept Enter when there is a suggestion to accept; otherwise an unmatched
+									// `/foo` or `@foo` would leave the composer unable to submit.
 									const firstCommandOption = promptEditor.commandOptions[0];
-									if (event.key === 'Enter' && promptEditor.commandRange) {
+									if (event.key === 'Enter' && promptEditor.commandRange && firstCommandOption) {
 										event.preventDefault();
-										if (firstCommandOption) promptEditor.insertCommand(firstCommandOption);
+										promptEditor.insertCommand(firstCommandOption);
 										return;
 									}
 
 									const firstMentionOption = promptEditor.mentionOptions[0];
-									if (event.key === 'Enter' && promptEditor.mentionRange) {
+									if (event.key === 'Enter' && promptEditor.mentionRange && firstMentionOption) {
 										event.preventDefault();
-										if (firstMentionOption) promptEditor.insertMention(firstMentionOption);
+										promptEditor.insertMention(firstMentionOption);
 										return;
 									}
 

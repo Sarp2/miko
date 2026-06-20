@@ -343,38 +343,39 @@ export function useInlinePromptEditor({
 	// Warm the slash-command list (server enumerates + caches per workspace/provider) when the
 	// composer is focused, so the `/` menu is already populated before it opens — no message needed.
 	// Re-fetches only when the session or provider changes; the menu filters this list client-side.
-	const warmCommands = useCallback(
-		(provider: AgentProvider) => {
-			const key = `${sessionId}:${provider}`;
-			if (warmedCommandsKeyRef.current === key) return;
-			warmedCommandsKeyRef.current = key;
-			// Drop the previous provider's list immediately so the menu can't show/insert its commands
-			// while the new list loads. The key guard ignores any in-flight response from the old key.
-			setAllCommands([]);
-			setIsCommandLoading(true);
-			useSessionStore
-				.getState()
-				.listCommands(sessionId, provider)
-				.then((commands) => {
-					if (warmedCommandsKeyRef.current !== key) return;
-					setAllCommands(commands);
-				})
-				.catch(() => {
-					if (warmedCommandsKeyRef.current !== key) return;
-					setAllCommands([]);
-				})
-				.finally(() => {
-					if (warmedCommandsKeyRef.current !== key) return;
-					setIsCommandLoading(false);
-				});
-		},
-		[sessionId],
-	);
+	// `commandSessionId` is the session that will receive the message (the "Sending to" target in the
+	// diff/file composer), which can differ from the draft `sessionId`. Commands must match that
+	// session's provider, so they are keyed and queried by it.
+	const warmCommands = useCallback((commandSessionId: string, provider: AgentProvider) => {
+		const key = `${commandSessionId}:${provider}`;
+		if (warmedCommandsKeyRef.current === key) return;
+		warmedCommandsKeyRef.current = key;
+		// Drop the previous provider's list immediately so the menu can't show/insert its commands
+		// while the new list loads. The key guard ignores any in-flight response from the old key.
+		setAllCommands([]);
+		setIsCommandLoading(true);
+		useSessionStore
+			.getState()
+			.listCommands(commandSessionId, provider)
+			.then((commands) => {
+				if (warmedCommandsKeyRef.current !== key) return;
+				setAllCommands(commands);
+			})
+			.catch(() => {
+				if (warmedCommandsKeyRef.current !== key) return;
+				setAllCommands([]);
+			})
+			.finally(() => {
+				if (warmedCommandsKeyRef.current !== key) return;
+				setIsCommandLoading(false);
+			});
+	}, []);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: reset is keyed to sessionId only.
 	useEffect(() => {
 		warmedCommandsKeyRef.current = null;
 		setAllCommands([]);
+		setIsCommandLoading(false);
 	}, [sessionId]);
 
 	useLayoutEffect(() => {

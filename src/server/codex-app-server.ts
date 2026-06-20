@@ -1046,7 +1046,11 @@ export class CodexAppServerManager {
 		const context = this.sessions.get(sessionId);
 		if (!context || context.closed) return [];
 		try {
-			const response = await this.sendRequest<CodexSkillsListResponse>(context, 'skills/list', {});
+			// Scope to the session's workspace so project-local skills are included (empty cwds would
+			// fall back to the app-server default rather than this repo).
+			const response = await this.sendRequest<CodexSkillsListResponse>(context, 'skills/list', {
+				cwds: [context.cwd],
+			});
 			const skills = (response.data ?? []).flatMap((entry) => entry.skills ?? []);
 			return skills
 				.filter((skill) => skill.enabled !== false && typeof skill.name === 'string')
