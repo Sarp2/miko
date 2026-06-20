@@ -52,6 +52,7 @@ interface SessionStoreState {
 	removeSession: (sessionId: string) => Promise<void>;
 	sendSessionMessage: (input: SendSessionInput) => Promise<{ sessionId: string }>;
 	cancelSession: (sessionId: string) => Promise<void>;
+	dequeueMessage: (sessionId: string, messageId: string) => Promise<void>;
 	stopDrainingSession: (sessionId: string) => Promise<void>;
 	loadHistory: (
 		sessionId: string,
@@ -174,6 +175,10 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
 
 	cancelSession: async (sessionId) => {
 		await useWsStore.getState().command({ type: 'session.cancel', sessionId });
+	},
+
+	dequeueMessage: async (sessionId, messageId) => {
+		await useWsStore.getState().command({ type: 'session.dequeue', sessionId, messageId });
 	},
 
 	stopDrainingSession: async (sessionId) => {

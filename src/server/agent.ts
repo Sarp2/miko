@@ -18,6 +18,7 @@ import type {
 	NormalizedToolCall,
 	PendingToolSnapshot,
 	PromptPart,
+	QueuedMessageSnapshot,
 	SlashCommandInfo,
 	TranscriptEntry,
 } from '../shared/types';
@@ -86,6 +87,13 @@ function pendingToolSnapshot(pending: PendingToolRequest): PendingToolSnapshot {
 		toolKind: 'ask_user_question',
 		questions: tool.input?.questions ?? [],
 	};
+}
+
+type SendCommand = Extract<ClientCommand, { type: 'session.send' }>;
+
+interface QueuedMessage {
+	id: string;
+	command: SendCommand & { sessionId: string };
 }
 
 interface ActiveTurn {
@@ -740,6 +748,9 @@ export class AgentCoordinator {
 	// (filesystem + config derived), so the cache is shared across sessions in a workspace.
 	private readonly commandsCache = new Map<string, SlashCommandInfo[]>();
 	private readonly commandsInFlight = new Map<string, Promise<SlashCommandInfo[]>>();
+	// Messages sent while a turn is running. Drained one at a time as each turn settles, so the user
+	// can queue follow-ups without waiting. In-memory like activeTurns (lost on restart by design).
+	readonly queuedMessages = new Map<string, QueuedMessage[]>();
 
 	constructor(args: AgentCoordinatorArgs) {
 		this.store = args.store;
@@ -1194,12 +1205,29 @@ export class AgentCoordinator {
 			sessionId = created.id;
 		}
 
-		const session = this.store.requireSession(sessionId);
+		this.store.requireSession(sessionId);
+
+		// A turn is already running for this session: queue the message and let it start when the
+		// active turn settles, instead of rejecting. Drain order is FIFO.
+		if (this.activeTurns.has(sessionId)) {
+			const queue = this.queuedMessages.get(sessionId) ?? [];
+			queue.push({ id: crypto.randomUUID(), command: { ...command, sessionId } });
+			this.queuedMessages.set(sessionId, queue);
+			this.onStateChange();
+			return { sessionId };
+		}
+
+		await this.startQueuedOrDirect({ ...command, sessionId });
+		return { sessionId };
+	}
+
+	private async startQueuedOrDirect(command: SendCommand & { sessionId: string }) {
+		const session = this.store.requireSession(command.sessionId);
 		const provider = this.resolveProvider(command, session.provider);
 		const settings = this.getProviderSettings(provider, command);
 
 		await this.startTurnForSession({
-			sessionId,
+			sessionId: command.sessionId,
 			provider,
 			content: command.content,
 			attachments: command.attachments ?? [],
@@ -1211,8 +1239,59 @@ export class AgentCoordinator {
 			planMode: settings.planMode,
 			appendUserPrompt: true,
 		});
+	}
 
-		return { sessionId };
+	/** Start the next queued message once a session has no active turn. No-op if busy or empty. */
+	private async drainQueue(sessionId: string) {
+		if (this.activeTurns.has(sessionId)) return;
+		const queue = this.queuedMessages.get(sessionId);
+		if (!queue || queue.length === 0) return;
+
+		const next = queue.shift();
+		if (queue.length === 0) this.queuedMessages.delete(sessionId);
+		this.onStateChange();
+		if (!next) return;
+
+		try {
+			await this.startQueuedOrDirect(next.command);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			await this.store.appendMessage(
+				sessionId,
+				timestamped({
+					kind: 'result',
+					subtype: 'error',
+					isError: true,
+					durationMs: 0,
+					result: message,
+				}),
+			);
+			await this.store.recordTurnFailed(sessionId, message);
+			this.onStateChange();
+			// A start failure shouldn't strand the rest of the queue.
+			await this.drainQueue(sessionId);
+		}
+	}
+
+	/** Drop a still-queued message before it runs. */
+	dequeueMessage(sessionId: string, messageId: string) {
+		const queue = this.queuedMessages.get(sessionId);
+		if (!queue) return;
+		const filtered = queue.filter((entry) => entry.id !== messageId);
+		if (filtered.length === queue.length) return;
+		if (filtered.length === 0) this.queuedMessages.delete(sessionId);
+		else this.queuedMessages.set(sessionId, filtered);
+		this.onStateChange();
+	}
+
+	getQueuedMessages(sessionId: string): QueuedMessageSnapshot[] {
+		const queue = this.queuedMessages.get(sessionId);
+		if (!queue) return [];
+		return queue.map((entry) => ({
+			id: entry.id,
+			content: entry.command.content,
+			attachmentCount: entry.command.attachments?.length ?? 0,
+		}));
 	}
 
 	private async runClaudeSession(session: ClaudeSessionState) {
@@ -1246,6 +1325,8 @@ export class AgentCoordinator {
 						await this.notifyActiveTurnSettled(active, 'success');
 					}
 					this.activeTurns.delete(session.sessionId);
+					// Start the next queued message on the same persistent session (skipped on cancel).
+					if (!active.cancelRequested) await this.drainQueue(session.sessionId);
 				}
 
 				this.onStateChange();
@@ -1436,6 +1517,9 @@ export class AgentCoordinator {
 					this.onStateChange();
 				}
 			}
+
+			// Start the next queued message (skipped if a follow-up turn already started or on cancel).
+			if (!active.cancelRequested) await this.drainQueue(active.sessionId);
 		}
 	}
 
@@ -1447,8 +1531,14 @@ export class AgentCoordinator {
 			this.drainingStreams.delete(sessionId);
 		}
 
+		// Stop halts everything for this session: drop any queued follow-ups so they don't auto-start.
+		const hadQueue = this.queuedMessages.delete(sessionId);
+
 		const active = this.activeTurns.get(sessionId);
-		if (!active) return;
+		if (!active) {
+			if (hadQueue) this.onStateChange();
+			return;
+		}
 
 		// Guards against double-cancel
 		if (active.cancelRequested) return;

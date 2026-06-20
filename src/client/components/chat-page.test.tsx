@@ -80,6 +80,7 @@ function sessionSnapshot(
 			planMode: false,
 			sessionToken: null,
 			pendingTool: null,
+			queued: [],
 		},
 		messages,
 		history: {

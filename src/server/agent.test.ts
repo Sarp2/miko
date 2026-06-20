@@ -524,6 +524,62 @@ describe('AgentCoordinator.listCommands', () => {
 	});
 });
 
+describe('AgentCoordinator queue', () => {
+	const sendCommand = (content: string) =>
+		({
+			type: 'session.send',
+			sessionId: 'session-1',
+			content,
+			modelOptions: {},
+		}) as unknown as SendCommandFixture;
+
+	test('queues a send while a turn is active instead of starting it', async () => {
+		const coordinator = createCoordinator({
+			store: { requireSession: () => ({ provider: 'claude' }) },
+		});
+		coordinator.activeTurns.set('session-1', activeTurnFixture({}));
+
+		const result = await coordinator.send(sendCommand('do this next'));
+
+		expect(result).toEqual({ sessionId: 'session-1' });
+		expect(coordinator.getQueuedMessages('session-1')).toEqual([
+			{ id: expect.any(String), content: 'do this next', attachmentCount: 0 },
+		]);
+	});
+
+	test('dequeueMessage drops a queued message by id', async () => {
+		const coordinator = createCoordinator({
+			store: { requireSession: () => ({ provider: 'claude' }) },
+		});
+		coordinator.activeTurns.set('session-1', activeTurnFixture({}));
+		await coordinator.send(sendCommand('one'));
+		await coordinator.send(sendCommand('two'));
+
+		const [first] = coordinator.getQueuedMessages('session-1');
+		coordinator.dequeueMessage('session-1', first.id);
+
+		expect(coordinator.getQueuedMessages('session-1').map((m) => m.content)).toEqual(['two']);
+	});
+
+	test('cancel clears the queue so nothing auto-starts', async () => {
+		let stateChanges = 0;
+		const coordinator = createCoordinator({
+			store: { requireSession: () => ({ provider: 'claude' }) },
+			onStateChange: () => {
+				stateChanges += 1;
+			},
+		});
+		coordinator.activeTurns.set('session-1', activeTurnFixture({}));
+		await coordinator.send(sendCommand('queued'));
+		coordinator.activeTurns.delete('session-1');
+
+		await coordinator.cancel('session-1');
+
+		expect(coordinator.getQueuedMessages('session-1')).toEqual([]);
+		expect(stateChanges).toBeGreaterThan(0);
+	});
+});
+
 describe('AgentCoordinator.stopDraining', () => {
 	test('is a no-op when session has no draining stream', async () => {
 		let stateChanges = 0;

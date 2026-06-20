@@ -560,6 +560,7 @@ describe('deriveSessionSnapshot', () => {
 			drainingSessionIds,
 			'session-1',
 			{ toolUseId: 'tool-1', toolKind: 'exit_plan_mode', plan: 'Do the thing' },
+			[{ id: 'q1', content: 'queued follow-up', attachmentCount: 0 }],
 			() => emptyTranscript,
 		);
 
@@ -575,6 +576,7 @@ describe('deriveSessionSnapshot', () => {
 			planMode: true,
 			sessionToken: 'thread-1',
 			pendingTool: { toolUseId: 'tool-1', toolKind: 'exit_plan_mode', plan: 'Do the thing' },
+			queued: [{ id: 'q1', content: 'queued follow-up', attachmentCount: 0 }],
 		});
 		expect(session?.messages).toEqual([]);
 		expect(session?.history.recentLimit).toBe(200);
@@ -594,6 +596,7 @@ describe('deriveSessionSnapshot', () => {
 			new Set(),
 			'session-1',
 			null,
+			[],
 			() => emptyTranscript,
 		);
 

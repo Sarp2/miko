@@ -180,6 +180,8 @@ async function createRouter(overrides: Record<string, unknown> = {}) {
 			getDrainingSessionIds: () => new Set(),
 			getPendingTool: () => null,
 			listCommands: async () => [],
+			getQueuedMessages: () => [],
+			dequeueMessage: () => {},
 			send: async () => ({ sessionId: seeded.sessionId }),
 			cancel: async () => {},
 			closeSession: async () => {},
@@ -382,6 +384,8 @@ describe('createWsRouter.broadcastError', () => {
 				getDrainingSessionIds: () => new Set(),
 				getPendingTool: () => null,
 				listCommands: async () => [],
+				getQueuedMessages: () => [],
+				dequeueMessage: () => {},
 				setBackgroundErrorReporter: (reporter: (message: string) => void) => {
 					reportError = reporter;
 				},
@@ -440,6 +444,8 @@ describe('createWsRouter.sendWorkspaceInstruction', () => {
 				getDrainingSessionIds: () => new Set(),
 				getPendingTool: () => null,
 				listCommands: async () => [],
+				getQueuedMessages: () => [],
+				dequeueMessage: () => {},
 				send: async (command: unknown) => {
 					sentCommand = command;
 					return { sessionId };
@@ -490,6 +496,8 @@ describe('createWsRouter.sendWorkspaceInstruction', () => {
 				getDrainingSessionIds: () => new Set(),
 				getPendingTool: () => null,
 				listCommands: async () => [],
+				getQueuedMessages: () => [],
+				dequeueMessage: () => {},
 				send: async () => {
 					throw new Error('agent failed');
 				},
@@ -548,6 +556,8 @@ describe('createWsRouter.sendWorkspaceInstruction', () => {
 				getDrainingSessionIds: () => new Set(),
 				getPendingTool: () => null,
 				listCommands: async () => [],
+				getQueuedMessages: () => [],
+				dequeueMessage: () => {},
 				send: async (command: unknown) => {
 					sentCommand = command;
 					return { sessionId };
@@ -619,6 +629,8 @@ describe('createWsRouter.sendWorkspaceInstruction', () => {
 				getDrainingSessionIds: () => new Set(),
 				getPendingTool: () => null,
 				listCommands: async () => [],
+				getQueuedMessages: () => [],
+				dequeueMessage: () => {},
 				send: async () => {
 					sendCalled = true;
 					return { sessionId };
@@ -671,6 +683,8 @@ describe('createWsRouter.sendWorkspaceInstruction', () => {
 				getDrainingSessionIds: () => new Set(),
 				getPendingTool: () => null,
 				listCommands: async () => [],
+				getQueuedMessages: () => [],
+				dequeueMessage: () => {},
 				send: async () => {
 					sendCalled = true;
 					return { sessionId };
@@ -725,6 +739,8 @@ describe('createWsRouter.sendWorkspaceInstruction', () => {
 				getDrainingSessionIds: () => new Set(),
 				getPendingTool: () => null,
 				listCommands: async () => [],
+				getQueuedMessages: () => [],
+				dequeueMessage: () => {},
 				send: async () => {
 					sendCalled = true;
 					return { sessionId };
@@ -1362,6 +1378,8 @@ describe('createWsRouter.dispose', () => {
 				getDrainingSessionIds: () => new Set(),
 				getPendingTool: () => null,
 				listCommands: async () => [],
+				getQueuedMessages: () => [],
+				dequeueMessage: () => {},
 				setBackgroundErrorReporter: (reporter: unknown) => {
 					clearedReporter = reporter;
 				},

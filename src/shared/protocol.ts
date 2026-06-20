@@ -139,6 +139,7 @@ export type ClientCommand =
 	| { type: 'session.loadHistory'; sessionId: string; beforeCursor: string; limit: number }
 	| { type: 'session.respondTool'; sessionId: string; toolUseId: string; result: unknown }
 	| { type: 'session.listCommands'; sessionId: string; provider: AgentProvider }
+	| { type: 'session.dequeue'; sessionId: string; messageId: string }
 	| {
 			type: 'terminal.create';
 			workspaceId: string;
