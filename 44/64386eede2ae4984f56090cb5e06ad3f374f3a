@@ -1,0 +1,47 @@
+src/client/components/workspace-header/workspace-header.tsx
+  s_82e93de1bb8ac8::t_c46dfd9c1ad840 72,102-103
+src/client/components/right-sidebar-terminal-view.tsx
+  s_82e93de1bb8ac8::t_4deeebad7afdf3 82-85,150-153,158-160,176-178,184,190-194
+  s_82e93de1bb8ac8::t_428d7a07cf4190 58-60,154-157
+src/server/pr-manager.ts
+  s_82e93de1bb8ac8::t_527e513dc80e68 503-506
+src/client/components/connection-lost-overlay.tsx
+  s_82e93de1bb8ac8::t_e16c84a3a9f987 2,13-14,16-20,26-28,30
+  s_82e93de1bb8ac8::t_428d7a07cf4190 21-25
+src/server/workspace-manager.test.ts
+  s_82e93de1bb8ac8::t_97ae08ca2e3cce 132,201,240,279,313
+  s_82e93de1bb8ac8::t_b11903d5f8f7f8 581-582,591,594-595,685
+  s_82e93de1bb8ac8::t_428d7a07cf4190 562-567
+  s_82e93de1bb8ac8::t_24d3c0626b0011 675
+  s_82e93de1bb8ac8::t_844ddf23dad86f 513,522-524,561,568-580,583-590,592-593,596-616
+src/shared/protocol.ts
+  s_82e93de1bb8ac8::t_e39b740aeecdf1 185-196,198,211
+src/server/ws-router.ts
+  s_82e93de1bb8ac8::t_931a9b6f91f6a9 602-603,605-608
+src/server/workspace-manager.ts
+  s_82e93de1bb8ac8::t_fbdcfd1d137c1e 545
+  s_82e93de1bb8ac8::t_d58c182a268353 474,477,536,541,549,569
+  s_82e93de1bb8ac8::t_527e513dc80e68 59-62,116-133,244,246-249,252,257-264,551-553,570-584,600,604-605,616
+  s_82e93de1bb8ac8::t_428d7a07cf4190 245
+  s_82e93de1bb8ac8::t_b11903d5f8f7f8 537-538,585-599
+src/shared/protocol.test.ts
+  s_82e93de1bb8ac8::t_e39b740aeecdf1 26-42
+src/client/components/left-sidebar-view.tsx
+  s_82e93de1bb8ac8::t_c46dfd9c1ad840 405,417,431-435,488,578
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "4464386eede2ae4984f56090cb5e06ad3f374f3a",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
