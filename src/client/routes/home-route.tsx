@@ -32,14 +32,25 @@ export function HomeRoute() {
 			className="flex h-full min-h-0 items-center justify-center overflow-hidden bg-canvas px-8 py-10"
 		>
 			<div className="flex w-full max-w-[560px] flex-col items-center">
-				<div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-3">
+				<div className="mb-8 flex flex-col items-center gap-3">
+					<div className="flex size-14 items-center justify-center rounded-[18px] border border-hairline bg-surface-1 shadow-[0_16px_48px_rgba(0,0,0,0.2)]">
+						<img src="/logo.svg" alt="Miko" className="size-11 rounded-[14px]" />
+					</div>
+					<div className="text-[15px] font-medium leading-5 text-ink">Miko</div>
+				</div>
+
+				<div className="grid w-full grid-cols-1 gap-2.5 sm:grid-cols-3">
 					{actions.map((action) => {
 						const Icon = action.icon;
 						const tile = (
 							<button
 								type="button"
 								disabled={action.disabled}
-								className="group flex h-[148px] w-full flex-col items-start justify-between rounded-lg border border-hairline bg-surface-1 px-3.5 py-3 text-left shadow-[0_18px_60px_rgba(0,0,0,0.22)] transition-colors enabled:hover:border-hairline-tertiary enabled:hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-45"
+								className={
+									action.disabled
+										? 'group flex h-[136px] w-full flex-col items-start justify-between rounded-lg border border-hairline/70 bg-surface-1/55 px-3.5 py-3 text-left opacity-55 transition-colors disabled:cursor-not-allowed'
+										: 'group flex h-[136px] w-full flex-col items-start justify-between rounded-lg border border-hairline-strong bg-surface-1 px-3.5 py-3 text-left shadow-[0_18px_54px_rgba(0,0,0,0.24)] transition-colors hover:border-hairline-tertiary hover:bg-surface-2'
+								}
 							>
 								<Icon className="size-4 text-ink-muted transition-colors group-enabled:group-hover:text-ink" />
 								<div className="min-w-0">
@@ -59,11 +70,8 @@ export function HomeRoute() {
 					})}
 				</div>
 
-				<div className="mt-6 max-w-[420px] text-center text-[12px] leading-5 text-ink-tertiary">
-					<span>
-						Choose a local repository that’s already connected to GitHub. Miko will use its main
-						branch to create isolated workspaces.
-					</span>
+				<div className="mt-5 text-center text-[11px] leading-4 text-ink-tertiary">
+					Choose a local GitHub repository to create isolated workspaces.
 				</div>
 			</div>
 		</section>

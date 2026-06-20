@@ -40,7 +40,7 @@ function FolderNode({
 	return (
 		<Collapsible open={open} onOpenChange={setOpen}>
 			<FileTreeRow depth={depth}>
-				<CollapsibleTrigger className="group flex h-7 w-full min-w-0 cursor-pointer items-center gap-1.5 rounded-md px-2 text-left font-mono text-[11.5px] font-normal leading-5 text-ink outline-none hover:bg-surface-2 hover:text-ink focus-visible:ring-1 focus-visible:ring-primary">
+				<CollapsibleTrigger className="group flex h-[26px] w-full min-w-0 cursor-pointer items-center gap-1.5 rounded-md px-2 text-left font-mono text-[11px] font-normal leading-4 text-ink outline-none hover:bg-surface-2 hover:text-ink focus-visible:ring-1 focus-visible:ring-primary">
 					{open ? (
 						<FolderOpenIcon className="size-3.5 shrink-0 text-ink-subtle" />
 					) : (
@@ -71,7 +71,7 @@ function FileNode({
 		<FileTreeRow depth={depth}>
 			<button
 				type="button"
-				className="group flex h-7 w-full min-w-0 cursor-pointer items-center gap-1.5 rounded-md px-2 text-left font-mono text-[11.5px] font-normal leading-5 text-ink outline-none hover:bg-surface-2 hover:text-ink focus-visible:ring-1 focus-visible:ring-primary"
+				className="group flex h-[26px] w-full min-w-0 cursor-pointer items-center gap-1.5 rounded-md px-2 text-left font-mono text-[11px] font-normal leading-4 text-ink outline-none hover:bg-surface-2 hover:text-ink focus-visible:ring-1 focus-visible:ring-primary"
 				title={node.path}
 				onClick={() => onOpenFile(node.path)}
 			>
@@ -98,7 +98,7 @@ function FileTreeNode({
 
 function AllFilesEmptyState() {
 	return (
-		<div className="flex h-full items-center justify-center px-8 text-center text-[12px] leading-5 text-ink-tertiary">
+		<div className="flex h-full items-center justify-center px-8 text-center text-[12px] leading-4 text-ink-tertiary">
 			No files found in this workspace.
 		</div>
 	);
@@ -129,7 +129,7 @@ export function RightSidebarAllFiles({
 
 	if (setupState === 'failed') {
 		return (
-			<div className="flex h-full items-center justify-center px-8 text-center text-[12px] leading-5 text-ink-tertiary">
+			<div className="flex h-full items-center justify-center px-8 text-center text-[12px] leading-4 text-ink-tertiary">
 				Workspace setup failed. Files are unavailable.
 			</div>
 		);
@@ -146,12 +146,12 @@ export function RightSidebarAllFiles({
 	if (resource.status === 'error' && resource.files.length === 0) {
 		return (
 			<div className="flex h-full flex-col items-center justify-center gap-2 px-8 text-center">
-				<div className="text-[12px] leading-5 text-ink-tertiary">{resource.error}</div>
+				<div className="text-[12px] leading-4 text-ink-tertiary">{resource.error}</div>
 				<Button
 					type="button"
 					variant="ghost"
 					size="sm"
-					className="h-7 rounded-md px-2 text-[12px] text-ink-muted hover:bg-surface-2 hover:text-ink"
+					className="h-[26px] rounded-md px-2 text-[12px] text-ink-muted hover:bg-surface-2 hover:text-ink"
 					onClick={() => {
 						void loadFileList(workspaceId, { force: true });
 					}}
