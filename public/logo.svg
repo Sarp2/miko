@@ -1,0 +1,17 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Miko mascot logo</title>
+  <desc id="desc">A soft white Miko mascot on a dark rounded square.</desc>
+  <rect width="512" height="512" rx="116" fill="#111113"/>
+  <rect x="1" y="1" width="510" height="510" rx="115" stroke="#FFFFFF" stroke-opacity="0.08" stroke-width="2"/>
+  <path d="M139 348c22-13 29-47 33-95 7-88 65-151 149-139 74 11 116 72 105 160-9 74-48 151-108 158-33 4-51-13-60-39-22 31-55 48-91 39-32-8-42-43-28-84Z" fill="#F7F7F8"/>
+  <path d="M156 348c18-11 25-43 29-92 6-78 55-135 128-128 64 6 101 57 94 137-7 68-40 139-90 146-28 4-43-11-51-35-22 29-51 43-81 36-26-7-39-30-29-64Z" fill="url(#soft)" opacity="0.35"/>
+  <ellipse cx="285" cy="242" rx="15" ry="25" fill="#111113"/>
+  <ellipse cx="344" cy="242" rx="15" ry="25" fill="#111113"/>
+  <path d="M204 376c31 15 67 8 91-20" stroke="#D4D4D8" stroke-width="10" stroke-linecap="round" opacity="0.42"/>
+  <defs>
+    <linearGradient id="soft" x1="219" y1="122" x2="344" y2="410" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#A1A1AA"/>
+    </linearGradient>
+  </defs>
+</svg>

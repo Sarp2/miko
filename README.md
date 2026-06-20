@@ -1,46 +1,113 @@
-# Miko
+<p align="center">
+  <img src="public/logo.svg" alt="Miko" width="96" />
+</p>
 
-Miko is a local app for running and managing coding-agent sessions on your own machine — built especially for **Claude Code** and **Codex**. It pairs a Bun-powered server with a Vite + React client to give you a chat-driven workspace for projects, agent runs, terminals, and diffs — all backed by an event-sourced store under `~/.miko`.
+<h1 align="center"><b>Miko</b></h1>
 
-> **Status:** Miko is in active development. Expect breaking changes to event schemas, the WebSocket protocol, on-disk layout, and the UI. Pin a commit if you depend on it, and don't point it at data you can't afford to lose.
+<p align="center">
+  A fast Conductor-like web UI for running Claude Code, Codex, and AI coding agents across workspaces.
+  <br />
+  <br />
+  <a href="#install">Install</a>
+  ·
+  <a href="#features">Features</a>
+  ·
+  <a href="#development">Development</a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Bun-1.3+-000000?style=for-the-badge&logo=bun&logoColor=white" alt="Bun 1.3+" />
+  <img src="https://img.shields.io/badge/Claude_Code-supported-111111?style=for-the-badge" alt="Claude Code supported" />
+  <img src="https://img.shields.io/badge/Codex-supported-111111?style=for-the-badge" alt="Codex supported" />
+</p>
+
+<p align="center">
+  <img src="public/images/github.png" alt="Miko workspace UI" width="900" />
+</p>
+
+## What is Miko?
+
+Miko is a local web UI for orchestrating AI coding agents across isolated git workspaces. It gives Claude Code, Codex, and future agents a shared product surface: chat, files, diffs, checks, terminals, pull requests, and workspace history — without juggling a pile of terminal windows.
+
+Miko is local-first. Your workspace state, transcripts, uploads, terminals, and event history live on your machine under `~/.miko` in production and `~/.miko-dev` in development.
+
+> **Status:** Miko is in active development. Expect breaking changes to event schemas, the WebSocket protocol, on-disk layout, and UI behavior. Pin a commit if you depend on it, and do not point it at data you cannot afford to lose.
 
 ## Features
 
-- First-class support for **Claude Code** and **Codex** sessions — drive them from a single local UI instead of juggling separate terminal windows.
-- Local-first project and chat workspace, with durable state stored under `~/.miko` (or `~/.miko-dev` when running in dev mode).
-- Event-sourced persistence for projects, chats, and turns, with replay-driven read models.
-- Typed WebSocket protocol between the client and the Bun server for snapshots, subscriptions, and commands.
-- Provider-agnostic agent layer with a shared catalog of models and tools, so adding more agents alongside Claude Code and Codex stays straightforward.
-- Embedded terminal panes (xterm.js) and diff views for inspecting agent work.
-- React UI built with Tailwind, Radix/shadcn primitives, and Zustand stores.
+- **Claude Code and Codex in one UI** — run agent sessions from the same workspace-oriented interface.
+- **Isolated workspaces** — create local git worktrees for agent runs, then continue merged work on a fresh branch when needed.
+- **Conductor-like chat** — persistent transcripts, real-time tool calls, attachments, mentions, pasted-text tokens, and smooth scroll behavior.
+- **Right sidebar for review** — browse files, changed files, checks, comments, todos, and terminals beside the active chat.
+- **Diff and file views** — inspect workspace files, generated attachments, pasted text, transcript files, and PR diffs.
+- **Pull request awareness** — refresh PR metadata, checks, comments, files, and stage so merged/closed/open workspaces remain readable.
+- **Embedded terminals** — persistent workspace terminals with restored scrollback and terminal tabs.
+- **Local event store** — durable event-sourced persistence with typed read models and a typed WebSocket protocol.
 
-## Requirements
+## Install
 
-- [Bun](https://bun.com) `>=1.3.5` (used for both the package manager and the server runtime).
-- A recent version of macOS or Linux. Windows is untested.
+Miko ships as a Bun-powered CLI package.
+
+```bash
+bun install -g miko-code
+miko
+```
+
+Then open the local web UI printed by the CLI. By default Miko listens on port `3210` and opens your browser automatically.
+
+Useful CLI flags:
+
+```bash
+miko --no-open                 # start without opening a browser
+miko --port 53921              # choose a port
+miko --strict-port             # fail instead of trying another port
+miko --remote                  # bind to 0.0.0.0
+miko --share                   # create a temporary Cloudflare share URL
+miko --help                    # show all options
+```
+
+### Requirements
+
+- [Bun](https://bun.com) `>=1.3.5`
+- macOS or Linux
+- A local git repository connected to GitHub
+- Claude Code and/or Codex installed and authenticated, depending on which agent you want to run
+
+## Quickstart
+
+1. Start Miko:
+
+   ```bash
+   miko
+   ```
+
+2. Add a local GitHub repository from the home screen.
+3. Create or open a workspace.
+4. Start a chat with Claude Code or Codex.
+5. Review files, diffs, checks, terminals, and PR state from the workspace sidebars.
+
+## Development
 
 This project uses Bun exclusively. Do not use `npm`, `yarn`, or `pnpm` against this repo.
-
-## Getting Started
 
 ```bash
 bun install
 bun run dev
 ```
 
-`bun run dev` starts the Vite client and the Bun server together. By default:
+`bun run dev` starts the Vite client and Bun server together:
 
 - Client: <http://localhost:5173>
-- Server: <http://localhost:3210> (HTTP + `/ws` WebSocket)
+- Server: <http://localhost:3210> HTTP + `/ws` WebSocket
 
-You can also run the two halves separately:
+You can also run each side separately:
 
 ```bash
-bun run dev:client   # Vite dev server only
-bun run dev:server   # Bun server only
+bun run dev:client
+bun run dev:server
 ```
 
-## Scripts
+### Scripts
 
 | Command | What it does |
 | --- | --- |
@@ -48,53 +115,63 @@ bun run dev:server   # Bun server only
 | `bun run dev` | Start the client and server together for local development. |
 | `bun run dev:client` | Start only the Vite dev server. |
 | `bun run dev:server` | Start only the Bun server. |
-| `bun test` | Run the test suite with `bun test`. |
+| `bun test` | Run tests with `bun test`. |
 | `bun run lint` | Lint with Biome. |
 | `bun run lint:fix` | Lint and auto-fix with Biome. |
 | `bun run format` | Format with Biome. |
-| `bun run check` | Typecheck with `tsc --noEmit` and build the client. |
-| `bun run build` | Build the production client bundle through Vite. |
+| `bun run check` | Typecheck and build the client. |
+| `bun run build` | Build the production client bundle. |
+| `bun run pack:dry` | Preview the npm package contents. |
 
-Before handing off production-facing changes, run `bun test`, `bun run lint`, and `bun run check`.
+Before handing off production-facing changes, run:
 
-## Project Layout
-
+```bash
+bun test
+bun run lint
+bun run check
 ```
+
+## Architecture
+
+```txt
 src/
-  client/   React UI, app shell, client helpers, browser-side state
-  server/   Bun server, WebSocket router, event store, paths, orchestration
+  client/   React UI, routes, components, browser-side stores
+  server/   Bun server, WebSocket router, event store, git/PR/terminal orchestration
   shared/   Shared protocol, provider/tool types, ports, branding constants
-scripts/    Dev orchestration scripts
+scripts/    Development orchestration scripts
 public/     Static assets served by Vite
 ```
 
 Notable modules:
 
-- `src/shared/branding.ts` — app name, CLI name, package name, and data-root paths.
 - `src/shared/protocol.ts` — typed WebSocket commands, snapshots, and subscription topics.
-- `src/server/event.ts` and `src/server/event-store.ts` — durable event log and replay.
-- `src/server/read-models.ts` — read-model derivation from the event log.
-- `src/server/provider-catalog.ts` — provider/model catalog.
+- `src/shared/types.ts` — shared workspace, transcript, provider, tool, and PR types.
+- `src/server/event-store.ts` — durable event log, replay, sessions, workspaces, and PR persistence.
+- `src/server/ws-router.ts` — command routing, subscriptions, validation, and server-side orchestration.
+- `src/server/agent.ts` — provider-agnostic agent orchestration for Claude Code and Codex.
+- `src/client/routes/workspace-route.tsx` — route-based workspace/chat/file/diff rendering.
+- `src/client/components/right-sidebar.tsx` — workspace file tree, changes, checks, review, and terminal surface.
 
-## Data and Storage
+## Data and storage
 
-Miko stores durable data under your home directory:
+Miko stores durable app data under your home directory:
 
 - Production: `~/.miko/data`
-- Development (`MIKO_RUNTIME_PROFILE=dev`): `~/.miko-dev/data`
+- Development: `~/.miko-dev/data`
 
-State is event-oriented. Read models are derived from replayed events rather than persisted directly. If you change event shapes, update replay behavior and tests together.
+Workspace uploads and generated attachments are stored in app data, not inside the git worktree. Workspace source files stay in their own repositories/worktrees.
 
 ## Contributing
 
-The repo aims to stay small and explicit:
+The codebase favors explicit boundaries over magic:
 
-- TypeScript is strict. Keep shared contracts typed and validate unknown input at trust boundaries.
-- Follow the existing Biome-formatted style: tabs, single quotes, semicolons.
-- Tests live next to the code they cover as `*.test.ts` / `*.test.tsx`.
-- Treat paths, uploads, shell commands, git actions, terminal input, and external-open behavior as trust boundaries — and test the unsafe inputs.
+- Keep shared contracts typed and validate unknown input at trust boundaries.
+- Treat paths, uploads, terminals, shell commands, git operations, WebSocket payloads, and external-open behavior as security boundaries.
+- Keep provider-specific behavior behind shared agent/session abstractions.
+- Write tests next to the code they cover as `*.test.ts` / `*.test.tsx`.
+- Follow the existing Biome style: tabs, single quotes, semicolons.
 
-See [`CLAUDE.md`](./CLAUDE.md) for the full set of guidelines used by humans and coding agents working in this repo.
+See [`CLAUDE.md`](./CLAUDE.md) for the full development guidelines used by humans and coding agents working in this repo.
 
 ## License
 

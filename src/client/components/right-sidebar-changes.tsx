@@ -83,10 +83,10 @@ function ChangeRow({
 	};
 
 	return (
-		<div className="group flex h-7 min-w-0 items-center gap-2 rounded-md px-2 outline-none hover:bg-surface-2">
+		<div className="group flex h-[26px] min-w-0 items-center gap-2 rounded-md px-2 outline-none hover:bg-surface-2">
 			<button
 				type="button"
-				className="flex min-w-0 flex-1 cursor-pointer items-center overflow-hidden font-mono text-[11.5px] leading-5 outline-none focus-visible:ring-1 focus-visible:ring-primary"
+				className="flex min-w-0 flex-1 cursor-pointer items-center overflow-hidden font-mono text-[11px] leading-4 outline-none focus-visible:ring-1 focus-visible:ring-primary"
 				title={file.path}
 				onClick={openDiff}
 			>
@@ -146,7 +146,7 @@ export function RightSidebarChanges({
 }: RightSidebarChangesProps) {
 	if (files.length === 0) {
 		return (
-			<div className="flex h-full items-center justify-center px-8 text-center text-[12px] leading-5 text-ink-tertiary">
+			<div className="flex h-full items-center justify-center px-8 text-center text-[12px] leading-4 text-ink-tertiary">
 				No file changes yet.
 			</div>
 		);
