@@ -1,0 +1,38 @@
+index.html
+  s_82e93de1bb8ac8::t_24ec4eeb558e35 6-8
+src/client/routes/home-route.tsx
+  s_82e93de1bb8ac8::t_a1e16215456253 35-36,42,49-53,73-74
+  s_82e93de1bb8ac8::t_5c43da4fada76e 37-38,40-41
+  s_82e93de1bb8ac8::t_848ccf50d59788 39
+src/client/components/right-sidebar-changes.tsx
+  s_82e93de1bb8ac8::t_21066f1c957016 89,149
+  s_82e93de1bb8ac8::t_e7adae83c5efdd 86
+src/client/components/right-sidebar-all-files.tsx
+  s_82e93de1bb8ac8::t_21066f1c957016 101,132,149
+  s_82e93de1bb8ac8::t_e7adae83c5efdd 43,74,154
+public/logo.svg
+  s_82e93de1bb8ac8::t_24ec4eeb558e35 1,11,15-17
+  s_82e93de1bb8ac8::t_c7dd19e7a87ea9 2-10,12-14
+README.md
+  s_82e93de1bb8ac8::t_d27b1009dfb8f3 1-3,5,7-24,26-34,38-45,47,49,51-87,89-91,98,101,103,106-107,110,118,122-124,126,128-131,133-136,138-139,141,148-153,155,157,160,162,166,168-172,174
+  s_82e93de1bb8ac8::t_1e353ca0f0ebb5 25
+public/favicon.svg
+  s_82e93de1bb8ac8::t_c7dd19e7a87ea9 1-16
+  s_82e93de1bb8ac8::t_24ec4eeb558e35 17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "c9c72aac608648d4a3e883c5c9dc9ef2adc44032",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
