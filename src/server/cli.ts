@@ -33,6 +33,9 @@ const result = await runCli(argv, {
 		const started = await startServer({
 			port: options.port,
 			host: options.host,
+			strictPort: options.strictPort,
+			onMigrationProgress: options.onMigrationProgress,
+			update: options.update,
 		});
 
 		const maybeUpdateManager = started as {

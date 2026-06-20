@@ -46,11 +46,84 @@ function workspaceDiffFilesSignature(files: WorkspaceDiffFile[] | undefined) {
 	);
 }
 
+function pullRequestCommentsSignature(comments: WorkspacePullRequestSummary['comments']) {
+	return JSON.stringify(
+		(comments ?? [])
+			.map((comment) => ({
+				id: comment.id,
+				author: comment.author,
+				authorAssociation: comment.authorAssociation,
+				body: comment.body,
+				url: comment.url,
+				path: comment.path,
+				line: comment.line,
+				isResolved: comment.isResolved,
+				isBot: comment.isBot,
+				source: comment.source,
+				createdAt: comment.createdAt,
+				updatedAt: comment.updatedAt,
+			}))
+			.sort((left, right) => left.id.localeCompare(right.id)),
+	);
+}
+
+function pullRequestChecksSignature(checks: WorkspacePullRequestSummary['checks']) {
+	return JSON.stringify(
+		(checks ?? [])
+			.map((check) => ({
+				name: check.name,
+				workflowName: check.workflowName,
+				status: check.status,
+				conclusion: check.conclusion,
+				detailsUrl: check.detailsUrl,
+				startedAt: check.startedAt,
+				completedAt: check.completedAt,
+				summary: check.summary,
+				canFetchLogs: check.canFetchLogs,
+			}))
+			.sort((left, right) =>
+				[
+					left.workflowName ?? '',
+					left.name,
+					left.detailsUrl ?? '',
+					left.startedAt ?? '',
+					left.completedAt ?? '',
+					left.conclusion ?? '',
+				]
+					.join('\0')
+					.localeCompare(
+						[
+							right.workflowName ?? '',
+							right.name,
+							right.detailsUrl ?? '',
+							right.startedAt ?? '',
+							right.completedAt ?? '',
+							right.conclusion ?? '',
+						].join('\0'),
+					),
+			),
+	);
+}
+
 function pullRequestFilesEqual(
 	left: WorkspacePullRequestSummary['files'],
 	right: WorkspacePullRequestSummary['files'],
 ) {
 	return workspaceDiffFilesSignature(left) === workspaceDiffFilesSignature(right);
+}
+
+function pullRequestCommentsEqual(
+	left: WorkspacePullRequestSummary['comments'],
+	right: WorkspacePullRequestSummary['comments'],
+) {
+	return pullRequestCommentsSignature(left) === pullRequestCommentsSignature(right);
+}
+
+function pullRequestChecksEqual(
+	left: WorkspacePullRequestSummary['checks'],
+	right: WorkspacePullRequestSummary['checks'],
+) {
+	return pullRequestChecksSignature(left) === pullRequestChecksSignature(right);
 }
 
 interface TranscriptPageResult {
@@ -695,6 +768,7 @@ export class EventStore {
 			workspace.pullRequest?.number === pullRequest.number &&
 			workspace.pullRequest.status === pullRequest.status &&
 			workspace.pullRequest.title === pullRequest.title &&
+			workspace.pullRequest.body === pullRequest.body &&
 			workspace.pullRequest.url === pullRequest.url &&
 			workspace.pullRequest.headRefName === pullRequest.headRefName &&
 			workspace.pullRequest.baseRefName === pullRequest.baseRefName &&
@@ -702,8 +776,13 @@ export class EventStore {
 			workspace.pullRequest.isDraft === pullRequest.isDraft &&
 			workspace.pullRequest.mergeStateStatus === pullRequest.mergeStateStatus &&
 			workspace.pullRequest.hasMergeConflicts === pullRequest.hasMergeConflicts &&
+			workspace.pullRequest.unresolvedCommentCount === pullRequest.unresolvedCommentCount &&
+			workspace.pullRequest.additions === pullRequest.additions &&
+			workspace.pullRequest.deletions === pullRequest.deletions &&
 			workspace.pullRequest.createdAt === pullRequest.createdAt &&
-			pullRequestFilesEqual(workspace.pullRequest.files, pullRequest.files)
+			pullRequestFilesEqual(workspace.pullRequest.files, pullRequest.files) &&
+			pullRequestCommentsEqual(workspace.pullRequest.comments, pullRequest.comments) &&
+			pullRequestChecksEqual(workspace.pullRequest.checks, pullRequest.checks)
 		) {
 			return;
 		}

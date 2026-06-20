@@ -463,6 +463,7 @@ function createKnownPrSnapshot(
 		prNumber: pullRequest.number,
 		createdAt: pullRequest.createdAt,
 		title: pullRequest.title,
+		body: pullRequest.body,
 		url: pullRequest.url,
 		headRefName: pullRequest.headRefName,
 		baseRefName: pullRequest.baseRefName,
@@ -470,11 +471,18 @@ function createKnownPrSnapshot(
 		isDraft: pullRequest.isDraft,
 		mergeStateStatus: pullRequest.mergeStateStatus,
 		hasMergeConflicts: pullRequest.hasMergeConflicts,
+		unresolvedCommentCount: pullRequest.unresolvedCommentCount,
+		additions: pullRequest.additions,
+		deletions: pullRequest.deletions,
 		files: pullRequest.files ?? [],
-		comments: [],
-		checks: [],
-		lastRefreshedAt: Date.now(),
+		comments: pullRequest.comments ?? [],
+		checks: pullRequest.checks ?? [],
+		lastRefreshedAt: pullRequest.lastObservedAt,
 	};
+}
+
+function shouldExposeKnownPrSnapshot(workspace: WorkspaceRecord) {
+	return workspace.visibilityState === 'active' && Boolean(workspace.pullRequest);
 }
 
 export class PrManager {
@@ -493,7 +501,24 @@ export class PrManager {
 	}
 
 	getWorkspaceGitHubSnapshot(workspaceId: string) {
-		return this.snapshots.get(workspaceId) ?? null;
+		const snapshot = this.snapshots.get(workspaceId);
+		if (snapshot) return snapshot;
+
+		const workspace = this.eventStore.getWorkspace(workspaceId);
+		if (!workspace || !shouldExposeKnownPrSnapshot(workspace)) return null;
+
+		const directory = this.eventStore.getDirectory(workspace.directoryId);
+		if (!directory) return null;
+
+		const knownSnapshot = createKnownPrSnapshot(
+			workspace,
+			directory.githubOwner,
+			directory.githubRepo,
+		);
+		if (!knownSnapshot) return null;
+
+		this.snapshots.set(workspace.id, knownSnapshot);
+		return knownSnapshot;
 	}
 
 	private async runGh(args: string[]) {
@@ -957,6 +982,7 @@ export class PrManager {
 				number: pr.number,
 				status,
 				title: source.title,
+				body: snapshot.body,
 				url: sourceUrl(source),
 				headRefName: sourceHeadRef(source),
 				baseRefName: sourceBaseRef(source),
@@ -964,7 +990,12 @@ export class PrManager {
 				isDraft: snapshot.isDraft,
 				mergeStateStatus: snapshot.mergeStateStatus,
 				hasMergeConflicts: snapshot.hasMergeConflicts,
+				unresolvedCommentCount: snapshot.unresolvedCommentCount,
+				additions: snapshot.additions,
+				deletions: snapshot.deletions,
 				files: snapshot.files,
+				comments: snapshot.comments,
+				checks: snapshot.checks,
 				createdAt,
 				lastObservedAt: snapshot.lastRefreshedAt ?? Date.now(),
 			});
@@ -986,13 +1017,20 @@ export class PrManager {
 		const owner = directory.githubOwner;
 		const repo = directory.githubRepo;
 
-		if (
-			workspace.visibilityState === 'archived' ||
-			workspace.reviewState === 'done' ||
-			workspace.reviewState === 'closed'
-		) {
+		if (workspace.visibilityState === 'archived') {
 			this.snapshots.delete(workspace.id);
 			return createKnownPrSnapshot(workspace, owner, repo) ?? createNoneSnapshot(owner, repo);
+		}
+
+		if (workspace.reviewState === 'done' || workspace.reviewState === 'closed') {
+			const knownSnapshot = createKnownPrSnapshot(workspace, owner, repo);
+			if (knownSnapshot) {
+				this.snapshots.set(workspace.id, knownSnapshot);
+				return knownSnapshot;
+			}
+			const snapshot = createNoneSnapshot(owner, repo);
+			this.snapshots.set(workspace.id, snapshot);
+			return snapshot;
 		}
 
 		if (workspace.pullRequest?.number !== undefined) {

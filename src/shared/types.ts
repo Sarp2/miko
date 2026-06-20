@@ -239,6 +239,7 @@ export interface WorkspacePullRequestSummary {
 	number: number;
 	status: WorkspacePullRequestStatus;
 	title?: string;
+	body?: string;
 	url?: string;
 	headRefName?: string;
 	baseRefName?: string;
@@ -246,6 +247,9 @@ export interface WorkspacePullRequestSummary {
 	isDraft?: boolean;
 	mergeStateStatus?: string;
 	hasMergeConflicts?: boolean;
+	unresolvedCommentCount?: number;
+	additions?: number;
+	deletions?: number;
 	createdAt?: number;
 	lastObservedAt: number;
 	/**
@@ -254,6 +258,8 @@ export interface WorkspacePullRequestSummary {
 	 * and the local branch...main diff has collapsed to empty.
 	 */
 	files?: WorkspaceDiffFile[];
+	comments?: PullRequestCommentSnapshot[];
+	checks?: PullRequestCheckSnapshot[];
 }
 
 export interface WorkspaceSummary {

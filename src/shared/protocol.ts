@@ -82,7 +82,7 @@ export type ClientCommand =
 	  }
 	| { type: 'workspace.renameBranch'; workspaceId: string; branchName: string }
 	| { type: 'workspace.markRead'; workspaceId: string }
-	| { type: 'workspace.refreshGit'; workspaceId: string }
+	| { type: 'workspace.refreshGit'; workspaceId: string; fetchRemote?: boolean }
 	| { type: 'workspace.refreshPrStage'; workspaceId: string }
 	| { type: 'workspace.readDiffPatch'; workspaceId: string; path: string }
 	| { type: 'workspace.discardFile'; workspaceId: string; path: string }

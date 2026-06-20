@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Route, Routes } from 'react-router-dom';
+import { ConnectionLostOverlay } from './components/connection-lost-overlay';
 import { Toaster } from './components/ui/sonner';
 import { AppShell } from './routes/app-shell';
 import { HistoryRoute } from './routes/history-route';
@@ -32,6 +33,7 @@ export function App() {
 				<Route path="settings" element={<SettingsRoute />} />
 				<Route path="*" element={<NotFoundRoute />} />
 			</Routes>
+			<ConnectionLostOverlay />
 			<Toaster />
 		</>
 	);

@@ -183,6 +183,67 @@ describe('PrManager.getWorkspaceGitHubSnapshot', () => {
 		expect(otherSnapshot.prNumber).toBeUndefined();
 	});
 
+	test('hydrates persisted terminal PR metadata into a snapshot after restart', async () => {
+		const { store, workspace } = await createWorkspace();
+		await store.observeWorkspacePullRequest(workspace.id, {
+			number: 12,
+			status: 'merged',
+			title: 'Merged PR',
+			body: 'Persisted PR description',
+			url: 'https://github.com/sarp/miko/pull/12',
+			ciStatus: 'passing',
+			additions: 52,
+			deletions: 14,
+			files: [
+				{
+					path: 'src/app.ts',
+					changeType: 'modified',
+					isUntracked: false,
+					additions: 3,
+					deletions: 1,
+					patchDigest: 'digest',
+				},
+			],
+			comments: [
+				{
+					id: 'comment-1',
+					author: 'reviewer',
+					body: 'Please fix this',
+					isBot: false,
+					source: 'issue',
+				},
+			],
+			checks: [
+				{
+					name: 'test',
+					workflowName: 'CI',
+					status: 'passing',
+					canFetchLogs: false,
+				},
+			],
+			lastObservedAt: 1234,
+		});
+		await store.setWorkspaceReviewState(workspace.id, 'done');
+		const restartedManager = new PrManager(store, {
+			runGh: async () => failed('should not call gh'),
+		});
+
+		const snapshot = restartedManager.getWorkspaceGitHubSnapshot(workspace.id);
+
+		expect(snapshot).toMatchObject({
+			status: 'merged',
+			prNumber: 12,
+			title: 'Merged PR',
+			body: 'Persisted PR description',
+			additions: 52,
+			deletions: 14,
+			files: [{ path: 'src/app.ts', additions: 3, deletions: 1 }],
+			comments: [{ body: 'Please fix this', source: 'issue' }],
+			checks: [{ name: 'test', workflowName: 'CI', status: 'passing' }],
+			lastRefreshedAt: 1234,
+		});
+	});
+
 	test('propagates REST rate limits for stored PR refreshes', async () => {
 		const { store, workspace } = await createWorkspace();
 		await store.observeWorkspacePullRequest(workspace.id, {

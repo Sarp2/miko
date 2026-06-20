@@ -1,6 +1,7 @@
 import type { WorkspaceGitHubSnapshot } from 'src/shared/types';
 import type { WorkspaceRecord } from './event';
 import { GitHubRateLimitError } from './github-rest-client';
+import { shouldPollActiveWorkspace } from './workspace-polling';
 
 const DEFAULT_INTERVAL_MS = 2_000;
 const DEFAULT_BACKOFF_MS = 60_000;
@@ -19,15 +20,6 @@ export interface PrRefreshPollerDeps {
 	logger?: Pick<Console, 'warn'>;
 	intervalMs?: number;
 	defaultBackoffMs?: number;
-}
-
-function shouldPollWorkspace(workspace: WorkspaceRecord) {
-	return (
-		workspace.visibilityState === 'active' &&
-		workspace.setupState === 'ready' &&
-		workspace.reviewState !== 'done' &&
-		workspace.reviewState !== 'closed'
-	);
 }
 
 function snapshotFingerprint(snapshot: WorkspaceGitHubSnapshot | null) {
@@ -101,7 +93,7 @@ export class PrRefreshPoller {
 			let changed = false;
 			let backoffMs: number | null = null;
 			const errors: unknown[] = [];
-			const workspaces = this.deps.listWorkspaces().filter(shouldPollWorkspace);
+			const workspaces = this.deps.listWorkspaces().filter(shouldPollActiveWorkspace);
 
 			await Promise.all(
 				workspaces.map(async (workspace) => {
