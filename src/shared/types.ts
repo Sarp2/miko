@@ -1146,6 +1146,8 @@ export interface SessionRuntime {
 	provider: AgentProvider | null;
 	planMode: boolean;
 	sessionToken: string | null;
+	/** Set when the turn is parked awaiting a user response (plan approval / question). */
+	pendingTool: PendingToolSnapshot | null;
 }
 
 export interface SessionHistorySnapshot {
@@ -1172,7 +1174,15 @@ export interface WorkspaceAppSnapshot {
 	session?: SessionSnapshot | null;
 }
 
-export interface PendingToolSnapshot {
-	toolUseId: string;
-	toolKind: 'ask_user_question' | 'exit_plan_mode';
-}
+export type PendingToolSnapshot =
+	| {
+			toolUseId: string;
+			toolKind: 'exit_plan_mode';
+			plan?: string;
+			summary?: string;
+	  }
+	| {
+			toolUseId: string;
+			toolKind: 'ask_user_question';
+			questions: AskUserQuestionItem[];
+	  };
