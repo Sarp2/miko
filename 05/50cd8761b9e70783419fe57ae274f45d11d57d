@@ -1,0 +1,70 @@
+src/client/stores/session-store.test.ts
+  s_8c803b6b16cb81::t_4af95dc5c43133 74
+src/server/agent.test.ts
+  s_8c803b6b16cb81::t_25cfb37c2f9e57 527-536,540-550,554-582
+  s_8c803b6b16cb81::t_5986869c42102b 537-539,551-553
+src/server/read-models.ts
+  s_8c803b6b16cb81::t_848e4a92bc3d97 276
+  s_8c803b6b16cb81::t_d9eb10e58ac12a 300
+  s_8c803b6b16cb81::t_c20014d696a8ea 5
+src/client/components/chat-page.test.tsx
+  s_8c803b6b16cb81::t_4af95dc5c43133 83
+src/client/components/chat-composer/chat-composer.tsx
+  s_8c803b6b16cb81::t_05fd3fd6e36c38 342-343,354-363
+  s_8c803b6b16cb81::t_231a3e55f7a292 15
+  s_8c803b6b16cb81::t_e8ebb6c3c6fda3 206
+  s_8c803b6b16cb81::t_3dfd61ebd4262b 74-76
+  s_8c803b6b16cb81::t_b2d851605bf7a5 282,291,300,309,332
+src/shared/types.ts
+  s_8c803b6b16cb81::t_bbae7877a85eec 1164-1172
+src/server/agent.ts
+  s_8c803b6b16cb81::t_3b3723a394598f 1534-1536,1538-1541
+  s_8c803b6b16cb81::t_c3cf94ff47f0d4 1328-1329
+  s_8c803b6b16cb81::t_217fe41b76256b 751-753
+  s_8c803b6b16cb81::t_67a2b78e186a7d 92-98
+  s_8c803b6b16cb81::t_5986869c42102b 1261-1267
+  s_8c803b6b16cb81::t_e0c66e664ab849 1520-1522
+  s_8c803b6b16cb81::t_84d64a009c7a35 1208-1225,1230,1242,1244-1260,1268-1294
+  s_8c803b6b16cb81::t_833fab4a98222c 21
+src/client/hooks/use-chat-composer.ts
+  s_8c803b6b16cb81::t_1aa42bb55a318b 473-474
+  s_8c803b6b16cb81::t_1efc12cf5bcc1a 440-452
+  s_8c803b6b16cb81::t_aee234d9bbc1d3 136-138
+src/client/stores/session-store.ts
+  s_8c803b6b16cb81::t_5f54d58e311274 180-183
+  s_8c803b6b16cb81::t_2072d48340b361 55
+src/client/stores/chat-window-store.test.ts
+  s_8c803b6b16cb81::t_4af95dc5c43133 34
+src/server/ws-router.test.ts
+  s_8c803b6b16cb81::t_ec4cc35d3bc3f6 183-184,387-388,447-448,499-500,559-560,632-633,686-687,742-743,1381-1382
+src/shared/protocol.ts
+  s_8c803b6b16cb81::t_5446426b1225b5 142
+src/client/components/chat-composer/composer-queued-messages.tsx
+  s_8c803b6b16cb81::t_d09814ed89baeb 1-23,25-47
+  s_8c803b6b16cb81::t_ad1f20a091cb15 24
+src/client/components/chat-composer/composer-queued-messages.test.tsx
+  s_8c803b6b16cb81::t_1e9a35795ea729 1-28
+src/server/ws-router.ts
+  s_8c803b6b16cb81::t_a32030752c4713 907-911
+  s_8c803b6b16cb81::t_4bac99007bb4f9 250
+src/server/read-models.test.ts
+  s_8c803b6b16cb81::t_6c6df6ebe0bf6f 599
+  s_8c803b6b16cb81::t_e7590d392e6a8a 563
+  s_8c803b6b16cb81::t_0f312eb3436a91 579
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "0550cd8761b9e70783419fe57ae274f45d11d57d",
+  "prompts": {},
+  "sessions": {
+    "s_8c803b6b16cb81": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8956886f-9ad2-4c1a-8255-a5b3dc44e464",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
