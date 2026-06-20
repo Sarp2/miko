@@ -1,0 +1,78 @@
+src/server/ws-router.ts
+  s_8c803b6b16cb81::t_05321f7057b4b0 898,900-902
+  s_8c803b6b16cb81::t_e27ef2c2fb55bc 899
+src/client/components/chat-composer/composer-suggestion-popover.tsx
+  s_8c803b6b16cb81::t_c2c2fe57ec2e16 1-37
+src/client/components/chat-composer/chat-composer-utils.test.ts
+  s_8c803b6b16cb81::t_8cf0b0df944543 10
+  s_8c803b6b16cb81::t_a0cc6f6346a659 86-98
+src/client/components/chat-composer/chat-composer.tsx
+  s_8c803b6b16cb81::t_07084d8fdac805 12,15,17
+  s_8c803b6b16cb81::t_5b28944e036fd9 171-172,174-177
+  s_8c803b6b16cb81::t_581876d24c0cad 211
+  s_8c803b6b16cb81::t_992c63cfa5b2a0 222-225
+  s_8c803b6b16cb81::t_79b50a728a5399 52,56-57
+  s_8c803b6b16cb81::t_191d6bdfcab90c 228-235
+  s_8c803b6b16cb81::t_bd19351bfa7e54 348-364
+src/client/hooks/use-inline-prompt-editor.ts
+  s_8c803b6b16cb81::t_630541f1bb5394 468-483,493-496,498
+  s_8c803b6b16cb81::t_d24b5719a6bda7 319-322,324-328
+  s_8c803b6b16cb81::t_fa8b7df7def712 3
+  s_8c803b6b16cb81::t_a66d5d8cedd37f 286,293
+  s_8c803b6b16cb81::t_1c76d0ac99b0cd 343-361,364
+  s_8c803b6b16cb81::t_3ad38b4bd2a8aa 337-340,363,365
+  s_8c803b6b16cb81::t_26cf8c72204939 24
+  s_8c803b6b16cb81::t_a4a2f2b666017e 497
+  s_8c803b6b16cb81::t_9f67aecaee9c64 323
+  s_8c803b6b16cb81::t_2653d4f2da13c4 1-2,4-8,10-13
+  s_8c803b6b16cb81::t_544a5e6af1e1b8 362,366
+src/server/agent.ts
+  s_8c803b6b16cb81::t_5ab19aba6efec1 120
+  s_8c803b6b16cb81::t_db23c9236b8178 808,813,815-816,850,868-869
+  s_8c803b6b16cb81::t_8d49eec79df268 809-812,814,817-849,851-867
+  s_8c803b6b16cb81::t_2629d2be03c763 739-742
+  s_8c803b6b16cb81::t_992c63cfa5b2a0 21
+  s_8c803b6b16cb81::t_8f01660ef3840e 708-719
+src/shared/types.ts
+  s_8c803b6b16cb81::t_467956b05b71ab 1198-1207
+src/client/components/chat-composer/chat-composer-utils.ts
+  s_8c803b6b16cb81::t_d4c722521272e3 22-33
+src/server/codex-app-server.ts
+  s_8c803b6b16cb81::t_0a112eb6187f3a 1025-1041
+  s_8c803b6b16cb81::t_a3dbc746ccdfbb 11
+  s_8c803b6b16cb81::t_349e8c2cfad2b8 1024,1042-1061
+  s_8c803b6b16cb81::t_cd8d514014d0b1 56-67
+src/server/agent.test.ts
+  s_8c803b6b16cb81::t_635160e890490a 478-482,485,488,490,496,499,501-510,512-518,521-523
+  s_8c803b6b16cb81::t_e6e9bd3ca06bbb 477,483-484,486-487,489,491-495,497-498,500,511,519-520,524-526
+src/client/components/chat-composer/file-mention-popover.tsx
+  s_8c803b6b16cb81::t_381ca21d37bb6a 11,23-24,29,34-40,42-47,49-51,53-55,57-61,63-84,86-88
+src/client/components/chat-composer/command-popover.tsx
+  s_8c803b6b16cb81::t_2ef985e6eb3b49 4,11-12,16-19,21-25,27-57
+  s_8c803b6b16cb81::t_ba6d3933ad2cf4 1-3,5-10,13-15,20,26,58-59
+src/shared/protocol.ts
+  s_8c803b6b16cb81::t_7d416704e9bece 141
+src/client/stores/session-store.ts
+  s_8c803b6b16cb81::t_ba572e3c05fdcd 208-211
+  s_8c803b6b16cb81::t_22de490092ffae 10
+  s_8c803b6b16cb81::t_2081f9e3728b0b 207,212-213
+  s_8c803b6b16cb81::t_9b1f5684cdf86a 63
+src/server/ws-router.test.ts
+  s_8c803b6b16cb81::t_67d0905f0ca424 182,384,442,492,550,621,673,727,1364
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "97ddd7eb1099c9950520e6b2bf77c7b7acbdb17e",
+  "prompts": {},
+  "sessions": {
+    "s_8c803b6b16cb81": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8956886f-9ad2-4c1a-8255-a5b3dc44e464",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
