@@ -1,7 +1,8 @@
-import { lazy, type ReactNode, Suspense, useEffect, useMemo } from 'react';
+import { lazy, type ReactNode, Suspense, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import type { SessionSummary } from '../../shared/types';
 import { ChatComposer } from '../components/chat-composer/chat-composer';
+import { ComposerSessionPicker } from '../components/chat-composer/composer-session-picker';
 import { ChatPage } from '../components/chat-page';
 import { ErrorBoundary } from '../components/error-boundary';
 import { MiddleTabs } from '../components/middle-tabs';
@@ -105,13 +106,23 @@ export function WorkspaceRoute({ kind }: WorkspaceRouteProps) {
 	}, [page, sessions]);
 	const sourceSessionId =
 		page?.type === 'diff' || page?.type === 'file' ? page.sourceSessionId : null;
-	const composerSessionId = useMemo(
+	const computedComposerSessionId = useMemo(
 		() => selectComposerSessionId(sessions, sourceSessionId),
 		[sessions, sourceSessionId],
 	);
+	// User can override which session the diff/file composer routes to. The override
+	// only applies while it points at a session that still exists.
+	const [selectedComposerSessionId, setSelectedComposerSessionId] = useState<string | null>(null);
+	const composerSessionId =
+		selectedComposerSessionId &&
+		sessions.some((session) => session.id === selectedComposerSessionId)
+			? selectedComposerSessionId
+			: computedComposerSessionId;
 	const composerSessionSnapshot = useSessionStore((state) =>
 		composerSessionId ? (state.snapshotBySessionId.get(composerSessionId) ?? null) : null,
 	);
+	const showSessionPicker =
+		(page?.type === 'diff' || page?.type === 'file') && sessions.length >= 2;
 
 	useEffect(() => {
 		if (!workspaceId || kind !== 'workspace' || !firstSessionId) return;
@@ -163,6 +174,15 @@ export function WorkspaceRoute({ kind }: WorkspaceRouteProps) {
 				sessionId={composerSessionId}
 				workspaceSnapshot={workspaceSnapshot}
 				sessionSnapshot={composerSessionSnapshot}
+				sessionPicker={
+					showSessionPicker ? (
+						<ComposerSessionPicker
+							sessions={sessions}
+							selectedSessionId={composerSessionId}
+							onSelect={setSelectedComposerSessionId}
+						/>
+					) : undefined
+				}
 			/>
 		) : null;
 

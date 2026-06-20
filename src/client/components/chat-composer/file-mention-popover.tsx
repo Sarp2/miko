@@ -44,9 +44,10 @@ export function FileMentionPopover({
 				<Popover.Content
 					side="top"
 					align="start"
-					sideOffset={8}
+					alignOffset={8}
+					sideOffset={0}
 					onOpenAutoFocus={(event) => event.preventDefault()}
-					className="w-[320px] overflow-hidden rounded-[10px] border border-hairline bg-surface-1 p-0 text-ink shadow-none outline-none"
+					className="w-[calc(var(--radix-popover-trigger-width)-16px)] overflow-hidden rounded-t-[10px] rounded-b-none border border-b-0 border-hairline bg-canvas p-0 text-ink shadow-none outline-none"
 				>
 					<div className="flex items-center gap-2 border-b border-hairline px-3 py-2">
 						<MagnifyingGlass className="size-3.5 shrink-0 text-ink-subtle" />

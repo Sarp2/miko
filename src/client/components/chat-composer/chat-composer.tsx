@@ -1,5 +1,5 @@
 import { ArrowUp, Lightning, MapTrifold, Plus, StopCircle } from '@phosphor-icons/react';
-import { useRef, useState } from 'react';
+import { type ReactNode, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import type { PromptPart, SessionSnapshot, WorkspaceSnapshot } from '../../../shared/types';
@@ -19,6 +19,8 @@ interface ChatComposerProps {
 	sessionId: string;
 	workspaceSnapshot: WorkspaceSnapshot;
 	sessionSnapshot: SessionSnapshot | null;
+	/** Optional row rendered at the top of the composer (e.g. the "Sending to:" session picker). */
+	sessionPicker?: ReactNode;
 }
 
 export function ChatComposer({
@@ -26,6 +28,7 @@ export function ChatComposer({
 	sessionId,
 	workspaceSnapshot,
 	sessionSnapshot,
+	sessionPicker,
 }: ChatComposerProps) {
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const dragDepthRef = useRef(0);
@@ -174,6 +177,9 @@ export function ChatComposer({
 							onDragLeave={handleDragLeave}
 							onDrop={handleDrop}
 						>
+							{sessionPicker ? (
+								<div className="border-b border-hairline">{sessionPicker}</div>
+							) : null}
 							{/* biome-ignore lint/a11y/useSemanticElements: contentEditable is required for inline file and mention tokens. */}
 							<div
 								ref={promptEditor.editorRef}
