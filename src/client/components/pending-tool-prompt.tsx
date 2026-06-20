@@ -28,7 +28,7 @@ export function PendingToolPrompt({
 function PromptCard({ title, children }: { title: string; children: React.ReactNode }) {
 	return (
 		<div className="mx-auto w-full max-w-4xl px-5 pb-3">
-			<div className="flex flex-col gap-3 rounded-xl border border-hairline bg-surface-2 p-4">
+			<div className="flex flex-col gap-3 rounded-lg border border-hairline bg-surface-1 p-4">
 				<div className="text-body-sm font-semibold text-ink">{title}</div>
 				{children}
 			</div>
