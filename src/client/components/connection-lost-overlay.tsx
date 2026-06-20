@@ -1,5 +1,5 @@
 import { PlugsConnected } from '@phosphor-icons/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useWsStore, type WsConnectionStatus } from '../stores/ws-store';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 
@@ -10,11 +10,24 @@ function isDisconnected(status: WsConnectionStatus) {
 export function ConnectionLostOverlay() {
 	const status = useWsStore((state) => state.status);
 	const [hasConnectedOnce, setHasConnectedOnce] = useState(false);
+	const [hasFailedInitialAttempt, setHasFailedInitialAttempt] = useState(false);
+	const sawConnectingRef = useRef(false);
 	useEffect(() => {
-		if (status === 'open') setHasConnectedOnce(true);
-	}, [status]);
+		if (status === 'connecting') sawConnectingRef.current = true;
+		if (status === 'open') {
+			setHasConnectedOnce(true);
+			return;
+		}
+		if (
+			!hasConnectedOnce &&
+			sawConnectingRef.current &&
+			(status === 'closed' || status === 'error')
+		) {
+			setHasFailedInitialAttempt(true);
+		}
+	}, [hasConnectedOnce, status]);
 
-	const open = hasConnectedOnce && isDisconnected(status);
+	const open = (hasConnectedOnce || hasFailedInitialAttempt) && isDisconnected(status);
 	const title = 'Connection lost';
 	const description =
 		'Miko is trying to reconnect. Keep this window open — your workspace state will resume when the server is back.';

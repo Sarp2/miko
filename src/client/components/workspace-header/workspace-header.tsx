@@ -69,6 +69,7 @@ export function WorkspaceHeader({ workspaceId, snapshot }: WorkspaceHeaderProps)
 	const resolveMergeConflicts = useWorkspaceStore((state) => state.resolveMergeConflicts);
 	const markPrReady = useWorkspaceStore((state) => state.markPrReady);
 	const archiveWorkspace = useWorkspaceStore((state) => state.archiveWorkspace);
+	const continueOnNewBranch = useWorkspaceStore((state) => state.continueOnNewBranch);
 	const mergePr = useWorkspaceStore((state) => state.mergePr);
 
 	const identity = useMemo(() => deriveHeaderIdentity(snapshot), [snapshot]);
@@ -96,6 +97,10 @@ export function WorkspaceHeader({ workspaceId, snapshot }: WorkspaceHeaderProps)
 		}
 		if (action.kind === 'archive') {
 			await archiveWorkspace(workspaceId);
+			return;
+		}
+		if (action.kind === 'continue') {
+			await continueOnNewBranch(workspaceId);
 			return;
 		}
 		if (!actionSessionId) return;

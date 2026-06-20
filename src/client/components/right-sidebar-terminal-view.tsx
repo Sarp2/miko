@@ -55,6 +55,9 @@ export function RightSidebarTerminalView({ terminalId }: RightSidebarTerminalVie
 	const fitAddonRef = useRef<FitAddon | null>(null);
 	const lastSerializedStateRef = useRef<string | null>(null);
 	const restoredInitialSnapshotRef = useRef(false);
+	const pendingTerminalEventsRef = useRef<
+		Array<{ type: 'terminal.output'; data: string } | { type: 'terminal.exit'; exitCode: number }>
+	>([]);
 	const snapshot = useTerminalStore((state) => state.getTerminalSnapshot(terminalId));
 	const connectTerminal = useTerminalStore((state) => state.connectTerminal);
 	const disconnectTerminal = useTerminalStore((state) => state.disconnectTerminal);
@@ -75,6 +78,10 @@ export function RightSidebarTerminalView({ terminalId }: RightSidebarTerminalVie
 		restoredInitialSnapshotRef.current = false;
 		const terminalBackground = cssVariable('--surface-1', '#111112');
 		paintXtermBackground(container, terminalBackground);
+
+		restoredInitialSnapshotRef.current = false;
+		lastSerializedStateRef.current = null;
+		pendingTerminalEventsRef.current = [];
 
 		const terminal = new Terminal({
 			allowProposedApi: true,
@@ -140,7 +147,17 @@ export function RightSidebarTerminalView({ terminalId }: RightSidebarTerminalVie
 
 		const unsubscribe = addTerminalEventListener((event) => {
 			if (event.terminalId !== terminalId) return;
-			if (!restoredInitialSnapshotRef.current) return;
+			if (!restoredInitialSnapshotRef.current) {
+				if (event.type === 'terminal.output') {
+					pendingTerminalEventsRef.current.push({ type: 'terminal.output', data: event.data });
+				} else if (event.type === 'terminal.exit') {
+					pendingTerminalEventsRef.current.push({
+						type: 'terminal.exit',
+						exitCode: event.exitCode,
+					});
+				}
+				return;
+			}
 			if (event.type === 'terminal.output') terminal.write(event.data);
 			else if (event.type === 'terminal.exit') {
 				terminal.write(`\r\n[process exited with code ${event.exitCode}]\r\n`);
@@ -156,19 +173,25 @@ export function RightSidebarTerminalView({ terminalId }: RightSidebarTerminalVie
 			terminal.dispose();
 			terminalRef.current = null;
 			fitAddonRef.current = null;
+			restoredInitialSnapshotRef.current = false;
+			lastSerializedStateRef.current = null;
+			pendingTerminalEventsRef.current = [];
 		};
 	}, [addTerminalEventListener, resizeTerminal, terminalId, writeTerminal]);
 
 	useEffect(() => {
 		const terminal = terminalRef.current;
-		if (!terminal || !snapshot) return;
-		if (lastSerializedStateRef.current === snapshot.serializedState) return;
-		if (lastSerializedStateRef.current !== null) return;
+		if (!terminal || !snapshot || restoredInitialSnapshotRef.current) return;
 
 		terminal.reset();
 		if (snapshot.serializedState) terminal.write(snapshot.serializedState);
 		lastSerializedStateRef.current = snapshot.serializedState;
 		restoredInitialSnapshotRef.current = true;
+		for (const event of pendingTerminalEventsRef.current) {
+			if (event.type === 'terminal.output') terminal.write(event.data);
+			else terminal.write(`\r\n[process exited with code ${event.exitCode}]\r\n`);
+		}
+		pendingTerminalEventsRef.current = [];
 	}, [snapshot]);
 
 	useEffect(() => {

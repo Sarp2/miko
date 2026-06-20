@@ -129,6 +129,7 @@ describe('WorkspaceManager.refreshWorkspacePrStage', () => {
 		};
 		const manager = new WorkspaceManager(store, {
 			prManager: {
+				clearWorkspaceGitHubSnapshot: () => {},
 				getWorkspaceGitHubSnapshot: () => snapshot,
 				refreshWorkspacePrState: async () => {
 					refreshCalls += 1;
@@ -197,6 +198,7 @@ describe('WorkspaceManager.clearWorkspaceInstructionTurn', () => {
 				refreshWorkspaceGitSnapshot: async () => false,
 			},
 			prManager: {
+				clearWorkspaceGitHubSnapshot: () => {},
 				getWorkspaceGitHubSnapshot: () => null,
 				refreshWorkspacePrState: async () => {
 					prRefreshCalls += 1;
@@ -235,6 +237,7 @@ describe('WorkspaceManager.handleWorkspaceTurnSettled', () => {
 				refreshWorkspaceGitSnapshot: async () => true,
 			},
 			prManager: {
+				clearWorkspaceGitHubSnapshot: () => {},
 				getWorkspaceGitHubSnapshot: () => null,
 				refreshWorkspacePrState: async () => {
 					prRefreshCalls += 1;
@@ -273,6 +276,7 @@ describe('WorkspaceManager.handleWorkspaceTurnSettled', () => {
 				refreshWorkspaceGitSnapshot: async () => false,
 			},
 			prManager: {
+				clearWorkspaceGitHubSnapshot: () => {},
 				getWorkspaceGitHubSnapshot: () => null,
 				refreshWorkspacePrState: async () => {
 					prRefreshCalls += 1;
@@ -306,6 +310,7 @@ describe('WorkspaceManager.handleWorkspaceTurnSettled', () => {
 					},
 				},
 				prManager: {
+					clearWorkspaceGitHubSnapshot: () => {},
 					getWorkspaceGitHubSnapshot: () => null,
 					refreshWorkspacePrState: async () => {
 						throw new Error('pr refresh failed');
@@ -505,6 +510,7 @@ describe('WorkspaceManager.continueWorkspaceOnNewBranch', () => {
 		const setup = await createGitHubBackedDirectory();
 		const refreshCalls: Array<{ workspaceId: string; localPath: string }> = [];
 		const prRefreshCalls: string[] = [];
+		const prClearCalls: string[] = [];
 		const manager = await createWorkspaceManager(setup.store, {
 			diffStore: {
 				refreshWorkspaceGitSnapshot: async (workspaceId, localPath) => {
@@ -513,6 +519,9 @@ describe('WorkspaceManager.continueWorkspaceOnNewBranch', () => {
 				},
 			},
 			prManager: {
+				clearWorkspaceGitHubSnapshot: (workspaceId) => {
+					prClearCalls.push(workspaceId);
+				},
 				getWorkspaceGitHubSnapshot: () => null,
 				refreshWorkspacePrState: async (workspaceId) => {
 					prRefreshCalls.push(workspaceId);
@@ -549,6 +558,62 @@ describe('WorkspaceManager.continueWorkspaceOnNewBranch', () => {
 			localPath: workspace.localPath,
 		});
 		expect(prRefreshCalls).toContain(workspace.id);
+		expect(prClearCalls).toContain(workspace.id);
+		expect(
+			await runGit(
+				['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}'],
+				workspace.localPath,
+			),
+		).toMatchObject({ exitCode: 128 });
+	});
+
+	test('rolls back checkout and deletes continuation branch when metadata update fails', async () => {
+		const setup = await createGitHubBackedDirectory();
+		const manager = await createWorkspaceManager(setup.store);
+		const { workspace } = await manager.createWorkspace(setup.directory.id);
+		await setup.store.observeWorkspacePullRequest(workspace.id, {
+			number: 88,
+			status: 'merged',
+			title: 'Merged work',
+			lastObservedAt: 100,
+		});
+		await setup.store.setWorkspaceReviewState(workspace.id, 'done');
+		const previousBranchName = workspace.branchName;
+		setup.store.clearWorkspacePullRequest = async () => {
+			throw new Error('disk write failed');
+		};
+
+		await expect(manager.continueWorkspaceOnNewBranch(workspace.id)).rejects.toThrow(
+			'disk write failed',
+		);
+
+		expect((await runGit(['branch', '--show-current'], workspace.localPath)).stdout.trim()).toBe(
+			previousBranchName,
+		);
+		const branches = await runGit(['branch', '--format=%(refname:short)'], workspace.localPath);
+		expect(branches.stdout).not.toContain(`${previousBranchName}-v1`);
+		expect(setup.store.requireWorkspace(workspace.id).branchName).toBe(previousBranchName);
+	});
+
+	test('skips continuation branch names that already exist on the remote', async () => {
+		const setup = await createGitHubBackedDirectory();
+		const manager = await createWorkspaceManager(setup.store);
+		const { workspace } = await manager.createWorkspace(setup.directory.id);
+		const previousBranchName = workspace.branchName;
+		await runGit(['branch', `${previousBranchName}-v1`], setup.directory.localPath);
+		await runGit(['push', 'origin', `${previousBranchName}-v1`], setup.directory.localPath);
+		await runGit(['branch', '-D', `${previousBranchName}-v1`], setup.directory.localPath);
+		await setup.store.observeWorkspacePullRequest(workspace.id, {
+			number: 88,
+			status: 'merged',
+			title: 'Merged work',
+			lastObservedAt: 100,
+		});
+		await setup.store.setWorkspaceReviewState(workspace.id, 'done');
+
+		const continued = await manager.continueWorkspaceOnNewBranch(workspace.id);
+
+		expect(continued.branchName).toBe(`${previousBranchName}-v2`);
 	});
 
 	test('rejects workspaces that are not terminal', async () => {
@@ -607,6 +672,7 @@ describe('WorkspaceManager.renameWorkspaceBranch', () => {
 
 	test('rolls back the git branch when metadata rename fails', async () => {
 		const { store, manager, workspace } = await createReadyWorkspace();
+		const previousBranchName = workspace.branchName;
 		const originalSetWorkspaceBranch = store.setWorkspaceBranch.bind(store);
 		store.setWorkspaceBranch = async () => {
 			throw new Error('snapshot write failed');
@@ -616,7 +682,7 @@ describe('WorkspaceManager.renameWorkspaceBranch', () => {
 			'snapshot write failed',
 		);
 		expect((await runGit(['branch', '--show-current'], workspace.localPath)).stdout.trim()).toBe(
-			workspace.branchName,
+			previousBranchName,
 		);
 		expect(store.requireWorkspace(workspace.id).branchName).toBe(workspace.branchName);
 

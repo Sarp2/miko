@@ -182,8 +182,20 @@ export type ServerEnvelope =
 	  }
 	| { type: 'error'; id?: string; message: string };
 
+function isObject(value: unknown): value is Record<string, unknown> {
+	return Boolean(value && typeof value === 'object');
+}
+
+function isClientCommand(value: unknown): value is ClientCommand {
+	if (!isObject(value) || typeof value.type !== 'string') return false;
+	if (value.type === 'workspace.continueOnNewBranch') {
+		return typeof value.workspaceId === 'string' && value.workspaceId.length > 0;
+	}
+	return true;
+}
+
 export function isClientEnvelope(value: unknown): value is ClientEnvelope {
-	if (!value || typeof value !== 'object') return false;
+	if (!isObject(value)) return false;
 	const candidate = value as Partial<ClientEnvelope>;
 	if (typeof candidate.id !== 'string') return false;
 
@@ -196,7 +208,7 @@ export function isClientEnvelope(value: unknown): value is ClientEnvelope {
 	}
 
 	if (candidate.type === 'command') {
-		return Boolean(candidate.command && typeof candidate.command === 'object');
+		return isClientCommand(candidate.command);
 	}
 
 	return false;

@@ -500,6 +500,10 @@ export class PrManager {
 		this.useGhForPrRefresh = Boolean(deps.runGh && !deps.github);
 	}
 
+	clearWorkspaceGitHubSnapshot(workspaceId: string) {
+		this.snapshots.delete(workspaceId);
+	}
+
 	getWorkspaceGitHubSnapshot(workspaceId: string) {
 		const snapshot = this.snapshots.get(workspaceId);
 		if (snapshot) return snapshot;

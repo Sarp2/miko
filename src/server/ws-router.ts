@@ -599,10 +599,13 @@ export function createWsRouter({
 				}
 				case 'workspace.continueOnNewBranch': {
 					const activeStatuses = agent.getActiveStatuses();
-					const hasActiveSession = store
+					const drainingSessionIds = agent.getDrainingSessionIds();
+					const hasRunningSession = store
 						.listSessionsByWorkspace(command.workspaceId)
-						.some((session) => activeStatuses.has(session.id));
-					if (hasActiveSession) {
+						.some(
+							(session) => activeStatuses.has(session.id) || drainingSessionIds.has(session.id),
+						);
+					if (hasRunningSession) {
 						throw new Error('Cannot continue a workspace while an agent is running');
 					}
 

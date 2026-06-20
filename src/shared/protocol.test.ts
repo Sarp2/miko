@@ -23,4 +23,21 @@ describe('isClientEnvelope', () => {
 		expect(isClientEnvelope({ type: 'unsubscribe' })).toBe(false);
 		expect(isClientEnvelope(null)).toBe(false);
 	});
+
+	test('validates continue-on-new-branch command payload', () => {
+		expect(
+			isClientEnvelope({
+				type: 'command',
+				id: 'cmd-continue',
+				command: { type: 'workspace.continueOnNewBranch', workspaceId: 'workspace-1' },
+			}),
+		).toBe(true);
+		expect(
+			isClientEnvelope({
+				type: 'command',
+				id: 'cmd-continue',
+				command: { type: 'workspace.continueOnNewBranch' },
+			}),
+		).toBe(false);
+	});
 });
