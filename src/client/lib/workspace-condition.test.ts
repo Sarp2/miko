@@ -117,7 +117,7 @@ describe('deriveWorkspaceCondition', () => {
 		).toMatchObject({
 			reviewState: 'done',
 			stage: 'merged',
-			primaryAction: { kind: 'archive', label: 'Archive' },
+			primaryAction: { kind: 'continue', label: 'Continue' },
 		});
 
 		expect(

@@ -597,6 +597,21 @@ export function createWsRouter({
 					send(ws, { type: 'ack', id, result: { workspaceId: workspace.id } });
 					break;
 				}
+				case 'workspace.continueOnNewBranch': {
+					const activeStatuses = agent.getActiveStatuses();
+					const hasActiveSession = store
+						.listSessionsByWorkspace(command.workspaceId)
+						.some((session) => activeStatuses.has(session.id));
+					if (hasActiveSession) {
+						throw new Error('Cannot continue a workspace while an agent is running');
+					}
+
+					const workspace = await workspaceManager.continueWorkspaceOnNewBranch(
+						command.workspaceId,
+					);
+					send(ws, { type: 'ack', id, result: { workspaceId: workspace.id } });
+					break;
+				}
 				case 'workspace.markRead': {
 					await store.setWorkspaceUnreadAgentResult(command.workspaceId, false);
 					send(ws, { type: 'ack', id });

@@ -101,6 +101,11 @@ export type WorkspaceEvent =
 			pullRequest: WorkspacePullRequestSummary;
 	  }
 	| {
+			type: 'workspace_pr_cleared';
+			timestamp: number;
+			workspaceId: string;
+	  }
+	| {
 			type: 'workspace_unread_agent_result_set';
 			timestamp: number;
 			workspaceId: string;

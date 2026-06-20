@@ -43,6 +43,7 @@ interface WorkspaceStoreState {
 	) => Promise<WorkspaceFileSearchResult[]>;
 	listFiles: (workspaceId: string, limit?: number) => Promise<WorkspaceFileSearchResult[]>;
 	renameBranch: (workspaceId: string, branchName: string) => Promise<unknown>;
+	continueOnNewBranch: (workspaceId: string) => Promise<unknown>;
 	commitAndPush: (workspaceId: string, sessionId: string) => Promise<unknown>;
 	pullLatestMain: (workspaceId: string, sessionId: string) => Promise<unknown>;
 	createPr: (workspaceId: string, sessionId: string) => Promise<unknown>;
@@ -310,6 +311,10 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
 		return useWsStore
 			.getState()
 			.command({ type: 'workspace.renameBranch', workspaceId, branchName });
+	},
+
+	continueOnNewBranch: (workspaceId) => {
+		return useWsStore.getState().command({ type: 'workspace.continueOnNewBranch', workspaceId });
 	},
 
 	commitAndPush: (workspaceId, sessionId) => {

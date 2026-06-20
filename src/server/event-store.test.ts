@@ -312,6 +312,9 @@ describe('EventStore.createWorkspace', () => {
 			pullRequest: { number: 12, status: 'open', ciStatus: 'passing' },
 		});
 
+		await store.clearWorkspacePullRequest(workspace.id);
+		expect(store.getWorkspace(workspace.id)?.pullRequest).toBeUndefined();
+
 		await store.removeWorkspace(workspace.id);
 		expect(store.getWorkspace(workspace.id)).toBeNull();
 		expect(store.listWorkspaces()).toEqual([]);

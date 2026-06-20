@@ -215,6 +215,29 @@ export class WorkspaceManager {
 		throw new Error('Could not generate a unique workspace branch and worktree path');
 	}
 
+	private async generateContinuationBranchName(
+		directoryId: string,
+		directoryPath: string,
+		currentBranchName: string,
+	) {
+		const metadataBranches = new Set(
+			this.eventStore
+				.listWorkspacesByDirectory(directoryId)
+				.map((workspace) => workspace.branchName),
+		);
+		const localBranches = await getExistingLocalBranches(directoryPath);
+		const baseName = sanitizeBranchName(currentBranchName) || currentBranchName;
+
+		for (let suffix = 1; suffix <= MAX_WORKSPACE_NAME_SUFFIX; suffix++) {
+			const branchName = `${baseName}-v${suffix}`;
+			if (metadataBranches.has(branchName) || localBranches.has(branchName)) continue;
+			if (!(await isValidBranchName(directoryPath, branchName))) continue;
+			return branchName;
+		}
+
+		throw new Error('Could not generate a unique workspace branch name');
+	}
+
 	private async resolveBaseRef(directoryPath: string) {
 		await runGit(['fetch', 'origin', 'main', '--prune'], directoryPath);
 
@@ -468,6 +491,64 @@ export class WorkspaceManager {
 		}
 
 		await this.diffStore?.refreshWorkspaceGitSnapshot(workspace.id, workspace.localPath);
+		return this.eventStore.requireWorkspace(workspace.id);
+	}
+
+	async continueWorkspaceOnNewBranch(workspaceId: string) {
+		const workspace = this.eventStore.requireWorkspace(workspaceId);
+		if (workspace.setupState !== 'ready') throw new Error('Workspace is not ready');
+		if (workspace.reviewState !== 'done' && workspace.reviewState !== 'closed') {
+			throw new Error('Workspace can only continue after its pull request is merged or closed');
+		}
+
+		const directory = this.eventStore.requireDirectory(workspace.directoryId);
+		const currentBranch = await runGit(['branch', '--show-current'], workspace.localPath);
+		if (currentBranch.stdout.trim() !== workspace.branchName) {
+			throw new Error('Workspace worktree is not on the expected branch');
+		}
+
+		const branchName = await this.generateContinuationBranchName(
+			directory.id,
+			directory.localPath,
+			workspace.branchName,
+		);
+		const baseRef = await this.resolveBaseRef(directory.localPath);
+		const checkout = await runGit(['checkout', '-b', branchName, baseRef], workspace.localPath);
+		if (checkout.exitCode !== 0) {
+			throw new Error(formatGitFailure(checkout) || 'Git could not create the continuation branch');
+		}
+
+		try {
+			await this.eventStore.setWorkspaceBranch(workspace.id, branchName);
+			await this.eventStore.clearWorkspacePullRequest(workspace.id);
+			await this.eventStore.setWorkspaceReviewState(workspace.id, 'in_progress');
+		} catch (error) {
+			console.error('[workspace-manager] continuation branch created but metadata update failed', {
+				workspaceId: workspace.id,
+				branchName,
+				error,
+			});
+			throw error;
+		}
+
+		await this.diffStore
+			?.refreshWorkspaceGitSnapshot(workspace.id, workspace.localPath)
+			.catch((error) => {
+				console.error('[workspace-manager] failed to refresh continued workspace git snapshot', {
+					workspaceId: workspace.id,
+					error,
+				});
+			});
+
+		if (this.prManager) {
+			await this.refreshWorkspacePrStage(workspace.id, { force: true }).catch((error) => {
+				console.error('[workspace-manager] failed to refresh continued workspace PR snapshot', {
+					workspaceId: workspace.id,
+					error,
+				});
+			});
+		}
+
 		return this.eventStore.requireWorkspace(workspace.id);
 	}
 }

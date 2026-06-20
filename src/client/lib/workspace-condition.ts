@@ -30,6 +30,7 @@ export type WorkspacePrimaryActionKind =
 	| 'resolve_merge_conflicts'
 	| 'mark_pr_ready'
 	| 'merge'
+	| 'continue'
 	| 'archive';
 
 export interface WorkspacePrimaryAction {
@@ -91,7 +92,7 @@ function deriveStage(args: {
 	if (args.hasActiveSession) return { stage: 'agent_active', primaryAction: action('active', '') };
 
 	if (args.reviewState === 'done') {
-		return { stage: 'merged', primaryAction: action('archive', 'Archive') };
+		return { stage: 'merged', primaryAction: action('continue', 'Continue') };
 	}
 
 	if (args.reviewState === 'closed') {

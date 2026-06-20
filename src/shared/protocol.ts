@@ -81,6 +81,7 @@ export type ClientCommand =
 			visibilityState: WorkspaceVisibilityState;
 	  }
 	| { type: 'workspace.renameBranch'; workspaceId: string; branchName: string }
+	| { type: 'workspace.continueOnNewBranch'; workspaceId: string }
 	| { type: 'workspace.markRead'; workspaceId: string }
 	| { type: 'workspace.refreshGit'; workspaceId: string; fetchRemote?: boolean }
 	| { type: 'workspace.refreshPrStage'; workspaceId: string }

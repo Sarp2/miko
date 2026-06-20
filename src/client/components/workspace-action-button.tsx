@@ -3,6 +3,7 @@ import {
 	ArrowSquareOut,
 	ArrowUp,
 	CaretDown,
+	FastForward,
 	GitMerge,
 	GitPullRequest,
 	WarningCircle,
@@ -22,6 +23,7 @@ import {
 function WorkspaceActionIcon({ action }: { action: WorkspacePrimaryAction }) {
 	if (action.kind === 'archive') return <Archive className="size-3" />;
 	if (action.kind === 'merge') return <GitMerge className="size-3" />;
+	if (action.kind === 'continue') return <FastForward className="size-3" />;
 	if (action.kind === 'create_pr') return <GitPullRequest className="size-3" />;
 	if (action.kind === 'mark_pr_ready') return <GitPullRequest className="size-3" />;
 	if (action.kind === 'fix_ci') return <WarningCircle className="size-3" />;
@@ -31,7 +33,12 @@ function WorkspaceActionIcon({ action }: { action: WorkspacePrimaryAction }) {
 }
 
 function usesLocalPendingState(action: WorkspacePrimaryAction) {
-	return action.kind === 'merge' || action.kind === 'mark_pr_ready' || action.kind === 'archive';
+	return (
+		action.kind === 'merge' ||
+		action.kind === 'continue' ||
+		action.kind === 'mark_pr_ready' ||
+		action.kind === 'archive'
+	);
 }
 
 export function WorkspaceActionButton({

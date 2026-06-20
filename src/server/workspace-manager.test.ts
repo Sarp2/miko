@@ -500,6 +500,85 @@ describe('WorkspaceManager.createWorkspace', () => {
 	});
 });
 
+describe('WorkspaceManager.continueWorkspaceOnNewBranch', () => {
+	test('keeps the same worktree and resets merged PR metadata onto a fresh branch', async () => {
+		const setup = await createGitHubBackedDirectory();
+		const refreshCalls: Array<{ workspaceId: string; localPath: string }> = [];
+		const prRefreshCalls: string[] = [];
+		const manager = await createWorkspaceManager(setup.store, {
+			diffStore: {
+				refreshWorkspaceGitSnapshot: async (workspaceId, localPath) => {
+					refreshCalls.push({ workspaceId, localPath });
+					return true;
+				},
+			},
+			prManager: {
+				getWorkspaceGitHubSnapshot: () => null,
+				refreshWorkspacePrState: async (workspaceId) => {
+					prRefreshCalls.push(workspaceId);
+					return noPrSnapshot();
+				},
+			},
+		});
+		const { workspace } = await manager.createWorkspace(setup.directory.id);
+		const previousBranchName = workspace.branchName;
+		await setup.store.observeWorkspacePullRequest(workspace.id, {
+			number: 88,
+			status: 'merged',
+			title: 'Merged work',
+			url: 'https://github.com/sarp/miko/pull/88',
+			headRefName: workspace.branchName,
+			baseRefName: 'main',
+			ciStatus: 'passing',
+			lastObservedAt: 100,
+		});
+		await setup.store.setWorkspaceReviewState(workspace.id, 'done');
+
+		const continued = await manager.continueWorkspaceOnNewBranch(workspace.id);
+
+		expect(continued.id).toBe(workspace.id);
+		expect(continued.localPath).toBe(workspace.localPath);
+		expect(continued.branchName).toBe(`${previousBranchName}-v1`);
+		expect(continued.reviewState).toBe('in_progress');
+		expect(continued.pullRequest).toBeUndefined();
+		expect((await runGit(['branch', '--show-current'], workspace.localPath)).stdout.trim()).toBe(
+			continued.branchName,
+		);
+		expect(refreshCalls.at(-1)).toEqual({
+			workspaceId: workspace.id,
+			localPath: workspace.localPath,
+		});
+		expect(prRefreshCalls).toContain(workspace.id);
+	});
+
+	test('rejects workspaces that are not terminal', async () => {
+		const { manager, workspace } = await createReadyWorkspace();
+
+		await expect(manager.continueWorkspaceOnNewBranch(workspace.id)).rejects.toThrow(
+			'Workspace can only continue after its pull request is merged or closed',
+		);
+	});
+
+	test('increments continuation branch suffixes that already exist', async () => {
+		const setup = await createGitHubBackedDirectory();
+		const manager = await createWorkspaceManager(setup.store);
+		const { workspace } = await manager.createWorkspace(setup.directory.id);
+		const previousBranchName = workspace.branchName;
+		await runGit(['branch', `${previousBranchName}-v1`], setup.directory.localPath);
+		await setup.store.observeWorkspacePullRequest(workspace.id, {
+			number: 88,
+			status: 'merged',
+			title: 'Merged work',
+			lastObservedAt: 100,
+		});
+		await setup.store.setWorkspaceReviewState(workspace.id, 'done');
+
+		const continued = await manager.continueWorkspaceOnNewBranch(workspace.id);
+
+		expect(continued.branchName).toBe(`${previousBranchName}-v2`);
+	});
+});
+
 describe('WorkspaceManager.renameWorkspaceBranch', () => {
 	test('renames a local-only workspace branch', async () => {
 		const { manager, workspace, refreshCalls } = await createReadyWorkspace();
