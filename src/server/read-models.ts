@@ -1,6 +1,7 @@
 import type {
 	DirectoryListSnapshot,
 	MikoStatus,
+	PendingToolSnapshot,
 	SessionRuntime,
 	SessionSnapshot,
 	SidebarDirectoryGroup,
@@ -270,6 +271,7 @@ export function deriveSessionSnapshot(
 	activeStatuses: Map<string, MikoStatus>,
 	drainingSessionIds: Set<string>,
 	sessionId: string,
+	pendingTool: PendingToolSnapshot | null,
 	getMessages: (sessionId: string) => Pick<SessionSnapshot, 'messages' | 'history'>,
 ): SessionSnapshot | null {
 	const session = state.sessionsById.get(sessionId);
@@ -292,6 +294,7 @@ export function deriveSessionSnapshot(
 		provider: session.provider,
 		planMode: session.planMode,
 		sessionToken: session.sessionToken,
+		pendingTool,
 	};
 
 	const transcript = getMessages(session.id);

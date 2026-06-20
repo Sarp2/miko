@@ -70,6 +70,23 @@ interface PendingToolRequest {
 	resolve: (result: unknown) => void;
 }
 
+function pendingToolSnapshot(pending: PendingToolRequest): PendingToolSnapshot {
+	const { tool, toolUseId } = pending;
+	if (tool.toolKind === 'exit_plan_mode') {
+		return {
+			toolUseId,
+			toolKind: 'exit_plan_mode',
+			plan: tool.input?.plan,
+			summary: tool.input?.summary,
+		};
+	}
+	return {
+		toolUseId,
+		toolKind: 'ask_user_question',
+		questions: tool.input?.questions ?? [],
+	};
+}
+
 interface ActiveTurn {
 	sessionId: string;
 	provider: AgentProvider;
@@ -767,7 +784,7 @@ export class AgentCoordinator {
 	getPendingTool(sessionId: string): PendingToolSnapshot | null {
 		const pending = this.activeTurns.get(sessionId)?.pendingTool;
 		if (!pending) return null;
-		return { toolUseId: pending.toolUseId, toolKind: pending.tool.toolKind };
+		return pendingToolSnapshot(pending);
 	}
 
 	getDrainingSessionIds(): Set<string> {

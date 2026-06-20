@@ -246,6 +246,7 @@ export function createWsRouter({
 						getActiveStatuses(),
 						getDrainingSessionIds(),
 						topic.sessionId,
+						agent.getPendingTool(topic.sessionId),
 						(sessionId) =>
 							store.getRecentSessionHistory(
 								sessionId,

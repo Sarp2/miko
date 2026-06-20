@@ -559,6 +559,7 @@ describe('deriveSessionSnapshot', () => {
 			activeStatuses,
 			drainingSessionIds,
 			'session-1',
+			{ toolUseId: 'tool-1', toolKind: 'exit_plan_mode', plan: 'Do the thing' },
 			() => emptyTranscript,
 		);
 
@@ -573,6 +574,7 @@ describe('deriveSessionSnapshot', () => {
 			provider: 'codex',
 			planMode: true,
 			sessionToken: 'thread-1',
+			pendingTool: { toolUseId: 'tool-1', toolKind: 'exit_plan_mode', plan: 'Do the thing' },
 		});
 		expect(session?.messages).toEqual([]);
 		expect(session?.history.recentLimit).toBe(200);
@@ -591,6 +593,7 @@ describe('deriveSessionSnapshot', () => {
 			new Map(),
 			new Set(),
 			'session-1',
+			null,
 			() => emptyTranscript,
 		);
 

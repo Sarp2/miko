@@ -70,6 +70,7 @@ function sessionSnapshot(
 			provider: 'claude',
 			planMode: false,
 			sessionToken: null,
+			pendingTool: null,
 		},
 		messages,
 		history,

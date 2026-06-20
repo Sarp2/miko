@@ -97,10 +97,16 @@ export function useChatComposer({
 		() => preferredModelByProviderForComposer({ preferences, providers }),
 		[preferences, providers],
 	);
-	const planMode = preferredPlanModeForComposer({
-		preferences,
-		runtimePlanMode: sessionPlanMode,
-	});
+	// An explicit toggle wins over the runtime/preference default until the session
+	// changes. Without this, once a provider is established `runtimePlanMode` (even
+	// `false`) masks the preference and the toggle becomes a no-op.
+	const [planModeOverride, setPlanModeOverride] = useState<boolean | null>(null);
+	const planMode =
+		planModeOverride ??
+		preferredPlanModeForComposer({
+			preferences,
+			runtimePlanMode: sessionPlanMode,
+		});
 	const claudeReasoningEffort = preferredClaudeReasoningEffortForComposer(preferences);
 	const codexReasoningEffort = preferredCodexReasoningEffortForComposer(preferences);
 	const codexFastMode = preferredCodexFastModeForComposer(preferences);
@@ -237,6 +243,7 @@ export function useChatComposer({
 		setAttachments([]);
 		setSubmitting(false);
 		submittingRef.current = false;
+		setPlanModeOverride(null);
 	}, [cleanupUnsubmittedAttachments, sessionId]);
 
 	// Drain externally-queued parts (e.g. Checks "Add to chat") into the live
@@ -297,6 +304,7 @@ export function useChatComposer({
 	}, []);
 
 	const setPlanMode = useCallback((nextPlanMode: boolean) => {
+		setPlanModeOverride(nextPlanMode);
 		useComposerPreferencesStore.getState().setPlanModePreference(nextPlanMode);
 	}, []);
 

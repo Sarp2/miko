@@ -12,6 +12,7 @@ import { useSessionStore } from '../stores/session-store';
 import { useWorkspaceStore } from '../stores/workspace-store';
 import { ChatComposer } from './chat-composer/chat-composer';
 import { EmptyChatIntro } from './chat-empty-state';
+import { PendingToolPrompt } from './pending-tool-prompt';
 import { TranscriptActivityIndicator, TranscriptItemView } from './transcript-message-view';
 import { Button } from './ui/button';
 
@@ -25,6 +26,7 @@ export interface ChatPageViewProps extends ChatPageProps {
 	chatWindow: ChatWindow | null;
 	onLoadOlder?: () => void;
 	composer?: ReactNode;
+	pendingToolPrompt?: ReactNode;
 	sessionStatus?: MikoStatus | null;
 	onOpenFile?: (path: string) => void;
 	onOpenPastedText?: (part: Extract<PromptPart, { type: 'pasted_text' }>) => void;
@@ -70,6 +72,7 @@ export function ChatPageView({
 	chatWindow,
 	onLoadOlder,
 	composer,
+	pendingToolPrompt,
 	sessionStatus,
 	onOpenFile,
 	onOpenPastedText,
@@ -143,6 +146,7 @@ export function ChatPageView({
 					</div>
 				)}
 			</div>
+			{pendingToolPrompt}
 			{composer}
 			<span className="sr-only">Chat page for workspace {workspaceId}</span>
 		</div>
@@ -207,6 +211,12 @@ export function ChatPage({ workspaceId, sessionId, workspaceSnapshot }: ChatPage
 			onOpenFile={openWorkspaceFile}
 			onOpenPastedText={(part) => openPastedText(part.id, part.text)}
 			onOpenAttachment={openAttachment}
+			pendingToolPrompt={
+				sessionSnapshot?.runtime.status === 'waiting_for_user' &&
+				sessionSnapshot.runtime.pendingTool ? (
+					<PendingToolPrompt sessionId={sessionId} pending={sessionSnapshot.runtime.pendingTool} />
+				) : null
+			}
 			composer={
 				<ChatComposer
 					key={sessionId}

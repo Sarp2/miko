@@ -426,7 +426,7 @@ describe('AgentCoordinator.getPendingTool', () => {
 		expect(coordinator.getPendingTool('session-1')).toBeNull();
 	});
 
-	test('returns toolUseId and toolKind from pending tool snapshot', () => {
+	test('returns toolUseId, kind, and payload from a pending ask_user_question', () => {
 		const coordinator = createCoordinator();
 		coordinator.activeTurns.set(
 			'session-1',
@@ -435,6 +435,7 @@ describe('AgentCoordinator.getPendingTool', () => {
 					toolUseId: 'tool-123',
 					tool: {
 						toolKind: 'ask_user_question',
+						input: { questions: [{ question: 'Pick one', options: [{ label: 'A' }] }] },
 					},
 					resolve: () => {},
 				},
@@ -444,6 +445,31 @@ describe('AgentCoordinator.getPendingTool', () => {
 		expect(coordinator.getPendingTool('session-1')).toEqual({
 			toolUseId: 'tool-123',
 			toolKind: 'ask_user_question',
+			questions: [{ question: 'Pick one', options: [{ label: 'A' }] }],
+		});
+	});
+
+	test('returns plan and summary from a pending exit_plan_mode', () => {
+		const coordinator = createCoordinator();
+		coordinator.activeTurns.set(
+			'session-1',
+			activeTurnFixture({
+				pendingTool: {
+					toolUseId: 'tool-9',
+					tool: {
+						toolKind: 'exit_plan_mode',
+						input: { plan: 'Step 1\nStep 2', summary: 'Two steps' },
+					},
+					resolve: () => {},
+				},
+			}),
+		);
+
+		expect(coordinator.getPendingTool('session-1')).toEqual({
+			toolUseId: 'tool-9',
+			toolKind: 'exit_plan_mode',
+			plan: 'Step 1\nStep 2',
+			summary: 'Two steps',
 		});
 	});
 });
