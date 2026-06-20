@@ -1,0 +1,25 @@
+src/client/hooks/use-inline-prompt-editor.ts
+  s_8c803b6b16cb81::t_4e04d5d77a140e 346-372,378
+src/client/components/chat-composer/chat-composer.tsx
+  s_8c803b6b16cb81::t_34afe1c6e35290 223
+  s_8c803b6b16cb81::t_5f4b1bae6bf3f6 58-60,62,66-67
+  s_8c803b6b16cb81::t_b303b85fe06ce2 245-246,248,250,255,257
+src/server/codex-app-server.ts
+  s_8c803b6b16cb81::t_0f2ba6b43cd2dd 1049-1053
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "3f5efb7bd47a403fbdf0c116f6de98f7c3af7900",
+  "prompts": {},
+  "sessions": {
+    "s_8c803b6b16cb81": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8956886f-9ad2-4c1a-8255-a5b3dc44e464",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
