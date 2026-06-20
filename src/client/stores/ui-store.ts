@@ -262,6 +262,7 @@ export function normalizePersistedUiState(state: PersistedUiState): PersistedUiS
 
 	return {
 		...state,
+		pinnedWorkspaceIds: [...new Set(state.pinnedWorkspaceIds)],
 		middleTabsByWorkspaceId,
 		activeTabIdByWorkspaceId,
 		// Terminal sessions are server-memory resources. Never revive tab ids

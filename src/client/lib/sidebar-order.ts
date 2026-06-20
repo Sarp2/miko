@@ -33,6 +33,7 @@ export function pinnedWorkspacesFromGroups(
 	directoryGroups: SidebarDirectoryGroup[],
 	pinnedWorkspaceIds: string[],
 ) {
+	const uniquePinnedWorkspaceIds = [...new Set(pinnedWorkspaceIds)];
 	const workspaceById = new Map<string, SidebarWorkspaceRow>();
 	for (const directory of directoryGroups) {
 		for (const workspace of directory.workspaces) {
@@ -40,7 +41,7 @@ export function pinnedWorkspacesFromGroups(
 		}
 	}
 
-	return pinnedWorkspaceIds
+	return uniquePinnedWorkspaceIds
 		.map((workspaceId) => workspaceById.get(workspaceId))
 		.filter((workspace): workspace is SidebarWorkspaceRow => Boolean(workspace));
 }
