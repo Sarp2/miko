@@ -1,0 +1,23 @@
+src/client/hooks/use-inline-prompt-editor.ts
+  s_8c803b6b16cb81::t_f08617d8e3ddc9 351-353,358-369
+src/client/components/chat-composer/chat-composer.tsx
+  s_8c803b6b16cb81::t_42997b80ddbc09 218-221
+  s_8c803b6b16cb81::t_a83bc4bbffed37 2
+  s_8c803b6b16cb81::t_e5d19a1fb0639b 58-64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "f1bb2d263f7c5ddd2f2cb00578a03abb5558220c",
+  "prompts": {},
+  "sessions": {
+    "s_8c803b6b16cb81": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8956886f-9ad2-4c1a-8255-a5b3dc44e464",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
