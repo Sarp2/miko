@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { PendingToolPrompt } from './pending-tool-prompt';
+import { answerKey, PendingToolPrompt } from './pending-tool-prompt';
 
 describe('PendingToolPrompt', () => {
 	test('renders the plan and approval actions for exit_plan_mode', () => {
@@ -39,5 +39,12 @@ describe('PendingToolPrompt', () => {
 		expect(html).toContain('Which framework?');
 		expect(html).toContain('React');
 		expect(html).toContain('Submit');
+	});
+});
+
+describe('answerKey', () => {
+	test('keys by id when present, else the question text (matching backend lookup)', () => {
+		expect(answerKey({ id: 'q1', question: 'Which framework?' })).toBe('q1');
+		expect(answerKey({ question: 'Which framework?' })).toBe('Which framework?');
 	});
 });

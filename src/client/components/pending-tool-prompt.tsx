@@ -115,8 +115,12 @@ function ExitPlanModePrompt({
 	);
 }
 
-function questionKey(question: AskUserQuestionItem, index: number): string {
-	return question.id ?? String(index);
+/**
+ * Key answers the way the backend resolves them: `value[question.id] ?? value[question.question]`.
+ * Falling back to the array index would never match, silently dropping the answer.
+ */
+export function answerKey(question: AskUserQuestionItem): string {
+	return question.id ?? question.question;
 }
 
 function AskUserQuestionPrompt({
@@ -140,8 +144,8 @@ function AskUserQuestionPrompt({
 		});
 	};
 
-	const answered = pending.questions.every((question, index) =>
-		(answers[questionKey(question, index)] ?? []).some((value) => value.trim().length > 0),
+	const answered = pending.questions.every((question) =>
+		(answers[answerKey(question)] ?? []).some((value) => value.trim().length > 0),
 	);
 
 	const respond = async () => {
@@ -158,11 +162,11 @@ function AskUserQuestionPrompt({
 	return (
 		<PromptCard title={pending.questions.length > 1 ? 'A few questions' : 'A question for you'}>
 			{pending.questions.map((question, index) => {
-				const key = questionKey(question, index);
+				const key = answerKey(question);
 				const selected = answers[key] ?? [];
 				const multiSelect = question.multiSelect === true;
 				return (
-					<div key={key} className="flex flex-col gap-2">
+					<div key={question.id ?? index} className="flex flex-col gap-2">
 						{question.header ? (
 							<div className="text-caption font-medium text-ink-subtle">{question.header}</div>
 						) : null}
