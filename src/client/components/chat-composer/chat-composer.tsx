@@ -1,5 +1,5 @@
 import { ArrowUp, Lightning, MapTrifold, Plus, StopCircle } from '@phosphor-icons/react';
-import { type ReactNode, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import type { PromptPart, SessionSnapshot, WorkspaceSnapshot } from '../../../shared/types';
@@ -55,6 +55,13 @@ export function ChatComposer({
 	});
 	const commandActive = promptEditor.commandRange !== null;
 	const mentionActive = promptEditor.mentionRange !== null;
+	// Tracks whether the user has engaged this composer, so we only warm commands on intent (not on
+	// every mount) yet still re-warm when the provider changes while engaged.
+	const composerEngagedRef = useRef(false);
+	const { warmCommands } = promptEditor;
+	useEffect(() => {
+		if (composerEngagedRef.current) warmCommands(composer.provider);
+	}, [composer.provider, warmCommands]);
 	const { openWorkspaceFile, openPastedText, openAttachment } = useWorkspacePageOpeners(
 		workspaceId,
 		sessionId,
@@ -208,7 +215,10 @@ export function ChatComposer({
 								tabIndex={composerReadonly ? -1 : 0}
 								aria-multiline="true"
 								suppressContentEditableWarning
-								onFocus={() => promptEditor.warmCommands(composer.provider)}
+								onFocus={() => {
+									composerEngagedRef.current = true;
+									warmCommands(composer.provider);
+								}}
 								onInput={promptEditor.syncPartsFromDom}
 								onClick={handleEditorClick}
 								onKeyUp={promptEditor.refreshMentionRange}

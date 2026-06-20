@@ -348,13 +348,25 @@ export function useInlinePromptEditor({
 			const key = `${sessionId}:${provider}`;
 			if (warmedCommandsKeyRef.current === key) return;
 			warmedCommandsKeyRef.current = key;
+			// Drop the previous provider's list immediately so the menu can't show/insert its commands
+			// while the new list loads. The key guard ignores any in-flight response from the old key.
+			setAllCommands([]);
 			setIsCommandLoading(true);
 			useSessionStore
 				.getState()
 				.listCommands(sessionId, provider)
-				.then(setAllCommands)
-				.catch(() => setAllCommands([]))
-				.finally(() => setIsCommandLoading(false));
+				.then((commands) => {
+					if (warmedCommandsKeyRef.current !== key) return;
+					setAllCommands(commands);
+				})
+				.catch(() => {
+					if (warmedCommandsKeyRef.current !== key) return;
+					setAllCommands([]);
+				})
+				.finally(() => {
+					if (warmedCommandsKeyRef.current !== key) return;
+					setIsCommandLoading(false);
+				});
 		},
 		[sessionId],
 	);
