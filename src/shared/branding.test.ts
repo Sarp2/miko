@@ -8,9 +8,15 @@ import {
 	getRuntimeProfile,
 	getWorktreesDir,
 	getWorktreesDirDisplay,
+	PACKAGE_NAME,
 } from 'src/shared/branding';
+import pkg from '../../package.json';
 
 describe('runtime profile helpers', () => {
+	test('keeps npm package identity aligned with update checks', () => {
+		expect(PACKAGE_NAME).toBe(pkg.name);
+	});
+
 	test('default to the prod profile when unset', () => {
 		expect(getRuntimeProfile({})).toBe('prod');
 		expect(getDataRootName({})).toBe('.miko');

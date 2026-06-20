@@ -12,6 +12,7 @@ import { DiffStore } from './diff-store';
 import type { WorkspaceRecord } from './event';
 import { EventStore } from './event-store';
 import { resolveExternalFileAccessToken } from './external-file-access';
+import { GitRefreshPoller } from './git-refresh-poller';
 import { KeybindingsManager } from './keybindings';
 import { getMachineDisplayName } from './machine-name';
 import { getWorkspaceUploadDir } from './paths';
@@ -43,12 +44,7 @@ function safeDecodePathSegment(segment: string): string | null {
 }
 
 export function shouldRefreshWorkspaceGitOnStartup(workspace: WorkspaceRecord): boolean {
-	return (
-		workspace.visibilityState === 'active' &&
-		workspace.setupState === 'ready' &&
-		workspace.reviewState !== 'done' &&
-		workspace.reviewState !== 'closed'
-	);
+	return workspace.visibilityState === 'active' && workspace.setupState === 'ready';
 }
 
 export function shouldRefreshWorkspacePrOnStartup(workspace: WorkspaceRecord): boolean {
@@ -223,6 +219,12 @@ export async function startServer(options: StartServerOptions = {}) {
 			refreshWorkspacePrStage(workspaceId, prOptions),
 		broadcastSnapshots: () => router.broadcastSnapshots(),
 	});
+	const gitRefreshPoller = new GitRefreshPoller({
+		listWorkspaces: () => store.listWorkspaces(),
+		refreshWorkspaceGitSnapshot: (workspaceId, localPath) =>
+			diffStore.refreshWorkspaceGitSnapshot(workspaceId, localPath),
+		broadcastSnapshots: () => router.broadcastSnapshots(),
+	});
 
 	const agent = new AgentCoordinator({
 		store,
@@ -352,6 +354,7 @@ export async function startServer(options: StartServerOptions = {}) {
 	cleanupStaleInstructionAttachmentsInBackground();
 	refreshStartupWorkspaceStateInBackground();
 	prRefreshPoller.start();
+	gitRefreshPoller.start();
 
 	const shutdown = async () => {
 		for (const sessionId of [...agent.activeTurns.keys()]) {
@@ -359,6 +362,7 @@ export async function startServer(options: StartServerOptions = {}) {
 		}
 
 		await prRefreshPoller.stop();
+		await gitRefreshPoller.stop();
 		router.dispose();
 		keybindings.dispose();
 		terminals.closeAll();

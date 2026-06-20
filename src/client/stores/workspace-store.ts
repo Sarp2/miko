@@ -26,7 +26,7 @@ interface WorkspaceStoreState {
 	connectWorkspace: (workspaceId: string) => void;
 	disconnectWorkspace: (workspaceId: string) => void;
 	markRead: (workspaceId: string) => Promise<void>;
-	refreshGit: (workspaceId: string) => Promise<unknown>;
+	refreshGit: (workspaceId: string, options?: { fetchRemote?: boolean }) => Promise<unknown>;
 	refreshPrStage: (workspaceId: string) => Promise<unknown>;
 	readDiffPatch: (workspaceId: string, path: string) => Promise<WorkspaceDiffPatchResult>;
 	discardFile: (workspaceId: string, path: string) => Promise<unknown>;
@@ -243,8 +243,12 @@ export const useWorkspaceStore = create<WorkspaceStoreState>((set, get) => ({
 		await useWsStore.getState().command({ type: 'workspace.markRead', workspaceId });
 	},
 
-	refreshGit: (workspaceId) => {
-		return useWsStore.getState().command({ type: 'workspace.refreshGit', workspaceId });
+	refreshGit: (workspaceId, options) => {
+		return useWsStore.getState().command({
+			type: 'workspace.refreshGit',
+			workspaceId,
+			...(options?.fetchRemote !== undefined ? { fetchRemote: options.fetchRemote } : {}),
+		});
 	},
 
 	refreshPrStage: (workspaceId) => {

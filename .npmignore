@@ -1,0 +1,39 @@
+# dependency / output noise
+node_modules
+*.tgz
+coverage
+logs
+.cache
+*.tsbuildinfo
+.DS_Store
+
+# internal agent / repo / dev memory
+.agents
+.context
+.conductor
+.fallow
+.github
+.playwright-mcp
+CLAUDE.md
+skills-lock.json
+
+# dev-only scripts/config
+scripts
+biome.json
+components.json
+vite.config.ts
+/index.html
+public
+bunfig.toml
+bun.lock
+
+# tests are not runtime package surface
+**/*.test.ts
+**/*.test.tsx
+**/__tests__/**
+
+# client source is built into dist/client for runtime package
+src/client
+src/main.tsx
+src/index.css
+src/vite-env.d.ts

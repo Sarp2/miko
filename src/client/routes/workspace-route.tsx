@@ -85,6 +85,24 @@ export function WorkspaceRoute({ kind }: WorkspaceRouteProps) {
 		);
 	}, [workspaceId, workspaceSnapshot]);
 
+	useEffect(() => {
+		if (
+			!workspaceId ||
+			workspaceSnapshot?.workspace.setupState !== 'ready' ||
+			workspaceSnapshot.workspace.visibilityState !== 'active'
+		) {
+			return;
+		}
+		void useWorkspaceStore
+			.getState()
+			.refreshGit(workspaceId, { fetchRemote: false })
+			.catch(() => undefined);
+	}, [
+		workspaceId,
+		workspaceSnapshot?.workspace.setupState,
+		workspaceSnapshot?.workspace.visibilityState,
+	]);
+
 	const firstSessionId = useMemo(() => selectFirstSessionId(sessions), [sessions]);
 	const routePage = useMemo(() => {
 		return deriveWorkspaceRoutePage({ kind, sessionId, searchParams });

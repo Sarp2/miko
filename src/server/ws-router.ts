@@ -603,7 +603,10 @@ export function createWsRouter({
 					break;
 				}
 				case 'workspace.refreshGit': {
-					const result = await refreshWorkspaceGit(command.workspaceId, true);
+					const result = await refreshWorkspaceGit(
+						command.workspaceId,
+						command.fetchRemote ?? false,
+					);
 					send(ws, { type: 'ack', id, result });
 					break;
 				}

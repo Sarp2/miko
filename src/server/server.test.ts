@@ -803,8 +803,8 @@ describe('refreshStartupWorkspaceState', () => {
 			logger: { warn() {} },
 		});
 
-		// git refresh requires setupState ready; PR refresh does not.
-		expect(gitCalls).toEqual(['active']);
+		// Startup git refresh includes terminal workspaces once, but still skips archived/not-ready workspaces.
+		expect(gitCalls).toEqual(['active', 'done']);
 		expect(prCalls).toEqual(['active', 'not-ready']);
 	});
 

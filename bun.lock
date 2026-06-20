@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "bun-react-template",
+      "name": "miko-code",
       "dependencies": {
         "@anthropic-ai/claude-agent-sdk": "^0.3.177",
         "@anthropic-ai/sdk": "^0.104.1",

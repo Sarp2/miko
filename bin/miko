@@ -4,9 +4,7 @@ import { CLI_CHILD_MODE, CLI_CHILD_MODE_ENV_VAR } from '../src/server/restart';
 import { runCliSupervisor } from '../src/server/cli-supervisor';
 
 if (process.env[CLI_CHILD_MODE_ENV_VAR] === CLI_CHILD_MODE) {
-	// TODO: child-mode CLI entrypoint will be implemented in a separate worktree.
-	console.error('[miko] TODO: src/server/cli.ts child entrypoint is not wired yet');
-	process.exit(1);
+	await import('../src/server/cli.ts');
 } else {
 	await runCliSupervisor(process.argv.slice(2));
 }
