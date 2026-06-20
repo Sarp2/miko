@@ -209,6 +209,21 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
 		const result = await useWsStore
 			.getState()
 			.command({ type: 'session.listCommands', sessionId, provider });
-		return Array.isArray(result) ? (result as SlashCommandInfo[]) : [];
+		if (!Array.isArray(result)) return [];
+		// Validate each entry at the WS boundary; drop anything without a usable name.
+		return result.flatMap((entry): SlashCommandInfo[] => {
+			if (!entry || typeof entry !== 'object') return [];
+			const candidate = entry as Record<string, unknown>;
+			if (typeof candidate.name !== 'string' || candidate.name.length === 0) return [];
+			return [
+				{
+					name: candidate.name,
+					description:
+						typeof candidate.description === 'string' ? candidate.description : undefined,
+					argumentHint:
+						typeof candidate.argumentHint === 'string' ? candidate.argumentHint : undefined,
+				},
+			];
+		});
 	},
 }));
