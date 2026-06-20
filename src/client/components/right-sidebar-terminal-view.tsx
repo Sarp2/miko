@@ -187,9 +187,15 @@ export function RightSidebarTerminalView({ terminalId }: RightSidebarTerminalVie
 		if (snapshot.serializedState) terminal.write(snapshot.serializedState);
 		lastSerializedStateRef.current = snapshot.serializedState;
 		restoredInitialSnapshotRef.current = true;
-		for (const event of pendingTerminalEventsRef.current) {
-			if (event.type === 'terminal.output') terminal.write(event.data);
-			else terminal.write(`\r\n[process exited with code ${event.exitCode}]\r\n`);
+
+		// The terminal snapshot is generated after subscribing, so pre-restore output can already
+		// be included in serializedState. Only replay buffered bytes for genuinely empty snapshots;
+		// otherwise the snapshot is the source of truth and replaying would duplicate prompts/lines.
+		if (!snapshot.serializedState) {
+			for (const event of pendingTerminalEventsRef.current) {
+				if (event.type === 'terminal.output') terminal.write(event.data);
+				else terminal.write(`\r\n[process exited with code ${event.exitCode}]\r\n`);
+			}
 		}
 		pendingTerminalEventsRef.current = [];
 	}, [snapshot]);
