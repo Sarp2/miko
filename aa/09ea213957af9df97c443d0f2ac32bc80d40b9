@@ -1,0 +1,19 @@
+src/client/components/right-sidebar-terminal-view.tsx
+  s_82e93de1bb8ac8::t_f3cae862d93709 190-198
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "aa09ea213957af9df97c443d0f2ac32bc80d40b9",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
