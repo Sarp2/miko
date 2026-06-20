@@ -1,0 +1,31 @@
+src/client/routes/app-shell.tsx
+  s_2b436b0d1bd551::t_a1ff6609b4c74f 6
+src/client/lib/sidebar-order.ts
+  s_2b436b0d1bd551::t_6e6451885ef2b9 1-69
+src/client/stores/keybindings-store.ts
+  s_2b436b0d1bd551::t_f31b0acddb6f40 46-47
+src/client/stores/keybindings-store.test.ts
+  s_2b436b0d1bd551::t_bb7ee5718f3180 112-134
+src/client/components/left-sidebar.tsx
+  s_2b436b0d1bd551::t_d329a2ef206a6b 3-7,9
+src/client/lib/workspace-route.ts
+  s_2b436b0d1bd551::t_40ac38973bdcef 1-4
+src/client/components/global-keybindings.tsx
+  s_2b436b0d1bd551::t_42abba1a12e37c 4,6-7,12,47,143,163
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "6b33716d1e0f67fefb7f81367f57572c34fa408b",
+  "prompts": {},
+  "sessions": {
+    "s_2b436b0d1bd551": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019edf75-74be-7dc1-a6f2-db1647d94e9d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
