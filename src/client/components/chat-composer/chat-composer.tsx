@@ -17,6 +17,8 @@ import { FileMentionPopover } from './file-mention-popover';
 interface ChatComposerProps {
 	workspaceId: string;
 	sessionId: string;
+	/** Session a submit routes to. Defaults to `sessionId`; set when a picker overrides the target. */
+	targetSessionId?: string;
 	workspaceSnapshot: WorkspaceSnapshot;
 	sessionSnapshot: SessionSnapshot | null;
 	/** Optional row rendered at the top of the composer (e.g. the "Sending to:" session picker). */
@@ -26,6 +28,7 @@ interface ChatComposerProps {
 export function ChatComposer({
 	workspaceId,
 	sessionId,
+	targetSessionId,
 	workspaceSnapshot,
 	sessionSnapshot,
 	sessionPicker,
@@ -33,7 +36,13 @@ export function ChatComposer({
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const dragDepthRef = useRef(0);
 	const [isFileDragActive, setIsFileDragActive] = useState(false);
-	const composer = useChatComposer({ workspaceId, sessionId, workspaceSnapshot, sessionSnapshot });
+	const composer = useChatComposer({
+		workspaceId,
+		sessionId,
+		targetSessionId,
+		workspaceSnapshot,
+		sessionSnapshot,
+	});
 	const promptEditor = useInlinePromptEditor({
 		attachments: composer.attachments,
 		parts: composer.parts,
@@ -178,7 +187,14 @@ export function ChatComposer({
 							onDrop={handleDrop}
 						>
 							{sessionPicker ? (
-								<div className="border-b border-hairline">{sessionPicker}</div>
+								<div
+									className={cn(
+										'border-b border-hairline',
+										composerReadonly && 'pointer-events-none',
+									)}
+								>
+									{sessionPicker}
+								</div>
 							) : null}
 							{/* biome-ignore lint/a11y/useSemanticElements: contentEditable is required for inline file and mention tokens. */}
 							<div

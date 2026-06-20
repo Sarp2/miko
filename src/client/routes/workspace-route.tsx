@@ -167,11 +167,14 @@ export function WorkspaceRoute({ kind }: WorkspaceRouteProps) {
 					.join('\n'))
 			: null;
 	const composer =
-		workspaceSnapshot && composerSessionId ? (
+		workspaceSnapshot && computedComposerSessionId && composerSessionId ? (
+			// The draft stays keyed to the stable computed session; the picker only changes the send
+			// target, so switching it never remounts the composer or drops in-progress text/attachments.
 			<ChatComposer
-				key={composerSessionId}
+				key={computedComposerSessionId}
 				workspaceId={workspaceId}
-				sessionId={composerSessionId}
+				sessionId={computedComposerSessionId}
+				targetSessionId={composerSessionId}
 				workspaceSnapshot={workspaceSnapshot}
 				sessionSnapshot={composerSessionSnapshot}
 				sessionPicker={

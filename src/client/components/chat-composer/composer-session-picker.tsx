@@ -49,7 +49,7 @@ export function ComposerSessionPicker({
 				</DropdownMenuTrigger>
 				<DropdownMenuContent
 					align="start"
-					className="max-h-72 w-60 overflow-y-auto rounded-[10px] border-hairline bg-surface-1 p-1 shadow-none"
+					className="max-h-72 min-w-56 overflow-y-auto rounded-[10px] border-hairline bg-surface-1 p-1 shadow-none"
 				>
 					{sessions.map((session) => (
 						<DropdownMenuItem

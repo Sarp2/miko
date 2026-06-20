@@ -47,7 +47,7 @@ export function FileMentionPopover({
 					alignOffset={8}
 					sideOffset={0}
 					onOpenAutoFocus={(event) => event.preventDefault()}
-					className="w-[calc(var(--radix-popover-trigger-width)-16px)] overflow-hidden rounded-t-[10px] rounded-b-none border border-b-0 border-hairline bg-canvas p-0 text-ink shadow-none outline-none"
+					className="w-[calc(var(--radix-popover-trigger-width)_-_16px)] overflow-hidden rounded-t-[10px] rounded-b-none border border-b-0 border-hairline bg-canvas p-0 text-ink shadow-none outline-none"
 				>
 					<div className="flex items-center gap-2 border-b border-hairline px-3 py-2">
 						<MagnifyingGlass className="size-3.5 shrink-0 text-ink-subtle" />
