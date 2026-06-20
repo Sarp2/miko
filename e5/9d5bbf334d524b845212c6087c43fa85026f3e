@@ -1,0 +1,59 @@
+src/client/routes/app-shell.tsx
+  s_2b436b0d1bd551::t_b595dbed0d4eee 3,27
+src/client/lib/keybindings.ts
+  s_2b436b0d1bd551::t_6f9b44985bd075 21-22
+  s_2b436b0d1bd551::t_a8ad02c99a8bd1 11-12,23
+  s_2b436b0d1bd551::t_b595dbed0d4eee 1-5,7-10,13-15,17-20,24-112
+  s_2b436b0d1bd551::t_d8520eeb7407f4 6,16
+src/client/lib/keybindings.test.ts
+  s_2b436b0d1bd551::t_9af0377f75b595 48,56,58-69,72-75
+  s_2b436b0d1bd551::t_312841b05f34c8 53-54,70-71
+  s_2b436b0d1bd551::t_b595dbed0d4eee 1-47,49-52,55,57,76-84
+src/server/keybindings.test.ts
+  s_2b436b0d1bd551::t_e8397861ae6ce8 245-259
+src/client/stores/ui-store.test.ts
+  s_2b436b0d1bd551::t_9695ed2c9b1482 85
+src/shared/types.ts
+  s_2b436b0d1bd551::t_d8520eeb7407f4 387,396
+  s_2b436b0d1bd551::t_89758455ca5831 392-393,401-402
+src/client/stores/ui-store.ts
+  s_2b436b0d1bd551::t_3f6ca09be9878d 138,359
+src/client/routes/settings-route.tsx
+  s_2b436b0d1bd551::t_5866fd58d25bf6 378,395
+  s_2b436b0d1bd551::t_8cf8a584068220 550-554
+  s_2b436b0d1bd551::t_b595dbed0d4eee 8,25,27-28,44-51,55,61,349-377,379,383-394,396-549,805,816-820
+  s_2b436b0d1bd551::t_9ad5274ef67d1f 380-382
+src/server/keybindings.ts
+  s_2b436b0d1bd551::t_d8520eeb7407f4 183
+  s_2b436b0d1bd551::t_a5e6d7be2933d8 189
+  s_2b436b0d1bd551::t_8f352d82c2a080 13,151,153
+  s_2b436b0d1bd551::t_9ad5274ef67d1f 152
+  s_2b436b0d1bd551::t_6f9b44985bd075 188
+src/client/stores/keybindings-store.test.ts
+  s_2b436b0d1bd551::t_b595dbed0d4eee 1-147
+src/client/stores/keybindings-store.ts
+  s_2b436b0d1bd551::t_b595dbed0d4eee 1-56
+src/client/components/global-keybindings.tsx
+  s_2b436b0d1bd551::t_7a5b5231d4fda7 1,184,191-192,198-201,216-223
+  s_2b436b0d1bd551::t_6f9b44985bd075 4-8
+  s_2b436b0d1bd551::t_b595dbed0d4eee 2-3,9-11,13,15-27,104-109,115-137,139-160,185-190,193-197,202-215,224-234
+  s_2b436b0d1bd551::t_a9a2aa5eb5854e 12,14,28-103,161-183
+  s_2b436b0d1bd551::t_d8520eeb7407f4 110-114
+  s_2b436b0d1bd551::t_2ed15fd36ea8b5 138
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "e59d5bbf334d524b845212c6087c43fa85026f3e",
+  "prompts": {},
+  "sessions": {
+    "s_2b436b0d1bd551": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019edf75-74be-7dc1-a6f2-db1647d94e9d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
