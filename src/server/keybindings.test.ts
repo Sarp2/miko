@@ -242,6 +242,21 @@ describe('normalizeKeybindings', () => {
 		);
 	});
 
+	test('rejects modifier-only shortcuts', () => {
+		const snapshot = normalizeKeybindings(
+			{ createSessionInCurrentWorkspace: ['cmd+alt'] },
+			'/tmp/keybindings.json',
+		);
+
+		expect(snapshot.bindings.createSessionInCurrentWorkspace).toEqual(
+			DEFAULT_KEYBINDINGS.createSessionInCurrentWorkspace,
+		);
+
+		expect(snapshot.warning).toBe(
+			'Some keybindings were reset to defaults: createSessionInCurrentWorkspace did not contain any valid shortcut strings',
+		);
+	});
+
 	test('allows empty shortcut arrays to reset without warning', () => {
 		const snapshot = normalizeKeybindings({ toggleEmbeddedTerminal: [] }, '/tmp/keybindings.json');
 

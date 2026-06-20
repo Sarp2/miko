@@ -82,6 +82,7 @@ describe('useUiStore.setCommentHidden', () => {
 describe('useUiStore.setRightSidebarTab', () => {
 	test('stores the selected right sidebar tab per workspace', () => {
 		expect(useUiStore.getState().getRightSidebarTab('workspace-1')).toBe('all_files');
+		expect(useUiStore.getState().getRightSidebarWidth('workspace-1')).toBe(336);
 
 		useUiStore.getState().setRightSidebarTab('workspace-1', 'checks');
 		useUiStore.getState().setRightSidebarCollapsed('workspace-1', true);

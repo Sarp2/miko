@@ -10,6 +10,7 @@ import {
 } from '../shared/types';
 
 const KEYBINDING_ACTIONS = Object.keys(DEFAULT_KEYBINDINGS) as KeybindingAction[];
+const MODIFIER_SHORTCUT_PARTS = new Set(['cmd', 'ctrl', 'alt', 'shift']);
 
 type KeybindingsFile = Partial<Record<KeybindingAction, unknown>>;
 
@@ -147,6 +148,9 @@ export function normalizeKeybindings(
 			.filter((entry): entry is string => typeof entry === 'string')
 			.map((entry) => entry.trim())
 			.map((entry) => entry.toLowerCase())
+			.filter((entry) =>
+				entry.split('+').some((part) => part.trim() && !MODIFIER_SHORTCUT_PARTS.has(part.trim())),
+			)
 			.filter(Boolean);
 
 		if (normalized.length === 0) {
@@ -176,14 +180,13 @@ function createDefaultSnapshot(
 ): KeybindingsSnapshot {
 	return {
 		bindings: {
+			toggleLeftSidebar: [...DEFAULT_KEYBINDINGS.toggleLeftSidebar],
 			toggleEmbeddedTerminal: [...DEFAULT_KEYBINDINGS.toggleEmbeddedTerminal],
 			toggleRightSidebar: [...DEFAULT_KEYBINDINGS.toggleRightSidebar],
-			openInFinder: [...DEFAULT_KEYBINDINGS.openInFinder],
-			openInEditor: [...DEFAULT_KEYBINDINGS.openInEditor],
 			addSplitTerminal: [...DEFAULT_KEYBINDINGS.addSplitTerminal],
-			jumpToSidebarWorkspace: [...DEFAULT_KEYBINDINGS.jumpToSidebarWorkspace],
 			createSessionInCurrentWorkspace: [...DEFAULT_KEYBINDINGS.createSessionInCurrentWorkspace],
-			openAddDirectory: [...DEFAULT_KEYBINDINGS.openAddDirectory],
+			createWorkspaceInCurrentDirectory: [...DEFAULT_KEYBINDINGS.createWorkspaceInCurrentDirectory],
+			switchToNextWorkspace: [...DEFAULT_KEYBINDINGS.switchToNextWorkspace],
 		},
 		warning,
 		filePathDisplay: formatDisplayPath(filePath),

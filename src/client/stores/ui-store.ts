@@ -135,6 +135,7 @@ interface UiStoreState extends PersistedUiState {
 }
 
 const DEFAULT_LEFT_SIDEBAR_WIDTH = 292;
+const DEFAULT_RIGHT_SIDEBAR_WIDTH = 336;
 const DEFAULT_TERMINAL_HEIGHT = 260;
 const DEFAULT_TERMINAL_PANEL_STATE: TerminalPanelState = {
 	collapsed: false,
@@ -355,7 +356,7 @@ export const useUiStore = create<UiStoreState>()(
 			},
 
 			getRightSidebarWidth: (workspaceId) => {
-				return get().rightSidebarWidthByWorkspaceId[workspaceId] ?? DEFAULT_LEFT_SIDEBAR_WIDTH;
+				return get().rightSidebarWidthByWorkspaceId[workspaceId] ?? DEFAULT_RIGHT_SIDEBAR_WIDTH;
 			},
 
 			getDiffViewMode: (workspaceId) => {
