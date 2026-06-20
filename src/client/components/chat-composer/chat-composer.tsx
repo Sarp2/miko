@@ -1,5 +1,5 @@
 import { ArrowUp, Lightning, MapTrifold, Plus, StopCircle } from '@phosphor-icons/react';
-import { useRef, useState } from 'react';
+import { type ReactNode, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import type { PromptPart, SessionSnapshot, WorkspaceSnapshot } from '../../../shared/types';
@@ -17,20 +17,32 @@ import { FileMentionPopover } from './file-mention-popover';
 interface ChatComposerProps {
 	workspaceId: string;
 	sessionId: string;
+	/** Session a submit routes to. Defaults to `sessionId`; set when a picker overrides the target. */
+	targetSessionId?: string;
 	workspaceSnapshot: WorkspaceSnapshot;
 	sessionSnapshot: SessionSnapshot | null;
+	/** Optional row rendered at the top of the composer (e.g. the "Sending to:" session picker). */
+	sessionPicker?: ReactNode;
 }
 
 export function ChatComposer({
 	workspaceId,
 	sessionId,
+	targetSessionId,
 	workspaceSnapshot,
 	sessionSnapshot,
+	sessionPicker,
 }: ChatComposerProps) {
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const dragDepthRef = useRef(0);
 	const [isFileDragActive, setIsFileDragActive] = useState(false);
-	const composer = useChatComposer({ workspaceId, sessionId, workspaceSnapshot, sessionSnapshot });
+	const composer = useChatComposer({
+		workspaceId,
+		sessionId,
+		targetSessionId,
+		workspaceSnapshot,
+		sessionSnapshot,
+	});
 	const promptEditor = useInlinePromptEditor({
 		attachments: composer.attachments,
 		parts: composer.parts,
@@ -174,6 +186,16 @@ export function ChatComposer({
 							onDragLeave={handleDragLeave}
 							onDrop={handleDrop}
 						>
+							{sessionPicker ? (
+								<div
+									className={cn(
+										'border-b border-hairline',
+										composerReadonly && 'pointer-events-none',
+									)}
+								>
+									{sessionPicker}
+								</div>
+							) : null}
 							{/* biome-ignore lint/a11y/useSemanticElements: contentEditable is required for inline file and mention tokens. */}
 							<div
 								ref={promptEditor.editorRef}

@@ -43,7 +43,10 @@ function providerCatalogSignature(providers: ReturnType<typeof providerCatalogs>
 
 interface UseChatComposerArgs {
 	workspaceId: string;
+	/** Identity for the in-progress draft/attachments. Stays stable while the send target changes. */
 	sessionId: string;
+	/** Session a submit/stop routes to. Defaults to `sessionId`; differs when a picker overrides it. */
+	targetSessionId?: string;
 	workspaceSnapshot: WorkspaceSnapshot;
 	sessionSnapshot: SessionSnapshot | null;
 }
@@ -51,9 +54,13 @@ interface UseChatComposerArgs {
 export function useChatComposer({
 	workspaceId,
 	sessionId,
+	targetSessionId,
 	workspaceSnapshot,
 	sessionSnapshot,
 }: UseChatComposerArgs) {
+	// Send/stop route to the target; drafts and reset logic stay keyed to `sessionId` so changing
+	// the target via the picker never remounts the composer or discards in-progress work.
+	const sendTargetSessionId = targetSessionId ?? sessionId;
 	const [parts, setParts] = useState<PromptPart[]>(() =>
 		useComposerDraftStore.getState().getDraft(sessionId),
 	);
@@ -372,7 +379,7 @@ export function useChatComposer({
 			);
 			const submittedContent = promptPartsSubmissionText(submittedParts);
 			await useSessionStore.getState().sendSessionMessage({
-				sessionId,
+				sessionId: sendTargetSessionId,
 				workspaceId,
 				provider,
 				content: submittedContent,
@@ -415,18 +422,19 @@ export function useChatComposer({
 		planMode,
 		provider,
 		sessionId,
+		sendTargetSessionId,
 		workspaceId,
 	]);
 
 	const stop = useCallback(() => {
 		void useSessionStore
 			.getState()
-			.cancelSession(sessionId)
+			.cancelSession(sendTargetSessionId)
 			.catch((error) => {
 				console.warn('[chat-composer] failed to stop session', error);
 				toast.error('Could not stop the session');
 			});
-	}, [sessionId]);
+	}, [sendTargetSessionId]);
 
 	return {
 		parts,
