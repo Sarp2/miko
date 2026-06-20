@@ -1,0 +1,73 @@
+src/client/components/connection-lost-overlay.tsx
+  s_82e93de1bb8ac8::t_b95368be086fef 11-14
+  s_82e93de1bb8ac8::t_315fac4ecb9bf4 2,4-10,15-17,27,33-35,38-43
+  s_82e93de1bb8ac8::t_c4f9d4ce556745 1,18-19,22-26,28-32,36
+  s_82e93de1bb8ac8::t_d84a095036ac4b 3,37
+  s_82e93de1bb8ac8::t_a2abc0cd1a2eb6 20-21
+.npmignore
+  s_82e93de1bb8ac8::t_c8d73a33739432 34-39
+  s_82e93de1bb8ac8::t_be9166507191c2 27-28
+  s_82e93de1bb8ac8::t_c9afb478cc2baf 1-24,26,29-33
+  s_82e93de1bb8ac8::t_61d2c5696effaf 25
+src/server/pr-manager.ts
+  s_82e93de1bb8ac8::t_54ddd61ac7b21a 466,474-476,478-479,985,993-995,997-998
+  s_82e93de1bb8ac8::t_1310b2470cf406 480,484-487,504-521,1020,1025-1033
+src/shared/types.ts
+  s_82e93de1bb8ac8::t_09db2af8164a9c 242
+  s_82e93de1bb8ac8::t_d574a4d9d0aefb 250-252,261-262
+src/server/git-refresh-poller.ts
+  s_82e93de1bb8ac8::t_5690beb46db211 1-100
+src/client/stores/workspace-store.ts
+  s_82e93de1bb8ac8::t_91c8f1b677d053 29,246-249
+src/shared/protocol.ts
+  s_82e93de1bb8ac8::t_91c8f1b677d053 85
+src/client/routes/workspace-route.tsx
+  s_82e93de1bb8ac8::t_7eb4f7d3c1f1d6 87,95-98,104
+  s_82e93de1bb8ac8::t_df8d82ac4dfdaa 88-94,99-103
+src/server/server.ts
+  s_82e93de1bb8ac8::t_2d7f28ba331c62 15,47,222-227,357,365
+src/server/git-refresh-poller.test.ts
+  s_82e93de1bb8ac8::t_5690beb46db211 1-135
+src/server/cli.ts
+  s_82e93de1bb8ac8::t_c9afb478cc2baf 36-38
+src/server/pr-manager.test.ts
+  s_82e93de1bb8ac8::t_3f3865469f6242 227-229
+  s_82e93de1bb8ac8::t_c9cd3aa2fd8ac3 192,195-196,207-223,237-239,241-242
+  s_82e93de1bb8ac8::t_94598bad90d725 201,204
+  s_82e93de1bb8ac8::t_5f6f171ad15864 186-191,193-194,197-200,202-203,205-206,224-226,230-236,240,243-246
+src/server/ws-router.ts
+  s_82e93de1bb8ac8::t_762210c897259b 606-609
+package.json
+  s_82e93de1bb8ac8::t_c9afb478cc2baf 2,17-19,83
+  s_82e93de1bb8ac8::t_be9166507191c2 85-94
+  s_82e93de1bb8ac8::t_530552ba7e2454 84
+bin/miko
+  s_82e93de1bb8ac8::t_c0ef5deb556b29 7
+src/shared/branding.test.ts
+  s_82e93de1bb8ac8::t_6c2f0f681df2c8 11,13,16-19
+src/client/app.tsx
+  s_82e93de1bb8ac8::t_315fac4ecb9bf4 3,36
+src/client/components/ui/dialog.tsx
+  s_82e93de1bb8ac8::t_a2abc0cd1a2eb6 43,47,51
+src/server/event-store.ts
+  s_82e93de1bb8ac8::t_1c9f8cf8b0016b 49-83,89-91,99-112,755,763-765,767-769
+  s_82e93de1bb8ac8::t_ff655e6053acf7 84-88
+src/server/server.test.ts
+  s_82e93de1bb8ac8::t_d1e263d3a3fd7c 806-807
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "1ba1933542ca78dd91075607c59e234f5f9d71cd",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
