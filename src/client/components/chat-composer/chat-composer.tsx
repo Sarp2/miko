@@ -9,10 +9,12 @@ import { useWorkspacePageOpeners } from '../../hooks/use-workspace-page-openers'
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
+import { CommandList } from './command-popover';
 import { ComposerEffortMenu } from './composer-effort-menu';
 import { ComposerModelMenu } from './composer-model-menu';
+import { ComposerSuggestionPopover } from './composer-suggestion-popover';
 import { ComposerToggle } from './composer-toggle';
-import { FileMentionPopover } from './file-mention-popover';
+import { FileMentionList } from './file-mention-popover';
 
 interface ChatComposerProps {
 	workspaceId: string;
@@ -47,9 +49,12 @@ export function ChatComposer({
 		attachments: composer.attachments,
 		parts: composer.parts,
 		setParts: composer.setParts,
+		sessionId,
 		workspaceId,
 		workspaceSnapshot,
 	});
+	const commandActive = promptEditor.commandRange !== null;
+	const mentionActive = promptEditor.mentionRange !== null;
 	const { openWorkspaceFile, openPastedText, openAttachment } = useWorkspacePageOpeners(
 		workspaceId,
 		sessionId,
@@ -163,15 +168,14 @@ export function ChatComposer({
 	return (
 		<div className="bg-canvas px-4 py-3">
 			<div className="mx-auto w-full max-w-4xl">
-				<FileMentionPopover
-					open={promptEditor.mentionRange !== null}
-					query={promptEditor.mentionRange?.query ?? ''}
-					options={promptEditor.mentionOptions}
-					isLoading={promptEditor.isMentionLoading}
+				<ComposerSuggestionPopover
+					open={commandActive || mentionActive}
 					onOpenChange={(open) => {
-						if (!open) promptEditor.setMentionRange(null);
+						if (!open) {
+							promptEditor.setMentionRange(null);
+							promptEditor.setCommandRange(null);
+						}
 					}}
-					onSelect={promptEditor.insertMention}
 					anchor={
 						// biome-ignore lint/a11y/noStaticElementInteractions: drag-and-drop is scoped to the composer shell while keyboard input remains on the textbox.
 						<div
@@ -204,6 +208,7 @@ export function ChatComposer({
 								tabIndex={composerReadonly ? -1 : 0}
 								aria-multiline="true"
 								suppressContentEditableWarning
+								onFocus={() => promptEditor.warmCommands(composer.provider)}
 								onInput={promptEditor.syncPartsFromDom}
 								onClick={handleEditorClick}
 								onKeyUp={promptEditor.refreshMentionRange}
@@ -214,9 +219,20 @@ export function ChatComposer({
 								onKeyDown={(event) => {
 									if (event.nativeEvent.isComposing) return;
 
-									if (event.key === 'Escape' && promptEditor.mentionRange) {
+									if (
+										event.key === 'Escape' &&
+										(promptEditor.mentionRange || promptEditor.commandRange)
+									) {
 										event.preventDefault();
 										promptEditor.setMentionRange(null);
+										promptEditor.setCommandRange(null);
+										return;
+									}
+
+									const firstCommandOption = promptEditor.commandOptions[0];
+									if (event.key === 'Enter' && promptEditor.commandRange) {
+										event.preventDefault();
+										if (firstCommandOption) promptEditor.insertCommand(firstCommandOption);
 										return;
 									}
 
@@ -329,7 +345,23 @@ export function ChatComposer({
 							</div>
 						</div>
 					}
-				/>
+				>
+					{commandActive ? (
+						<CommandList
+							query={promptEditor.commandRange?.query ?? ''}
+							options={promptEditor.commandOptions}
+							isLoading={promptEditor.isCommandLoading}
+							onSelect={promptEditor.insertCommand}
+						/>
+					) : (
+						<FileMentionList
+							query={promptEditor.mentionRange?.query ?? ''}
+							options={promptEditor.mentionOptions}
+							isLoading={promptEditor.isMentionLoading}
+							onSelect={promptEditor.insertMention}
+						/>
+					)}
+				</ComposerSuggestionPopover>
 			</div>
 		</div>
 	);

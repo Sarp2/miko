@@ -7,6 +7,7 @@ import type {
 	WorkspaceDiffFile,
 } from '../../../shared/types';
 import {
+	activeCommandRange,
 	activeMentionRange,
 	defaultProviderForRuntime,
 	mentionOptionsFromGitFiles,
@@ -79,6 +80,19 @@ describe('activeMentionRange', () => {
 		expect(activeMentionRange('prefix@src/app.ts', 17)).toBeNull();
 		expect(activeMentionRange('@src @nested@bad', 16)).toBeNull();
 		expect(activeMentionRange('@src/app.ts ', 12)).toBeNull();
+	});
+});
+
+describe('activeCommandRange', () => {
+	test('matches the leading slash token while typing the name', () => {
+		expect(activeCommandRange('/', 1)).toEqual({ start: 0, end: 1, query: '' });
+		expect(activeCommandRange('/review', 7)).toEqual({ start: 0, end: 7, query: 'review' });
+	});
+
+	test('ignores non-leading slashes and tokens past the first whitespace', () => {
+		expect(activeCommandRange('hello /review', 13)).toBeNull();
+		expect(activeCommandRange('/review now', 11)).toBeNull();
+		expect(activeCommandRange('plain text', 5)).toBeNull();
 	});
 });
 

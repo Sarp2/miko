@@ -1195,3 +1195,13 @@ export type PendingToolSnapshot =
 			toolKind: 'ask_user_question';
 			questions: AskUserQuestionItem[];
 	  };
+
+/**
+ * A slash command available in a session's composer. Sourced per provider: Claude via the
+ * SDK's `supportedCommands()`, Codex via the app-server `skills/list`. `name` has no leading slash.
+ */
+export interface SlashCommandInfo {
+	name: string;
+	description?: string;
+	argumentHint?: string;
+}

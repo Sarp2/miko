@@ -179,6 +179,7 @@ async function createRouter(overrides: Record<string, unknown> = {}) {
 			getActiveStatuses: () => new Map(),
 			getDrainingSessionIds: () => new Set(),
 			getPendingTool: () => null,
+			listCommands: async () => [],
 			send: async () => ({ sessionId: seeded.sessionId }),
 			cancel: async () => {},
 			closeSession: async () => {},
@@ -380,6 +381,7 @@ describe('createWsRouter.broadcastError', () => {
 				getActiveStatuses: () => new Map(),
 				getDrainingSessionIds: () => new Set(),
 				getPendingTool: () => null,
+				listCommands: async () => [],
 				setBackgroundErrorReporter: (reporter: (message: string) => void) => {
 					reportError = reporter;
 				},
@@ -437,6 +439,7 @@ describe('createWsRouter.sendWorkspaceInstruction', () => {
 				getActiveStatuses: () => new Map(),
 				getDrainingSessionIds: () => new Set(),
 				getPendingTool: () => null,
+				listCommands: async () => [],
 				send: async (command: unknown) => {
 					sentCommand = command;
 					return { sessionId };
@@ -486,6 +489,7 @@ describe('createWsRouter.sendWorkspaceInstruction', () => {
 				getActiveStatuses: () => new Map(),
 				getDrainingSessionIds: () => new Set(),
 				getPendingTool: () => null,
+				listCommands: async () => [],
 				send: async () => {
 					throw new Error('agent failed');
 				},
@@ -543,6 +547,7 @@ describe('createWsRouter.sendWorkspaceInstruction', () => {
 				getActiveStatuses: () => new Map(),
 				getDrainingSessionIds: () => new Set(),
 				getPendingTool: () => null,
+				listCommands: async () => [],
 				send: async (command: unknown) => {
 					sentCommand = command;
 					return { sessionId };
@@ -613,6 +618,7 @@ describe('createWsRouter.sendWorkspaceInstruction', () => {
 				getActiveStatuses: () => new Map(),
 				getDrainingSessionIds: () => new Set(),
 				getPendingTool: () => null,
+				listCommands: async () => [],
 				send: async () => {
 					sendCalled = true;
 					return { sessionId };
@@ -664,6 +670,7 @@ describe('createWsRouter.sendWorkspaceInstruction', () => {
 				getActiveStatuses: () => new Map(),
 				getDrainingSessionIds: () => new Set(),
 				getPendingTool: () => null,
+				listCommands: async () => [],
 				send: async () => {
 					sendCalled = true;
 					return { sessionId };
@@ -717,6 +724,7 @@ describe('createWsRouter.sendWorkspaceInstruction', () => {
 				getActiveStatuses: () => new Map(),
 				getDrainingSessionIds: () => new Set(),
 				getPendingTool: () => null,
+				listCommands: async () => [],
 				send: async () => {
 					sendCalled = true;
 					return { sessionId };
@@ -1353,6 +1361,7 @@ describe('createWsRouter.dispose', () => {
 				getActiveStatuses: () => new Map(),
 				getDrainingSessionIds: () => new Set(),
 				getPendingTool: () => null,
+				listCommands: async () => [],
 				setBackgroundErrorReporter: (reporter: unknown) => {
 					clearedReporter = reporter;
 				},

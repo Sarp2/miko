@@ -8,6 +8,7 @@ import type {
 	CodexReasoningEffort,
 	ContextWindowUsageSnapshot,
 	ServiceTier,
+	SlashCommandInfo,
 	TodoItem,
 	TranscriptEntry,
 } from '../shared/types';
@@ -51,6 +52,18 @@ import {
 	type TurnStartResponse,
 } from './codex-app-server-protocol';
 import type { HarnessEvent, HarnessToolRequest, HarnessTurn } from './harness-types';
+
+/** Minimal shape of the codex app-server `skills/list` response (see reference-codex-slash-commands). */
+interface CodexSkillsListResponse {
+	data?: Array<{
+		skills?: Array<{
+			name: string;
+			description?: string;
+			shortDescription?: string;
+			enabled?: boolean;
+		}>;
+	}>;
+}
 
 export interface CodexAppServerProcess {
 	stdin: Writable;
@@ -1005,6 +1018,44 @@ export class CodexAppServerManager {
 		} finally {
 			turn?.close();
 			this.stopSession(sessionId);
+		}
+	}
+
+	/**
+	 * Enumerate skills without an existing session: spawn a throwaway app-server under a synthetic id,
+	 * list, then tear it down. Used to populate composer commands before the first turn. The synthetic
+	 * id never collides with a real session, so an in-flight turn is never disturbed.
+	 */
+	async enumerateSkills(cwd: string, model: string): Promise<SlashCommandInfo[]> {
+		const sessionId = `__commands__${randomUUID()}`;
+		try {
+			await this.startSession({ sessionId, cwd, model, sessionToken: null });
+			return await this.listSkills(sessionId);
+		} catch {
+			return [];
+		} finally {
+			this.stopSession(sessionId);
+		}
+	}
+
+	/**
+	 * Available skills for a session, surfaced as composer slash commands. Returns [] when no
+	 * session is running or the installed Codex predates `skills/list`.
+	 */
+	async listSkills(sessionId: string): Promise<SlashCommandInfo[]> {
+		const context = this.sessions.get(sessionId);
+		if (!context || context.closed) return [];
+		try {
+			const response = await this.sendRequest<CodexSkillsListResponse>(context, 'skills/list', {});
+			const skills = (response.data ?? []).flatMap((entry) => entry.skills ?? []);
+			return skills
+				.filter((skill) => skill.enabled !== false && typeof skill.name === 'string')
+				.map((skill) => ({
+					name: skill.name,
+					description: skill.shortDescription || skill.description || undefined,
+				}));
+		} catch {
+			return [];
 		}
 	}
 

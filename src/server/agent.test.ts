@@ -474,6 +474,56 @@ describe('AgentCoordinator.getPendingTool', () => {
 	});
 });
 
+describe('AgentCoordinator.listCommands', () => {
+	const workspaceStore = (provider: 'claude' | 'codex' | null) => ({
+		getSession: () => ({ provider, workspaceId: 'workspace-1' }),
+		getWorkspace: () => ({ id: 'workspace-1', localPath: '/repo/atlas' }),
+	});
+
+	test('returns [] when the session does not exist', async () => {
+		const coordinator = createCoordinator({ store: { getSession: () => undefined } });
+		expect(await coordinator.listCommands('session-1', 'claude')).toEqual([]);
+	});
+
+	test('enumerates Claude commands from a live session', async () => {
+		const commands = [{ name: 'review', description: 'Review the diff' }];
+		const coordinator = createCoordinator({ store: workspaceStore('claude') });
+		coordinator.claudeSessions.set('session-1', {
+			sessionId: 'session-1',
+			session: { getCommands: async () => commands },
+		} as ClaudeSessionFixture);
+
+		expect(await coordinator.listCommands('session-1', 'claude')).toEqual(commands);
+	});
+
+	test('enumerates Codex skills via a throwaway app-server', async () => {
+		const skills = [{ name: 'draftpr', description: 'Draft a PR' }];
+		const coordinator = createCoordinator({
+			store: workspaceStore('codex'),
+			codexManager: { enumerateSkills: async () => skills },
+		});
+
+		expect(await coordinator.listCommands('session-1', 'codex')).toEqual(skills);
+	});
+
+	test('serves the cached list on repeat calls without re-enumerating', async () => {
+		let calls = 0;
+		const coordinator = createCoordinator({
+			store: workspaceStore('codex'),
+			codexManager: {
+				enumerateSkills: async () => {
+					calls += 1;
+					return [{ name: 'draftpr' }];
+				},
+			},
+		});
+
+		await coordinator.listCommands('session-1', 'codex');
+		await coordinator.listCommands('session-1', 'codex');
+		expect(calls).toBe(1);
+	});
+});
+
 describe('AgentCoordinator.stopDraining', () => {
 	test('is a no-op when session has no draining stream', async () => {
 		let stateChanges = 0;

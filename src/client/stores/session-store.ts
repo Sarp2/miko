@@ -7,6 +7,7 @@ import type {
 	PromptPart,
 	SessionHistoryPage,
 	SessionSnapshot,
+	SlashCommandInfo,
 } from '../../shared/types';
 import { useChatWindowStore } from './chat-window-store';
 import { useWsStore } from './ws-store';
@@ -59,6 +60,7 @@ interface SessionStoreState {
 	) => Promise<SessionHistoryPage>;
 	loadOlderChatWindow: (sessionId: string, limit?: number) => Promise<void>;
 	respondTool: (sessionId: string, toolUseId: string, result: unknown) => Promise<void>;
+	listCommands: (sessionId: string, provider: AgentProvider) => Promise<SlashCommandInfo[]>;
 }
 
 let unsubscribeFromWsStore: (() => void) | null = null;
@@ -201,5 +203,12 @@ export const useSessionStore = create<SessionStoreState>((set, get) => ({
 		await useWsStore
 			.getState()
 			.command({ type: 'session.respondTool', sessionId, toolUseId, result });
+	},
+
+	listCommands: async (sessionId, provider) => {
+		const result = await useWsStore
+			.getState()
+			.command({ type: 'session.listCommands', sessionId, provider });
+		return Array.isArray(result) ? (result as SlashCommandInfo[]) : [];
 	},
 }));
