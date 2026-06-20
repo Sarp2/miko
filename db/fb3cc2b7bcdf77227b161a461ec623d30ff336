@@ -1,0 +1,31 @@
+src/client/hooks/use-chat-composer.ts
+  s_8c803b6b16cb81::t_b10d6d9deaf451 46,48-49,57,61-63
+  s_8c803b6b16cb81::t_0ac02f69a245a4 382
+  s_8c803b6b16cb81::t_f3275601ef5a01 425,432,437
+src/client/routes/workspace-route.tsx
+  s_8c803b6b16cb81::t_0ec2e0a54b1eb0 170-172,174,176-177
+src/client/components/chat-composer/composer-session-picker.tsx
+  s_8c803b6b16cb81::t_72ebee088e371d 52
+src/client/components/chat-composer/file-mention-popover.tsx
+  s_8c803b6b16cb81::t_d78c2037d59a64 50
+src/client/components/chat-composer/chat-composer.tsx
+  s_8c803b6b16cb81::t_2f23f5657339cd 190-197
+  s_8c803b6b16cb81::t_eabbccbffda97a 39-45
+  s_8c803b6b16cb81::t_7db2f129aaf589 20-21,31
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "dbfb3cc2b7bcdf77227b161a461ec623d30ff336",
+  "prompts": {},
+  "sessions": {
+    "s_8c803b6b16cb81": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8956886f-9ad2-4c1a-8255-a5b3dc44e464",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
