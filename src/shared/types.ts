@@ -390,24 +390,22 @@ export interface UpdateInstallResult {
 }
 
 export type KeybindingAction =
+	| 'toggleLeftSidebar'
 	| 'toggleEmbeddedTerminal'
 	| 'toggleRightSidebar'
-	| 'openInFinder'
-	| 'openInEditor'
 	| 'addSplitTerminal'
-	| 'jumpToSidebarWorkspace'
 	| 'createSessionInCurrentWorkspace'
-	| 'openAddDirectory';
+	| 'createWorkspaceInCurrentDirectory'
+	| 'switchToNextWorkspace';
 
 export const DEFAULT_KEYBINDINGS: Record<KeybindingAction, string[]> = {
+	toggleLeftSidebar: ['cmd+shift+b', 'ctrl+shift+b'],
 	toggleEmbeddedTerminal: ['cmd+j', 'ctrl+`'],
 	toggleRightSidebar: ['cmd+b', 'ctrl+b'],
-	openInFinder: ['cmd+alt+f', 'ctrl+alt+f'],
-	openInEditor: ['cmd+shift+o', 'ctrl+shift+o'],
 	addSplitTerminal: ['cmd+/', 'ctrl+/'],
-	jumpToSidebarWorkspace: ['cmd+alt'],
 	createSessionInCurrentWorkspace: ['cmd+alt+n'],
-	openAddDirectory: ['cmd+alt+o'],
+	createWorkspaceInCurrentDirectory: ['cmd+alt+shift+n'],
+	switchToNextWorkspace: ['cmd+alt+down', 'ctrl+alt+down'],
 };
 
 export interface KeybindingsSnapshot {

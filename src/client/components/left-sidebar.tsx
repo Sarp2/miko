@@ -1,70 +1,14 @@
 import { useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import type { SidebarDirectoryGroup } from '../../shared/types';
+import {
+	pinnedWorkspacesFromGroups,
+	sortSidebarGroups,
+	withoutPinnedWorkspaces,
+} from '../lib/sidebar-order';
 import { useSidebarStore } from '../stores/sidebar-store';
-import { type SidebarSortField, useUiStore } from '../stores/ui-store';
+import { useUiStore } from '../stores/ui-store';
 import { AddDirectoryDialog } from './add-directory-dialog';
 import { Sidebar } from './left-sidebar-view';
-
-function sortTimestamp<T extends { createdAt: number; updatedAt: number }>(
-	item: T,
-	sort: SidebarSortField,
-) {
-	return sort === 'created' ? item.createdAt : item.updatedAt;
-}
-
-function sortWorkspaceTimestamp(
-	workspace: SidebarDirectoryGroup['workspaces'][number],
-	sort: SidebarSortField,
-) {
-	if (sort === 'created') return workspace.createdAt;
-	return workspace.lastActivityAt ?? workspace.updatedAt;
-}
-
-function sortSidebarGroups(
-	directoryGroups: SidebarDirectoryGroup[],
-	directorySort: SidebarSortField,
-	workspaceSort: SidebarSortField,
-) {
-	return directoryGroups
-		.map((directory) => ({
-			...directory,
-			workspaces: directory.workspaces.toSorted(
-				(a, b) =>
-					sortWorkspaceTimestamp(b, workspaceSort) - sortWorkspaceTimestamp(a, workspaceSort),
-			),
-		}))
-		.toSorted((a, b) => sortTimestamp(b, directorySort) - sortTimestamp(a, directorySort));
-}
-
-function pinnedWorkspacesFromGroups(
-	directoryGroups: SidebarDirectoryGroup[],
-	pinnedWorkspaceIds: string[],
-) {
-	const workspaceById = new Map<string, SidebarDirectoryGroup['workspaces'][number]>();
-	for (const directory of directoryGroups) {
-		for (const workspace of directory.workspaces) {
-			workspaceById.set(workspace.workspaceId, workspace);
-		}
-	}
-
-	return pinnedWorkspaceIds
-		.map((workspaceId) => workspaceById.get(workspaceId))
-		.filter((workspace): workspace is SidebarDirectoryGroup['workspaces'][number] =>
-			Boolean(workspace),
-		);
-}
-
-function withoutPinnedWorkspaces(
-	directoryGroups: SidebarDirectoryGroup[],
-	pinnedWorkspaceIds: string[],
-) {
-	const pinnedIds = new Set(pinnedWorkspaceIds);
-	return directoryGroups.map((directory) => ({
-		...directory,
-		workspaces: directory.workspaces.filter((workspace) => !pinnedIds.has(workspace.workspaceId)),
-	}));
-}
 
 function useActiveWorkspaceId() {
 	const { workspaceId } = useParams();

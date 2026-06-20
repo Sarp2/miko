@@ -82,6 +82,7 @@ describe('useUiStore.setCommentHidden', () => {
 describe('useUiStore.setRightSidebarTab', () => {
 	test('stores the selected right sidebar tab per workspace', () => {
 		expect(useUiStore.getState().getRightSidebarTab('workspace-1')).toBe('all_files');
+		expect(useUiStore.getState().getRightSidebarWidth('workspace-1')).toBe(336);
 
 		useUiStore.getState().setRightSidebarTab('workspace-1', 'checks');
 		useUiStore.getState().setRightSidebarCollapsed('workspace-1', true);
@@ -513,13 +514,13 @@ describe('useUiStore.persist', () => {
 		expect(useUiStore.persist.getOptions().name).toBe(UI_STORAGE_KEY);
 	});
 
-	test('drops persisted terminal tabs because terminal sessions are memory-only', () => {
+	test('drops memory-only terminal tabs and deduplicates pinned workspace ids', () => {
 		const persisted: PersistedUiState = {
 			leftSidebarCollapsed: false,
 			leftSidebarWidth: 292,
 			externalOpenApp: 'finder',
 			expandedDirectoryIds: [],
-			pinnedWorkspaceIds: [],
+			pinnedWorkspaceIds: ['workspace-1', 'workspace-1', 'workspace-2'],
 			sidebarDirectorySort: 'updated',
 			sidebarWorkspaceSort: 'updated',
 			rightSidebarTabByWorkspaceId: {},
@@ -542,6 +543,7 @@ describe('useUiStore.persist', () => {
 
 		expect(normalized.terminalTabsByWorkspaceId).toEqual({});
 		expect(normalized.activeTerminalIdByWorkspaceId).toEqual({});
+		expect(normalized.pinnedWorkspaceIds).toEqual(['workspace-1', 'workspace-2']);
 	});
 
 	test('normalizes legacy diff tab ids and stale active tab ids', () => {

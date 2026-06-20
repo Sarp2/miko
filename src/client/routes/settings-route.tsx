@@ -5,6 +5,7 @@ import {
 	Folder,
 	GearSix,
 	GitBranch,
+	Keyboard,
 	Robot,
 	Trash,
 } from '@phosphor-icons/react';
@@ -21,7 +22,10 @@ import {
 	type CodexReasoningEffort,
 	DEFAULT_CLAUDE_MODEL_OPTIONS,
 	DEFAULT_CODEX_MODEL_OPTIONS,
+	DEFAULT_KEYBINDINGS,
 	type DirectorySummary,
+	type KeybindingAction,
+	type KeybindingsSnapshot,
 	PROVIDERS,
 	type WorkspaceSummary,
 } from '../../shared/types';
@@ -37,14 +41,24 @@ import {
 } from '../components/ui/dialog';
 import { Switch } from '../components/ui/switch';
 import { ProviderIcon } from '../lib/icons';
+import {
+	formatShortcutLabel,
+	KEYBINDING_ACTION_DESCRIPTIONS,
+	KEYBINDING_ACTION_LABELS,
+	KEYBINDING_ACTIONS,
+	normalizeShortcut,
+	shortcutFromKeyboardEvent,
+} from '../lib/keybindings';
 import { cn } from '../lib/utils';
 import { useComposerPreferencesStore } from '../stores/composer-preferences-store';
 import { useDirectoryListStore } from '../stores/directory-list-store';
+import { useKeybindingsStore } from '../stores/keybindings-store';
 import { useUiStore } from '../stores/ui-store';
 
 const SECTIONS = [
 	{ id: 'general', label: 'General', icon: GearSix },
 	{ id: 'models', label: 'Models', icon: Robot },
+	{ id: 'keybindings', label: 'Keybindings', icon: Keyboard },
 	{ id: 'workspaces', label: 'Workspaces', icon: Folder },
 	{ id: 'data', label: 'Data', icon: Database },
 ] as const;
@@ -332,6 +346,212 @@ function ModelSettings() {
 	);
 }
 
+function cloneBindings(bindings: KeybindingsSnapshot['bindings']) {
+	return Object.fromEntries(
+		KEYBINDING_ACTIONS.map((action) => [action, [...bindings[action]]]),
+	) as KeybindingsSnapshot['bindings'];
+}
+
+function bindingsEqual(
+	left: KeybindingsSnapshot['bindings'],
+	right: KeybindingsSnapshot['bindings'],
+) {
+	return KEYBINDING_ACTIONS.every(
+		(action) =>
+			left[action].length === right[action].length &&
+			left[action].every((shortcut, index) => shortcut === right[action][index]),
+	);
+}
+
+function KeybindingRecorder({
+	onRecord,
+	disabled,
+}: {
+	onRecord: (shortcut: string) => void;
+	disabled?: boolean;
+}) {
+	const [recording, setRecording] = useState(false);
+
+	useEffect(() => {
+		if (!recording) return;
+
+		const shouldRecordShortcut = (event: KeyboardEvent) => {
+			const key = event.key.toLowerCase();
+			return (
+				key !== 'meta' && key !== 'control' && key !== 'ctrl' && key !== 'alt' && key !== 'shift'
+			);
+		};
+
+		const handleKeyDown = (event: KeyboardEvent) => {
+			event.preventDefault();
+			event.stopPropagation();
+			if (event.key === 'Escape') {
+				setRecording(false);
+				return;
+			}
+
+			const shortcut = shortcutFromKeyboardEvent(event);
+			if (!shortcut) return;
+			if (!shouldRecordShortcut(event)) return;
+			onRecord(shortcut);
+			setRecording(false);
+		};
+
+		window.addEventListener('keydown', handleKeyDown, { capture: true });
+		return () => window.removeEventListener('keydown', handleKeyDown, { capture: true });
+	}, [onRecord, recording]);
+
+	return (
+		<Button
+			type="button"
+			variant="ghost"
+			size="sm"
+			disabled={disabled}
+			className={cn(
+				'h-7 rounded-md px-2 text-[12px] text-ink-muted hover:bg-surface-2 hover:text-ink',
+				recording && 'bg-surface-3 text-ink',
+			)}
+			onClick={() => setRecording(true)}
+		>
+			{recording ? 'Press keys' : 'Record'}
+		</Button>
+	);
+}
+
+function KeybindingsSettings() {
+	const snapshot = useKeybindingsStore((state) => state.snapshot);
+	const writeKeybindings = useKeybindingsStore((state) => state.writeKeybindings);
+	const [draft, setDraft] = useState<KeybindingsSnapshot['bindings']>(() =>
+		cloneBindings(DEFAULT_KEYBINDINGS),
+	);
+	const [saving, setSaving] = useState(false);
+
+	useEffect(() => {
+		if (snapshot) setDraft(cloneBindings(snapshot.bindings));
+	}, [snapshot]);
+
+	if (!snapshot) {
+		return (
+			<div>
+				<SectionTitle
+					title="Keybindings"
+					description="Customize shortcuts stored in the Miko keybindings file."
+				/>
+				<div className="text-[12px] leading-5 text-ink-tertiary">Loading keybindings…</div>
+			</div>
+		);
+	}
+
+	const dirty = !bindingsEqual(draft, snapshot.bindings);
+
+	const updateAction = (action: KeybindingAction, shortcuts: string[]) => {
+		setDraft((current) => ({ ...current, [action]: shortcuts }));
+	};
+
+	const save = async () => {
+		if (!dirty || saving) return;
+		setSaving(true);
+		try {
+			const saved = await writeKeybindings(draft);
+			setDraft(cloneBindings(saved.bindings));
+			toast.success('Keybindings saved');
+		} catch (error) {
+			toast.error(error instanceof Error ? error.message : 'Could not save keybindings');
+		} finally {
+			setSaving(false);
+		}
+	};
+
+	return (
+		<div>
+			<SectionTitle
+				title="Keybindings"
+				description={`Customize application shortcuts. Stored in ${snapshot.filePathDisplay}.`}
+			/>
+			<div className="max-w-5xl">
+				{snapshot.warning ? (
+					<div className="mb-4 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-[12px] leading-5 text-warning">
+						{snapshot.warning}
+					</div>
+				) : null}
+				<div className="divide-y divide-hairline border-y border-hairline">
+					{KEYBINDING_ACTIONS.map((action) => {
+						const shortcuts = draft[action].map(normalizeShortcut).filter(Boolean);
+						return (
+							<div
+								key={action}
+								className="grid grid-cols-[minmax(0,1fr)_minmax(280px,420px)] items-center gap-8 py-4"
+							>
+								<div className="min-w-0">
+									<div className="text-[13px] font-semibold leading-5 text-ink">
+										{KEYBINDING_ACTION_LABELS[action]}
+									</div>
+									<div className="mt-1 text-[12px] leading-5 text-ink-subtle">
+										{KEYBINDING_ACTION_DESCRIPTIONS[action]}
+									</div>
+								</div>
+								<div className="flex min-w-0 items-center justify-end gap-2">
+									<div className="flex min-w-0 flex-1 flex-wrap justify-end gap-1.5">
+										{shortcuts.map((shortcut) => (
+											<button
+												key={shortcut}
+												type="button"
+												className="inline-flex h-7 items-center rounded-md border border-hairline bg-surface-1 px-2 font-mono text-[11px] text-ink hover:bg-surface-2"
+												title="Remove shortcut"
+												onClick={() =>
+													updateAction(
+														action,
+														shortcuts.filter((candidate) => candidate !== shortcut),
+													)
+												}
+											>
+												{formatShortcutLabel(shortcut)}
+											</button>
+										))}
+									</div>
+									<KeybindingRecorder
+										disabled={saving}
+										onRecord={(shortcut) => {
+											const normalized = normalizeShortcut(shortcut);
+											if (!normalized) return;
+											updateAction(action, [...new Set([...shortcuts, normalized])]);
+										}}
+									/>
+									<Button
+										type="button"
+										variant="ghost"
+										size="sm"
+										disabled={saving}
+										className="h-7 rounded-md px-2 text-[12px] text-ink-muted hover:bg-surface-2 hover:text-ink"
+										onClick={() => updateAction(action, [...DEFAULT_KEYBINDINGS[action]])}
+									>
+										Reset
+									</Button>
+								</div>
+							</div>
+						);
+					})}
+				</div>
+				<div className="mt-5 flex items-center justify-end gap-2">
+					<Button
+						type="button"
+						variant="ghost"
+						size="sm"
+						disabled={!dirty || saving}
+						className="h-8 rounded-md px-3 text-[12px] text-ink-muted hover:bg-surface-2 hover:text-ink"
+						onClick={() => setDraft(cloneBindings(snapshot.bindings))}
+					>
+						Discard
+					</Button>
+					<Button type="button" size="sm" disabled={!dirty || saving} onClick={() => void save()}>
+						{saving ? 'Saving…' : 'Save'}
+					</Button>
+				</div>
+			</div>
+		</div>
+	);
+}
+
 function workspaceStatusLabel(workspace: WorkspaceSummary) {
 	if (workspace.visibilityState === 'archived') return 'Archived';
 	if (workspace.setupState === 'creating') return 'Creating';
@@ -582,6 +802,7 @@ function DataSettings() {
 function ActiveSection({ section }: { section: SettingsSectionId }) {
 	if (section === 'general') return <GeneralSettings />;
 	if (section === 'models') return <ModelSettings />;
+	if (section === 'keybindings') return <KeybindingsSettings />;
 	if (section === 'workspaces') return <WorkspacesSettings />;
 	return <DataSettings />;
 }
@@ -592,7 +813,11 @@ export function SettingsRoute() {
 
 	useEffect(() => {
 		useDirectoryListStore.getState().connectDirectoryList();
-		return () => useDirectoryListStore.getState().disconnectDirectoryList();
+		useKeybindingsStore.getState().connectKeybindings();
+		return () => {
+			useDirectoryListStore.getState().disconnectDirectoryList();
+			useKeybindingsStore.getState().disconnectKeybindings();
+		};
 	}, []);
 
 	return (
