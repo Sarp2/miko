@@ -18,6 +18,7 @@ import type {
 	NormalizedToolCall,
 	PendingToolSnapshot,
 	PromptPart,
+	SlashCommandInfo,
 	TranscriptEntry,
 } from '../shared/types';
 import { CodexAppServerManager } from './codex-app-server';
@@ -116,6 +117,7 @@ interface ClaudeSessionHandle {
 	sendPrompt: (content: string) => Promise<void>;
 	setModel: (model: string) => Promise<void>;
 	setPermissionMode: (planMode: boolean) => Promise<void>;
+	getCommands: () => Promise<SlashCommandInfo[]>;
 }
 
 interface ClaudeSessionState {
@@ -703,6 +705,18 @@ export async function startClaudeSession(
 		setPermissionMode: async (planMode: boolean) => {
 			await q.setPermissionMode(planMode ? 'plan' : 'acceptEdits');
 		},
+		getCommands: async () => {
+			try {
+				const commands = await q.supportedCommands();
+				return commands.map((command) => ({
+					name: command.name,
+					description: command.description || undefined,
+					argumentHint: command.argumentHint || undefined,
+				}));
+			} catch {
+				return [];
+			}
+		},
 		close: () => {
 			promptQueue.close();
 			q.close();
@@ -722,6 +736,10 @@ export class AgentCoordinator {
 	readonly activeTurns = new Map<string, ActiveTurn>();
 	readonly drainingStreams = new Map<string, { turn: HarnessTurn }>();
 	readonly claudeSessions = new Map<string, ClaudeSessionState>();
+	// Slash commands keyed by `${workspaceId}:${provider}`. Commands are workspace/provider scoped
+	// (filesystem + config derived), so the cache is shared across sessions in a workspace.
+	private readonly commandsCache = new Map<string, SlashCommandInfo[]>();
+	private readonly commandsInFlight = new Map<string, Promise<SlashCommandInfo[]>>();
 
 	constructor(args: AgentCoordinatorArgs) {
 		this.store = args.store;
@@ -785,6 +803,68 @@ export class AgentCoordinator {
 		const pending = this.activeTurns.get(sessionId)?.pendingTool;
 		if (!pending) return null;
 		return pendingToolSnapshot(pending);
+	}
+
+	/**
+	 * Slash commands for a session's workspace + provider. Served from cache when warm; otherwise a
+	 * live session is used, or a short-lived harness is spawned just to enumerate (no turn sent, no
+	 * message required). The provider falls back to the request hint before a turn binds one.
+	 * Concurrent calls share one in-flight enumeration so opening/focusing never double-spawns.
+	 */
+	async listCommands(sessionId: string, provider?: AgentProvider): Promise<SlashCommandInfo[]> {
+		const session = this.store.getSession(sessionId);
+		if (!session) return [];
+		const workspace = this.store.getWorkspace(session.workspaceId);
+		if (!workspace) return [];
+
+		const effectiveProvider = session.provider ?? provider ?? 'claude';
+		const cacheKey = `${workspace.id}:${effectiveProvider}`;
+
+		const cached = this.commandsCache.get(cacheKey);
+		if (cached) return cached;
+
+		const inFlight = this.commandsInFlight.get(cacheKey);
+		if (inFlight) return inFlight;
+
+		const promise = this.enumerateCommands(sessionId, effectiveProvider, workspace.localPath)
+			.then((commands) => {
+				this.commandsCache.set(cacheKey, commands);
+				return commands;
+			})
+			.catch(() => [] as SlashCommandInfo[])
+			.finally(() => {
+				this.commandsInFlight.delete(cacheKey);
+			});
+
+		this.commandsInFlight.set(cacheKey, promise);
+		return promise;
+	}
+
+	private async enumerateCommands(
+		sessionId: string,
+		provider: AgentProvider,
+		localPath: string,
+	): Promise<SlashCommandInfo[]> {
+		if (provider === 'codex') {
+			return this.codexManager.enumerateSkills(localPath, normalizeServerModel('codex'));
+		}
+
+		const live = this.claudeSessions.get(sessionId);
+		if (live) return live.session.getCommands();
+
+		// Short-lived enumeration session: no prompt is ever sent and it is closed immediately.
+		const handle = await this.startClaudeSessionFn({
+			localPath,
+			model: normalizeServerModel('claude'),
+			planMode: false,
+			sessionToken: null,
+			onToolRequest: async () => ({}),
+		});
+		try {
+			return await handle.getCommands();
+		} finally {
+			handle.close();
+		}
 	}
 
 	getDrainingSessionIds(): Set<string> {

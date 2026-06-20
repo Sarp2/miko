@@ -1,7 +1,16 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { ChatAttachment, PromptPart, WorkspaceSnapshot } from '../../shared/types';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import type {
+	AgentProvider,
+	ChatAttachment,
+	PromptPart,
+	SlashCommandInfo,
+	WorkspaceSnapshot,
+} from '../../shared/types';
 import type { LocalAttachment } from '../components/chat-composer/chat-composer-types';
-import { activeMentionRange } from '../components/chat-composer/chat-composer-utils';
+import {
+	activeCommandRange,
+	activeMentionRange,
+} from '../components/chat-composer/chat-composer-utils';
 import type { FileMentionOption } from '../components/chat-composer/file-mention-popover';
 import { promptTokenEditorHtml } from '../components/prompt-token';
 import {
@@ -12,6 +21,7 @@ import {
 	promptPartText,
 	replaceRangeWithParts,
 } from '../lib/prompt-parts';
+import { useSessionStore } from '../stores/session-store';
 import { useWorkspaceStore } from '../stores/workspace-store';
 
 // This hook drives a contenteditable surface that mixes plain text with atomic token
@@ -273,12 +283,14 @@ export function useInlinePromptEditor({
 	attachments,
 	parts,
 	setParts,
+	sessionId,
 	workspaceId,
 	workspaceSnapshot,
 }: {
 	attachments: LocalAttachment[];
 	parts: PromptPart[];
 	setParts: (parts: PromptPart[]) => void;
+	sessionId: string;
 	workspaceId: string;
 	workspaceSnapshot: WorkspaceSnapshot;
 }) {
@@ -304,6 +316,16 @@ export function useInlinePromptEditor({
 	const [searchedQuery, setSearchedQuery] = useState('');
 	const [isMentionLoading, setIsMentionLoading] = useState(false);
 	const mentionQuery = mentionRange?.query.trim() ?? '';
+
+	const [commandRange, setCommandRange] = useState<ReturnType<typeof activeCommandRange>>(null);
+	const [allCommands, setAllCommands] = useState<SlashCommandInfo[]>([]);
+	const [isCommandLoading, setIsCommandLoading] = useState(false);
+	const warmedCommandsKeyRef = useRef<string | null>(null);
+	const commandQuery = commandRange?.query.toLowerCase() ?? '';
+	const commandOptions = useMemo(
+		() => allCommands.filter((command) => command.name.toLowerCase().includes(commandQuery)),
+		[allCommands, commandQuery],
+	);
 	const editorHtml = useMemo(
 		() => editorHtmlFromParts(parts, attachmentTokens),
 		[attachmentTokens, parts],
@@ -312,13 +334,49 @@ export function useInlinePromptEditor({
 	const refreshMentionRange = useCallback(() => {
 		const editor = editorRef.current;
 		if (!editor) return;
-		setMentionRange(
-			activeMentionRange(
-				promptTextFromDom(editor, tokenPartsByKey, attachmentTokens),
-				caretOffset(editor, tokenPartsByKey, attachmentTokens),
-			),
-		);
+		const text = promptTextFromDom(editor, tokenPartsByKey, attachmentTokens);
+		const caret = caretOffset(editor, tokenPartsByKey, attachmentTokens);
+		setMentionRange(activeMentionRange(text, caret));
+		setCommandRange(activeCommandRange(text, caret));
 	}, [attachmentTokens, tokenPartsByKey]);
+
+	// Warm the slash-command list (server enumerates + caches per workspace/provider) when the
+	// composer is focused, so the `/` menu is already populated before it opens — no message needed.
+	// Re-fetches only when the session or provider changes; the menu filters this list client-side.
+	// `commandSessionId` is the session that will receive the message (the "Sending to" target in the
+	// diff/file composer), which can differ from the draft `sessionId`. Commands must match that
+	// session's provider, so they are keyed and queried by it.
+	const warmCommands = useCallback((commandSessionId: string, provider: AgentProvider) => {
+		const key = `${commandSessionId}:${provider}`;
+		if (warmedCommandsKeyRef.current === key) return;
+		warmedCommandsKeyRef.current = key;
+		// Drop the previous provider's list immediately so the menu can't show/insert its commands
+		// while the new list loads. The key guard ignores any in-flight response from the old key.
+		setAllCommands([]);
+		setIsCommandLoading(true);
+		useSessionStore
+			.getState()
+			.listCommands(commandSessionId, provider)
+			.then((commands) => {
+				if (warmedCommandsKeyRef.current !== key) return;
+				setAllCommands(commands);
+			})
+			.catch(() => {
+				if (warmedCommandsKeyRef.current !== key) return;
+				setAllCommands([]);
+			})
+			.finally(() => {
+				if (warmedCommandsKeyRef.current !== key) return;
+				setIsCommandLoading(false);
+			});
+	}, []);
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reset is keyed to sessionId only.
+	useEffect(() => {
+		warmedCommandsKeyRef.current = null;
+		setAllCommands([]);
+		setIsCommandLoading(false);
+	}, [sessionId]);
 
 	useLayoutEffect(() => {
 		const editor = editorRef.current;
@@ -420,6 +478,22 @@ export function useInlinePromptEditor({
 		[attachmentTokens, mentionRange, parts, setParts],
 	);
 
+	const insertCommand = useCallback(
+		(option: SlashCommandInfo) => {
+			if (!commandRange) return;
+			const replacement = `/${option.name} `;
+			setParts(
+				replaceRangeWithParts(parts, attachmentTokens, commandRange.start, commandRange.end, [
+					{ type: 'text', text: replacement },
+				]),
+			);
+			pendingCaretOffsetRef.current = commandRange.start + replacement.length;
+			setCommandRange(null);
+			requestAnimationFrame(() => editorRef.current?.focus());
+		},
+		[attachmentTokens, commandRange, parts, setParts],
+	);
+
 	return {
 		editorRef,
 		insertMention,
@@ -429,6 +503,12 @@ export function useInlinePromptEditor({
 		mentionRange,
 		refreshMentionRange,
 		setMentionRange,
+		commandRange,
+		commandOptions,
+		isCommandLoading,
+		insertCommand,
+		warmCommands,
+		setCommandRange,
 		syncPartsFromDom,
 	};
 }

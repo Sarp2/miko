@@ -898,6 +898,11 @@ export function createWsRouter({
 					send(ws, { type: 'ack', id });
 					break;
 				}
+				case 'session.listCommands': {
+					const result = await agent.listCommands(command.sessionId, command.provider);
+					send(ws, { type: 'ack', id, result });
+					break;
+				}
 				case 'terminal.create': {
 					const workspace = requireWorkspace(command.workspaceId);
 					if (workspace.setupState !== 'ready') throw new Error('Workspace is not ready yet');

@@ -1,5 +1,5 @@
 import { ArrowUp, Lightning, MapTrifold, Plus, StopCircle } from '@phosphor-icons/react';
-import { type ReactNode, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import type { PromptPart, SessionSnapshot, WorkspaceSnapshot } from '../../../shared/types';
@@ -9,10 +9,12 @@ import { useWorkspacePageOpeners } from '../../hooks/use-workspace-page-openers'
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
+import { CommandList } from './command-popover';
 import { ComposerEffortMenu } from './composer-effort-menu';
 import { ComposerModelMenu } from './composer-model-menu';
+import { ComposerSuggestionPopover } from './composer-suggestion-popover';
 import { ComposerToggle } from './composer-toggle';
-import { FileMentionPopover } from './file-mention-popover';
+import { FileMentionList } from './file-mention-popover';
 
 interface ChatComposerProps {
 	workspaceId: string;
@@ -47,9 +49,22 @@ export function ChatComposer({
 		attachments: composer.attachments,
 		parts: composer.parts,
 		setParts: composer.setParts,
+		sessionId,
 		workspaceId,
 		workspaceSnapshot,
 	});
+	const commandActive = promptEditor.commandRange !== null;
+	const mentionActive = promptEditor.mentionRange !== null;
+	// Commands belong to the session the message will be sent to (the "Sending to" target), which can
+	// differ from the draft session in the diff/file composer.
+	const commandSessionId = targetSessionId ?? sessionId;
+	// Tracks whether the user has engaged this composer, so we only warm commands on intent (not on
+	// every mount) yet still re-warm when the send target or provider changes while engaged.
+	const composerEngagedRef = useRef(false);
+	const { warmCommands } = promptEditor;
+	useEffect(() => {
+		if (composerEngagedRef.current) warmCommands(commandSessionId, composer.provider);
+	}, [commandSessionId, composer.provider, warmCommands]);
 	const { openWorkspaceFile, openPastedText, openAttachment } = useWorkspacePageOpeners(
 		workspaceId,
 		sessionId,
@@ -163,15 +178,14 @@ export function ChatComposer({
 	return (
 		<div className="bg-canvas px-4 py-3">
 			<div className="mx-auto w-full max-w-4xl">
-				<FileMentionPopover
-					open={promptEditor.mentionRange !== null}
-					query={promptEditor.mentionRange?.query ?? ''}
-					options={promptEditor.mentionOptions}
-					isLoading={promptEditor.isMentionLoading}
+				<ComposerSuggestionPopover
+					open={commandActive || mentionActive}
 					onOpenChange={(open) => {
-						if (!open) promptEditor.setMentionRange(null);
+						if (!open) {
+							promptEditor.setMentionRange(null);
+							promptEditor.setCommandRange(null);
+						}
 					}}
-					onSelect={promptEditor.insertMention}
 					anchor={
 						// biome-ignore lint/a11y/noStaticElementInteractions: drag-and-drop is scoped to the composer shell while keyboard input remains on the textbox.
 						<div
@@ -204,6 +218,10 @@ export function ChatComposer({
 								tabIndex={composerReadonly ? -1 : 0}
 								aria-multiline="true"
 								suppressContentEditableWarning
+								onFocus={() => {
+									composerEngagedRef.current = true;
+									warmCommands(commandSessionId, composer.provider);
+								}}
 								onInput={promptEditor.syncPartsFromDom}
 								onClick={handleEditorClick}
 								onKeyUp={promptEditor.refreshMentionRange}
@@ -214,16 +232,29 @@ export function ChatComposer({
 								onKeyDown={(event) => {
 									if (event.nativeEvent.isComposing) return;
 
-									if (event.key === 'Escape' && promptEditor.mentionRange) {
+									if (
+										event.key === 'Escape' &&
+										(promptEditor.mentionRange || promptEditor.commandRange)
+									) {
 										event.preventDefault();
 										promptEditor.setMentionRange(null);
+										promptEditor.setCommandRange(null);
+										return;
+									}
+
+									// Only intercept Enter when there is a suggestion to accept; otherwise an unmatched
+									// `/foo` or `@foo` would leave the composer unable to submit.
+									const firstCommandOption = promptEditor.commandOptions[0];
+									if (event.key === 'Enter' && promptEditor.commandRange && firstCommandOption) {
+										event.preventDefault();
+										promptEditor.insertCommand(firstCommandOption);
 										return;
 									}
 
 									const firstMentionOption = promptEditor.mentionOptions[0];
-									if (event.key === 'Enter' && promptEditor.mentionRange) {
+									if (event.key === 'Enter' && promptEditor.mentionRange && firstMentionOption) {
 										event.preventDefault();
-										if (firstMentionOption) promptEditor.insertMention(firstMentionOption);
+										promptEditor.insertMention(firstMentionOption);
 										return;
 									}
 
@@ -329,7 +360,23 @@ export function ChatComposer({
 							</div>
 						</div>
 					}
-				/>
+				>
+					{commandActive ? (
+						<CommandList
+							query={promptEditor.commandRange?.query ?? ''}
+							options={promptEditor.commandOptions}
+							isLoading={promptEditor.isCommandLoading}
+							onSelect={promptEditor.insertCommand}
+						/>
+					) : (
+						<FileMentionList
+							query={promptEditor.mentionRange?.query ?? ''}
+							options={promptEditor.mentionOptions}
+							isLoading={promptEditor.isMentionLoading}
+							onSelect={promptEditor.insertMention}
+						/>
+					)}
+				</ComposerSuggestionPopover>
 			</div>
 		</div>
 	);

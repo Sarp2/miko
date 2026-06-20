@@ -19,6 +19,18 @@ import type { LocalAttachment, UploadResponse } from './chat-composer-types';
 import type { FileMentionOption } from './file-mention-popover';
 
 export type MentionRange = { start: number; end: number; query: string };
+export type CommandRange = { start: number; end: number; query: string };
+
+/**
+ * A slash command is the leading token of the message: active only while the text starts with `/`
+ * and the cursor is still inside that first word (no whitespace typed yet).
+ */
+export function activeCommandRange(value: string, cursor: number): CommandRange | null {
+	if (!value.startsWith('/')) return null;
+	const beforeCursor = value.slice(0, cursor);
+	if (/\s/.test(beforeCursor)) return null;
+	return { start: 0, end: cursor, query: beforeCursor.slice(1) };
+}
 
 export function activeMentionRange(value: string, cursor: number): MentionRange | null {
 	const beforeCursor = value.slice(0, cursor);
