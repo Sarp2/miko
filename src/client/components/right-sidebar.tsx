@@ -125,6 +125,13 @@ function RightSidebarHeader({
 				manualCreatePrUrl={manualCreatePrUrl}
 				onPrimaryAction={onPrimaryAction}
 			/>
+			{action?.kind === 'continue' ? (
+				<WorkspaceActionButton
+					action={{ kind: 'archive', label: 'Archive' }}
+					disabled={disabled}
+					onPrimaryAction={onPrimaryAction}
+				/>
+			) : null}
 		</>
 	);
 }
@@ -175,6 +182,7 @@ export function RightSidebar({ workspaceId }: RightSidebarProps) {
 	const resolveMergeConflicts = useWorkspaceStore((state) => state.resolveMergeConflicts);
 	const markPrReady = useWorkspaceStore((state) => state.markPrReady);
 	const archiveWorkspace = useWorkspaceStore((state) => state.archiveWorkspace);
+	const continueOnNewBranch = useWorkspaceStore((state) => state.continueOnNewBranch);
 	const mergePr = useWorkspaceStore((state) => state.mergePr);
 	const reviewChanges = useWorkspaceStore((state) => state.reviewChanges);
 	const navigate = useNavigate();
@@ -207,6 +215,10 @@ export function RightSidebar({ workspaceId }: RightSidebarProps) {
 		}
 		if (action.kind === 'archive') {
 			await archiveWorkspace(workspaceId);
+			return;
+		}
+		if (action.kind === 'continue') {
+			await continueOnNewBranch(workspaceId);
 			return;
 		}
 		if (!actionSessionId) return;

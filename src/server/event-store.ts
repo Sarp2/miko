@@ -399,6 +399,13 @@ export class EventStore {
 				workspace.updatedAt = event.timestamp;
 				break;
 			}
+			case 'workspace_pr_cleared': {
+				const workspace = this.state.workspacesById.get(event.workspaceId);
+				if (!workspace) break;
+				workspace.pullRequest = undefined;
+				workspace.updatedAt = event.timestamp;
+				break;
+			}
 			case 'workspace_unread_agent_result_set': {
 				const workspace = this.state.workspacesById.get(event.workspaceId);
 				if (!workspace) break;
@@ -792,6 +799,19 @@ export class EventStore {
 			timestamp: Date.now(),
 			workspaceId,
 			pullRequest,
+		};
+
+		await this.append(this.workspacesLogPath, event);
+	}
+
+	async clearWorkspacePullRequest(workspaceId: string) {
+		const workspace = this.requireWorkspace(workspaceId);
+		if (!workspace.pullRequest) return;
+
+		const event: WorkspaceEvent = {
+			type: 'workspace_pr_cleared',
+			timestamp: Date.now(),
+			workspaceId,
 		};
 
 		await this.append(this.workspacesLogPath, event);

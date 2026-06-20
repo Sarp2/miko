@@ -402,6 +402,7 @@ async function runSidebarWorkspaceAction(args: {
 	resolveMergeConflicts: (workspaceId: string, sessionId: string) => Promise<unknown>;
 	markPrReady: (workspaceId: string) => Promise<unknown>;
 	mergePr: (workspaceId: string) => Promise<unknown>;
+	continueOnNewBranch: (workspaceId: string) => Promise<unknown>;
 	onArchive?: () => void | Promise<void>;
 }) {
 	const {
@@ -413,6 +414,7 @@ async function runSidebarWorkspaceAction(args: {
 		resolveMergeConflicts,
 		markPrReady,
 		mergePr,
+		continueOnNewBranch,
 		onArchive,
 	} = args;
 
@@ -423,6 +425,11 @@ async function runSidebarWorkspaceAction(args: {
 
 	if (action.kind === 'merge') {
 		await mergePr(workspace.workspaceId);
+		return;
+	}
+
+	if (action.kind === 'continue') {
+		await continueOnNewBranch(workspace.workspaceId);
 		return;
 	}
 
@@ -478,6 +485,7 @@ function WorkspaceHoverMeta({
 	const resolveMergeConflicts = useWorkspaceStore((state) => state.resolveMergeConflicts);
 	const markPrReady = useWorkspaceStore((state) => state.markPrReady);
 	const mergePr = useWorkspaceStore((state) => state.mergePr);
+	const continueOnNewBranch = useWorkspaceStore((state) => state.continueOnNewBranch);
 	const hasDetails =
 		workspace.localPath || workspace.branchName || workspace.prNumber || workspace.lastActivityAt;
 	if (!hasDetails) return children;
@@ -567,6 +575,7 @@ function WorkspaceHoverMeta({
 										resolveMergeConflicts,
 										markPrReady,
 										mergePr,
+										continueOnNewBranch,
 										onArchive,
 									});
 								}}

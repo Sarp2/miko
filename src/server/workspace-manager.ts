@@ -56,7 +56,10 @@ export interface WorkspaceCreateResult {
 
 interface WorkspaceManagerDeps {
 	diffStore?: Pick<DiffStore, 'refreshWorkspaceGitSnapshot'>;
-	prManager?: Pick<PrManager, 'getWorkspaceGitHubSnapshot' | 'refreshWorkspacePrState'>;
+	prManager?: Pick<
+		PrManager,
+		'getWorkspaceGitHubSnapshot' | 'refreshWorkspacePrState' | 'clearWorkspaceGitHubSnapshot'
+	>;
 	worktreesRoot?: string;
 	onWorkspaceSetupStateChanged?: (workspaceId: string) => void | Promise<void>;
 }
@@ -107,6 +110,24 @@ async function getExistingLocalBranches(repoPath: string) {
 			.split(/\r?\n/u)
 			.map((line) => line.trim())
 			.filter(Boolean),
+	);
+}
+
+async function getExistingRemoteBranchNames(repoPath: string) {
+	const result = await runGit(
+		['for-each-ref', '--format=%(refname:short)', 'refs/remotes'],
+		repoPath,
+	);
+
+	assertGitSuccess(result, 'Git could not list remote branches');
+
+	return new Set(
+		result.stdout
+			.split(/\r?\n/u)
+			.map((line) => line.trim())
+			.filter(Boolean)
+			.map((branch) => branch.replace(/^origin\//u, ''))
+			.filter((branch) => branch !== 'HEAD'),
 	);
 }
 
@@ -213,6 +234,39 @@ export class WorkspaceManager {
 		}
 
 		throw new Error('Could not generate a unique workspace branch and worktree path');
+	}
+
+	private async generateContinuationBranchName(
+		directoryId: string,
+		directoryPath: string,
+		currentBranchName: string,
+	) {
+		const directoryWorkspaces = this.eventStore.listWorkspacesByDirectory(directoryId);
+		const metadataBranches = new Set(directoryWorkspaces.map((workspace) => workspace.branchName));
+		const knownPrHeads = new Set(
+			directoryWorkspaces
+				.map((workspace) => workspace.pullRequest?.headRefName)
+				.filter((headRefName): headRefName is string => Boolean(headRefName)),
+		);
+		const localBranches = await getExistingLocalBranches(directoryPath);
+		const remoteBranches = await getExistingRemoteBranchNames(directoryPath);
+		const baseName = sanitizeBranchName(currentBranchName) || currentBranchName;
+
+		for (let suffix = 1; suffix <= MAX_WORKSPACE_NAME_SUFFIX; suffix++) {
+			const branchName = `${baseName}-v${suffix}`;
+			if (
+				metadataBranches.has(branchName) ||
+				knownPrHeads.has(branchName) ||
+				localBranches.has(branchName) ||
+				remoteBranches.has(branchName)
+			) {
+				continue;
+			}
+			if (!(await isValidBranchName(directoryPath, branchName))) continue;
+			return branchName;
+		}
+
+		throw new Error('Could not generate a unique workspace branch name');
 	}
 
 	private async resolveBaseRef(directoryPath: string) {
@@ -417,9 +471,10 @@ export class WorkspaceManager {
 		if (!branchName) throw new Error('Branch name is required');
 		if (workspace.branchName === branchName) return workspace;
 
+		const previousBranchName = workspace.branchName;
 		const directory = this.eventStore.requireDirectory(workspace.directoryId);
 		const currentBranch = await runGit(['branch', '--show-current'], workspace.localPath);
-		if (currentBranch.stdout.trim() !== workspace.branchName) {
+		if (currentBranch.stdout.trim() !== previousBranchName) {
 			throw new Error('Workspace worktree is not on the expected branch');
 		}
 
@@ -468,6 +523,105 @@ export class WorkspaceManager {
 		}
 
 		await this.diffStore?.refreshWorkspaceGitSnapshot(workspace.id, workspace.localPath);
+		return this.eventStore.requireWorkspace(workspace.id);
+	}
+
+	async continueWorkspaceOnNewBranch(workspaceId: string) {
+		const workspace = this.eventStore.requireWorkspace(workspaceId);
+		if (workspace.setupState !== 'ready') throw new Error('Workspace is not ready');
+		if (workspace.reviewState !== 'done' && workspace.reviewState !== 'closed') {
+			throw new Error('Workspace can only continue after its pull request is merged or closed');
+		}
+
+		const previousBranchName = workspace.branchName;
+		const previousPullRequest = workspace.pullRequest;
+		const previousReviewState = workspace.reviewState;
+		const directory = this.eventStore.requireDirectory(workspace.directoryId);
+		const currentBranch = await runGit(['branch', '--show-current'], workspace.localPath);
+		if (currentBranch.stdout.trim() !== previousBranchName) {
+			throw new Error('Workspace worktree is not on the expected branch');
+		}
+
+		const baseRef = await this.resolveBaseRef(directory.localPath);
+		const branchName = await this.generateContinuationBranchName(
+			directory.id,
+			directory.localPath,
+			previousBranchName,
+		);
+		const checkout = await runGit(
+			['checkout', '--no-track', '-b', branchName, baseRef],
+			workspace.localPath,
+		);
+		if (checkout.exitCode !== 0) {
+			throw new Error(formatGitFailure(checkout) || 'Git could not create the continuation branch');
+		}
+
+		try {
+			await this.eventStore.setWorkspaceBranch(workspace.id, branchName);
+			await this.eventStore.clearWorkspacePullRequest(workspace.id);
+			await this.eventStore.setWorkspaceReviewState(workspace.id, 'in_progress');
+		} catch (error) {
+			console.error('[workspace-manager] continuation branch created but metadata update failed', {
+				workspaceId: workspace.id,
+				branchName,
+				error,
+			});
+			const checkoutPrevious = await runGit(['checkout', previousBranchName], workspace.localPath);
+			if (checkoutPrevious.exitCode !== 0) {
+				console.error('[workspace-manager] failed to rollback continuation checkout', {
+					workspaceId: workspace.id,
+					branchName,
+					error: formatGitFailure(checkoutPrevious),
+				});
+			} else {
+				const deleteBranch = await runGit(['branch', '-D', branchName], workspace.localPath);
+				if (deleteBranch.exitCode !== 0) {
+					console.error('[workspace-manager] failed to delete rolled-back continuation branch', {
+						workspaceId: workspace.id,
+						branchName,
+						error: formatGitFailure(deleteBranch),
+					});
+				}
+			}
+			try {
+				if (this.eventStore.requireWorkspace(workspace.id).branchName !== previousBranchName) {
+					await this.eventStore.setWorkspaceBranch(workspace.id, previousBranchName);
+				}
+				if (previousPullRequest) {
+					await this.eventStore.observeWorkspacePullRequest(workspace.id, previousPullRequest);
+				}
+				await this.eventStore.setWorkspaceReviewState(workspace.id, previousReviewState);
+			} catch (rollbackError) {
+				console.error('[workspace-manager] failed to rollback continuation metadata', {
+					workspaceId: workspace.id,
+					branchName,
+					error: rollbackError,
+				});
+			}
+			throw error;
+		}
+
+		this.prManager?.clearWorkspaceGitHubSnapshot(workspace.id);
+
+		await this.diffStore
+			?.refreshWorkspaceGitSnapshot(workspace.id, workspace.localPath)
+			.catch((error) => {
+				console.error('[workspace-manager] failed to refresh continued workspace git snapshot', {
+					workspaceId: workspace.id,
+					error,
+				});
+			});
+
+		if (this.prManager) {
+			this.prManager.clearWorkspaceGitHubSnapshot(workspace.id);
+			await this.refreshWorkspacePrStage(workspace.id, { force: true }).catch((error) => {
+				console.error('[workspace-manager] failed to refresh continued workspace PR snapshot', {
+					workspaceId: workspace.id,
+					error,
+				});
+			});
+		}
+
 		return this.eventStore.requireWorkspace(workspace.id);
 	}
 }
