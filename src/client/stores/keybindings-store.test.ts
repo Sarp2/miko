@@ -109,6 +109,29 @@ describe('useKeybindingsStore.connectKeybindings', () => {
 
 		expect(useKeybindingsStore.getState().snapshot?.bindings).toEqual(DEFAULT_KEYBINDINGS);
 	});
+
+	test('removes the ws-store listener on disconnect', () => {
+		useKeybindingsStore.getState().connectKeybindings();
+		const socket = FakeWebSocket.instances[0];
+		socket.open();
+
+		useKeybindingsStore.getState().disconnectKeybindings();
+
+		socket.receive({
+			type: 'snapshot',
+			id: KEYBINDINGS_SUBSCRIPTION_ID,
+			snapshot: {
+				type: 'keybindings',
+				data: {
+					bindings: DEFAULT_KEYBINDINGS,
+					warning: null,
+					filePathDisplay: '~/.miko/keybindings.json',
+				},
+			},
+		});
+
+		expect(useKeybindingsStore.getState().snapshot).toBeNull();
+	});
 });
 
 describe('useKeybindingsStore.writeKeybindings', () => {

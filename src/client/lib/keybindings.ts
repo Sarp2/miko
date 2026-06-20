@@ -87,7 +87,6 @@ export function formatShortcutLabel(shortcut: string) {
 			if (part === 'alt') return 'Alt';
 			if (part === 'shift') return 'Shift';
 			if (part === 'escape') return 'Esc';
-			if (part === ' ') return 'Space';
 			return part.length === 1 ? part.toUpperCase() : part[0].toUpperCase() + part.slice(1);
 		})
 		.join(' + ');

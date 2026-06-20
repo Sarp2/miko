@@ -3,12 +3,8 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { GlobalKeybindings } from '../components/global-keybindings';
 import { LeftSidebar } from '../components/left-sidebar';
 import { RightSidebar } from '../components/right-sidebar';
+import { workspaceIdFromPath } from '../lib/workspace-route';
 import { useSidebarStore } from '../stores/sidebar-store';
-
-function workspaceIdFromPath(pathname: string) {
-	const match = pathname.match(/^\/workspaces\/([^/]+)/);
-	return match ? decodeURIComponent(match[1]) : null;
-}
 
 export function AppShell() {
 	const location = useLocation();

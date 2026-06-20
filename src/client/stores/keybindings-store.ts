@@ -43,6 +43,8 @@ export const useKeybindingsStore = create<KeybindingsStoreState>((set) => ({
 
 	disconnectKeybindings: () => {
 		useWsStore.getState().unsubscribeTopic(KEYBINDINGS_SUBSCRIPTION_ID);
+		unsubscribeFromWsStore?.();
+		unsubscribeFromWsStore = null;
 		set({ isSubscribed: false, snapshot: null });
 	},
 
