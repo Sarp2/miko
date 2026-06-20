@@ -1,0 +1,64 @@
+src/client/stores/session-store.test.ts
+  s_8c803b6b16cb81::t_d9acb1377dddfc 73
+src/client/components/pending-tool-prompt.tsx
+  s_8c803b6b16cb81::t_358c99620d74c2 81
+  s_8c803b6b16cb81::t_85201a7d151705 143-144
+  s_8c803b6b16cb81::t_ff9b29cc572091 186
+  s_8c803b6b16cb81::t_1e66834b3920a1 1-5,7-71,75-80,82-84,89,91-108,110-142,145-185,187,191-198,200-211
+  s_8c803b6b16cb81::t_b413627e0a67a3 85-88,90
+  s_8c803b6b16cb81::t_006eab54b1f86e 199
+  s_8c803b6b16cb81::t_aaff2bb165c7d4 6
+  s_8c803b6b16cb81::t_af2a9220516700 72-74,109,188-190
+src/server/agent.ts
+  s_8c803b6b16cb81::t_a3cd01dc4af62c 73-89
+  s_8c803b6b16cb81::t_3a840a58ec319d 787
+src/client/stores/chat-window-store.test.ts
+  s_8c803b6b16cb81::t_5e4830a7afc052 33
+src/client/components/chat-page.tsx
+  s_8c803b6b16cb81::t_2bf4e94dd510ec 149
+  s_8c803b6b16cb81::t_23fe8a8f28d5fa 75
+  s_8c803b6b16cb81::t_e5c13e7d3c07dd 214-216,218-219
+  s_8c803b6b16cb81::t_28a07af97105ac 29
+  s_8c803b6b16cb81::t_d2ce534cb3fe87 15
+  s_8c803b6b16cb81::t_f5cc8566fff361 217
+src/server/read-models.ts
+  s_8c803b6b16cb81::t_f2f0bdd25d1da7 271
+  s_8c803b6b16cb81::t_2c8cb224b267fc 4
+  s_8c803b6b16cb81::t_bda3984b534dc3 294
+src/server/ws-router.ts
+  s_8c803b6b16cb81::t_86dc7e6445a221 248
+src/shared/types.ts
+  s_8c803b6b16cb81::t_1ae37809ba3977 1149-1150
+  s_8c803b6b16cb81::t_f6acc04d2ccf77 1177-1188
+src/server/agent.test.ts
+  s_8c803b6b16cb81::t_a95632558d774a 429,438,448-472
+src/client/hooks/use-chat-composer.ts
+  s_8c803b6b16cb81::t_c79e88ad4a1732 243
+  s_8c803b6b16cb81::t_51198b6ff21762 282
+  s_8c803b6b16cb81::t_afb1113677eac7 97-106
+src/server/read-models.test.ts
+  s_8c803b6b16cb81::t_b3d3b26f5cee0e 562,577
+  s_8c803b6b16cb81::t_0abcce23169d63 596
+src/server/ws-router.test.ts
+  s_8c803b6b16cb81::t_dbe1ee67347f37 181,382,439,488,545,615,666,719,1202
+src/client/components/chat-page.test.tsx
+  s_8c803b6b16cb81::t_a97cd755d3f7f5 82
+src/client/components/pending-tool-prompt.test.tsx
+  s_8c803b6b16cb81::t_35f3f36c061094 1-43
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "8dbe016e43e904859add95fac4def6b6d6b3e604",
+  "prompts": {},
+  "sessions": {
+    "s_8c803b6b16cb81": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8956886f-9ad2-4c1a-8255-a5b3dc44e464",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
