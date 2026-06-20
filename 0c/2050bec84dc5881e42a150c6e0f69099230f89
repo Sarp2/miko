@@ -1,0 +1,25 @@
+src/client/stores/ui-store.test.ts
+  s_2b436b0d1bd551::t_2798efef03e6fb 517,523,546
+src/client/lib/sidebar-order.test.ts
+  s_2b436b0d1bd551::t_074d11bd57bdfe 1-45
+src/client/stores/ui-store.ts
+  s_2b436b0d1bd551::t_89d24c425c5477 265
+src/client/lib/sidebar-order.ts
+  s_2b436b0d1bd551::t_11d58c9f32f301 36,44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "0c2050bec84dc5881e42a150c6e0f69099230f89",
+  "prompts": {},
+  "sessions": {
+    "s_2b436b0d1bd551": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019edf75-74be-7dc1-a6f2-db1647d94e9d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
