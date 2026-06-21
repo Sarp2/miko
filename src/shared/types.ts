@@ -1161,6 +1161,15 @@ export interface SessionRuntime {
 	sessionToken: string | null;
 	/** Set when the turn is parked awaiting a user response (plan approval / question). */
 	pendingTool: PendingToolSnapshot | null;
+	/** Messages queued while a turn is running, drained FIFO as each turn settles. */
+	queued: QueuedMessageSnapshot[];
+}
+
+/** A message waiting to run after the active turn settles (see queue behavior). */
+export interface QueuedMessageSnapshot {
+	id: string;
+	content: string;
+	attachmentCount: number;
 }
 
 export interface SessionHistorySnapshot {

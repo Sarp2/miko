@@ -247,6 +247,7 @@ export function createWsRouter({
 						getDrainingSessionIds(),
 						topic.sessionId,
 						agent.getPendingTool(topic.sessionId),
+						agent.getQueuedMessages(topic.sessionId),
 						(sessionId) =>
 							store.getRecentSessionHistory(
 								sessionId,
@@ -439,19 +440,27 @@ export function createWsRouter({
 			throw new Error('Session does not belong to workspace');
 		}
 
-		workspaceManager.markWorkspaceInstructionTurnStarted({ workspaceId, sessionId, intent });
-
+		let markedIntent = false;
 		try {
-			return await agent.send({
-				type: 'session.send',
-				sessionId,
-				workspaceId,
-				content,
-				attachments,
-				modelOptions: {},
-			});
+			// Workspace actions carry a post-turn intent (PR/Git refresh) that the running turn consumes
+			// on settle. They must reserve the agent session before marking the intent so concurrent
+			// actions cannot queue and then overwrite the intent for the already-starting turn.
+			return await agent.sendWhenIdle(
+				{
+					type: 'session.send',
+					sessionId,
+					workspaceId,
+					content,
+					attachments,
+					modelOptions: {},
+				},
+				() => {
+					workspaceManager.markWorkspaceInstructionTurnStarted({ workspaceId, sessionId, intent });
+					markedIntent = true;
+				},
+			);
 		} catch (error) {
-			workspaceManager.clearWorkspaceInstructionTurn(sessionId);
+			if (markedIntent) workspaceManager.clearWorkspaceInstructionTurn(sessionId);
 			throw error;
 		}
 	}
@@ -919,6 +928,11 @@ export function createWsRouter({
 				case 'session.listCommands': {
 					const result = await agent.listCommands(command.sessionId, command.provider);
 					send(ws, { type: 'ack', id, result });
+					break;
+				}
+				case 'session.dequeue': {
+					agent.dequeueMessage(command.sessionId, command.messageId);
+					send(ws, { type: 'ack', id });
 					break;
 				}
 				case 'terminal.create': {

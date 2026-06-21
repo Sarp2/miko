@@ -133,8 +133,14 @@ export function useChatComposer({
 		!sessionLoaded || workspaceSnapshot.workspace.setupState !== 'ready' || submitting;
 	const content = useMemo(() => promptPartsPlainText(parts), [parts]);
 	const hasVisibleAttachmentToken = parts.some((part) => part.type === 'attachment');
+	// Streaming no longer blocks submit: a message sent mid-turn is queued by the server and runs
+	// when the active turn settles. The one exception is `waiting_for_user`: the turn is parked on a
+	// tool/plan response and can't settle until it's answered via the pending-tool UI, so a queued
+	// message would be stuck — block sending until the prompt is resolved.
 	const canSubmit =
-		(content.trim().length > 0 || hasVisibleAttachmentToken) && !disabled && !isStreaming;
+		(content.trim().length > 0 || hasVisibleAttachmentToken) &&
+		!disabled &&
+		sessionStatus !== 'waiting_for_user';
 
 	useEffect(() => {
 		const targetSessionId = previousSessionIdRef.current;
@@ -436,6 +442,19 @@ export function useChatComposer({
 			});
 	}, [sendTargetSessionId]);
 
+	const queued = sessionSnapshot?.runtime.queued ?? [];
+	const dequeue = useCallback(
+		(messageId: string) => {
+			void useSessionStore
+				.getState()
+				.dequeueMessage(sendTargetSessionId, messageId)
+				.catch((error) => {
+					console.warn('[chat-composer] failed to remove queued message', error);
+				});
+		},
+		[sendTargetSessionId],
+	);
+
 	return {
 		parts,
 		setParts,
@@ -456,6 +475,8 @@ export function useChatComposer({
 		isStreaming,
 		disabled,
 		canSubmit,
+		queued,
+		dequeue,
 		addFiles,
 		removeAttachment,
 		ensureAttachmentUploaded,

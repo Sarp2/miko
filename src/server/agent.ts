@@ -18,6 +18,7 @@ import type {
 	NormalizedToolCall,
 	PendingToolSnapshot,
 	PromptPart,
+	QueuedMessageSnapshot,
 	SlashCommandInfo,
 	TranscriptEntry,
 } from '../shared/types';
@@ -86,6 +87,17 @@ function pendingToolSnapshot(pending: PendingToolRequest): PendingToolSnapshot {
 		toolKind: 'ask_user_question',
 		questions: tool.input?.questions ?? [],
 	};
+}
+
+type SendCommand = Extract<ClientCommand, { type: 'session.send' }>;
+
+// Bounds the in-memory follow-up queue per session so a long-running turn can't accumulate unlimited
+// messages (and their uploaded attachments).
+const MAX_QUEUED_MESSAGES = 25;
+
+interface QueuedMessage {
+	id: string;
+	command: SendCommand & { sessionId: string };
 }
 
 interface ActiveTurn {
@@ -733,6 +745,10 @@ export class AgentCoordinator {
 	private readonly renameWorkspaceBranch: AgentCoordinatorArgs['renameWorkspaceBranch'];
 	private readonly startClaudeSessionFn: NonNullable<AgentCoordinatorArgs['startClaudeSession']>;
 	private reportBackgroundError: ((message: string) => void) | null = null;
+	// Releases uploaded files of queued messages dropped via dequeue/stop so they don't orphan in app
+	// data. Receives a server-resolved workspaceId (never derived from the client payload) plus the
+	// upload stored-names, so a forged attachment path can't steer deletion to another workspace.
+	private discardUploads: ((workspaceId: string, storedNames: string[]) => void) | null = null;
 	readonly activeTurns = new Map<string, ActiveTurn>();
 	readonly drainingStreams = new Map<string, { turn: HarnessTurn }>();
 	readonly claudeSessions = new Map<string, ClaudeSessionState>();
@@ -740,6 +756,12 @@ export class AgentCoordinator {
 	// (filesystem + config derived), so the cache is shared across sessions in a workspace.
 	private readonly commandsCache = new Map<string, SlashCommandInfo[]>();
 	private readonly commandsInFlight = new Map<string, Promise<SlashCommandInfo[]>>();
+	// Messages sent while a turn is running. Drained one at a time as each turn settles, so the user
+	// can queue follow-ups without waiting. In-memory like activeTurns (lost on restart by design).
+	readonly queuedMessages = new Map<string, QueuedMessage[]>();
+	// Sessions whose turn is mid-startup (reserved before activeTurns is registered) so concurrent
+	// sends are treated as busy and never race past the check.
+	private readonly startingSessions = new Set<string>();
 
 	constructor(args: AgentCoordinatorArgs) {
 		this.store = args.store;
@@ -753,6 +775,24 @@ export class AgentCoordinator {
 
 	setBackgroundErrorReporter(report: ((message: string) => void) | null) {
 		this.reportBackgroundError = report;
+	}
+
+	setUploadCleanup(cleanup: ((workspaceId: string, storedNames: string[]) => void) | null) {
+		this.discardUploads = cleanup;
+	}
+
+	private discardQueuedUploads(sessionId: string, messages: QueuedMessage[]) {
+		// Trust only the stored-name segment of the canonical upload ref; the workspace comes from the
+		// session, never from the (client-supplied) attachment path.
+		const storedNames = messages.flatMap((entry) =>
+			(entry.command.attachments ?? []).flatMap((attachment) => {
+				const name = /^miko:\/\/uploads\/[^/]+\/(.+)$/.exec(attachment.relativePath)?.[1];
+				return name ? [name] : [];
+			}),
+		);
+		if (storedNames.length === 0) return;
+		const session = this.store.getSession(sessionId);
+		if (session) this.discardUploads?.(session.workspaceId, storedNames);
 	}
 
 	private async notifyTurnSettled(sessionId: string, outcome: 'success' | 'failed' | 'cancelled') {
@@ -1194,28 +1234,151 @@ export class AgentCoordinator {
 			sessionId = created.id;
 		}
 
-		const session = this.store.requireSession(sessionId);
-		const provider = this.resolveProvider(command, session.provider);
-		const settings = this.getProviderSettings(provider, command);
+		this.store.requireSession(sessionId);
 
-		await this.startTurnForSession({
-			sessionId,
-			provider,
-			content: command.content,
-			attachments: command.attachments ?? [],
-			parts: command.parts,
-			model: settings.model,
-			effort: settings.effort,
-			contextWindow: settings.contextWindow,
-			serviceTier: settings.serviceTier,
-			planMode: settings.planMode,
-			appendUserPrompt: true,
-		});
+		// A turn is running/starting — or messages are already queued behind a settling turn — so queue
+		// this one and let it start when the session drains, instead of rejecting or jumping the line.
+		if (this.isSessionBusy(sessionId)) {
+			const queue = this.queuedMessages.get(sessionId) ?? [];
+			if (queue.length >= MAX_QUEUED_MESSAGES) {
+				throw new Error(`Too many queued messages (max ${MAX_QUEUED_MESSAGES}).`);
+			}
+			queue.push({ id: crypto.randomUUID(), command: { ...command, sessionId } });
+			this.queuedMessages.set(sessionId, queue);
+			this.onStateChange();
+			return { sessionId };
+		}
 
+		await this.startQueuedOrDirect({ ...command, sessionId });
 		return { sessionId };
 	}
 
+	async sendWhenIdle(
+		command: Extract<ClientCommand, { type: 'session.send' }>,
+		beforeStart?: () => void,
+	) {
+		let sessionId = command.sessionId;
+
+		if (!sessionId) {
+			if (!command.workspaceId) {
+				throw new Error('Missing workspaceId for new session');
+			}
+
+			const created = await this.store.createSession(command.workspaceId);
+			sessionId = created.id;
+		}
+
+		this.store.requireSession(sessionId);
+
+		if (this.isSessionBusy(sessionId)) {
+			throw new Error('Session is busy — wait for the current turn to finish.');
+		}
+
+		await this.startQueuedOrDirect({ ...command, sessionId }, beforeStart);
+		return { sessionId };
+	}
+
+	private async startQueuedOrDirect(
+		command: SendCommand & { sessionId: string },
+		beforeStart?: () => void,
+	) {
+		// Reserve synchronously (before any await) so a concurrent send/instruction sees the session as
+		// busy during the async startup window — closing the check-then-start race. `activeTurns` takes
+		// over once the turn is registered.
+		this.startingSessions.add(command.sessionId);
+		try {
+			const session = this.store.requireSession(command.sessionId);
+			const provider = this.resolveProvider(command, session.provider);
+			const settings = this.getProviderSettings(provider, command);
+
+			beforeStart?.();
+
+			await this.startTurnForSession({
+				sessionId: command.sessionId,
+				provider,
+				content: command.content,
+				attachments: command.attachments ?? [],
+				parts: command.parts,
+				model: settings.model,
+				effort: settings.effort,
+				contextWindow: settings.contextWindow,
+				serviceTier: settings.serviceTier,
+				planMode: settings.planMode,
+				appendUserPrompt: true,
+			});
+		} finally {
+			this.startingSessions.delete(command.sessionId);
+		}
+	}
+
+	/** Start the next queued message once a session has no active turn. No-op if busy or empty. */
+	private async drainQueue(sessionId: string) {
+		if (this.activeTurns.has(sessionId) || this.startingSessions.has(sessionId)) return;
+		const queue = this.queuedMessages.get(sessionId);
+		if (!queue || queue.length === 0) return;
+
+		const next = queue.shift();
+		if (queue.length === 0) this.queuedMessages.delete(sessionId);
+		this.onStateChange();
+		if (!next) return;
+
+		try {
+			await this.startQueuedOrDirect(next.command);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			await this.store.appendMessage(
+				sessionId,
+				timestamped({
+					kind: 'result',
+					subtype: 'error',
+					isError: true,
+					durationMs: 0,
+					result: message,
+				}),
+			);
+			await this.store.recordTurnFailed(sessionId, message);
+			this.onStateChange();
+			// A start failure shouldn't strand the rest of the queue.
+			await this.drainQueue(sessionId);
+		}
+	}
+
+	/** Drop a still-queued message before it runs. */
+	dequeueMessage(sessionId: string, messageId: string) {
+		const queue = this.queuedMessages.get(sessionId);
+		if (!queue) return;
+		const dropped = queue.filter((entry) => entry.id === messageId);
+		if (dropped.length === 0) return;
+		const filtered = queue.filter((entry) => entry.id !== messageId);
+		if (filtered.length === 0) this.queuedMessages.delete(sessionId);
+		else this.queuedMessages.set(sessionId, filtered);
+		this.discardQueuedUploads(sessionId, dropped);
+		this.onStateChange();
+	}
+
+	/** A turn is running/starting or follow-ups are queued. Keeps discrete workspace actions un-queued. */
+	isSessionBusy(sessionId: string): boolean {
+		return (
+			this.activeTurns.has(sessionId) ||
+			this.startingSessions.has(sessionId) ||
+			(this.queuedMessages.get(sessionId)?.length ?? 0) > 0
+		);
+	}
+
+	getQueuedMessages(sessionId: string): QueuedMessageSnapshot[] {
+		const queue = this.queuedMessages.get(sessionId);
+		if (!queue) return [];
+		return queue.map((entry) => ({
+			id: entry.id,
+			content: entry.command.content,
+			attachmentCount: entry.command.attachments?.length ?? 0,
+		}));
+	}
+
 	private async runClaudeSession(session: ClaudeSessionState) {
+		// Set when the persistent stream throws/closes before emitting a result, so the finally can
+		// drain any queued follow-up (the result branch is the only other place that drains Claude).
+		let streamFailed = false;
 		try {
 			for await (const event of session.session.stream) {
 				if (event.type === 'session_token' && event.sessionToken) {
@@ -1246,6 +1409,8 @@ export class AgentCoordinator {
 						await this.notifyActiveTurnSettled(active, 'success');
 					}
 					this.activeTurns.delete(session.sessionId);
+					// Start the next queued message on the same persistent session (skipped on cancel).
+					if (!active.cancelRequested) await this.drainQueue(session.sessionId);
 				}
 
 				this.onStateChange();
@@ -1253,6 +1418,7 @@ export class AgentCoordinator {
 		} catch (error) {
 			const active = this.activeTurns.get(session.sessionId);
 			if (active && !active.cancelRequested) {
+				streamFailed = true;
 				const message = error instanceof Error ? error.message : String(error);
 				await this.store.appendMessage(
 					session.sessionId,
@@ -1284,6 +1450,11 @@ export class AgentCoordinator {
 			}
 			session.session.close();
 			this.onStateChange();
+
+			// Stream failed before a result: this session is torn down, so draining starts the queued
+			// follow-up on a fresh session. Guarded by activeTurns inside drainQueue (no double-start
+			// if a replacement turn already took over this id).
+			if (streamFailed) await this.drainQueue(session.sessionId);
 		}
 	}
 
@@ -1367,6 +1538,14 @@ export class AgentCoordinator {
 					// Track the still-open stream so the UI can show a draining
 					// indicator and the user can stop background tasks.
 					this.drainingStreams.set(active.sessionId, { turn: active.turn });
+
+					// The turn is settled from the UI's perspective even though the stream may keep
+					// emitting background output. Drain now so a queued follow-up isn't stuck behind it —
+					// but not when a tool-mandated follow-up is pending (it runs first, in the finally, and
+					// its own settle drains the queue); draining here would preempt it.
+					if (!active.cancelRequested && !active.postToolFollowUp) {
+						await this.drainQueue(active.sessionId);
+					}
 				}
 
 				this.onStateChange();
@@ -1436,6 +1615,9 @@ export class AgentCoordinator {
 					this.onStateChange();
 				}
 			}
+
+			// Start the next queued message (skipped if a follow-up turn already started or on cancel).
+			if (!active.cancelRequested) await this.drainQueue(active.sessionId);
 		}
 	}
 
@@ -1447,8 +1629,17 @@ export class AgentCoordinator {
 			this.drainingStreams.delete(sessionId);
 		}
 
+		// Stop halts everything for this session: drop any queued follow-ups so they don't auto-start,
+		// and release their uploaded attachments.
+		const droppedQueue = this.queuedMessages.get(sessionId);
+		const hadQueue = this.queuedMessages.delete(sessionId);
+		if (droppedQueue) this.discardQueuedUploads(sessionId, droppedQueue);
+
 		const active = this.activeTurns.get(sessionId);
-		if (!active) return;
+		if (!active) {
+			if (hadQueue) this.onStateChange();
+			return;
+		}
 
 		// Guards against double-cancel
 		if (active.cancelRequested) return;

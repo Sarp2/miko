@@ -2,6 +2,7 @@ import type {
 	DirectoryListSnapshot,
 	MikoStatus,
 	PendingToolSnapshot,
+	QueuedMessageSnapshot,
 	SessionRuntime,
 	SessionSnapshot,
 	SidebarDirectoryGroup,
@@ -272,6 +273,7 @@ export function deriveSessionSnapshot(
 	drainingSessionIds: Set<string>,
 	sessionId: string,
 	pendingTool: PendingToolSnapshot | null,
+	queued: QueuedMessageSnapshot[],
 	getMessages: (sessionId: string) => Pick<SessionSnapshot, 'messages' | 'history'>,
 ): SessionSnapshot | null {
 	const session = state.sessionsById.get(sessionId);
@@ -295,6 +297,7 @@ export function deriveSessionSnapshot(
 		planMode: session.planMode,
 		sessionToken: session.sessionToken,
 		pendingTool,
+		queued,
 	};
 
 	const transcript = getMessages(session.id);

@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import { CommandList } from './command-popover';
 import { ComposerEffortMenu } from './composer-effort-menu';
 import { ComposerModelMenu } from './composer-model-menu';
+import { ComposerQueuedMessages } from './composer-queued-messages';
 import { ComposerSuggestionPopover } from './composer-suggestion-popover';
 import { ComposerToggle } from './composer-toggle';
 import { FileMentionList } from './file-mention-popover';
@@ -70,7 +71,9 @@ export function ChatComposer({
 		sessionId,
 		workspaceSnapshot.workspace.localPath,
 	);
-	const composerReadonly = composer.disabled || composer.isStreaming;
+	// Streaming no longer makes the composer read-only: the user can keep composing (and queue) while
+	// a turn runs. Only hard-disabled states (setup not ready / submitting) lock the input.
+	const composerReadonly = composer.disabled;
 
 	const hasDraggedFiles = (dataTransfer: DataTransfer) =>
 		Array.from(dataTransfer.types).includes('Files');
@@ -200,6 +203,7 @@ export function ChatComposer({
 							onDragLeave={handleDragLeave}
 							onDrop={handleDrop}
 						>
+							<ComposerQueuedMessages queued={composer.queued} onRemove={composer.dequeue} />
 							{sessionPicker ? (
 								<div
 									className={cn(
@@ -264,7 +268,9 @@ export function ChatComposer({
 									}
 								}}
 								data-placeholder={
-									composer.parts.length === 0 ? 'Ask to make changes, @mention files' : undefined
+									composer.parts.length === 0
+										? 'Ask to make changes, @mention files, run /commands'
+										: undefined
 								}
 								className="scrollbar-miko block max-h-[220px] min-h-20 w-full overflow-y-auto whitespace-pre-wrap break-words bg-transparent px-3 py-3 text-[13px] leading-5 text-ink outline-none empty:before:pointer-events-none empty:before:text-ink-tertiary empty:before:content-[attr(data-placeholder)] disabled:cursor-not-allowed"
 							/>
@@ -275,7 +281,7 @@ export function ChatComposer({
 										provider={composer.provider}
 										model={composer.model}
 										contextWindow={composer.claudeContextWindow}
-										disabled={composer.disabled || composer.isStreaming}
+										disabled={composer.disabled}
 										onProviderChange={composer.setProvider}
 										onModelChange={composer.changeModel}
 										onContextWindowChange={composer.setClaudeContextWindow}
@@ -284,7 +290,7 @@ export function ChatComposer({
 										<ComposerEffortMenu
 											efforts={composer.providerCatalog.efforts}
 											value={composer.claudeReasoningEffort}
-											disabled={composer.disabled || composer.isStreaming}
+											disabled={composer.disabled}
 											onChange={composer.setClaudeReasoningEffort}
 										/>
 									) : null}
@@ -293,7 +299,7 @@ export function ChatComposer({
 											label="Plan"
 											icon={MapTrifold}
 											active={composer.planMode}
-											disabled={composer.disabled || composer.isStreaming}
+											disabled={composer.disabled}
 											onToggle={() => composer.setPlanMode(!composer.planMode)}
 										/>
 									) : null}
@@ -302,7 +308,7 @@ export function ChatComposer({
 											label="Fast"
 											icon={Lightning}
 											active={composer.codexFastMode}
-											disabled={composer.disabled || composer.isStreaming}
+											disabled={composer.disabled}
 											onToggle={() => composer.setCodexFastMode(!composer.codexFastMode)}
 										/>
 									) : null}
@@ -325,7 +331,7 @@ export function ChatComposer({
 												type="button"
 												variant="ghost"
 												size="icon-sm"
-												disabled={composer.disabled || composer.isStreaming}
+												disabled={composer.disabled}
 												className="size-7 text-ink-subtle hover:text-ink"
 												onClick={() => fileInputRef.current?.click()}
 											>
@@ -335,6 +341,8 @@ export function ChatComposer({
 										<TooltipContent>Attach files</TooltipContent>
 									</Tooltip>
 
+									{/* While streaming, Stop cancels the turn (and clears the queue); Send stays
+									    available so a follow-up can be queued. */}
 									{composer.isStreaming ? (
 										<Button
 											type="button"
@@ -345,17 +353,16 @@ export function ChatComposer({
 										>
 											<StopCircle className="size-4" />
 										</Button>
-									) : (
-										<Button
-											type="button"
-											size="icon-sm"
-											disabled={!composer.canSubmit}
-											className="size-7 rounded-md bg-ink text-canvas hover:bg-ink/90 disabled:bg-surface-3 disabled:text-ink-tertiary disabled:opacity-100"
-											onClick={() => void composer.submit()}
-										>
-											<ArrowUp className="size-4" weight="bold" />
-										</Button>
-									)}
+									) : null}
+									<Button
+										type="button"
+										size="icon-sm"
+										disabled={!composer.canSubmit}
+										className="size-7 rounded-md bg-ink text-canvas hover:bg-ink/90 disabled:bg-surface-3 disabled:text-ink-tertiary disabled:opacity-100"
+										onClick={() => void composer.submit()}
+									>
+										<ArrowUp className="size-4" weight="bold" />
+									</Button>
 								</div>
 							</div>
 						</div>

@@ -249,6 +249,15 @@ export async function startServer(options: StartServerOptions = {}) {
 		},
 	});
 
+	// Release uploaded attachments of queued messages that are dropped before they ever run. The
+	// workspaceId is resolved server-side from the session; deleteWorkspaceUpload further confines
+	// each storedName to that workspace's upload dir.
+	agent.setUploadCleanup((workspaceId, storedNames) => {
+		for (const storedName of storedNames) {
+			void deleteWorkspaceUpload({ workspaceId, dataDir: store.dataDir, storedName });
+		}
+	});
+
 	router = createWsRouter({
 		store,
 		diffStore,
