@@ -1,0 +1,41 @@
+src/server/event-store.ts
+  s_82e93de1bb8ac8::t_7a020c4862c750 512
+  s_82e93de1bb8ac8::t_319c4c08df2f4b 609-622,947-1021,1156-1184,1280-1282,1295,1306
+  s_82e93de1bb8ac8::t_24a2236fe0d6b6 21
+  s_82e93de1bb8ac8::t_4de0441f872015 20,179,190,201,205,230,253-255,266,279-280,456-460,511,513-544
+src/server/ws-router.ts
+  s_82e93de1bb8ac8::t_7a020c4862c750 934
+src/server/agent.ts
+  s_82e93de1bb8ac8::t_9189644e792578 753
+  s_82e93de1bb8ac8::t_24a2236fe0d6b6 1272
+  s_82e93de1bb8ac8::t_efa5cdb931955c 1616-1618
+  s_82e93de1bb8ac8::t_ffe58b1114cb70 26
+  s_82e93de1bb8ac8::t_1c47d9aaebd375 776,779-780,1234,1238,1305,1307-1309,1313-1314,1317,1336-1339,1348,1353-1356
+src/server/agent.test.ts
+  s_82e93de1bb8ac8::t_ce271ab9755890 115-184
+  s_82e93de1bb8ac8::t_8205ad34a213b6 193
+  s_82e93de1bb8ac8::t_7a020c4862c750 629,723
+  s_82e93de1bb8ac8::t_68b4d2bbbcc06d 1327-1332
+src/server/event-store.test.ts
+  s_82e93de1bb8ac8::t_67082119f2cf26 814-879
+src/server/event.ts
+  s_82e93de1bb8ac8::t_e156e4cc63ec33 26,28-39,44,52,194-234,241
+  s_82e93de1bb8ac8::t_6b5693cfb25ef0 1
+  s_82e93de1bb8ac8::t_5479c65e56e94a 25,27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "3930d4d9f2524c25ffa8bb53cabdc34663171471",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
