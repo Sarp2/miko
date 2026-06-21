@@ -1,0 +1,31 @@
+src/server/agent.ts
+  s_8c803b6b16cb81::t_604c54cc82b04d 94-97
+  s_8c803b6b16cb81::t_fa44c78694b142 777-785
+  s_8c803b6b16cb81::t_5a13c7e9f20e52 1300-1301,1305
+  s_8c803b6b16cb81::t_4e201350ca8045 1556-1558,1560
+  s_8c803b6b16cb81::t_e2541445e6c7b1 1231-1233
+  s_8c803b6b16cb81::t_be723a79e1bd32 748-751
+src/server/server.ts
+  s_8c803b6b16cb81::t_37027bea369afa 252-264
+src/server/agent.test.ts
+  s_8c803b6b16cb81::t_f27b590ebf95f0 598-600
+  s_8c803b6b16cb81::t_6d75fed71d483d 581-597,601-653
+src/client/components/chat-composer/chat-composer.tsx
+  s_8c803b6b16cb81::t_e9086faf95ccb4 271-273
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "49bd13a972e73e26b914f3decd3704a03e627729",
+  "prompts": {},
+  "sessions": {
+    "s_8c803b6b16cb81": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8956886f-9ad2-4c1a-8255-a5b3dc44e464",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
