@@ -1085,7 +1085,7 @@ export function Sidebar({
 								</div>
 							</SidebarPrimitiveHeader>
 
-							<div className="px-2 pt-0 pb-1.5">
+							<div className="px-2 pt-0 pb-[11px]">
 								<button
 									type="button"
 									className={cn(
