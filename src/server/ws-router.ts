@@ -440,26 +440,27 @@ export function createWsRouter({
 			throw new Error('Session does not belong to workspace');
 		}
 
-		// Workspace actions carry a post-turn intent (PR/Git refresh) that the running turn would
-		// consume on settle. Queueing them would strand or overwrite that intent, so require an idle
-		// session and run the instruction now.
-		if (agent.isSessionBusy(sessionId)) {
-			throw new Error('Session is busy — wait for the current turn to finish.');
-		}
-
-		workspaceManager.markWorkspaceInstructionTurnStarted({ workspaceId, sessionId, intent });
-
+		let markedIntent = false;
 		try {
-			return await agent.send({
-				type: 'session.send',
-				sessionId,
-				workspaceId,
-				content,
-				attachments,
-				modelOptions: {},
-			});
+			// Workspace actions carry a post-turn intent (PR/Git refresh) that the running turn consumes
+			// on settle. They must reserve the agent session before marking the intent so concurrent
+			// actions cannot queue and then overwrite the intent for the already-starting turn.
+			return await agent.sendWhenIdle(
+				{
+					type: 'session.send',
+					sessionId,
+					workspaceId,
+					content,
+					attachments,
+					modelOptions: {},
+				},
+				() => {
+					workspaceManager.markWorkspaceInstructionTurnStarted({ workspaceId, sessionId, intent });
+					markedIntent = true;
+				},
+			);
 		} catch (error) {
-			workspaceManager.clearWorkspaceInstructionTurn(sessionId);
+			if (markedIntent) workspaceManager.clearWorkspaceInstructionTurn(sessionId);
 			throw error;
 		}
 	}

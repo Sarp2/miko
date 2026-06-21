@@ -672,6 +672,66 @@ describe('AgentCoordinator queue', () => {
 		]);
 	});
 
+	test('reserves the session during startup so a concurrent send queues instead of racing', async () => {
+		const coordinator = createCoordinator({
+			store: { requireSession: () => ({ provider: 'claude' }) },
+		});
+		let releaseStart: () => void = () => {};
+		const startGate = new Promise<void>((resolve) => {
+			releaseStart = resolve;
+		});
+		(coordinator as unknown as { startTurnForSession: () => Promise<void> }).startTurnForSession =
+			async () => {
+				await startGate;
+				coordinator.activeTurns.set('session-1', activeTurnFixture({}));
+			};
+
+		// First send is mid-startup (reserved, awaiting the gate).
+		const firstStart = coordinator.send(sendCommand('first'));
+		expect(coordinator.isSessionBusy('session-1')).toBe(true);
+
+		// A send arriving during that window must queue, not start a second turn.
+		await coordinator.send(sendCommand('second'));
+		expect(coordinator.getQueuedMessages('session-1').map((m) => m.content)).toEqual(['second']);
+
+		releaseStart();
+		await firstStart;
+	});
+
+	test('sendWhenIdle reserves the session before marking and rejects concurrent sends', async () => {
+		const coordinator = createCoordinator({
+			store: { requireSession: () => ({ provider: 'claude' }) },
+		});
+		const marks: string[] = [];
+		let releaseStart: () => void = () => {};
+		const startGate = new Promise<void>((resolve) => {
+			releaseStart = resolve;
+		});
+		(coordinator as unknown as { startTurnForSession: () => Promise<void> }).startTurnForSession =
+			async () => {
+				await startGate;
+				coordinator.activeTurns.set('session-1', activeTurnFixture({}));
+			};
+
+		const firstStart = coordinator.sendWhenIdle(sendCommand('first'), () => {
+			marks.push('first');
+		});
+		expect(marks).toEqual(['first']);
+		expect(coordinator.isSessionBusy('session-1')).toBe(true);
+
+		await expect(
+			coordinator.sendWhenIdle(sendCommand('second'), () => {
+				marks.push('second');
+			}),
+		).rejects.toThrow('Session is busy');
+
+		expect(marks).toEqual(['first']);
+		expect(coordinator.getQueuedMessages('session-1')).toEqual([]);
+
+		releaseStart();
+		await firstStart;
+	});
+
 	test('isSessionBusy reflects active turns and a pending queue', async () => {
 		const coordinator = createCoordinator({
 			store: { requireSession: () => ({ provider: 'claude' }) },
@@ -1174,6 +1234,76 @@ describe('AgentCoordinator.respondTool', () => {
 			content: 'Proceed with the approved plan. Additional guidance: Ship with small refactor',
 			planMode: false,
 		});
+	});
+
+	test('runs a post-tool follow-up before draining queued user follow-ups', async () => {
+		const started: string[] = [];
+		const coordinator = createCoordinator({
+			store: {
+				appendMessage: async () => {},
+				recordTurnFinished: async () => {},
+				requireSession: () => ({ provider: 'codex' }),
+			},
+		});
+		(
+			coordinator as unknown as {
+				startTurnForSession: (args: { content: string }) => Promise<void>;
+			}
+		).startTurnForSession = async (args) => {
+			started.push(args.content);
+			coordinator.activeTurns.set('session-1', activeTurnFixture({}));
+		};
+
+		coordinator.queuedMessages.set('session-1', [
+			{
+				id: 'q1',
+				command: {
+					type: 'session.send',
+					sessionId: 'session-1',
+					content: 'queued follow-up',
+					modelOptions: {},
+				} as SendCommandFixture & { sessionId: string },
+			},
+		]);
+		const active = activeTurnFixture({
+			sessionId: 'session-1',
+			provider: 'codex',
+			turn: {
+				stream: (async function* () {
+					yield {
+						type: 'transcript',
+						entry: {
+							kind: 'result',
+							subtype: 'success',
+							isError: false,
+							durationMs: 1,
+							result: 'ok',
+						},
+					};
+				})(),
+				close: () => {},
+			},
+			model: 'gpt-5',
+			effort: undefined,
+			serviceTier: undefined,
+			planMode: true,
+			status: 'running',
+			pendingTool: null,
+			postToolFollowUp: { content: 'tool follow-up', planMode: false },
+			cancelRequested: false,
+			cancelRecorded: false,
+			settled: false,
+		});
+
+		coordinator.activeTurns.set('session-1', active);
+		await (
+			coordinator as unknown as { runTurn: (turn: ActiveTurnFixture) => Promise<void> }
+		).runTurn(active);
+
+		expect(started).toEqual(['tool follow-up']);
+		expect(coordinator.getQueuedMessages('session-1').map((m) => m.content)).toEqual([
+			'queued follow-up',
+		]);
 	});
 });
 

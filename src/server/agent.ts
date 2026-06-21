@@ -759,6 +759,9 @@ export class AgentCoordinator {
 	// Messages sent while a turn is running. Drained one at a time as each turn settles, so the user
 	// can queue follow-ups without waiting. In-memory like activeTurns (lost on restart by design).
 	readonly queuedMessages = new Map<string, QueuedMessage[]>();
+	// Sessions whose turn is mid-startup (reserved before activeTurns is registered) so concurrent
+	// sends are treated as busy and never race past the check.
+	private readonly startingSessions = new Set<string>();
 
 	constructor(args: AgentCoordinatorArgs) {
 		this.store = args.store;
@@ -1233,10 +1236,9 @@ export class AgentCoordinator {
 
 		this.store.requireSession(sessionId);
 
-		// A turn is already running — or messages are already queued behind a settling turn — so queue
+		// A turn is running/starting — or messages are already queued behind a settling turn — so queue
 		// this one and let it start when the session drains, instead of rejecting or jumping the line.
-		const queueLength = this.queuedMessages.get(sessionId)?.length ?? 0;
-		if (this.activeTurns.has(sessionId) || queueLength > 0) {
+		if (this.isSessionBusy(sessionId)) {
 			const queue = this.queuedMessages.get(sessionId) ?? [];
 			if (queue.length >= MAX_QUEUED_MESSAGES) {
 				throw new Error(`Too many queued messages (max ${MAX_QUEUED_MESSAGES}).`);
@@ -1251,29 +1253,67 @@ export class AgentCoordinator {
 		return { sessionId };
 	}
 
-	private async startQueuedOrDirect(command: SendCommand & { sessionId: string }) {
-		const session = this.store.requireSession(command.sessionId);
-		const provider = this.resolveProvider(command, session.provider);
-		const settings = this.getProviderSettings(provider, command);
+	async sendWhenIdle(
+		command: Extract<ClientCommand, { type: 'session.send' }>,
+		beforeStart?: () => void,
+	) {
+		let sessionId = command.sessionId;
 
-		await this.startTurnForSession({
-			sessionId: command.sessionId,
-			provider,
-			content: command.content,
-			attachments: command.attachments ?? [],
-			parts: command.parts,
-			model: settings.model,
-			effort: settings.effort,
-			contextWindow: settings.contextWindow,
-			serviceTier: settings.serviceTier,
-			planMode: settings.planMode,
-			appendUserPrompt: true,
-		});
+		if (!sessionId) {
+			if (!command.workspaceId) {
+				throw new Error('Missing workspaceId for new session');
+			}
+
+			const created = await this.store.createSession(command.workspaceId);
+			sessionId = created.id;
+		}
+
+		this.store.requireSession(sessionId);
+
+		if (this.isSessionBusy(sessionId)) {
+			throw new Error('Session is busy — wait for the current turn to finish.');
+		}
+
+		await this.startQueuedOrDirect({ ...command, sessionId }, beforeStart);
+		return { sessionId };
+	}
+
+	private async startQueuedOrDirect(
+		command: SendCommand & { sessionId: string },
+		beforeStart?: () => void,
+	) {
+		// Reserve synchronously (before any await) so a concurrent send/instruction sees the session as
+		// busy during the async startup window — closing the check-then-start race. `activeTurns` takes
+		// over once the turn is registered.
+		this.startingSessions.add(command.sessionId);
+		try {
+			const session = this.store.requireSession(command.sessionId);
+			const provider = this.resolveProvider(command, session.provider);
+			const settings = this.getProviderSettings(provider, command);
+
+			beforeStart?.();
+
+			await this.startTurnForSession({
+				sessionId: command.sessionId,
+				provider,
+				content: command.content,
+				attachments: command.attachments ?? [],
+				parts: command.parts,
+				model: settings.model,
+				effort: settings.effort,
+				contextWindow: settings.contextWindow,
+				serviceTier: settings.serviceTier,
+				planMode: settings.planMode,
+				appendUserPrompt: true,
+			});
+		} finally {
+			this.startingSessions.delete(command.sessionId);
+		}
 	}
 
 	/** Start the next queued message once a session has no active turn. No-op if busy or empty. */
 	private async drainQueue(sessionId: string) {
-		if (this.activeTurns.has(sessionId)) return;
+		if (this.activeTurns.has(sessionId) || this.startingSessions.has(sessionId)) return;
 		const queue = this.queuedMessages.get(sessionId);
 		if (!queue || queue.length === 0) return;
 
@@ -1316,9 +1356,13 @@ export class AgentCoordinator {
 		this.onStateChange();
 	}
 
-	/** A turn is running or follow-ups are queued. Used to keep discrete workspace actions un-queued. */
+	/** A turn is running/starting or follow-ups are queued. Keeps discrete workspace actions un-queued. */
 	isSessionBusy(sessionId: string): boolean {
-		return this.activeTurns.has(sessionId) || (this.queuedMessages.get(sessionId)?.length ?? 0) > 0;
+		return (
+			this.activeTurns.has(sessionId) ||
+			this.startingSessions.has(sessionId) ||
+			(this.queuedMessages.get(sessionId)?.length ?? 0) > 0
+		);
 	}
 
 	getQueuedMessages(sessionId: string): QueuedMessageSnapshot[] {
@@ -1496,8 +1540,12 @@ export class AgentCoordinator {
 					this.drainingStreams.set(active.sessionId, { turn: active.turn });
 
 					// The turn is settled from the UI's perspective even though the stream may keep
-					// emitting background output. Drain now so a queued follow-up isn't stuck behind it.
-					if (!active.cancelRequested) await this.drainQueue(active.sessionId);
+					// emitting background output. Drain now so a queued follow-up isn't stuck behind it —
+					// but not when a tool-mandated follow-up is pending (it runs first, in the finally, and
+					// its own settle drains the queue); draining here would preempt it.
+					if (!active.cancelRequested && !active.postToolFollowUp) {
+						await this.drainQueue(active.sessionId);
+					}
 				}
 
 				this.onStateChange();

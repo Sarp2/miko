@@ -184,6 +184,10 @@ async function createRouter(overrides: Record<string, unknown> = {}) {
 			isSessionBusy: () => false,
 			dequeueMessage: () => {},
 			send: async () => ({ sessionId: seeded.sessionId }),
+			sendWhenIdle: async (_command: unknown, beforeStart?: () => void) => {
+				beforeStart?.();
+				return { sessionId: seeded.sessionId };
+			},
 			cancel: async () => {},
 			closeSession: async () => {},
 			stopDraining: async () => {},
@@ -449,8 +453,10 @@ describe('createWsRouter.sendWorkspaceInstruction', () => {
 				getQueuedMessages: () => [],
 				isSessionBusy: () => false,
 				dequeueMessage: () => {},
-				send: async (command: unknown) => {
+				send: async () => ({ sessionId }),
+				sendWhenIdle: async (command: unknown, beforeStart?: () => void) => {
 					sentCommand = command;
+					beforeStart?.();
 					return { sessionId };
 				},
 				setBackgroundErrorReporter: () => {},
@@ -502,7 +508,9 @@ describe('createWsRouter.sendWorkspaceInstruction', () => {
 				getQueuedMessages: () => [],
 				isSessionBusy: () => false,
 				dequeueMessage: () => {},
-				send: async () => {
+				send: async () => ({ sessionId }),
+				sendWhenIdle: async (_command: unknown, beforeStart?: () => void) => {
+					beforeStart?.();
 					throw new Error('agent failed');
 				},
 				setBackgroundErrorReporter: () => {},
@@ -525,6 +533,59 @@ describe('createWsRouter.sendWorkspaceInstruction', () => {
 
 		expect(clearedSessionId as string | null).toBe(sessionId);
 		expect(ws.sent).toEqual([{ type: 'error', id: 'commit-1', message: 'agent failed' }]);
+	});
+
+	test('does not mark or clear a workspace intent when the session is already busy', async () => {
+		let marked = false;
+		let cleared = false;
+		const { router, workspaceId, sessionId } = await createRouter({
+			workspaceManager: {
+				markWorkspaceInstructionTurnStarted: () => {
+					marked = true;
+				},
+				clearWorkspaceInstructionTurn: () => {
+					cleared = true;
+				},
+			},
+			agent: {
+				getActiveStatuses: () => new Map(),
+				getDrainingSessionIds: () => new Set(),
+				getPendingTool: () => null,
+				listCommands: async () => [],
+				getQueuedMessages: () => [],
+				isSessionBusy: () => true,
+				dequeueMessage: () => {},
+				send: async () => ({ sessionId }),
+				sendWhenIdle: async () => {
+					throw new Error('Session is busy — wait for the current turn to finish.');
+				},
+				setBackgroundErrorReporter: () => {},
+			},
+		});
+		const ws = new FakeWebSocket();
+
+		await router.handleMessage(
+			ws as never,
+			JSON.stringify({
+				type: 'command',
+				id: 'commit-1',
+				command: {
+					type: 'workspace.commitAndPush',
+					workspaceId,
+					sessionId,
+				},
+			}),
+		);
+
+		expect(marked).toBe(false);
+		expect(cleared).toBe(false);
+		expect(ws.sent).toEqual([
+			{
+				type: 'error',
+				id: 'commit-1',
+				message: 'Session is busy — wait for the current turn to finish.',
+			},
+		]);
 	});
 
 	test('starts merge-conflict resolution only with a current conflicting PR snapshot', async () => {
@@ -563,8 +624,10 @@ describe('createWsRouter.sendWorkspaceInstruction', () => {
 				getQueuedMessages: () => [],
 				isSessionBusy: () => false,
 				dequeueMessage: () => {},
-				send: async (command: unknown) => {
+				send: async () => ({ sessionId }),
+				sendWhenIdle: async (command: unknown, beforeStart?: () => void) => {
 					sentCommand = command;
+					beforeStart?.();
 					return { sessionId };
 				},
 				setBackgroundErrorReporter: () => {},
