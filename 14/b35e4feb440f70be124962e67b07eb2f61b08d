@@ -1,0 +1,41 @@
+src/server/agent.ts
+  s_8c803b6b16cb81::t_cc06f13aba0d2a 790-792
+  s_8c803b6b16cb81::t_1410c7bb1398b8 1409-1413
+  s_8c803b6b16cb81::t_a47ecb826bea0b 1588
+  s_8c803b6b16cb81::t_92832937054064 1335-1337
+  s_8c803b6b16cb81::t_31b71e0428ec5e 777,781-789
+  s_8c803b6b16cb81::t_cb6ca69ca20acf 1319-1323
+  s_8c803b6b16cb81::t_677f884d7ffbf0 1315
+  s_8c803b6b16cb81::t_745bf7d6c9464e 1497-1500
+  s_8c803b6b16cb81::t_338d355a5b038e 748-751
+  s_8c803b6b16cb81::t_aba97901696a2e 1236-1239
+  s_8c803b6b16cb81::t_99f2ab37f459ff 1377
+src/server/agent.test.ts
+  s_8c803b6b16cb81::t_bd892896ef2a4e 649
+  s_8c803b6b16cb81::t_216b94cda80153 635-636,638-641,643-644,655-656
+  s_8c803b6b16cb81::t_d0d8f5ceaeaeb3 657-685
+src/server/ws-router.ts
+  s_8c803b6b16cb81::t_d7260e5b8e6f86 443-449
+src/server/server.ts
+  s_8c803b6b16cb81::t_f5af647512dcab 252-257
+src/server/ws-router.test.ts
+  s_8c803b6b16cb81::t_080784f4cab7f3 184,389,450,503,564,638,693,750,1390
+src/client/hooks/use-chat-composer.ts
+  s_8c803b6b16cb81::t_b8c5056d1590d6 137-143
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "14b35e4feb440f70be124962e67b07eb2f61b08d",
+  "prompts": {},
+  "sessions": {
+    "s_8c803b6b16cb81": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8956886f-9ad2-4c1a-8255-a5b3dc44e464",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
