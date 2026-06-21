@@ -811,6 +811,72 @@ describe('EventStore.listWorkspaces', () => {
 	});
 });
 
+describe('EventStore.queuedSessionMessages', () => {
+	function queuedSendCommand(sessionId: string, content: string) {
+		return {
+			type: 'session.send' as const,
+			sessionId,
+			content,
+			modelOptions: {},
+		};
+	}
+
+	test('persists queued session messages across store instances', async () => {
+		const dataDir = await createTempDataDir();
+		const store = new EventStore(dataDir);
+		await store.initialize();
+		const { workspace } = await createReadyWorkspace(store);
+		const session = await store.createSession(workspace.id);
+
+		const queued = await store.queueSessionMessage(queuedSendCommand(session.id, 'follow up'));
+
+		const reloaded = new EventStore(dataDir);
+		await reloaded.initialize();
+
+		expect(reloaded.listQueuedSessionMessages(session.id)).toEqual([
+			expect.objectContaining({
+				id: queued.id,
+				sessionId: session.id,
+				status: 'queued',
+				command: expect.objectContaining({ content: 'follow up' }),
+			}),
+		]);
+	});
+
+	test('requeues stale draining messages on startup', async () => {
+		const dataDir = await createTempDataDir();
+		const store = new EventStore(dataDir);
+		await store.initialize();
+		const { workspace } = await createReadyWorkspace(store);
+		const session = await store.createSession(workspace.id);
+		const queued = await store.queueSessionMessage(queuedSendCommand(session.id, 'retry me'));
+		await store.markQueuedSessionMessageDraining(session.id, queued.id);
+
+		const reloaded = new EventStore(dataDir);
+		await reloaded.initialize();
+
+		expect(reloaded.listQueuedSessionMessages(session.id)).toEqual([
+			expect.objectContaining({ id: queued.id, status: 'queued' }),
+		]);
+	});
+
+	test('does not resurrect queued messages for removed sessions after replay', async () => {
+		const dataDir = await createTempDataDir();
+		const store = new EventStore(dataDir);
+		await store.initialize();
+		const { workspace } = await createReadyWorkspace(store);
+		const session = await store.createSession(workspace.id);
+		const queued = await store.queueSessionMessage(queuedSendCommand(session.id, 'do not revive'));
+		await store.removeSession(session.id);
+
+		const reloaded = new EventStore(dataDir);
+		await reloaded.initialize();
+
+		expect(reloaded.getSession(session.id)).toBeNull();
+		expect(reloaded.getQueuedSessionMessage(queued.id)).toBeNull();
+	});
+});
+
 describe('EventStore.compact', () => {
 	test('compacts logs into a snapshot and reloads state without transcript loss', async () => {
 		const dataDir = await createTempDataDir();

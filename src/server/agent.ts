@@ -23,6 +23,7 @@ import type {
 	TranscriptEntry,
 } from '../shared/types';
 import { CodexAppServerManager } from './codex-app-server';
+import type { QueuedSessionMessageRecord, QueuedSessionSendCommand } from './event';
 import type { EventStore } from './event-store';
 import {
 	fallbackTitleFromMessage,
@@ -89,16 +90,9 @@ function pendingToolSnapshot(pending: PendingToolRequest): PendingToolSnapshot {
 	};
 }
 
-type SendCommand = Extract<ClientCommand, { type: 'session.send' }>;
-
 // Bounds the in-memory follow-up queue per session so a long-running turn can't accumulate unlimited
 // messages (and their uploaded attachments).
 const MAX_QUEUED_MESSAGES = 25;
-
-interface QueuedMessage {
-	id: string;
-	command: SendCommand & { sessionId: string };
-}
 
 interface ActiveTurn {
 	sessionId: string;
@@ -756,9 +750,7 @@ export class AgentCoordinator {
 	// (filesystem + config derived), so the cache is shared across sessions in a workspace.
 	private readonly commandsCache = new Map<string, SlashCommandInfo[]>();
 	private readonly commandsInFlight = new Map<string, Promise<SlashCommandInfo[]>>();
-	// Messages sent while a turn is running. Drained one at a time as each turn settles, so the user
-	// can queue follow-ups without waiting. In-memory like activeTurns (lost on restart by design).
-	readonly queuedMessages = new Map<string, QueuedMessage[]>();
+	// Queued follow-ups are persisted in EventStore; memory only tracks live startup/running state.
 	// Sessions whose turn is mid-startup (reserved before activeTurns is registered) so concurrent
 	// sends are treated as busy and never race past the check.
 	private readonly startingSessions = new Set<string>();
@@ -781,11 +773,11 @@ export class AgentCoordinator {
 		this.discardUploads = cleanup;
 	}
 
-	private discardQueuedUploads(sessionId: string, messages: QueuedMessage[]) {
+	private discardQueuedUploads(sessionId: string, messages: QueuedSessionMessageRecord[]) {
 		// Trust only the stored-name segment of the canonical upload ref; the workspace comes from the
 		// session, never from the (client-supplied) attachment path.
-		const storedNames = messages.flatMap((entry) =>
-			(entry.command.attachments ?? []).flatMap((attachment) => {
+		const storedNames = messages.flatMap((message) =>
+			(message.command.attachments ?? []).flatMap((attachment) => {
 				const name = /^miko:\/\/uploads\/[^/]+\/(.+)$/.exec(attachment.relativePath)?.[1];
 				return name ? [name] : [];
 			}),
@@ -1239,12 +1231,11 @@ export class AgentCoordinator {
 		// A turn is running/starting — or messages are already queued behind a settling turn — so queue
 		// this one and let it start when the session drains, instead of rejecting or jumping the line.
 		if (this.isSessionBusy(sessionId)) {
-			const queue = this.queuedMessages.get(sessionId) ?? [];
+			const queue = this.store.listQueuedSessionMessages(sessionId);
 			if (queue.length >= MAX_QUEUED_MESSAGES) {
 				throw new Error(`Too many queued messages (max ${MAX_QUEUED_MESSAGES}).`);
 			}
-			queue.push({ id: crypto.randomUUID(), command: { ...command, sessionId } });
-			this.queuedMessages.set(sessionId, queue);
+			await this.store.queueSessionMessage({ ...command, sessionId });
 			this.onStateChange();
 			return { sessionId };
 		}
@@ -1278,10 +1269,7 @@ export class AgentCoordinator {
 		return { sessionId };
 	}
 
-	private async startQueuedOrDirect(
-		command: SendCommand & { sessionId: string },
-		beforeStart?: () => void,
-	) {
+	private async startQueuedOrDirect(command: QueuedSessionSendCommand, beforeStart?: () => void) {
 		// Reserve synchronously (before any await) so a concurrent send/instruction sees the session as
 		// busy during the async startup window — closing the check-then-start race. `activeTurns` takes
 		// over once the turn is registered.
@@ -1314,18 +1302,19 @@ export class AgentCoordinator {
 	/** Start the next queued message once a session has no active turn. No-op if busy or empty. */
 	private async drainQueue(sessionId: string) {
 		if (this.activeTurns.has(sessionId) || this.startingSessions.has(sessionId)) return;
-		const queue = this.queuedMessages.get(sessionId);
-		if (!queue || queue.length === 0) return;
-
-		const next = queue.shift();
-		if (queue.length === 0) this.queuedMessages.delete(sessionId);
-		this.onStateChange();
+		const next = this.store.getNextQueuedSessionMessage(sessionId);
 		if (!next) return;
+		const draining = await this.store.markQueuedSessionMessageDraining(sessionId, next.id);
+		if (!draining) return;
+		this.onStateChange();
 
 		try {
 			await this.startQueuedOrDirect(next.command);
+			await this.store.completeQueuedSessionMessage(sessionId, next.id);
+			this.onStateChange();
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
+			await this.store.failQueuedSessionMessage(sessionId, next.id, message);
 			await this.store.appendMessage(
 				sessionId,
 				timestamped({
@@ -1344,15 +1333,10 @@ export class AgentCoordinator {
 	}
 
 	/** Drop a still-queued message before it runs. */
-	dequeueMessage(sessionId: string, messageId: string) {
-		const queue = this.queuedMessages.get(sessionId);
-		if (!queue) return;
-		const dropped = queue.filter((entry) => entry.id === messageId);
-		if (dropped.length === 0) return;
-		const filtered = queue.filter((entry) => entry.id !== messageId);
-		if (filtered.length === 0) this.queuedMessages.delete(sessionId);
-		else this.queuedMessages.set(sessionId, filtered);
-		this.discardQueuedUploads(sessionId, dropped);
+	async dequeueMessage(sessionId: string, messageId: string) {
+		const dropped = await this.store.dequeueQueuedSessionMessage(sessionId, messageId);
+		if (!dropped) return;
+		this.discardQueuedUploads(sessionId, [dropped]);
 		this.onStateChange();
 	}
 
@@ -1361,17 +1345,15 @@ export class AgentCoordinator {
 		return (
 			this.activeTurns.has(sessionId) ||
 			this.startingSessions.has(sessionId) ||
-			(this.queuedMessages.get(sessionId)?.length ?? 0) > 0
+			this.store.hasQueuedSessionMessages(sessionId)
 		);
 	}
 
 	getQueuedMessages(sessionId: string): QueuedMessageSnapshot[] {
-		const queue = this.queuedMessages.get(sessionId);
-		if (!queue) return [];
-		return queue.map((entry) => ({
-			id: entry.id,
-			content: entry.command.content,
-			attachmentCount: entry.command.attachments?.length ?? 0,
+		return this.store.listQueuedSessionMessages(sessionId).map((message) => ({
+			id: message.id,
+			content: message.command.content,
+			attachmentCount: message.command.attachments?.length ?? 0,
 		}));
 	}
 
@@ -1631,9 +1613,9 @@ export class AgentCoordinator {
 
 		// Stop halts everything for this session: drop any queued follow-ups so they don't auto-start,
 		// and release their uploaded attachments.
-		const droppedQueue = this.queuedMessages.get(sessionId);
-		const hadQueue = this.queuedMessages.delete(sessionId);
-		if (droppedQueue) this.discardQueuedUploads(sessionId, droppedQueue);
+		const droppedQueue = await this.store.dequeueQueuedSessionMessages(sessionId);
+		const hadQueue = droppedQueue.length > 0;
+		if (hadQueue) this.discardQueuedUploads(sessionId, droppedQueue);
 
 		const active = this.activeTurns.get(sessionId);
 		if (!active) {

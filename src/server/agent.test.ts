@@ -112,6 +112,76 @@ function createCoordinator(
 ) {
 	const normalized =
 		typeof options === 'function' ? { onStateChange: options, store: {} as unknown } : options;
+	const queuedMessages = new Map<
+		string,
+		{
+			id: string;
+			sessionId: string;
+			command: SendCommandFixture & { sessionId: string };
+			status: 'queued' | 'draining';
+			createdAt: number;
+			updatedAt: number;
+		}
+	>();
+	let queuedCounter = 0;
+	const queueStore = {
+		requireSession: () => ({ provider: 'claude' }),
+		getSession: (sessionId: string) => ({ id: sessionId, workspaceId: 'workspace-1' }),
+		listQueuedSessionMessages: (sessionId: string) =>
+			[...queuedMessages.values()]
+				.filter((message) => message.sessionId === sessionId && message.status === 'queued')
+				.toSorted((left, right) => left.createdAt - right.createdAt)
+				.map((message) => structuredClone(message)),
+		hasQueuedSessionMessages: (sessionId: string) =>
+			[...queuedMessages.values()].some(
+				(message) => message.sessionId === sessionId && message.status === 'queued',
+			),
+		getNextQueuedSessionMessage: (sessionId: string) =>
+			[...queuedMessages.values()]
+				.filter((message) => message.sessionId === sessionId && message.status === 'queued')
+				.toSorted((left, right) => left.createdAt - right.createdAt)
+				.map((message) => structuredClone(message))[0] ?? null,
+		queueSessionMessage: async (command: SendCommandFixture & { sessionId: string }) => {
+			queuedCounter += 1;
+			const now = queuedCounter;
+			const message = {
+				id: `queued-${queuedCounter}`,
+				sessionId: command.sessionId,
+				command: structuredClone(command),
+				status: 'queued' as const,
+				createdAt: now,
+				updatedAt: now,
+			};
+			queuedMessages.set(message.id, message);
+			return structuredClone(message);
+		},
+		markQueuedSessionMessageDraining: async (sessionId: string, messageId: string) => {
+			const message = queuedMessages.get(messageId);
+			if (!message || message.sessionId !== sessionId || message.status !== 'queued') return null;
+			message.status = 'draining';
+			message.updatedAt = ++queuedCounter;
+			return structuredClone(message);
+		},
+		completeQueuedSessionMessage: async (_sessionId: string, messageId: string) => {
+			queuedMessages.delete(messageId);
+		},
+		failQueuedSessionMessage: async (_sessionId: string, messageId: string) => {
+			queuedMessages.delete(messageId);
+		},
+		dequeueQueuedSessionMessage: async (sessionId: string, messageId: string) => {
+			const message = queuedMessages.get(messageId);
+			if (!message || message.sessionId !== sessionId || message.status !== 'queued') return null;
+			queuedMessages.delete(messageId);
+			return structuredClone(message);
+		},
+		dequeueQueuedSessionMessages: async (sessionId: string) => {
+			const messages = [...queuedMessages.values()]
+				.filter((message) => message.sessionId === sessionId && message.status === 'queued')
+				.map((message) => structuredClone(message));
+			for (const message of messages) queuedMessages.delete(message.id);
+			return messages;
+		},
+	};
 	const {
 		onStateChange = () => {},
 		store = {},
@@ -120,7 +190,7 @@ function createCoordinator(
 		renameWorkspaceBranch,
 	} = normalized;
 	return new AgentCoordinator({
-		store: store as EventStore,
+		store: { ...queueStore, ...(store as Record<string, unknown>) } as unknown as EventStore,
 		onStateChange,
 		codexManager: codexManager as CodexAppServerManager,
 		generateTitle: generateTitle as ConstructorParameters<
@@ -556,7 +626,7 @@ describe('AgentCoordinator queue', () => {
 		await coordinator.send(sendCommand('two'));
 
 		const [first] = coordinator.getQueuedMessages('session-1');
-		coordinator.dequeueMessage('session-1', first.id);
+		await coordinator.dequeueMessage('session-1', first.id);
 
 		expect(coordinator.getQueuedMessages('session-1').map((m) => m.content)).toEqual(['two']);
 	});
@@ -650,7 +720,7 @@ describe('AgentCoordinator queue', () => {
 		} as SendCommandFixture);
 
 		const [queued] = coordinator.getQueuedMessages('session-1');
-		coordinator.dequeueMessage('session-1', queued.id);
+		await coordinator.dequeueMessage('session-1', queued.id);
 
 		// Workspace comes from the session, not the (forged) attachment path; only the stored name is trusted.
 		expect(released).toEqual([{ workspaceId: 'workspace-1', storedNames: ['up-1.png'] }]);
@@ -1254,17 +1324,12 @@ describe('AgentCoordinator.respondTool', () => {
 			coordinator.activeTurns.set('session-1', activeTurnFixture({}));
 		};
 
-		coordinator.queuedMessages.set('session-1', [
-			{
-				id: 'q1',
-				command: {
-					type: 'session.send',
-					sessionId: 'session-1',
-					content: 'queued follow-up',
-					modelOptions: {},
-				} as SendCommandFixture & { sessionId: string },
-			},
-		]);
+		await (coordinator as unknown as { store: EventStore }).store.queueSessionMessage({
+			type: 'session.send',
+			sessionId: 'session-1',
+			content: 'queued follow-up',
+			modelOptions: {},
+		});
 		const active = activeTurnFixture({
 			sessionId: 'session-1',
 			provider: 'codex',

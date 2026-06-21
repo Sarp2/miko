@@ -17,6 +17,8 @@ import {
 	cloneTranscriptEntries,
 	createEmptyState,
 	type DirectoryEvent,
+	type QueuedSessionSendCommand,
+	type QueueEvent,
 	type SessionEvent,
 	type SnapshotFile,
 	type StoreEvent,
@@ -174,6 +176,7 @@ export class EventStore {
 	private readonly workspacesLogPath: string;
 	private readonly sessionsLogPath: string;
 	private readonly turnsLogPath: string;
+	private readonly queuesLogPath: string;
 	private readonly transcriptsDir: string;
 	private cachedTranscript: { sessionId: string; entries: TranscriptEntry[] } | null = null;
 
@@ -184,6 +187,7 @@ export class EventStore {
 		this.workspacesLogPath = path.join(this.dataDir, 'workspaces.jsonl');
 		this.sessionsLogPath = path.join(this.dataDir, 'sessions.jsonl');
 		this.turnsLogPath = path.join(this.dataDir, 'turns.jsonl');
+		this.queuesLogPath = path.join(this.dataDir, 'queues.jsonl');
 		this.transcriptsDir = path.join(this.dataDir, 'transcripts');
 	}
 
@@ -194,9 +198,11 @@ export class EventStore {
 		await this.ensureFile(this.workspacesLogPath);
 		await this.ensureFile(this.sessionsLogPath);
 		await this.ensureFile(this.turnsLogPath);
+		await this.ensureFile(this.queuesLogPath);
 		await this.loadSnapshot();
 		await this.replayLogs();
 		this.rebuildSessionMetadataFromTranscripts();
+		await this.requeueDrainingMessages();
 
 		if (await this.shouldCompact()) {
 			await this.compact();
@@ -221,6 +227,7 @@ export class EventStore {
 			Bun.write(this.workspacesLogPath, ''),
 			Bun.write(this.sessionsLogPath, ''),
 			Bun.write(this.turnsLogPath, ''),
+			Bun.write(this.queuesLogPath, ''),
 		]);
 	}
 
@@ -243,6 +250,9 @@ export class EventStore {
 			for (const session of parsed.sessions) {
 				this.state.sessionsById.set(session.id, { ...session });
 			}
+			for (const queued of parsed.queuedMessages ?? []) {
+				this.state.queuedMessagesById.set(queued.id, structuredClone(queued));
+			}
 		} catch (error) {
 			console.warn(`${LOG_PREFIX} Failed to load snapshot, resetting local history:`, error);
 			await this.clearStorage();
@@ -253,6 +263,7 @@ export class EventStore {
 		this.state.directoriesById.clear();
 		this.state.workspacesById.clear();
 		this.state.sessionsById.clear();
+		this.state.queuedMessagesById.clear();
 		this.cachedTranscript = null;
 	}
 
@@ -265,6 +276,8 @@ export class EventStore {
 		await this.replayLog<SessionEvent>(this.sessionsLogPath);
 		if (this.storageReset) return;
 		await this.replayLog<TurnEvent>(this.turnsLogPath);
+		if (this.storageReset) return;
+		await this.replayLog<QueueEvent>(this.queuesLogPath);
 	}
 
 	private async replayLog<_TEvent extends StoreEvent>(filePath: string) {
@@ -440,6 +453,11 @@ export class EventStore {
 				if (!session) break;
 				session.removedAt = event.timestamp;
 				session.updatedAt = event.timestamp;
+				for (const queued of this.state.queuedMessagesById.values()) {
+					if (queued.sessionId === event.sessionId) {
+						this.state.queuedMessagesById.delete(queued.id);
+					}
+				}
 				break;
 			}
 			case 'session_provider_set': {
@@ -488,6 +506,40 @@ export class EventStore {
 				if (!session) break;
 				session.sessionToken = event.sessionToken;
 				session.updatedAt = event.timestamp;
+				break;
+			}
+			case 'session_message_queued': {
+				if (!this.getSession(event.sessionId)) break;
+				this.state.queuedMessagesById.set(event.messageId, {
+					id: event.messageId,
+					sessionId: event.sessionId,
+					command: structuredClone(event.command),
+					status: 'queued',
+					createdAt: event.timestamp,
+					updatedAt: event.timestamp,
+				});
+				break;
+			}
+			case 'session_message_draining': {
+				const queued = this.state.queuedMessagesById.get(event.messageId);
+				if (!queued || queued.sessionId !== event.sessionId) break;
+				queued.status = 'draining';
+				queued.updatedAt = event.timestamp;
+				break;
+			}
+			case 'session_message_requeued': {
+				const queued = this.state.queuedMessagesById.get(event.messageId);
+				if (!queued || queued.sessionId !== event.sessionId) break;
+				queued.status = 'queued';
+				queued.updatedAt = event.timestamp;
+				break;
+			}
+			case 'session_message_completed':
+			case 'session_message_failed':
+			case 'session_message_dequeued': {
+				const queued = this.state.queuedMessagesById.get(event.messageId);
+				if (!queued || queued.sessionId !== event.sessionId) break;
+				this.state.queuedMessagesById.delete(event.messageId);
 				break;
 			}
 		}
@@ -552,6 +604,20 @@ export class EventStore {
 			this.cachedTranscript = null;
 		}
 		await rm(this.transcriptPath(sessionId), { force: true });
+	}
+
+	private async requeueDrainingMessages() {
+		const draining = [...this.state.queuedMessagesById.values()].filter(
+			(message) => message.status === 'draining' && this.getSession(message.sessionId),
+		);
+		for (const message of draining) {
+			await this.append(this.queuesLogPath, {
+				type: 'session_message_requeued',
+				timestamp: Date.now(),
+				messageId: message.id,
+				sessionId: message.sessionId,
+			} satisfies QueueEvent);
+		}
 	}
 
 	private async deleteWorkspaceOwnedData(workspaceId: string) {
@@ -878,6 +944,81 @@ export class EventStore {
 		await this.deleteSessionData(sessionId);
 	}
 
+	async queueSessionMessage(command: QueuedSessionSendCommand) {
+		this.requireSession(command.sessionId);
+		const messageId = crypto.randomUUID();
+		const event: QueueEvent = {
+			type: 'session_message_queued',
+			timestamp: Date.now(),
+			messageId,
+			sessionId: command.sessionId,
+			command: structuredClone(command),
+		};
+
+		await this.append(this.queuesLogPath, event);
+		return this.requireQueuedSessionMessage(messageId);
+	}
+
+	async markQueuedSessionMessageDraining(sessionId: string, messageId: string) {
+		const queued = this.getQueuedSessionMessage(messageId);
+		if (!queued || queued.sessionId !== sessionId || queued.status !== 'queued') return null;
+		await this.append(this.queuesLogPath, {
+			type: 'session_message_draining',
+			timestamp: Date.now(),
+			messageId,
+			sessionId,
+		} satisfies QueueEvent);
+		return this.getQueuedSessionMessage(messageId);
+	}
+
+	async completeQueuedSessionMessage(sessionId: string, messageId: string) {
+		const queued = this.getQueuedSessionMessage(messageId);
+		if (!queued || queued.sessionId !== sessionId) return;
+		await this.append(this.queuesLogPath, {
+			type: 'session_message_completed',
+			timestamp: Date.now(),
+			messageId,
+			sessionId,
+		} satisfies QueueEvent);
+	}
+
+	async failQueuedSessionMessage(sessionId: string, messageId: string, error: string) {
+		const queued = this.getQueuedSessionMessage(messageId);
+		if (!queued || queued.sessionId !== sessionId) return;
+		await this.append(this.queuesLogPath, {
+			type: 'session_message_failed',
+			timestamp: Date.now(),
+			messageId,
+			sessionId,
+			error,
+		} satisfies QueueEvent);
+	}
+
+	async dequeueQueuedSessionMessage(sessionId: string, messageId: string) {
+		const queued = this.getQueuedSessionMessage(messageId);
+		if (!queued || queued.sessionId !== sessionId || queued.status !== 'queued') return null;
+		await this.append(this.queuesLogPath, {
+			type: 'session_message_dequeued',
+			timestamp: Date.now(),
+			messageId,
+			sessionId,
+		} satisfies QueueEvent);
+		return queued;
+	}
+
+	async dequeueQueuedSessionMessages(sessionId: string) {
+		const queued = this.listQueuedSessionMessages(sessionId);
+		for (const message of queued) {
+			await this.append(this.queuesLogPath, {
+				type: 'session_message_dequeued',
+				timestamp: Date.now(),
+				messageId: message.id,
+				sessionId,
+			} satisfies QueueEvent);
+		}
+		return queued;
+	}
+
 	async setSessionProvider(sessionId: string, provider: AgentProvider) {
 		const session = this.requireSession(sessionId);
 		if (session.provider === provider) return;
@@ -1012,6 +1153,35 @@ export class EventStore {
 		return session;
 	}
 
+	getQueuedSessionMessage(messageId: string) {
+		const queued = this.state.queuedMessagesById.get(messageId);
+		if (!queued) return null;
+		if (!this.getSession(queued.sessionId)) return null;
+		return structuredClone(queued);
+	}
+
+	private requireQueuedSessionMessage(messageId: string) {
+		const queued = this.getQueuedSessionMessage(messageId);
+		if (!queued) throw new Error('Queued message not found');
+		return queued;
+	}
+
+	listQueuedSessionMessages(sessionId: string) {
+		this.requireSession(sessionId);
+		return [...this.state.queuedMessagesById.values()]
+			.filter((message) => message.sessionId === sessionId && message.status === 'queued')
+			.toSorted((left, right) => left.createdAt - right.createdAt)
+			.map((message) => structuredClone(message));
+	}
+
+	getNextQueuedSessionMessage(sessionId: string) {
+		return this.listQueuedSessionMessages(sessionId)[0] ?? null;
+	}
+
+	hasQueuedSessionMessages(sessionId: string) {
+		return this.listQueuedSessionMessages(sessionId).length > 0;
+	}
+
 	getMessages(sessionId: string) {
 		if (this.cachedTranscript?.sessionId === sessionId) {
 			return cloneTranscriptEntries(this.cachedTranscript.entries);
@@ -1107,6 +1277,9 @@ export class EventStore {
 			})),
 			workspaces: [...this.state.workspacesById.values()].map((workspace) => ({ ...workspace })),
 			sessions: [...this.state.sessionsById.values()].map((session) => ({ ...session })),
+			queuedMessages: [...this.state.queuedMessagesById.values()].map((message) =>
+				structuredClone(message),
+			),
 		};
 	}
 
@@ -1119,6 +1292,7 @@ export class EventStore {
 				Bun.write(this.workspacesLogPath, ''),
 				Bun.write(this.sessionsLogPath, ''),
 				Bun.write(this.turnsLogPath, ''),
+				Bun.write(this.queuesLogPath, ''),
 			]);
 		});
 	}
@@ -1129,6 +1303,7 @@ export class EventStore {
 			Bun.file(this.workspacesLogPath).size,
 			Bun.file(this.sessionsLogPath).size,
 			Bun.file(this.turnsLogPath).size,
+			Bun.file(this.queuesLogPath).size,
 		]);
 		return sizes.reduce((total, size) => total + size, 0) >= COMPACTION_THRESHOLD_BYTES;
 	}
