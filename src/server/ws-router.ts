@@ -440,6 +440,13 @@ export function createWsRouter({
 			throw new Error('Session does not belong to workspace');
 		}
 
+		// Workspace actions carry a post-turn intent (PR/Git refresh) that the running turn would
+		// consume on settle. Queueing them would strand or overwrite that intent, so require an idle
+		// session and run the instruction now.
+		if (agent.isSessionBusy(sessionId)) {
+			throw new Error('Session is busy — wait for the current turn to finish.');
+		}
+
 		workspaceManager.markWorkspaceInstructionTurnStarted({ workspaceId, sessionId, intent });
 
 		try {

@@ -134,8 +134,13 @@ export function useChatComposer({
 	const content = useMemo(() => promptPartsPlainText(parts), [parts]);
 	const hasVisibleAttachmentToken = parts.some((part) => part.type === 'attachment');
 	// Streaming no longer blocks submit: a message sent mid-turn is queued by the server and runs
-	// when the active turn settles.
-	const canSubmit = (content.trim().length > 0 || hasVisibleAttachmentToken) && !disabled;
+	// when the active turn settles. The one exception is `waiting_for_user`: the turn is parked on a
+	// tool/plan response and can't settle until it's answered via the pending-tool UI, so a queued
+	// message would be stuck — block sending until the prompt is resolved.
+	const canSubmit =
+		(content.trim().length > 0 || hasVisibleAttachmentToken) &&
+		!disabled &&
+		sessionStatus !== 'waiting_for_user';
 
 	useEffect(() => {
 		const targetSessionId = previousSessionIdRef.current;

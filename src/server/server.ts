@@ -249,16 +249,12 @@ export async function startServer(options: StartServerOptions = {}) {
 		},
 	});
 
-	// Release uploaded attachments of queued messages that are dropped before they ever run.
-	agent.setUploadCleanup((attachments) => {
-		for (const attachment of attachments) {
-			const workspaceId = /^miko:\/\/uploads\/([^/]+)\//.exec(attachment.relativePath)?.[1];
-			if (!workspaceId) continue;
-			void deleteWorkspaceUpload({
-				workspaceId,
-				dataDir: store.dataDir,
-				storedName: path.basename(attachment.absolutePath),
-			});
+	// Release uploaded attachments of queued messages that are dropped before they ever run. The
+	// workspaceId is resolved server-side from the session; deleteWorkspaceUpload further confines
+	// each storedName to that workspace's upload dir.
+	agent.setUploadCleanup((workspaceId, storedNames) => {
+		for (const storedName of storedNames) {
+			void deleteWorkspaceUpload({ workspaceId, dataDir: store.dataDir, storedName });
 		}
 	});
 

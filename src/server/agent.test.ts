@@ -632,24 +632,57 @@ describe('AgentCoordinator queue', () => {
 		expect(coordinator.getQueuedMessages('session-1')).toHaveLength(25);
 	});
 
-	test('releases uploaded attachments when a queued message is dropped', async () => {
-		const released: string[] = [];
+	test('releases uploads of a dropped queued message using the session workspace', async () => {
+		const released: Array<{ workspaceId: string; storedNames: string[] }> = [];
 		const coordinator = createCoordinator({
-			store: { requireSession: () => ({ provider: 'claude' }) },
+			store: {
+				requireSession: () => ({ provider: 'claude' }),
+				getSession: () => ({ workspaceId: 'workspace-1' }),
+			},
 		});
-		coordinator.setUploadCleanup((attachments) => {
-			for (const attachment of attachments) released.push(attachment.id);
+		coordinator.setUploadCleanup((workspaceId, storedNames) => {
+			released.push({ workspaceId, storedNames });
 		});
 		coordinator.activeTurns.set('session-1', activeTurnFixture({}));
 		await coordinator.send({
 			...sendCommand('with file'),
-			attachments: [makeAttachment({ id: 'up-1' })],
+			attachments: [makeAttachment({ relativePath: 'miko://uploads/forged-workspace/up-1.png' })],
 		} as SendCommandFixture);
 
 		const [queued] = coordinator.getQueuedMessages('session-1');
 		coordinator.dequeueMessage('session-1', queued.id);
 
-		expect(released).toEqual(['up-1']);
+		// Workspace comes from the session, not the (forged) attachment path; only the stored name is trusted.
+		expect(released).toEqual([{ workspaceId: 'workspace-1', storedNames: ['up-1.png'] }]);
+	});
+
+	test('queues behind a pending message even when no turn is currently active', async () => {
+		const coordinator = createCoordinator({
+			store: { requireSession: () => ({ provider: 'claude' }) },
+		});
+		coordinator.activeTurns.set('session-1', activeTurnFixture({}));
+		await coordinator.send(sendCommand('first'));
+		// Turn settled but not yet drained: a new send must still queue, not jump the line.
+		coordinator.activeTurns.delete('session-1');
+		await coordinator.send(sendCommand('second'));
+
+		expect(coordinator.getQueuedMessages('session-1').map((m) => m.content)).toEqual([
+			'first',
+			'second',
+		]);
+	});
+
+	test('isSessionBusy reflects active turns and a pending queue', async () => {
+		const coordinator = createCoordinator({
+			store: { requireSession: () => ({ provider: 'claude' }) },
+		});
+		expect(coordinator.isSessionBusy('session-1')).toBe(false);
+
+		coordinator.activeTurns.set('session-1', activeTurnFixture({}));
+		await coordinator.send(sendCommand('queued'));
+		coordinator.activeTurns.delete('session-1');
+		// Active turn gone, but a queued follow-up still counts as busy.
+		expect(coordinator.isSessionBusy('session-1')).toBe(true);
 	});
 });
 

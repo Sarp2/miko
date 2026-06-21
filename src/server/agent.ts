@@ -745,10 +745,10 @@ export class AgentCoordinator {
 	private readonly renameWorkspaceBranch: AgentCoordinatorArgs['renameWorkspaceBranch'];
 	private readonly startClaudeSessionFn: NonNullable<AgentCoordinatorArgs['startClaudeSession']>;
 	private reportBackgroundError: ((message: string) => void) | null = null;
-	// Called with the uploaded attachments of queued messages that are dropped (dequeue / stop) so
-	// their files don't orphan in app data. Messages that actually run keep their attachments (they
-	// become referenced by the transcript).
-	private discardUploads: ((attachments: ChatAttachment[]) => void) | null = null;
+	// Releases uploaded files of queued messages dropped via dequeue/stop so they don't orphan in app
+	// data. Receives a server-resolved workspaceId (never derived from the client payload) plus the
+	// upload stored-names, so a forged attachment path can't steer deletion to another workspace.
+	private discardUploads: ((workspaceId: string, storedNames: string[]) => void) | null = null;
 	readonly activeTurns = new Map<string, ActiveTurn>();
 	readonly drainingStreams = new Map<string, { turn: HarnessTurn }>();
 	readonly claudeSessions = new Map<string, ClaudeSessionState>();
@@ -774,13 +774,22 @@ export class AgentCoordinator {
 		this.reportBackgroundError = report;
 	}
 
-	setUploadCleanup(cleanup: ((attachments: ChatAttachment[]) => void) | null) {
+	setUploadCleanup(cleanup: ((workspaceId: string, storedNames: string[]) => void) | null) {
 		this.discardUploads = cleanup;
 	}
 
-	private discardQueuedUploads(messages: QueuedMessage[]) {
-		const attachments = messages.flatMap((entry) => entry.command.attachments ?? []);
-		if (attachments.length > 0) this.discardUploads?.(attachments);
+	private discardQueuedUploads(sessionId: string, messages: QueuedMessage[]) {
+		// Trust only the stored-name segment of the canonical upload ref; the workspace comes from the
+		// session, never from the (client-supplied) attachment path.
+		const storedNames = messages.flatMap((entry) =>
+			(entry.command.attachments ?? []).flatMap((attachment) => {
+				const name = /^miko:\/\/uploads\/[^/]+\/(.+)$/.exec(attachment.relativePath)?.[1];
+				return name ? [name] : [];
+			}),
+		);
+		if (storedNames.length === 0) return;
+		const session = this.store.getSession(sessionId);
+		if (session) this.discardUploads?.(session.workspaceId, storedNames);
 	}
 
 	private async notifyTurnSettled(sessionId: string, outcome: 'success' | 'failed' | 'cancelled') {
@@ -1224,9 +1233,10 @@ export class AgentCoordinator {
 
 		this.store.requireSession(sessionId);
 
-		// A turn is already running for this session: queue the message and let it start when the
-		// active turn settles, instead of rejecting. Drain order is FIFO.
-		if (this.activeTurns.has(sessionId)) {
+		// A turn is already running — or messages are already queued behind a settling turn — so queue
+		// this one and let it start when the session drains, instead of rejecting or jumping the line.
+		const queueLength = this.queuedMessages.get(sessionId)?.length ?? 0;
+		if (this.activeTurns.has(sessionId) || queueLength > 0) {
 			const queue = this.queuedMessages.get(sessionId) ?? [];
 			if (queue.length >= MAX_QUEUED_MESSAGES) {
 				throw new Error(`Too many queued messages (max ${MAX_QUEUED_MESSAGES}).`);
@@ -1302,8 +1312,13 @@ export class AgentCoordinator {
 		const filtered = queue.filter((entry) => entry.id !== messageId);
 		if (filtered.length === 0) this.queuedMessages.delete(sessionId);
 		else this.queuedMessages.set(sessionId, filtered);
-		this.discardQueuedUploads(dropped);
+		this.discardQueuedUploads(sessionId, dropped);
 		this.onStateChange();
+	}
+
+	/** A turn is running or follow-ups are queued. Used to keep discrete workspace actions un-queued. */
+	isSessionBusy(sessionId: string): boolean {
+		return this.activeTurns.has(sessionId) || (this.queuedMessages.get(sessionId)?.length ?? 0) > 0;
 	}
 
 	getQueuedMessages(sessionId: string): QueuedMessageSnapshot[] {
@@ -1317,6 +1332,9 @@ export class AgentCoordinator {
 	}
 
 	private async runClaudeSession(session: ClaudeSessionState) {
+		// Set when the persistent stream throws/closes before emitting a result, so the finally can
+		// drain any queued follow-up (the result branch is the only other place that drains Claude).
+		let streamFailed = false;
 		try {
 			for await (const event of session.session.stream) {
 				if (event.type === 'session_token' && event.sessionToken) {
@@ -1356,6 +1374,7 @@ export class AgentCoordinator {
 		} catch (error) {
 			const active = this.activeTurns.get(session.sessionId);
 			if (active && !active.cancelRequested) {
+				streamFailed = true;
 				const message = error instanceof Error ? error.message : String(error);
 				await this.store.appendMessage(
 					session.sessionId,
@@ -1387,6 +1406,11 @@ export class AgentCoordinator {
 			}
 			session.session.close();
 			this.onStateChange();
+
+			// Stream failed before a result: this session is torn down, so draining starts the queued
+			// follow-up on a fresh session. Guarded by activeTurns inside drainQueue (no double-start
+			// if a replacement turn already took over this id).
+			if (streamFailed) await this.drainQueue(session.sessionId);
 		}
 	}
 
@@ -1470,6 +1494,10 @@ export class AgentCoordinator {
 					// Track the still-open stream so the UI can show a draining
 					// indicator and the user can stop background tasks.
 					this.drainingStreams.set(active.sessionId, { turn: active.turn });
+
+					// The turn is settled from the UI's perspective even though the stream may keep
+					// emitting background output. Drain now so a queued follow-up isn't stuck behind it.
+					if (!active.cancelRequested) await this.drainQueue(active.sessionId);
 				}
 
 				this.onStateChange();
@@ -1557,7 +1585,7 @@ export class AgentCoordinator {
 		// and release their uploaded attachments.
 		const droppedQueue = this.queuedMessages.get(sessionId);
 		const hadQueue = this.queuedMessages.delete(sessionId);
-		if (droppedQueue) this.discardQueuedUploads(droppedQueue);
+		if (droppedQueue) this.discardQueuedUploads(sessionId, droppedQueue);
 
 		const active = this.activeTurns.get(sessionId);
 		if (!active) {
