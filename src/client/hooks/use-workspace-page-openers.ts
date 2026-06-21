@@ -1,5 +1,5 @@
 import { useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import type { ChatAttachment } from '../../shared/types';
 import { uploadFiles } from '../components/chat-composer/chat-composer-utils';

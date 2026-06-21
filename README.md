@@ -171,7 +171,6 @@ The codebase favors explicit boundaries over magic:
 - Write tests next to the code they cover as `*.test.ts` / `*.test.tsx`.
 - Follow the existing Biome style: tabs, single quotes, semicolons.
 
-See [`CLAUDE.md`](./CLAUDE.md) for the full development guidelines used by humans and coding agents working in this repo.
 
 ## License
 
