@@ -1,0 +1,44 @@
+src/server/ws-router.test.ts
+  s_ae85a33be54737::t_d655d743289a5b 187-190,456-457,459,511-513,627-628,630
+  s_ae85a33be54737::t_c48a263adf6f64 538-590
+src/server/ws-router.ts
+  s_ae85a33be54737::t_9266fd84ecaef5 443,445-461,463
+src/server/agent.test.ts
+  s_8c803b6b16cb81::t_73bd14305838b0 683-687
+  s_ae85a33be54737::t_82f0ae5ed60353 701-734,1238-1247,1253-1257,1267-1298,1302-1307
+  s_ae85a33be54737::t_22b47abaedadbd 1248-1252,1299-1301
+  s_8c803b6b16cb81::t_2b8d9e8cc6e823 675-682,688-700
+  s_ae85a33be54737::t_4e9e2b6cf85f65 1258-1264,1266
+  s_ae85a33be54737::t_64a46f6d7853fc 1265
+src/server/agent.ts
+  s_ae85a33be54737::t_791823ca815016 1256-1284,1293-1294
+  s_8c803b6b16cb81::t_6e65194b0b72d5 1285-1292,1296-1311,1316
+  s_8c803b6b16cb81::t_7a31205d7327cb 1543-1548
+  s_8c803b6b16cb81::t_6248c60da3c76f 762-764
+  s_8c803b6b16cb81::t_30a9beca20aa2a 1359,1361-1365
+  s_8c803b6b16cb81::t_f8d5cd7bc55ecf 1239,1241
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "da68543179a33f5928647efd38ff6b7effb1239e",
+  "prompts": {},
+  "sessions": {
+    "s_8c803b6b16cb81": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8956886f-9ad2-4c1a-8255-a5b3dc44e464",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    },
+    "s_ae85a33be54737": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ee717-d30c-7583-8caa-4eb6a12650e7",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
