@@ -268,7 +268,9 @@ export function ChatComposer({
 									}
 								}}
 								data-placeholder={
-									composer.parts.length === 0 ? 'Ask to make changes, @mention files' : undefined
+									composer.parts.length === 0
+										? 'Ask to make changes, @mention files, run /commands'
+										: undefined
 								}
 								className="scrollbar-miko block max-h-[220px] min-h-20 w-full overflow-y-auto whitespace-pre-wrap break-words bg-transparent px-3 py-3 text-[13px] leading-5 text-ink outline-none empty:before:pointer-events-none empty:before:text-ink-tertiary empty:before:content-[attr(data-placeholder)] disabled:cursor-not-allowed"
 							/>

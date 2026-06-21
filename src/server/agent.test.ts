@@ -578,6 +578,79 @@ describe('AgentCoordinator queue', () => {
 		expect(coordinator.getQueuedMessages('session-1')).toEqual([]);
 		expect(stateChanges).toBeGreaterThan(0);
 	});
+
+	test('drains queued messages FIFO, one at a time as each turn settles', async () => {
+		const started: string[] = [];
+		const coordinator = createCoordinator({
+			store: { requireSession: () => ({ provider: 'claude' }) },
+		});
+		// Replace the real turn start with a recorder that marks the session active, so we can observe
+		// the drain ordering without a live harness.
+		(
+			coordinator as unknown as {
+				startQueuedOrDirect: (command: { sessionId: string; content: string }) => Promise<void>;
+			}
+		).startQueuedOrDirect = async (command) => {
+			started.push(command.content);
+			coordinator.activeTurns.set(command.sessionId, activeTurnFixture({}));
+		};
+		const drain = () =>
+			(coordinator as unknown as { drainQueue: (sessionId: string) => Promise<void> }).drainQueue(
+				'session-1',
+			);
+
+		coordinator.activeTurns.set('session-1', activeTurnFixture({}));
+		await coordinator.send(sendCommand('first'));
+		await coordinator.send(sendCommand('second'));
+
+		// Turn active → nothing drains.
+		await drain();
+		expect(started).toEqual([]);
+
+		// First settles → first starts; second still waits while first runs.
+		coordinator.activeTurns.delete('session-1');
+		await drain();
+		expect(started).toEqual(['first']);
+		await drain();
+		expect(started).toEqual(['first']);
+
+		// First settles → second starts, preserving order.
+		coordinator.activeTurns.delete('session-1');
+		await drain();
+		expect(started).toEqual(['first', 'second']);
+		expect(coordinator.getQueuedMessages('session-1')).toEqual([]);
+	});
+
+	test('rejects sends beyond the per-session queue cap', async () => {
+		const coordinator = createCoordinator({
+			store: { requireSession: () => ({ provider: 'claude' }) },
+		});
+		coordinator.activeTurns.set('session-1', activeTurnFixture({}));
+		for (let i = 0; i < 25; i++) await coordinator.send(sendCommand(`m${i}`));
+
+		await expect(coordinator.send(sendCommand('overflow'))).rejects.toThrow('Too many queued');
+		expect(coordinator.getQueuedMessages('session-1')).toHaveLength(25);
+	});
+
+	test('releases uploaded attachments when a queued message is dropped', async () => {
+		const released: string[] = [];
+		const coordinator = createCoordinator({
+			store: { requireSession: () => ({ provider: 'claude' }) },
+		});
+		coordinator.setUploadCleanup((attachments) => {
+			for (const attachment of attachments) released.push(attachment.id);
+		});
+		coordinator.activeTurns.set('session-1', activeTurnFixture({}));
+		await coordinator.send({
+			...sendCommand('with file'),
+			attachments: [makeAttachment({ id: 'up-1' })],
+		} as SendCommandFixture);
+
+		const [queued] = coordinator.getQueuedMessages('session-1');
+		coordinator.dequeueMessage('session-1', queued.id);
+
+		expect(released).toEqual(['up-1']);
+	});
 });
 
 describe('AgentCoordinator.stopDraining', () => {

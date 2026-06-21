@@ -91,6 +91,10 @@ function pendingToolSnapshot(pending: PendingToolRequest): PendingToolSnapshot {
 
 type SendCommand = Extract<ClientCommand, { type: 'session.send' }>;
 
+// Bounds the in-memory follow-up queue per session so a long-running turn can't accumulate unlimited
+// messages (and their uploaded attachments).
+const MAX_QUEUED_MESSAGES = 25;
+
 interface QueuedMessage {
 	id: string;
 	command: SendCommand & { sessionId: string };
@@ -741,6 +745,10 @@ export class AgentCoordinator {
 	private readonly renameWorkspaceBranch: AgentCoordinatorArgs['renameWorkspaceBranch'];
 	private readonly startClaudeSessionFn: NonNullable<AgentCoordinatorArgs['startClaudeSession']>;
 	private reportBackgroundError: ((message: string) => void) | null = null;
+	// Called with the uploaded attachments of queued messages that are dropped (dequeue / stop) so
+	// their files don't orphan in app data. Messages that actually run keep their attachments (they
+	// become referenced by the transcript).
+	private discardUploads: ((attachments: ChatAttachment[]) => void) | null = null;
 	readonly activeTurns = new Map<string, ActiveTurn>();
 	readonly drainingStreams = new Map<string, { turn: HarnessTurn }>();
 	readonly claudeSessions = new Map<string, ClaudeSessionState>();
@@ -764,6 +772,15 @@ export class AgentCoordinator {
 
 	setBackgroundErrorReporter(report: ((message: string) => void) | null) {
 		this.reportBackgroundError = report;
+	}
+
+	setUploadCleanup(cleanup: ((attachments: ChatAttachment[]) => void) | null) {
+		this.discardUploads = cleanup;
+	}
+
+	private discardQueuedUploads(messages: QueuedMessage[]) {
+		const attachments = messages.flatMap((entry) => entry.command.attachments ?? []);
+		if (attachments.length > 0) this.discardUploads?.(attachments);
 	}
 
 	private async notifyTurnSettled(sessionId: string, outcome: 'success' | 'failed' | 'cancelled') {
@@ -1211,6 +1228,9 @@ export class AgentCoordinator {
 		// active turn settles, instead of rejecting. Drain order is FIFO.
 		if (this.activeTurns.has(sessionId)) {
 			const queue = this.queuedMessages.get(sessionId) ?? [];
+			if (queue.length >= MAX_QUEUED_MESSAGES) {
+				throw new Error(`Too many queued messages (max ${MAX_QUEUED_MESSAGES}).`);
+			}
 			queue.push({ id: crypto.randomUUID(), command: { ...command, sessionId } });
 			this.queuedMessages.set(sessionId, queue);
 			this.onStateChange();
@@ -1277,10 +1297,12 @@ export class AgentCoordinator {
 	dequeueMessage(sessionId: string, messageId: string) {
 		const queue = this.queuedMessages.get(sessionId);
 		if (!queue) return;
+		const dropped = queue.filter((entry) => entry.id === messageId);
+		if (dropped.length === 0) return;
 		const filtered = queue.filter((entry) => entry.id !== messageId);
-		if (filtered.length === queue.length) return;
 		if (filtered.length === 0) this.queuedMessages.delete(sessionId);
 		else this.queuedMessages.set(sessionId, filtered);
+		this.discardQueuedUploads(dropped);
 		this.onStateChange();
 	}
 
@@ -1531,8 +1553,11 @@ export class AgentCoordinator {
 			this.drainingStreams.delete(sessionId);
 		}
 
-		// Stop halts everything for this session: drop any queued follow-ups so they don't auto-start.
+		// Stop halts everything for this session: drop any queued follow-ups so they don't auto-start,
+		// and release their uploaded attachments.
+		const droppedQueue = this.queuedMessages.get(sessionId);
 		const hadQueue = this.queuedMessages.delete(sessionId);
+		if (droppedQueue) this.discardQueuedUploads(droppedQueue);
 
 		const active = this.activeTurns.get(sessionId);
 		if (!active) {
