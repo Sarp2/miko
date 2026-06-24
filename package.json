@@ -3,8 +3,26 @@
   "version": "0.1.0",
   "type": "module",
   "bin": {
-    "miko": "./bin/miko"
+    "miko": "bin/miko"
   },
+  "author": "Sarp Pehlivan",
+  "license": "MIT",
+  "homepage": "https://github.com/Sarp2/Miko#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sarp2/Miko.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Sarp2/Miko/issues"
+  },
+  "keywords": [
+    "ai",
+    "coding-agent",
+    "claude-code",
+    "codex",
+    "developer-tools",
+    "git-worktree"
+  ],
   "scripts": {
     "build": "vite build",
     "check": "tsc --noEmit && vite build",
@@ -82,6 +100,7 @@
     "src/shared/**/*.ts",
     "!src/**/*.test.ts",
     "!src/**/*.test.tsx",
+    "LICENSE",
     "README.md",
     "tsconfig.json"
   ]

@@ -174,4 +174,6 @@ The codebase favors explicit boundaries over magic:
 
 ## License
 
-Not yet specified. Until a license is added, treat the code as all rights reserved.
+Miko is available under the [MIT License](LICENSE).
+
+Copyright © 2026 Sarp Pehlivan.

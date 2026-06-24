@@ -157,7 +157,7 @@ export async function startServer(options: StartServerOptions = {}) {
 	const hostname = options.host ?? '127.0.0.1';
 	const strictPort = options.strictPort ?? false;
 
-	const store = new EventStore();
+	const store = new EventStore(undefined, { lockDataDir: true });
 	const diffStore = new DiffStore(store.dataDir);
 	const prManager = new PrManager(store);
 	const scratchpadManager = new ScratchpadManager(store.dataDir);
@@ -169,15 +169,25 @@ export async function startServer(options: StartServerOptions = {}) {
 
 	const machineDisplayName = getMachineDisplayName();
 
-	await store.initialize();
-	await diffStore.initialize();
+	try {
+		await store.initialize();
+		await diffStore.initialize();
+	} catch (error) {
+		await store.releaseDataDirLock();
+		throw error;
+	}
 
 	let server: ReturnType<typeof Bun.serve<ClientState>>;
 	let router: ReturnType<typeof createWsRouter>;
 
 	const terminals = new TerminalManager();
 	const keybindings = new KeybindingsManager();
-	await keybindings.initialize();
+	try {
+		await keybindings.initialize();
+	} catch (error) {
+		await store.releaseDataDirLock();
+		throw error;
+	}
 	const updateManager = options.update
 		? new UpdateManager({
 				currentVersion: options.update.version,
@@ -352,6 +362,7 @@ export async function startServer(options: StartServerOptions = {}) {
 				(err as NodeJS.ErrnoException).code === 'EADDRINUSE';
 
 			if (!isAddrInUse || strictPort || attempt === MAX_PORT_ATTEMPTS - 1) {
+				await store.releaseDataDirLock();
 				throw err;
 			}
 
@@ -369,17 +380,24 @@ export async function startServer(options: StartServerOptions = {}) {
 	gitRefreshPoller.start();
 
 	const shutdown = async () => {
-		for (const sessionId of [...agent.activeTurns.keys()]) {
-			await agent.cancel(sessionId, { preserveQueue: true });
-		}
+		try {
+			for (const sessionId of [...agent.activeTurns.keys()]) {
+				await agent.cancel(sessionId, { preserveQueue: true });
+			}
 
-		await prRefreshPoller.stop();
-		await gitRefreshPoller.stop();
-		router.dispose();
-		keybindings.dispose();
-		terminals.closeAll();
-		await store.compact();
-		server.stop(true);
+			await prRefreshPoller.stop();
+			await gitRefreshPoller.stop();
+			router.dispose();
+			keybindings.dispose();
+			terminals.closeAll();
+			await store.compact();
+		} finally {
+			try {
+				server.stop(true);
+			} finally {
+				await store.releaseDataDirLock();
+			}
+		}
 	};
 
 	return {
