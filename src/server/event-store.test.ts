@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, spyOn, test } from 'bun:test';
 import { existsSync } from 'node:fs';
-import { mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { TranscriptEntry } from 'src/shared/types';
@@ -84,6 +84,21 @@ describe('EventStore.initialize', () => {
 		expect(existsSync(join(dataDir, 'sessions.jsonl'))).toBe(true);
 		expect(existsSync(join(dataDir, 'turns.jsonl'))).toBe(true);
 		expect(existsSync(join(dataDir, 'queues.jsonl'))).toBe(true);
+		expect((await stat(dataDir)).mode & 0o777).toBe(0o700);
+		expect((await stat(join(dataDir, 'directories.jsonl'))).mode & 0o777).toBe(0o600);
+	});
+
+	test('holds the optional data-directory lock until explicitly released', async () => {
+		const dataDir = await createTempDataDir();
+		const first = new EventStore(dataDir, { lockDataDir: true });
+		await first.initialize();
+		const second = new EventStore(dataDir, { lockDataDir: true });
+
+		await expect(second.initialize()).rejects.toThrow('Miko is already using');
+
+		await first.releaseDataDirLock();
+		await second.initialize();
+		await second.releaseDataDirLock();
 	});
 
 	test('ignores corrupt trailing log lines while preserving prior events', async () => {
@@ -122,7 +137,7 @@ describe('EventStore.initialize', () => {
 		}
 	});
 
-	test('resets local history for corrupt non-trailing log lines', async () => {
+	test('quarantines corrupt logs and preserves every valid event', async () => {
 		const dataDir = await createTempDataDir();
 		const warn = spyOn(console, 'warn').mockImplementation(() => {});
 		await mkdir(join(dataDir, 'transcripts'), { recursive: true });
@@ -157,15 +172,20 @@ describe('EventStore.initialize', () => {
 			const store = new EventStore(dataDir);
 			await store.initialize();
 
-			expect(store.listDirectories()).toEqual([]);
-			expect(await Bun.file(join(dataDir, 'snapshot.json')).text()).toBe('');
-			expect(await Bun.file(join(dataDir, 'directories.jsonl')).text()).toBe('');
+			expect(store.listDirectories().map((directory) => directory.id)).toEqual([
+				'directory-1',
+				'directory-2',
+			]);
+			expect(await Bun.file(join(dataDir, 'directories.jsonl')).text()).not.toContain('{not json');
 			expect(await Bun.file(join(dataDir, 'workspaces.jsonl')).text()).toBe('');
 			expect(await Bun.file(join(dataDir, 'sessions.jsonl')).text()).toBe('');
 			expect(await Bun.file(join(dataDir, 'turns.jsonl')).text()).toBe('');
 			expect(await Bun.file(join(dataDir, 'transcripts', 'orphan.jsonl')).text()).toBe(
 				'{"kind":"user_prompt"}\n',
 			);
+			expect(
+				(await readdir(dataDir)).some((name) => name.startsWith('directories.jsonl.corrupt-')),
+			).toBe(true);
 		} finally {
 			warn.mockRestore();
 		}
@@ -863,6 +883,42 @@ describe('EventStore.compact', () => {
 			sessionToken: 'session-1',
 		});
 		expect(reloaded.getMessages(session.id)).toEqual([userEntry, assistantEntry]);
+	});
+
+	test('recovers the previous snapshot when the current snapshot is damaged', async () => {
+		const dataDir = await createTempDataDir();
+		const warn = spyOn(console, 'warn').mockImplementation(() => {});
+		const store = new EventStore(dataDir);
+		await store.initialize();
+		const first = await store.addDirectory({
+			localPath: '/tmp/first',
+			title: 'First',
+			githubOwner: 'sarp',
+			githubRepo: 'first',
+		});
+		await store.compact();
+		await store.addDirectory({
+			localPath: '/tmp/second',
+			title: 'Second',
+			githubOwner: 'sarp',
+			githubRepo: 'second',
+		});
+		await store.compact();
+		await Bun.write(join(dataDir, 'snapshot.json'), '{broken');
+
+		try {
+			const reloaded = new EventStore(dataDir);
+			await reloaded.initialize();
+
+			expect(reloaded.getDirectory(first.id)?.title).toBe('First');
+			expect(reloaded.listDirectories()).toHaveLength(1);
+			expect(
+				(await readdir(dataDir)).some((name) => name.startsWith('snapshot.json.corrupt-')),
+			).toBe(true);
+			expect(JSON.parse(await Bun.file(join(dataDir, 'snapshot.json')).text())).toBeObject();
+		} finally {
+			warn.mockRestore();
+		}
 	});
 });
 

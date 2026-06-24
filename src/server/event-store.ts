@@ -1,5 +1,5 @@
 import { existsSync, readFileSync as readFileSyncImmediate } from 'node:fs';
-import { appendFile, mkdir, rm } from 'node:fs/promises';
+import { appendFile, chmod, mkdir, open, readdir, rm } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { getDataDir, LOG_PREFIX } from 'src/shared/branding';
@@ -13,6 +13,8 @@ import type {
 	WorkspaceReviewState,
 	WorkspaceVisibilityState,
 } from 'src/shared/types';
+import { acquireDataDirLock, type DataDirLock } from './data-dir-lock';
+import { atomicWriteFile, quarantineFile, readTextIfExists } from './durable-file';
 import {
 	cloneTranscriptEntries,
 	createEmptyState,
@@ -168,24 +170,32 @@ function messagePreview(content: string) {
 	return `${collapsed.slice(0, SESSION_MESSAGE_PREVIEW_MAX_LENGTH - 1).trimEnd()}…`;
 }
 
+interface EventStoreOptions {
+	lockDataDir?: boolean;
+}
+
 export class EventStore {
 	readonly dataDir: string;
 	readonly state: StoreState = createEmptyState();
 	private writeChain = Promise.resolve();
-	private storageReset = false;
 	private readonly snapshotPath: string;
+	private readonly snapshotBackupPath: string;
 	private readonly directoriesLogPath: string;
 	private readonly workspacesLogPath: string;
 	private readonly sessionsLogPath: string;
 	private readonly turnsLogPath: string;
 	private readonly queuesLogPath: string;
 	private readonly transcriptsDir: string;
+	private readonly lockDataDir: boolean;
+	private dataDirLock: DataDirLock | null = null;
 	private cachedTranscript: { sessionId: string; entries: TranscriptEntry[] } | null = null;
 	private nextQueueSequence = 1;
 
-	constructor(dataDir = getDataDir(homedir())) {
+	constructor(dataDir = getDataDir(homedir()), options: EventStoreOptions = {}) {
 		this.dataDir = dataDir;
+		this.lockDataDir = options.lockDataDir ?? false;
 		this.snapshotPath = path.join(this.dataDir, 'snapshot.json');
+		this.snapshotBackupPath = path.join(this.dataDir, 'snapshot.previous.json');
 		this.directoriesLogPath = path.join(this.dataDir, 'directories.jsonl');
 		this.workspacesLogPath = path.join(this.dataDir, 'workspaces.jsonl');
 		this.sessionsLogPath = path.join(this.dataDir, 'sessions.jsonl');
@@ -200,70 +210,101 @@ export class EventStore {
 	}
 
 	async initialize() {
-		await mkdir(this.dataDir, { recursive: true });
-		await mkdir(this.transcriptsDir, { recursive: true });
-		await this.ensureFile(this.directoriesLogPath);
-		await this.ensureFile(this.workspacesLogPath);
-		await this.ensureFile(this.sessionsLogPath);
-		await this.ensureFile(this.turnsLogPath);
-		await this.ensureFile(this.queuesLogPath);
-		await this.loadSnapshot();
-		await this.replayLogs();
-		this.rebuildSessionMetadataFromTranscripts();
-
-		if (await this.shouldCompact()) {
-			await this.compact();
+		if (this.lockDataDir) {
+			this.dataDirLock = await acquireDataDirLock(this.dataDir);
 		}
+
+		try {
+			await mkdir(this.dataDir, { recursive: true, mode: 0o700 });
+			await chmod(this.dataDir, 0o700);
+			await mkdir(this.transcriptsDir, { recursive: true, mode: 0o700 });
+			await chmod(this.transcriptsDir, 0o700);
+			await this.ensureFile(this.directoriesLogPath);
+			await this.ensureFile(this.workspacesLogPath);
+			await this.ensureFile(this.sessionsLogPath);
+			await this.ensureFile(this.turnsLogPath);
+			await this.ensureFile(this.queuesLogPath);
+			await this.loadSnapshot();
+			await this.replayLogs();
+			await this.repairTranscriptLogs();
+			this.rebuildSessionMetadataFromTranscripts();
+
+			if (await this.shouldCompact()) {
+				await this.compact();
+			}
+		} catch (error) {
+			await this.releaseDataDirLock();
+			throw error;
+		}
+	}
+
+	async releaseDataDirLock() {
+		const lock = this.dataDirLock;
+		this.dataDirLock = null;
+		await lock?.release();
 	}
 
 	private async ensureFile(filePath: string) {
-		const file = Bun.file(filePath);
-		if (!(await file.exists())) {
-			await Bun.write(filePath, '');
-		}
-	}
-
-	private async clearStorage() {
-		if (this.storageReset) return;
-		this.storageReset = true;
-		this.resetState();
-
-		await Promise.all([
-			Bun.write(this.snapshotPath, ''),
-			Bun.write(this.directoriesLogPath, ''),
-			Bun.write(this.workspacesLogPath, ''),
-			Bun.write(this.sessionsLogPath, ''),
-			Bun.write(this.turnsLogPath, ''),
-			Bun.write(this.queuesLogPath, ''),
-		]);
+		const handle = await open(filePath, 'a', 0o600);
+		await handle.close();
+		await chmod(filePath, 0o600);
 	}
 
 	private async loadSnapshot() {
-		const file = Bun.file(this.snapshotPath);
-		if (!(await file.exists())) return;
+		const snapshotText = await readTextIfExists(this.snapshotPath);
+		if (snapshotText?.trim()) {
+			try {
+				this.applySnapshot(JSON.parse(snapshotText) as SnapshotFile);
+				return;
+			} catch (error) {
+				const quarantinePath = await quarantineFile(this.snapshotPath);
+				console.warn(
+					`${LOG_PREFIX} Failed to load snapshot; quarantined it at ${quarantinePath}:`,
+					error,
+				);
+				this.resetState();
+			}
+		}
+
+		const backupText = await readTextIfExists(this.snapshotBackupPath);
+		if (!backupText?.trim()) return;
 
 		try {
-			const text = await file.text();
-			if (!text.trim()) return;
-
-			const parsed = JSON.parse(text) as SnapshotFile;
-			for (const directory of parsed.directories) {
-				this.state.directoriesById.set(directory.id, { ...directory });
-			}
-
-			for (const workspace of parsed.workspaces) {
-				this.state.workspacesById.set(workspace.id, { ...workspace });
-			}
-			for (const session of parsed.sessions) {
-				this.state.sessionsById.set(session.id, { ...session });
-			}
-			for (const queued of parsed.queuedMessages ?? []) {
-				const normalized = this.normalizeQueuedMessage(queued);
-				this.state.queuedMessagesById.set(normalized.id, normalized);
-			}
+			this.applySnapshot(JSON.parse(backupText) as SnapshotFile);
+			await atomicWriteFile(this.snapshotPath, backupText);
+			console.warn(`${LOG_PREFIX} Recovered local history from the previous snapshot.`);
 		} catch (error) {
-			console.warn(`${LOG_PREFIX} Failed to load snapshot, resetting local history:`, error);
-			await this.clearStorage();
+			const quarantinePath = await quarantineFile(this.snapshotBackupPath);
+			console.warn(
+				`${LOG_PREFIX} Failed to load previous snapshot; quarantined it at ${quarantinePath}:`,
+				error,
+			);
+			this.resetState();
+		}
+	}
+
+	private applySnapshot(parsed: SnapshotFile) {
+		if (
+			!Array.isArray(parsed.directories) ||
+			!Array.isArray(parsed.workspaces) ||
+			!Array.isArray(parsed.sessions) ||
+			(parsed.queuedMessages !== undefined && !Array.isArray(parsed.queuedMessages))
+		) {
+			throw new Error('Snapshot has an invalid shape');
+		}
+
+		for (const directory of parsed.directories) {
+			this.state.directoriesById.set(directory.id, { ...directory });
+		}
+		for (const workspace of parsed.workspaces) {
+			this.state.workspacesById.set(workspace.id, { ...workspace });
+		}
+		for (const session of parsed.sessions) {
+			this.state.sessionsById.set(session.id, { ...session });
+		}
+		for (const queued of parsed.queuedMessages ?? []) {
+			const normalized = this.normalizeQueuedMessage(queued);
+			this.state.queuedMessagesById.set(normalized.id, normalized);
 		}
 	}
 
@@ -277,55 +318,75 @@ export class EventStore {
 	}
 
 	private async replayLogs() {
-		if (this.storageReset) return;
 		await this.replayLog<DirectoryEvent>(this.directoriesLogPath);
-		if (this.storageReset) return;
 		await this.replayLog<WorkspaceEvent>(this.workspacesLogPath);
-		if (this.storageReset) return;
 		await this.replayLog<SessionEvent>(this.sessionsLogPath);
-		if (this.storageReset) return;
 		await this.replayLog<TurnEvent>(this.turnsLogPath);
-		if (this.storageReset) return;
 		await this.replayLog<QueueEvent>(this.queuesLogPath);
 	}
 
 	private async replayLog<_TEvent extends StoreEvent>(filePath: string) {
-		const file = Bun.file(filePath);
-		if (!(await file.exists())) return;
-
-		const text = await file.text();
+		const text = await readTextIfExists(filePath);
+		if (text === null) return;
 		if (!text.trim()) return;
 
 		const lines = text.split('\n');
-		let lastNonEmpty = -1;
-		for (let index = lines.length - 1; index >= 0; index--) {
-			if (lines[index].trim()) {
-				lastNonEmpty = index;
-				break;
-			}
-		}
+		const validLines: string[] = [];
+		let corruptionDetected = false;
 
-		for (let index = 0; index < lines.length; index++) {
-			const line = lines[index].trim();
+		for (const rawLine of lines) {
+			const line = rawLine.trim();
 			if (!line) continue;
 			try {
 				const event = JSON.parse(line) as Partial<StoreEvent>;
 				this.applyEvent(event as StoreEvent);
-			} catch (error) {
-				if (index === lastNonEmpty) {
-					console.warn(
-						`${LOG_PREFIX} Ignoring corrupt trailing line in ${path.basename(filePath)}`,
-					);
-					return;
-				}
-
-				console.warn(
-					`${LOG_PREFIX} Failed to replay ${path.basename(filePath)}, resetting local history:`,
-					error,
-				);
-				await this.clearStorage();
-				return;
+				validLines.push(line);
+			} catch {
+				corruptionDetected = true;
 			}
+		}
+
+		if (!corruptionDetected) return;
+
+		const quarantinePath = await quarantineFile(filePath);
+		await atomicWriteFile(filePath, validLines.length > 0 ? `${validLines.join('\n')}\n` : '');
+		console.warn(
+			`${LOG_PREFIX} Recovered valid events from ${path.basename(filePath)}; quarantined the damaged log at ${quarantinePath}.`,
+		);
+	}
+
+	private async repairTranscriptLogs() {
+		const entries = await readdir(this.transcriptsDir, { withFileTypes: true });
+		for (const entry of entries) {
+			if (!entry.isFile() || !entry.name.endsWith('.jsonl')) continue;
+
+			const filePath = path.join(this.transcriptsDir, entry.name);
+			const text = await readTextIfExists(filePath);
+			if (!text?.trim()) continue;
+
+			const validLines: string[] = [];
+			let corruptionDetected = false;
+			for (const rawLine of text.split('\n')) {
+				const line = rawLine.trim();
+				if (!line) continue;
+				try {
+					JSON.parse(line);
+					validLines.push(line);
+				} catch {
+					corruptionDetected = true;
+				}
+			}
+
+			if (!corruptionDetected) {
+				await chmod(filePath, 0o600);
+				continue;
+			}
+
+			const quarantinePath = await quarantineFile(filePath);
+			await atomicWriteFile(filePath, validLines.length > 0 ? `${validLines.join('\n')}\n` : '');
+			console.warn(
+				`${LOG_PREFIX} Recovered valid transcript entries from ${entry.name}; quarantined the damaged transcript at ${quarantinePath}.`,
+			);
 		}
 	}
 
@@ -579,7 +640,10 @@ export class EventStore {
 	}
 
 	private async appendEventNow<TEvent extends StoreEvent>(filePath: string, event: TEvent) {
-		await appendFile(filePath, `${JSON.stringify(event)}\n`, 'utf-8');
+		await appendFile(filePath, `${JSON.stringify(event)}\n`, {
+			encoding: 'utf8',
+			mode: 0o600,
+		});
 		this.applyEvent(event);
 	}
 
@@ -1114,8 +1178,11 @@ export class EventStore {
 	}
 
 	private async appendMessageNow(sessionId: string, storedEntry: TranscriptEntry) {
-		await mkdir(this.transcriptsDir, { recursive: true });
-		await appendFile(this.transcriptPath(sessionId), `${JSON.stringify(storedEntry)}\n`, 'utf-8');
+		await mkdir(this.transcriptsDir, { recursive: true, mode: 0o700 });
+		await appendFile(this.transcriptPath(sessionId), `${JSON.stringify(storedEntry)}\n`, {
+			encoding: 'utf8',
+			mode: 0o600,
+		});
 		this.applyMessageMetadata(sessionId, storedEntry);
 		if (this.cachedTranscript?.sessionId === sessionId) {
 			this.cachedTranscript.entries.push(storedEntry);
@@ -1355,13 +1422,15 @@ export class EventStore {
 	async compact() {
 		return this.enqueueWrite(async () => {
 			const snapshot = this.createSnapshot();
-			await Bun.write(this.snapshotPath, JSON.stringify(snapshot, null, 2));
+			await atomicWriteFile(this.snapshotPath, JSON.stringify(snapshot, null, 2), {
+				backupPath: this.snapshotBackupPath,
+			});
 			await Promise.all([
-				Bun.write(this.directoriesLogPath, ''),
-				Bun.write(this.workspacesLogPath, ''),
-				Bun.write(this.sessionsLogPath, ''),
-				Bun.write(this.turnsLogPath, ''),
-				Bun.write(this.queuesLogPath, ''),
+				atomicWriteFile(this.directoriesLogPath, ''),
+				atomicWriteFile(this.workspacesLogPath, ''),
+				atomicWriteFile(this.sessionsLogPath, ''),
+				atomicWriteFile(this.turnsLogPath, ''),
+				atomicWriteFile(this.queuesLogPath, ''),
 			]);
 		});
 	}
