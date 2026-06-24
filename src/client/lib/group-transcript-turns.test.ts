@@ -107,6 +107,26 @@ describe('groupTranscriptTurns', () => {
 		expect(item.turn.durationMs).toBeNull();
 	});
 
+	test('keeps a result-only startup failure visible', () => {
+		const items = groupTranscriptTurns([
+			{
+				...base('result-1'),
+				kind: 'result',
+				success: false,
+				cancelled: false,
+				result: 'Codex usage limit reached',
+				durationMs: 0,
+			},
+		]);
+
+		expect(items).toHaveLength(1);
+		const item = items[0];
+		if (item.type !== 'turn') throw new Error('expected turn');
+		expect(item.id).toBe('result-1');
+		expect(item.turn.errorText).toBe('Codex usage limit reached');
+		expect(item.turn.isComplete).toBe(true);
+	});
+
 	test('treats an interrupted (cancelled) turn as complete', () => {
 		const items = groupTranscriptTurns([
 			toolMessage('t1', 'call-1'),

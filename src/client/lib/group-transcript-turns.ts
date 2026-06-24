@@ -55,13 +55,13 @@ function buildTurn(messages: Message[], meta: TurnMeta, fallbackId: string): Tra
 	const texts = messages.filter(
 		(message): message is AssistantMessage => message.kind === 'assistant_text',
 	);
-
-	if (tools.length === 0 && texts.length === 0) return null;
-
 	const result =
 		[...messages]
 			.reverse()
 			.find((message): message is ResultMessage => message.kind === 'result') ?? null;
+
+	if (tools.length === 0 && texts.length === 0 && result === null) return null;
+
 	const usage =
 		[...messages].reverse().find((message) => message.kind === 'context_window_updated')?.usage ??
 		null;
@@ -88,11 +88,15 @@ function buildTurn(messages: Message[], meta: TurnMeta, fallbackId: string): Tra
 
 	const errorMessage =
 		result && !result.success && !result.cancelled ? result.result?.trim() : undefined;
-	const start = tools[0]?.timestamp ?? texts[0]?.timestamp ?? messages[0]?.timestamp ?? '';
+	const start =
+		tools[0]?.timestamp ?? texts[0]?.timestamp ?? result?.timestamp ?? messages[0]?.timestamp ?? '';
 
 	return {
 		id: nonEmptyItemId(
-			messages.find((message) => message.kind === 'tool' || message.kind === 'assistant_text')?.id,
+			messages.find(
+				(message) =>
+					message.kind === 'tool' || message.kind === 'assistant_text' || message.kind === 'result',
+			)?.id,
 			fallbackId,
 		),
 		activity,

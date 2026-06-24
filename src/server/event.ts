@@ -1,6 +1,9 @@
 import type {
 	AgentProvider,
+	ChatAttachment,
 	DirectorySummary,
+	ModelOptions,
+	PromptPart,
 	SessionSummary,
 	TranscriptEntry,
 	WorkspacePullRequestSummary,
@@ -21,10 +24,35 @@ export interface SessionRecord extends SessionSummary {
 	removedAt?: number;
 }
 
+export interface QueuedSessionSendPayload {
+	provider?: AgentProvider;
+	content: string;
+	attachments?: ChatAttachment[];
+	parts?: PromptPart[];
+	model?: string;
+	modelOptions: ModelOptions;
+	effort?: string;
+	planMode?: boolean;
+}
+
+export type QueuedSessionMessageStatus = 'queued' | 'draining';
+
+export interface QueuedSessionMessageRecord {
+	id: string;
+	sessionId: string;
+	payload: QueuedSessionSendPayload;
+	status: QueuedSessionMessageStatus;
+	sequence: number;
+	promptEntryId: string;
+	createdAt: number;
+	updatedAt: number;
+}
+
 export interface StoreState {
 	directoriesById: Map<string, DirectoryRecord>;
 	workspacesById: Map<string, WorkspaceRecord>;
 	sessionsById: Map<string, SessionRecord>;
+	queuedMessagesById: Map<string, QueuedSessionMessageRecord>;
 }
 
 export interface SnapshotFile {
@@ -32,6 +60,7 @@ export interface SnapshotFile {
 	directories: DirectoryRecord[];
 	workspaces: WorkspaceRecord[];
 	sessions: SessionRecord[];
+	queuedMessages?: QueuedSessionMessageRecord[];
 }
 
 export type DirectoryEvent =
@@ -173,13 +202,45 @@ export type TurnEvent =
 			sessionToken: string | null;
 	  };
 
-export type StoreEvent = DirectoryEvent | WorkspaceEvent | SessionEvent | TurnEvent;
+export type QueueEvent =
+	| {
+			type: 'session_message_queued';
+			timestamp: number;
+			message: QueuedSessionMessageRecord;
+	  }
+	| {
+			type: 'session_message_claimed';
+			timestamp: number;
+			sessionId: string;
+			messageId: string;
+			promptEntryId: string;
+	  }
+	| {
+			type: 'session_message_requeued';
+			timestamp: number;
+			sessionId: string;
+			messageId: string;
+	  }
+	| {
+			type: 'session_message_completed' | 'session_message_failed' | 'session_message_dequeued';
+			timestamp: number;
+			sessionId: string;
+			messageId: string;
+	  }
+	| {
+			type: 'session_queue_cleared';
+			timestamp: number;
+			sessionId: string;
+	  };
+
+export type StoreEvent = DirectoryEvent | WorkspaceEvent | SessionEvent | TurnEvent | QueueEvent;
 
 export function createEmptyState(): StoreState {
 	return {
 		directoriesById: new Map(),
 		workspacesById: new Map(),
 		sessionsById: new Map(),
+		queuedMessagesById: new Map(),
 	};
 }
 

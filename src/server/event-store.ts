@@ -17,6 +17,9 @@ import {
 	cloneTranscriptEntries,
 	createEmptyState,
 	type DirectoryEvent,
+	type QueuedSessionMessageRecord,
+	type QueuedSessionSendPayload,
+	type QueueEvent,
 	type SessionEvent,
 	type SnapshotFile,
 	type StoreEvent,
@@ -28,6 +31,7 @@ import { resolveLocalPath } from './paths';
 
 const COMPACTION_THRESHOLD_BYTES = 2 * 1024 * 1024;
 const SESSION_MESSAGE_PREVIEW_MAX_LENGTH = 140;
+export const MAX_QUEUED_SESSION_MESSAGES = 25;
 
 function workspaceDiffFilesSignature(files: WorkspaceDiffFile[] | undefined) {
 	return JSON.stringify(
@@ -174,8 +178,10 @@ export class EventStore {
 	private readonly workspacesLogPath: string;
 	private readonly sessionsLogPath: string;
 	private readonly turnsLogPath: string;
+	private readonly queuesLogPath: string;
 	private readonly transcriptsDir: string;
 	private cachedTranscript: { sessionId: string; entries: TranscriptEntry[] } | null = null;
+	private nextQueueSequence = 1;
 
 	constructor(dataDir = getDataDir(homedir())) {
 		this.dataDir = dataDir;
@@ -184,7 +190,13 @@ export class EventStore {
 		this.workspacesLogPath = path.join(this.dataDir, 'workspaces.jsonl');
 		this.sessionsLogPath = path.join(this.dataDir, 'sessions.jsonl');
 		this.turnsLogPath = path.join(this.dataDir, 'turns.jsonl');
+		this.queuesLogPath = path.join(this.dataDir, 'queues.jsonl');
 		this.transcriptsDir = path.join(this.dataDir, 'transcripts');
+	}
+
+	private normalizeQueuedMessage(message: QueuedSessionMessageRecord) {
+		this.nextQueueSequence = Math.max(this.nextQueueSequence, message.sequence + 1);
+		return structuredClone(message);
 	}
 
 	async initialize() {
@@ -194,6 +206,7 @@ export class EventStore {
 		await this.ensureFile(this.workspacesLogPath);
 		await this.ensureFile(this.sessionsLogPath);
 		await this.ensureFile(this.turnsLogPath);
+		await this.ensureFile(this.queuesLogPath);
 		await this.loadSnapshot();
 		await this.replayLogs();
 		this.rebuildSessionMetadataFromTranscripts();
@@ -221,6 +234,7 @@ export class EventStore {
 			Bun.write(this.workspacesLogPath, ''),
 			Bun.write(this.sessionsLogPath, ''),
 			Bun.write(this.turnsLogPath, ''),
+			Bun.write(this.queuesLogPath, ''),
 		]);
 	}
 
@@ -243,6 +257,10 @@ export class EventStore {
 			for (const session of parsed.sessions) {
 				this.state.sessionsById.set(session.id, { ...session });
 			}
+			for (const queued of parsed.queuedMessages ?? []) {
+				const normalized = this.normalizeQueuedMessage(queued);
+				this.state.queuedMessagesById.set(normalized.id, normalized);
+			}
 		} catch (error) {
 			console.warn(`${LOG_PREFIX} Failed to load snapshot, resetting local history:`, error);
 			await this.clearStorage();
@@ -253,7 +271,9 @@ export class EventStore {
 		this.state.directoriesById.clear();
 		this.state.workspacesById.clear();
 		this.state.sessionsById.clear();
+		this.state.queuedMessagesById.clear();
 		this.cachedTranscript = null;
+		this.nextQueueSequence = 1;
 	}
 
 	private async replayLogs() {
@@ -265,6 +285,8 @@ export class EventStore {
 		await this.replayLog<SessionEvent>(this.sessionsLogPath);
 		if (this.storageReset) return;
 		await this.replayLog<TurnEvent>(this.turnsLogPath);
+		if (this.storageReset) return;
+		await this.replayLog<QueueEvent>(this.queuesLogPath);
 	}
 
 	private async replayLog<_TEvent extends StoreEvent>(filePath: string) {
@@ -440,6 +462,11 @@ export class EventStore {
 				if (!session) break;
 				session.removedAt = event.timestamp;
 				session.updatedAt = event.timestamp;
+				for (const queued of this.state.queuedMessagesById.values()) {
+					if (queued.sessionId === event.sessionId) {
+						this.state.queuedMessagesById.delete(queued.id);
+					}
+				}
 				break;
 			}
 			case 'session_provider_set': {
@@ -490,6 +517,43 @@ export class EventStore {
 				session.updatedAt = event.timestamp;
 				break;
 			}
+			case 'session_message_queued': {
+				const message = this.normalizeQueuedMessage(event.message);
+				if (!this.getSession(message.sessionId)) break;
+				this.state.queuedMessagesById.set(message.id, message);
+				break;
+			}
+			case 'session_message_claimed': {
+				const queued = this.state.queuedMessagesById.get(event.messageId);
+				if (!queued || queued.sessionId !== event.sessionId || queued.status !== 'queued') break;
+				queued.status = 'draining';
+				queued.promptEntryId = event.promptEntryId;
+				queued.updatedAt = event.timestamp;
+				break;
+			}
+			case 'session_message_requeued': {
+				const queued = this.state.queuedMessagesById.get(event.messageId);
+				if (!queued || queued.sessionId !== event.sessionId || queued.status !== 'draining') break;
+				queued.status = 'queued';
+				queued.updatedAt = event.timestamp;
+				break;
+			}
+			case 'session_message_completed':
+			case 'session_message_failed':
+			case 'session_message_dequeued': {
+				const queued = this.state.queuedMessagesById.get(event.messageId);
+				if (!queued || queued.sessionId !== event.sessionId) break;
+				this.state.queuedMessagesById.delete(event.messageId);
+				break;
+			}
+			case 'session_queue_cleared': {
+				for (const queued of this.state.queuedMessagesById.values()) {
+					if (queued.sessionId === event.sessionId) {
+						this.state.queuedMessagesById.delete(queued.id);
+					}
+				}
+				break;
+			}
 		}
 	}
 
@@ -509,11 +573,14 @@ export class EventStore {
 	}
 
 	private append<TEvent extends StoreEvent>(filePath: string, event: TEvent) {
-		const payload = `${JSON.stringify(event)}\n`;
 		return this.enqueueWrite(async () => {
-			await appendFile(filePath, payload, 'utf-8');
-			this.applyEvent(event);
+			await this.appendEventNow(filePath, event);
 		});
+	}
+
+	private async appendEventNow<TEvent extends StoreEvent>(filePath: string, event: TEvent) {
+		await appendFile(filePath, `${JSON.stringify(event)}\n`, 'utf-8');
+		this.applyEvent(event);
 	}
 
 	private enqueueWrite<T>(operation: () => Promise<T>) {
@@ -878,6 +945,123 @@ export class EventStore {
 		await this.deleteSessionData(sessionId);
 	}
 
+	async enqueueSessionMessage(sessionId: string, payload: QueuedSessionSendPayload) {
+		return this.enqueueWrite(async () => {
+			this.requireSession(sessionId);
+			const queueSize = [...this.state.queuedMessagesById.values()].filter(
+				(message) => message.sessionId === sessionId,
+			).length;
+			if (queueSize >= MAX_QUEUED_SESSION_MESSAGES) {
+				throw new Error(`Too many queued messages (max ${MAX_QUEUED_SESSION_MESSAGES}).`);
+			}
+
+			const id = crypto.randomUUID();
+			const timestamp = Date.now();
+			const message: QueuedSessionMessageRecord = {
+				id,
+				sessionId,
+				payload: structuredClone(payload),
+				status: 'queued',
+				sequence: this.nextQueueSequence,
+				promptEntryId: `queued-prompt:${id}`,
+				createdAt: timestamp,
+				updatedAt: timestamp,
+			};
+			this.nextQueueSequence += 1;
+
+			await this.appendEventNow(this.queuesLogPath, {
+				type: 'session_message_queued',
+				timestamp,
+				message,
+			} satisfies QueueEvent);
+			return structuredClone(message);
+		});
+	}
+
+	async claimNextQueuedSessionMessage(sessionId: string) {
+		return this.enqueueWrite(async () => {
+			if (!this.getSession(sessionId)) return null;
+			const messages = [...this.state.queuedMessagesById.values()].filter(
+				(message) => message.sessionId === sessionId,
+			);
+			if (messages.some((message) => message.status === 'draining')) return null;
+
+			const next =
+				messages
+					.filter((message) => message.status === 'queued')
+					.toSorted((left, right) => left.sequence - right.sequence)[0] ?? null;
+			if (!next) return null;
+			await this.appendEventNow(this.queuesLogPath, {
+				type: 'session_message_claimed',
+				timestamp: Date.now(),
+				sessionId,
+				messageId: next.id,
+				promptEntryId: next.promptEntryId,
+			} satisfies QueueEvent);
+			return this.getQueuedSessionMessage(next.id);
+		});
+	}
+
+	async requeueSessionMessage(sessionId: string, messageId: string) {
+		return this.enqueueWrite(async () => {
+			const queued = this.state.queuedMessagesById.get(messageId);
+			if (!queued || queued.sessionId !== sessionId || queued.status !== 'draining') return null;
+			await this.appendEventNow(this.queuesLogPath, {
+				type: 'session_message_requeued',
+				timestamp: Date.now(),
+				sessionId,
+				messageId,
+			} satisfies QueueEvent);
+			return this.getQueuedSessionMessage(messageId);
+		});
+	}
+
+	private async finishQueuedSessionMessage(
+		type: 'session_message_completed' | 'session_message_failed' | 'session_message_dequeued',
+		sessionId: string,
+		messageId: string,
+	) {
+		return this.enqueueWrite(async () => {
+			const queued = this.state.queuedMessagesById.get(messageId);
+			if (!queued || queued.sessionId !== sessionId) return null;
+			const snapshot = structuredClone(queued);
+			await this.appendEventNow(this.queuesLogPath, {
+				type,
+				timestamp: Date.now(),
+				sessionId,
+				messageId,
+			} satisfies QueueEvent);
+			return snapshot;
+		});
+	}
+
+	completeQueuedSessionMessage(sessionId: string, messageId: string) {
+		return this.finishQueuedSessionMessage('session_message_completed', sessionId, messageId);
+	}
+
+	failQueuedSessionMessage(sessionId: string, messageId: string) {
+		return this.finishQueuedSessionMessage('session_message_failed', sessionId, messageId);
+	}
+
+	dequeueSessionMessage(sessionId: string, messageId: string) {
+		return this.finishQueuedSessionMessage('session_message_dequeued', sessionId, messageId);
+	}
+
+	async clearQueuedSessionMessages(sessionId: string) {
+		return this.enqueueWrite(async () => {
+			const queued = [...this.state.queuedMessagesById.values()]
+				.filter((message) => message.sessionId === sessionId)
+				.map((message) => structuredClone(message));
+			if (queued.length === 0) return [];
+			await this.appendEventNow(this.queuesLogPath, {
+				type: 'session_queue_cleared',
+				timestamp: Date.now(),
+				sessionId,
+			} satisfies QueueEvent);
+			return queued;
+		});
+	}
+
 	async setSessionProvider(sessionId: string, provider: AgentProvider) {
 		const session = this.requireSession(sessionId);
 		if (session.provider === provider) return;
@@ -909,18 +1093,33 @@ export class EventStore {
 	async appendMessage(sessionId: string, entry: TranscriptEntry) {
 		this.requireSession(sessionId);
 		const storedEntry = cloneTranscriptEntries([entry])[0];
-		const payload = `${JSON.stringify(storedEntry)}\n`;
-		const transcriptPath = this.transcriptPath(sessionId);
 
 		return this.enqueueWrite(async () => {
-			await mkdir(this.transcriptsDir, { recursive: true });
-			await appendFile(transcriptPath, payload, 'utf-8');
-
-			this.applyMessageMetadata(sessionId, storedEntry);
-			if (this.cachedTranscript?.sessionId === sessionId) {
-				this.cachedTranscript.entries.push(storedEntry);
-			}
+			await this.appendMessageNow(sessionId, storedEntry);
 		});
+	}
+
+	async appendMessageOnce(sessionId: string, entry: TranscriptEntry) {
+		this.requireSession(sessionId);
+		const storedEntry = cloneTranscriptEntries([entry])[0];
+		return this.enqueueWrite(async () => {
+			const entries =
+				this.cachedTranscript?.sessionId === sessionId
+					? this.cachedTranscript.entries
+					: this.loadTranscriptFromDisk(sessionId);
+			if (entries.some((candidate) => candidate._id === storedEntry._id)) return false;
+			await this.appendMessageNow(sessionId, storedEntry);
+			return true;
+		});
+	}
+
+	private async appendMessageNow(sessionId: string, storedEntry: TranscriptEntry) {
+		await mkdir(this.transcriptsDir, { recursive: true });
+		await appendFile(this.transcriptPath(sessionId), `${JSON.stringify(storedEntry)}\n`, 'utf-8');
+		this.applyMessageMetadata(sessionId, storedEntry);
+		if (this.cachedTranscript?.sessionId === sessionId) {
+			this.cachedTranscript.entries.push(storedEntry);
+		}
 	}
 
 	async recordTurnStarted(sessionId: string) {
@@ -1010,6 +1209,46 @@ export class EventStore {
 		const session = this.getSession(sessionId);
 		if (!session) throw new Error('Session not found');
 		return session;
+	}
+
+	getQueuedSessionMessage(messageId: string) {
+		const queued = this.state.queuedMessagesById.get(messageId);
+		if (!queued || !this.getSession(queued.sessionId)) return null;
+		return structuredClone(queued);
+	}
+
+	listQueuedSessionMessages(sessionId: string) {
+		this.requireSession(sessionId);
+		return [...this.state.queuedMessagesById.values()]
+			.filter((message) => message.sessionId === sessionId && message.status === 'queued')
+			.toSorted((left, right) => left.sequence - right.sequence)
+			.map((message) => structuredClone(message));
+	}
+
+	listDrainingSessionMessages() {
+		return [...this.state.queuedMessagesById.values()]
+			.filter(
+				(message) => message.status === 'draining' && Boolean(this.getSession(message.sessionId)),
+			)
+			.toSorted((left, right) => left.sequence - right.sequence)
+			.map((message) => structuredClone(message));
+	}
+
+	listSessionIdsWithQueuedMessages() {
+		return [
+			...new Set(
+				[...this.state.queuedMessagesById.values()]
+					.filter((message) => Boolean(this.getSession(message.sessionId)))
+					.map((message) => message.sessionId),
+			),
+		];
+	}
+
+	hasQueuedSessionMessages(sessionId: string) {
+		if (!this.getSession(sessionId)) return false;
+		return [...this.state.queuedMessagesById.values()].some(
+			(message) => message.sessionId === sessionId,
+		);
 	}
 
 	getMessages(sessionId: string) {
@@ -1107,6 +1346,9 @@ export class EventStore {
 			})),
 			workspaces: [...this.state.workspacesById.values()].map((workspace) => ({ ...workspace })),
 			sessions: [...this.state.sessionsById.values()].map((session) => ({ ...session })),
+			queuedMessages: [...this.state.queuedMessagesById.values()].map((message) =>
+				structuredClone(message),
+			),
 		};
 	}
 
@@ -1119,6 +1361,7 @@ export class EventStore {
 				Bun.write(this.workspacesLogPath, ''),
 				Bun.write(this.sessionsLogPath, ''),
 				Bun.write(this.turnsLogPath, ''),
+				Bun.write(this.queuesLogPath, ''),
 			]);
 		});
 	}
@@ -1129,6 +1372,7 @@ export class EventStore {
 			Bun.file(this.workspacesLogPath).size,
 			Bun.file(this.sessionsLogPath).size,
 			Bun.file(this.turnsLogPath).size,
+			Bun.file(this.queuesLogPath).size,
 		]);
 		return sizes.reduce((total, size) => total + size, 0) >= COMPACTION_THRESHOLD_BYTES;
 	}

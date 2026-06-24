@@ -931,7 +931,7 @@ export function createWsRouter({
 					break;
 				}
 				case 'session.dequeue': {
-					agent.dequeueMessage(command.sessionId, command.messageId);
+					await agent.dequeueMessage(command.sessionId, command.messageId);
 					send(ws, { type: 'ack', id });
 					break;
 				}

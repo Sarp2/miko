@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { TranscriptEntry } from 'src/shared/types';
 import type { SnapshotFile } from './event';
-import { EventStore } from './event-store';
+import { EventStore, MAX_QUEUED_SESSION_MESSAGES } from './event-store';
 
 const originalRuntimeProfile = process.env.MIKO_RUNTIME_PROFILE;
 const tempDirs: string[] = [];
@@ -83,6 +83,7 @@ describe('EventStore.initialize', () => {
 		expect(existsSync(join(dataDir, 'workspaces.jsonl'))).toBe(true);
 		expect(existsSync(join(dataDir, 'sessions.jsonl'))).toBe(true);
 		expect(existsSync(join(dataDir, 'turns.jsonl'))).toBe(true);
+		expect(existsSync(join(dataDir, 'queues.jsonl'))).toBe(true);
 	});
 
 	test('ignores corrupt trailing log lines while preserving prior events', async () => {
@@ -862,6 +863,98 @@ describe('EventStore.compact', () => {
 			sessionToken: 'session-1',
 		});
 		expect(reloaded.getMessages(session.id)).toEqual([userEntry, assistantEntry]);
+	});
+});
+
+describe('EventStore queued session messages', () => {
+	const payload = (content: string) => ({ content, modelOptions: {} });
+
+	test('persists FIFO queue state across reload and compaction', async () => {
+		const dataDir = await createTempDataDir();
+		const store = new EventStore(dataDir);
+		await store.initialize();
+		const { workspace } = await createReadyWorkspace(store);
+		const session = await store.createSession(workspace.id);
+
+		const first = await store.enqueueSessionMessage(session.id, payload('first'));
+		const second = await store.enqueueSessionMessage(session.id, payload('second'));
+		await store.compact();
+
+		expect(await Bun.file(join(dataDir, 'queues.jsonl')).text()).toBe('');
+		const reloaded = new EventStore(dataDir);
+		await reloaded.initialize();
+
+		expect(reloaded.listQueuedSessionMessages(session.id)).toEqual([
+			expect.objectContaining({
+				id: first.id,
+				sequence: first.sequence,
+				promptEntryId: first.promptEntryId,
+				payload: expect.objectContaining({ content: 'first' }),
+			}),
+			expect.objectContaining({
+				id: second.id,
+				sequence: second.sequence,
+				promptEntryId: second.promptEntryId,
+				payload: expect.objectContaining({ content: 'second' }),
+			}),
+		]);
+	});
+
+	test('atomically enforces the queue cap under concurrent enqueue attempts', async () => {
+		const dataDir = await createTempDataDir();
+		const store = new EventStore(dataDir);
+		await store.initialize();
+		const { workspace } = await createReadyWorkspace(store);
+		const session = await store.createSession(workspace.id);
+
+		const results = await Promise.allSettled(
+			Array.from({ length: MAX_QUEUED_SESSION_MESSAGES + 5 }, (_, index) =>
+				store.enqueueSessionMessage(session.id, payload(`message-${index}`)),
+			),
+		);
+
+		expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(
+			MAX_QUEUED_SESSION_MESSAGES,
+		);
+		expect(results.filter((result) => result.status === 'rejected')).toHaveLength(5);
+		expect(store.listQueuedSessionMessages(session.id)).toHaveLength(MAX_QUEUED_SESSION_MESSAGES);
+	});
+
+	test('atomically lets only one concurrent drainer claim the FIFO head', async () => {
+		const dataDir = await createTempDataDir();
+		const store = new EventStore(dataDir);
+		await store.initialize();
+		const { workspace } = await createReadyWorkspace(store);
+		const session = await store.createSession(workspace.id);
+		const first = await store.enqueueSessionMessage(session.id, payload('first'));
+		await store.enqueueSessionMessage(session.id, payload('second'));
+
+		const claims = await Promise.all(
+			Array.from({ length: 8 }, () => store.claimNextQueuedSessionMessage(session.id)),
+		);
+
+		expect(claims.filter(Boolean)).toEqual([
+			expect.objectContaining({ id: first.id, status: 'draining' }),
+		]);
+		expect(
+			store.listQueuedSessionMessages(session.id).map((message) => message.payload.content),
+		).toEqual(['second']);
+	});
+
+	test('does not resurrect queue entries after their session is removed', async () => {
+		const dataDir = await createTempDataDir();
+		const store = new EventStore(dataDir);
+		await store.initialize();
+		const { workspace } = await createReadyWorkspace(store);
+		const session = await store.createSession(workspace.id);
+		const queued = await store.enqueueSessionMessage(session.id, payload('discard me'));
+
+		await store.removeSession(session.id);
+		const reloaded = new EventStore(dataDir);
+		await reloaded.initialize();
+
+		expect(reloaded.getSession(session.id)).toBeNull();
+		expect(reloaded.getQueuedSessionMessage(queued.id)).toBeNull();
 	});
 });
 
