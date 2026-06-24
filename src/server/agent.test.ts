@@ -9,7 +9,8 @@ import {
 	startClaudeSession,
 } from './agent';
 import type { CodexAppServerManager } from './codex-app-server';
-import type { EventStore } from './event-store';
+import type { QueuedSessionMessageRecord, QueuedSessionSendPayload } from './event';
+import { type EventStore, MAX_QUEUED_SESSION_MESSAGES } from './event-store';
 import type { HarnessEvent } from './harness-types';
 
 function makeAttachment(overrides: Partial<ChatAttachment> = {}): ChatAttachment {
@@ -112,74 +113,90 @@ function createCoordinator(
 ) {
 	const normalized =
 		typeof options === 'function' ? { onStateChange: options, store: {} as unknown } : options;
-	const queuedMessages = new Map<
-		string,
-		{
-			id: string;
-			sessionId: string;
-			command: SendCommandFixture & { sessionId: string };
-			status: 'queued' | 'draining';
-			createdAt: number;
-			updatedAt: number;
-		}
-	>();
-	let queuedCounter = 0;
+	const queuedMessages = new Map<string, QueuedSessionMessageRecord>();
+	let queueSequence = 1;
 	const queueStore = {
-		requireSession: () => ({ provider: 'claude' }),
-		getSession: (sessionId: string) => ({ id: sessionId, workspaceId: 'workspace-1' }),
 		listQueuedSessionMessages: (sessionId: string) =>
 			[...queuedMessages.values()]
 				.filter((message) => message.sessionId === sessionId && message.status === 'queued')
-				.toSorted((left, right) => left.createdAt - right.createdAt)
+				.toSorted((left, right) => left.sequence - right.sequence)
 				.map((message) => structuredClone(message)),
-		hasQueuedSessionMessages: (sessionId: string) =>
-			[...queuedMessages.values()].some(
-				(message) => message.sessionId === sessionId && message.status === 'queued',
-			),
-		getNextQueuedSessionMessage: (sessionId: string) =>
+		listDrainingSessionMessages: () =>
 			[...queuedMessages.values()]
-				.filter((message) => message.sessionId === sessionId && message.status === 'queued')
-				.toSorted((left, right) => left.createdAt - right.createdAt)
-				.map((message) => structuredClone(message))[0] ?? null,
-		queueSessionMessage: async (command: SendCommandFixture & { sessionId: string }) => {
-			queuedCounter += 1;
-			const now = queuedCounter;
-			const message = {
-				id: `queued-${queuedCounter}`,
-				sessionId: command.sessionId,
-				command: structuredClone(command),
-				status: 'queued' as const,
-				createdAt: now,
-				updatedAt: now,
+				.filter((message) => message.status === 'draining')
+				.map((message) => structuredClone(message)),
+		listSessionIdsWithQueuedMessages: () => [
+			...new Set([...queuedMessages.values()].map((message) => message.sessionId)),
+		],
+		hasQueuedSessionMessages: (sessionId: string) =>
+			[...queuedMessages.values()].some((message) => message.sessionId === sessionId),
+		getMessages: () => [],
+		appendMessageOnce: async () => true,
+		enqueueSessionMessage: async (sessionId: string, payload: QueuedSessionSendPayload) => {
+			const queueSize = [...queuedMessages.values()].filter(
+				(message) => message.sessionId === sessionId,
+			).length;
+			if (queueSize >= MAX_QUEUED_SESSION_MESSAGES) {
+				throw new Error(`Too many queued messages (max ${MAX_QUEUED_SESSION_MESSAGES}).`);
+			}
+			const id = `queued-${queueSequence}`;
+			const message: QueuedSessionMessageRecord = {
+				id,
+				sessionId,
+				payload: structuredClone(payload),
+				status: 'queued',
+				sequence: queueSequence,
+				promptEntryId: `queued-prompt:${id}`,
+				createdAt: queueSequence,
+				updatedAt: queueSequence,
 			};
-			queuedMessages.set(message.id, message);
+			queueSequence += 1;
+			queuedMessages.set(id, message);
 			return structuredClone(message);
 		},
-		markQueuedSessionMessageDraining: async (sessionId: string, messageId: string) => {
-			const message = queuedMessages.get(messageId);
-			if (!message || message.sessionId !== sessionId || message.status !== 'queued') return null;
+		claimNextQueuedSessionMessage: async (sessionId: string) => {
+			if (
+				[...queuedMessages.values()].some(
+					(message) => message.sessionId === sessionId && message.status === 'draining',
+				)
+			) {
+				return null;
+			}
+			const message = [...queuedMessages.values()]
+				.filter((candidate) => candidate.sessionId === sessionId && candidate.status === 'queued')
+				.toSorted((left, right) => left.sequence - right.sequence)[0];
+			if (!message) return null;
 			message.status = 'draining';
-			message.updatedAt = ++queuedCounter;
+			return structuredClone(message);
+		},
+		requeueSessionMessage: async (sessionId: string, messageId: string) => {
+			const message = queuedMessages.get(messageId);
+			if (!message || message.sessionId !== sessionId || message.status !== 'draining') return null;
+			message.status = 'queued';
 			return structuredClone(message);
 		},
 		completeQueuedSessionMessage: async (_sessionId: string, messageId: string) => {
+			const message = queuedMessages.get(messageId) ?? null;
 			queuedMessages.delete(messageId);
+			return message ? structuredClone(message) : null;
 		},
 		failQueuedSessionMessage: async (_sessionId: string, messageId: string) => {
+			const message = queuedMessages.get(messageId) ?? null;
 			queuedMessages.delete(messageId);
+			return message ? structuredClone(message) : null;
 		},
-		dequeueQueuedSessionMessage: async (sessionId: string, messageId: string) => {
+		dequeueSessionMessage: async (sessionId: string, messageId: string) => {
 			const message = queuedMessages.get(messageId);
-			if (!message || message.sessionId !== sessionId || message.status !== 'queued') return null;
+			if (!message || message.sessionId !== sessionId) return null;
 			queuedMessages.delete(messageId);
 			return structuredClone(message);
 		},
-		dequeueQueuedSessionMessages: async (sessionId: string) => {
-			const messages = [...queuedMessages.values()]
-				.filter((message) => message.sessionId === sessionId && message.status === 'queued')
-				.map((message) => structuredClone(message));
+		clearQueuedSessionMessages: async (sessionId: string) => {
+			const messages = [...queuedMessages.values()].filter(
+				(message) => message.sessionId === sessionId,
+			);
 			for (const message of messages) queuedMessages.delete(message.id);
-			return messages;
+			return messages.map((message) => structuredClone(message));
 		},
 	};
 	const {
@@ -654,15 +671,24 @@ describe('AgentCoordinator queue', () => {
 		const coordinator = createCoordinator({
 			store: { requireSession: () => ({ provider: 'claude' }) },
 		});
+		const store = (coordinator as unknown as { store: EventStore }).store;
 		// Replace the real turn start with a recorder that marks the session active, so we can observe
 		// the drain ordering without a live harness.
 		(
 			coordinator as unknown as {
-				startQueuedOrDirect: (command: { sessionId: string; content: string }) => Promise<void>;
+				startQueuedOrDirect: (
+					command: { sessionId: string; content: string },
+					beforeStart?: () => void,
+					promptEntryId?: string,
+					queuedMessageId?: string,
+				) => Promise<void>;
 			}
-		).startQueuedOrDirect = async (command) => {
+		).startQueuedOrDirect = async (command, _beforeStart, _promptEntryId, queuedMessageId) => {
 			started.push(command.content);
 			coordinator.activeTurns.set(command.sessionId, activeTurnFixture({}));
+			if (queuedMessageId) {
+				await store.completeQueuedSessionMessage(command.sessionId, queuedMessageId);
+			}
 		};
 		const drain = () =>
 			(coordinator as unknown as { drainQueue: (sessionId: string) => Promise<void> }).drainQueue(
@@ -813,6 +839,222 @@ describe('AgentCoordinator queue', () => {
 		coordinator.activeTurns.delete('session-1');
 		// Active turn gone, but a queued follow-up still counts as busy.
 		expect(coordinator.isSessionBusy('session-1')).toBe(true);
+	});
+
+	test('resumeQueuedMessages requeues an unstarted claim and starts it once', async () => {
+		const started: Array<{ content: string; promptEntryId?: string }> = [];
+		const coordinator = createCoordinator({
+			store: {
+				requireSession: () => ({ provider: 'claude' }),
+				getSession: () => ({ workspaceId: 'workspace-1' }),
+			},
+		});
+		coordinator.activeTurns.set('session-1', activeTurnFixture({}));
+		await coordinator.send(sendCommand('survive restart'));
+		coordinator.activeTurns.delete('session-1');
+
+		const store = (coordinator as unknown as { store: EventStore }).store;
+		const claimed = await store.claimNextQueuedSessionMessage('session-1');
+		expect(claimed?.status).toBe('draining');
+
+		(
+			coordinator as unknown as {
+				startQueuedOrDirect: (
+					command: { content: string },
+					beforeStart?: () => void,
+					promptEntryId?: string,
+					queuedMessageId?: string,
+				) => Promise<void>;
+			}
+		).startQueuedOrDirect = async (command, _beforeStart, promptEntryId, queuedMessageId) => {
+			started.push({ content: command.content, promptEntryId });
+			if (queuedMessageId) {
+				await store.completeQueuedSessionMessage('session-1', queuedMessageId);
+			}
+		};
+
+		await coordinator.resumeQueuedMessages();
+
+		expect(started).toEqual([
+			{ content: 'survive restart', promptEntryId: claimed?.promptEntryId ?? undefined },
+		]);
+		expect(coordinator.getQueuedMessages('session-1')).toEqual([]);
+	});
+
+	test('resumeQueuedMessages does not rerun a claim whose prompt was already persisted', async () => {
+		const recoveryEntries: TranscriptEntry[] = [];
+		const failedTurns: string[] = [];
+		let starts = 0;
+		const coordinator = createCoordinator({
+			store: {
+				requireSession: () => ({ provider: 'claude' }),
+				getSession: () => ({ workspaceId: 'workspace-1' }),
+				getMessages: () => [
+					{
+						_id: 'queued-prompt:queued-1',
+						createdAt: 1,
+						kind: 'user_prompt',
+						content: 'do not execute twice',
+					},
+				],
+				appendMessageOnce: async (_sessionId: string, transcriptEntry: TranscriptEntry) => {
+					if (recoveryEntries.some((candidate) => candidate._id === transcriptEntry._id)) {
+						return false;
+					}
+					recoveryEntries.push(transcriptEntry);
+					return true;
+				},
+				recordTurnFailed: async (_sessionId: string, error: string) => {
+					failedTurns.push(error);
+				},
+			},
+		});
+		coordinator.activeTurns.set('session-1', activeTurnFixture({}));
+		await coordinator.send(sendCommand('do not execute twice'));
+		coordinator.activeTurns.delete('session-1');
+
+		const store = (coordinator as unknown as { store: EventStore }).store;
+		const claimed = await store.claimNextQueuedSessionMessage('session-1');
+		(
+			coordinator as unknown as {
+				startQueuedOrDirect: () => Promise<void>;
+			}
+		).startQueuedOrDirect = async () => {
+			starts += 1;
+		};
+
+		await coordinator.resumeQueuedMessages();
+		await coordinator.resumeQueuedMessages();
+
+		expect(starts).toBe(0);
+		expect(recoveryEntries).toEqual([
+			expect.objectContaining({
+				_id: `queued-recovery:${claimed?.id}`,
+				kind: 'result',
+				isError: true,
+			}),
+		]);
+		expect(failedTurns).toHaveLength(1);
+		expect(coordinator.getQueuedMessages('session-1')).toEqual([]);
+	});
+
+	test('keeps a claimed message durable until its active turn settles', async () => {
+		const coordinator = createCoordinator({
+			store: {
+				requireSession: () => ({ provider: 'claude' }),
+				getSession: () => ({ workspaceId: 'workspace-1' }),
+			},
+		});
+		coordinator.activeTurns.set('session-1', activeTurnFixture({}));
+		await coordinator.send(sendCommand('finish durably'));
+		coordinator.activeTurns.delete('session-1');
+
+		const store = (coordinator as unknown as { store: EventStore }).store;
+		const claimed = await store.claimNextQueuedSessionMessage('session-1');
+		const active = activeTurnFixture({
+			sessionId: 'session-1',
+			queuedMessageId: claimed?.id,
+			settled: false,
+		});
+		expect(store.hasQueuedSessionMessages('session-1')).toBe(true);
+
+		await (
+			coordinator as unknown as {
+				notifyActiveTurnSettled: (
+					activeTurn: ActiveTurnFixture,
+					outcome: 'success',
+				) => Promise<void>;
+			}
+		).notifyActiveTurnSettled(active, 'success');
+
+		expect(store.hasQueuedSessionMessages('session-1')).toBe(false);
+	});
+
+	test('startup recovery recognizes an already persisted terminal result', async () => {
+		let starts = 0;
+		const coordinator = createCoordinator({
+			store: {
+				requireSession: () => ({ provider: 'claude' }),
+				getSession: () => ({ workspaceId: 'workspace-1' }),
+				getMessages: () => [
+					{
+						_id: 'queued-prompt:queued-1',
+						createdAt: 1,
+						kind: 'user_prompt',
+						content: 'already finished',
+					},
+					{
+						_id: 'result-1',
+						createdAt: 2,
+						kind: 'result',
+						subtype: 'success',
+						isError: false,
+						durationMs: 10,
+						result: 'done',
+					},
+				],
+			},
+		});
+		coordinator.activeTurns.set('session-1', activeTurnFixture({}));
+		await coordinator.send(sendCommand('already finished'));
+		coordinator.activeTurns.delete('session-1');
+
+		const store = (coordinator as unknown as { store: EventStore }).store;
+		await store.claimNextQueuedSessionMessage('session-1');
+		(
+			coordinator as unknown as {
+				startQueuedOrDirect: () => Promise<void>;
+			}
+		).startQueuedOrDirect = async () => {
+			starts += 1;
+		};
+
+		await coordinator.resumeQueuedMessages();
+
+		expect(starts).toBe(0);
+		expect(store.hasQueuedSessionMessages('session-1')).toBe(false);
+	});
+
+	test('startup recovery isolates a failed session and continues draining others', async () => {
+		const errors: string[] = [];
+		const drained: string[] = [];
+		const coordinator = createCoordinator({
+			store: {
+				listDrainingSessionMessages: () => [],
+				listSessionIdsWithQueuedMessages: () => ['session-bad', 'session-good'],
+			},
+		});
+		coordinator.setBackgroundErrorReporter((message) => errors.push(message));
+		(
+			coordinator as unknown as {
+				drainQueue: (sessionId: string) => Promise<void>;
+			}
+		).drainQueue = async (sessionId) => {
+			if (sessionId === 'session-bad') throw new Error('broken queue');
+			drained.push(sessionId);
+		};
+
+		await coordinator.resumeQueuedMessages();
+
+		expect(drained).toEqual(['session-good']);
+		expect(errors).toEqual([
+			expect.stringContaining('Session session-bad could not resume queued messages: broken queue'),
+		]);
+	});
+
+	test('graceful cancellation preserves durable queued messages', async () => {
+		const coordinator = createCoordinator({
+			store: { requireSession: () => ({ provider: 'claude' }) },
+		});
+		coordinator.activeTurns.set('session-1', activeTurnFixture({}));
+		await coordinator.send(sendCommand('resume after restart'));
+		coordinator.activeTurns.delete('session-1');
+
+		await coordinator.cancel('session-1', { preserveQueue: true });
+
+		expect(coordinator.getQueuedMessages('session-1').map((message) => message.content)).toEqual([
+			'resume after restart',
+		]);
 	});
 });
 
@@ -965,6 +1207,83 @@ describe('AgentCoordinator.runClaudeSession', () => {
 });
 
 describe('AgentCoordinator.send', () => {
+	async function exerciseCodexStartupFailure(stage: 'session' | 'turn') {
+		const session = {
+			id: 'session-1',
+			workspaceId: 'workspace-1',
+			provider: null as 'claude' | 'codex' | null,
+			title: 'Existing session',
+		};
+		const appended: TranscriptEntry[] = [];
+		const failedTurns: string[] = [];
+		const stoppedSessions: string[] = [];
+		let startedTurns = 0;
+
+		const coordinator = createCoordinator({
+			store: {
+				requireSession: () => session,
+				setSessionProvider: async (_sessionId: string, provider: 'claude' | 'codex') => {
+					session.provider = provider;
+				},
+				setPlanMode: async () => {},
+				getWorkspace: () => ({
+					id: 'workspace-1',
+					localPath: '/repo/miko/atlas',
+					branchName: 'atlas',
+				}),
+				getMessages: () => [],
+				appendMessage: async (_sessionId: string, entry: TranscriptEntry) => {
+					appended.push(entry);
+				},
+				recordTurnStarted: async () => {
+					startedTurns += 1;
+				},
+				recordTurnFailed: async (_sessionId: string, message: string) => {
+					failedTurns.push(message);
+				},
+			},
+			codexManager: {
+				startSession: async () => {
+					if (stage === 'session') throw new Error('Codex usage limit reached');
+				},
+				startTurn: async () => {
+					throw new Error('Codex usage limit reached');
+				},
+				stopSession: (sessionId: string) => {
+					stoppedSessions.push(sessionId);
+				},
+			},
+		});
+
+		const result = await coordinator.send({
+			type: 'session.send',
+			sessionId: 'session-1',
+			provider: 'codex',
+			content: 'Fix the failing test',
+			model: 'gpt-5.5',
+			modelOptions: {
+				codex: {
+					reasoningEffort: 'high',
+					fastMode: false,
+				},
+			},
+			planMode: false,
+		});
+
+		expect(result).toEqual({ sessionId: 'session-1' });
+		expect(startedTurns).toBe(1);
+		expect(appended.map((entry) => entry.kind)).toEqual(['user_prompt', 'result']);
+		expect(appended[1]).toMatchObject({
+			kind: 'result',
+			subtype: 'error',
+			isError: true,
+			result: 'Codex usage limit reached',
+		});
+		expect(failedTurns).toEqual(['Codex usage limit reached']);
+		expect(stoppedSessions).toEqual(['session-1']);
+		expect(coordinator.isSessionBusy('session-1')).toBe(false);
+	}
+
 	test('throws when creating a new session without workspaceId', async () => {
 		const coordinator = createCoordinator();
 
@@ -975,6 +1294,14 @@ describe('AgentCoordinator.send', () => {
 				modelOptions: {},
 			} as unknown as SendCommandFixture),
 		).rejects.toThrow('Missing workspaceId for new session');
+	});
+
+	test('records Codex session startup failures as terminal transcript results', async () => {
+		await exerciseCodexStartupFailure('session');
+	});
+
+	test('records Codex turn startup failures as terminal transcript results', async () => {
+		await exerciseCodexStartupFailure('turn');
 	});
 
 	test('creates a session when sessionId is missing and forwards payload to startTurnForSession', async () => {
@@ -1009,6 +1336,57 @@ describe('AgentCoordinator.send', () => {
 			attachments: [],
 			appendUserPrompt: true,
 		});
+	});
+
+	test('still rejects workspace-style sends after recording a Codex startup failure', async () => {
+		const session = {
+			id: 'session-1',
+			workspaceId: 'workspace-1',
+			provider: null as 'claude' | 'codex' | null,
+			title: 'Existing session',
+		};
+		const appended: TranscriptEntry[] = [];
+
+		const coordinator = createCoordinator({
+			store: {
+				requireSession: () => session,
+				setSessionProvider: async (_sessionId: string, provider: 'claude' | 'codex') => {
+					session.provider = provider;
+				},
+				setPlanMode: async () => {},
+				getWorkspace: () => ({
+					id: 'workspace-1',
+					localPath: '/repo/miko/atlas',
+					branchName: 'atlas',
+				}),
+				getMessages: () => [],
+				appendMessage: async (_sessionId: string, entry: TranscriptEntry) => {
+					appended.push(entry);
+				},
+				recordTurnStarted: async () => {},
+				recordTurnFailed: async () => {},
+			},
+			codexManager: {
+				startSession: async () => {},
+				startTurn: async () => {
+					throw new Error('Codex usage limit reached');
+				},
+				stopSession: () => {},
+			},
+		});
+
+		await expect(
+			coordinator.sendWhenIdle({
+				type: 'session.send',
+				sessionId: 'session-1',
+				provider: 'codex',
+				content: 'Review the workspace',
+				model: 'gpt-5.5',
+				modelOptions: {},
+			}),
+		).rejects.toThrow('Codex usage limit reached');
+
+		expect(appended.filter((entry) => entry.kind === 'result')).toHaveLength(1);
 	});
 
 	test('renames the workspace branch from the first prompt title', async () => {
@@ -1324,12 +1702,13 @@ describe('AgentCoordinator.respondTool', () => {
 			coordinator.activeTurns.set('session-1', activeTurnFixture({}));
 		};
 
-		await (coordinator as unknown as { store: EventStore }).store.queueSessionMessage({
-			type: 'session.send',
-			sessionId: 'session-1',
-			content: 'queued follow-up',
-			modelOptions: {},
-		});
+		await (coordinator as unknown as { store: EventStore }).store.enqueueSessionMessage(
+			'session-1',
+			{
+				content: 'queued follow-up',
+				modelOptions: {},
+			},
+		);
 		const active = activeTurnFixture({
 			sessionId: 'session-1',
 			provider: 'codex',

@@ -1,7 +1,9 @@
-import type { ClientCommand } from 'src/shared/protocol';
 import type {
 	AgentProvider,
+	ChatAttachment,
 	DirectorySummary,
+	ModelOptions,
+	PromptPart,
 	SessionSummary,
 	TranscriptEntry,
 	WorkspacePullRequestSummary,
@@ -22,17 +24,26 @@ export interface SessionRecord extends SessionSummary {
 	removedAt?: number;
 }
 
-export type QueuedSessionSendCommand = Extract<ClientCommand, { type: 'session.send' }> & {
-	sessionId: string;
-};
+export interface QueuedSessionSendPayload {
+	provider?: AgentProvider;
+	content: string;
+	attachments?: ChatAttachment[];
+	parts?: PromptPart[];
+	model?: string;
+	modelOptions: ModelOptions;
+	effort?: string;
+	planMode?: boolean;
+}
 
 export type QueuedSessionMessageStatus = 'queued' | 'draining';
 
 export interface QueuedSessionMessageRecord {
 	id: string;
 	sessionId: string;
-	command: QueuedSessionSendCommand;
+	payload: QueuedSessionSendPayload;
 	status: QueuedSessionMessageStatus;
+	sequence: number;
+	promptEntryId: string;
 	createdAt: number;
 	updatedAt: number;
 }
@@ -195,39 +206,30 @@ export type QueueEvent =
 	| {
 			type: 'session_message_queued';
 			timestamp: number;
-			messageId: string;
-			sessionId: string;
-			command: QueuedSessionSendCommand;
+			message: QueuedSessionMessageRecord;
 	  }
 	| {
-			type: 'session_message_draining';
+			type: 'session_message_claimed';
 			timestamp: number;
-			messageId: string;
 			sessionId: string;
+			messageId: string;
+			promptEntryId: string;
 	  }
 	| {
 			type: 'session_message_requeued';
 			timestamp: number;
-			messageId: string;
 			sessionId: string;
+			messageId: string;
 	  }
 	| {
-			type: 'session_message_completed';
+			type: 'session_message_completed' | 'session_message_failed' | 'session_message_dequeued';
 			timestamp: number;
-			messageId: string;
 			sessionId: string;
+			messageId: string;
 	  }
 	| {
-			type: 'session_message_failed';
+			type: 'session_queue_cleared';
 			timestamp: number;
-			messageId: string;
-			sessionId: string;
-			error: string;
-	  }
-	| {
-			type: 'session_message_dequeued';
-			timestamp: number;
-			messageId: string;
 			sessionId: string;
 	  };
 

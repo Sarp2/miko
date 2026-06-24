@@ -23,7 +23,7 @@ import type {
 	TranscriptEntry,
 } from '../shared/types';
 import { CodexAppServerManager } from './codex-app-server';
-import type { QueuedSessionMessageRecord, QueuedSessionSendCommand } from './event';
+import type { QueuedSessionMessageRecord, QueuedSessionSendPayload } from './event';
 import type { EventStore } from './event-store';
 import {
 	fallbackTitleFromMessage,
@@ -90,14 +90,20 @@ function pendingToolSnapshot(pending: PendingToolRequest): PendingToolSnapshot {
 	};
 }
 
-// Bounds the in-memory follow-up queue per session so a long-running turn can't accumulate unlimited
-// messages (and their uploaded attachments).
-const MAX_QUEUED_MESSAGES = 25;
+type SendCommand = Extract<ClientCommand, { type: 'session.send' }>;
+
+class RecordedTurnStartupError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'RecordedTurnStartupError';
+	}
+}
 
 interface ActiveTurn {
 	sessionId: string;
 	provider: AgentProvider;
 	turn: HarnessTurn;
+	queuedMessageId?: string;
 	// The Claude session that owns this turn, so a stale session loop only tears down its own turn
 	// (never a replacement registered under the same sessionId after a 200k<->1M/effort/cwd switch).
 	claudeSession?: ClaudeSessionState;
@@ -179,9 +185,10 @@ interface StartClaudeSessionDeps {
 function timestamped<T extends Omit<TranscriptEntry, '_id' | 'createdAt'>>(
 	entry: T,
 	createdAt = Date.now(),
+	id: string = crypto.randomUUID(),
 ): TranscriptEntry {
 	return {
-		_id: crypto.randomUUID(),
+		_id: id,
 		createdAt,
 		...entry,
 	} as TranscriptEntry;
@@ -750,10 +757,10 @@ export class AgentCoordinator {
 	// (filesystem + config derived), so the cache is shared across sessions in a workspace.
 	private readonly commandsCache = new Map<string, SlashCommandInfo[]>();
 	private readonly commandsInFlight = new Map<string, Promise<SlashCommandInfo[]>>();
-	// Queued follow-ups are persisted in EventStore; memory only tracks live startup/running state.
 	// Sessions whose turn is mid-startup (reserved before activeTurns is registered) so concurrent
 	// sends are treated as busy and never race past the check.
 	private readonly startingSessions = new Set<string>();
+	private readonly drainingQueueSessions = new Set<string>();
 
 	constructor(args: AgentCoordinatorArgs) {
 		this.store = args.store;
@@ -776,8 +783,8 @@ export class AgentCoordinator {
 	private discardQueuedUploads(sessionId: string, messages: QueuedSessionMessageRecord[]) {
 		// Trust only the stored-name segment of the canonical upload ref; the workspace comes from the
 		// session, never from the (client-supplied) attachment path.
-		const storedNames = messages.flatMap((message) =>
-			(message.command.attachments ?? []).flatMap((attachment) => {
+		const storedNames = messages.flatMap((entry) =>
+			(entry.payload.attachments ?? []).flatMap((attachment) => {
 				const name = /^miko:\/\/uploads\/[^/]+\/(.+)$/.exec(attachment.relativePath)?.[1];
 				return name ? [name] : [];
 			}),
@@ -785,6 +792,27 @@ export class AgentCoordinator {
 		if (storedNames.length === 0) return;
 		const session = this.store.getSession(sessionId);
 		if (session) this.discardUploads?.(session.workspaceId, storedNames);
+	}
+
+	private queuedPayload(command: SendCommand): QueuedSessionSendPayload {
+		return {
+			provider: command.provider,
+			content: command.content,
+			attachments: command.attachments,
+			parts: command.parts,
+			model: command.model,
+			modelOptions: command.modelOptions,
+			effort: command.effort,
+			planMode: command.planMode,
+		};
+	}
+
+	private queuedCommand(message: QueuedSessionMessageRecord): SendCommand & { sessionId: string } {
+		return {
+			type: 'session.send',
+			sessionId: message.sessionId,
+			...structuredClone(message.payload),
+		};
 	}
 
 	private async notifyTurnSettled(sessionId: string, outcome: 'success' | 'failed' | 'cancelled') {
@@ -804,7 +832,30 @@ export class AgentCoordinator {
 	) {
 		if (active.settled) return;
 		active.settled = true;
+		if (active.queuedMessageId) {
+			if (outcome === 'success') {
+				await this.store.completeQueuedSessionMessage(active.sessionId, active.queuedMessageId);
+			} else {
+				await this.store.failQueuedSessionMessage(active.sessionId, active.queuedMessageId);
+			}
+		}
 		await this.notifyTurnSettled(active.sessionId, outcome);
+	}
+
+	private async recordTurnFailure(sessionId: string, error: unknown) {
+		const message = error instanceof Error ? error.message : String(error);
+		await this.store.appendMessage(
+			sessionId,
+			timestamped({
+				kind: 'result',
+				subtype: 'error',
+				isError: true,
+				durationMs: 0,
+				result: message,
+			}),
+		);
+		await this.store.recordTurnFailed(sessionId, message);
+		return message;
 	}
 
 	private async autoRenameWorkspaceBranchFromTitle(args: AutoRenameWorkspaceBranchArgs) {
@@ -970,6 +1021,8 @@ export class AgentCoordinator {
 		serviceTier?: 'fast';
 		planMode: boolean;
 		appendUserPrompt: boolean;
+		promptEntryId?: string;
+		queuedMessageId?: string;
 	}) {
 		// Close any lingering draining stream before starting a new turn.
 		const draining = this.drainingStreams.get(args.sessionId);
@@ -1019,6 +1072,7 @@ export class AgentCoordinator {
 					parts: args.parts,
 				},
 				Date.now(),
+				args.promptEntryId,
 			);
 			await this.store.appendMessage(args.sessionId, userPromptEntry);
 		}
@@ -1035,6 +1089,15 @@ export class AgentCoordinator {
 				optimisticBranchRename,
 			);
 		}
+
+		const recordStartupFailure = async (error: unknown): Promise<never> => {
+			if (args.provider === 'codex') {
+				this.codexManager.stopSession(args.sessionId);
+			}
+			const message = await this.recordTurnFailure(args.sessionId, error);
+			this.onStateChange();
+			throw new RecordedTurnStartupError(message);
+		};
 
 		const onToolRequest = async (request: HarnessToolRequest): Promise<unknown> => {
 			const active = this.activeTurns.get(args.sessionId);
@@ -1055,41 +1118,46 @@ export class AgentCoordinator {
 		};
 
 		let turn: HarnessTurn;
-		if (args.provider === 'claude') {
-			turn = await this.startClaudeTurn({
-				sessionId: args.sessionId,
-				localPath: workspace.localPath,
-				model: args.model,
-				effort: args.effort,
-				contextWindow: args.contextWindow,
-				planMode: args.planMode,
-				sessionToken: session.sessionToken,
-				onToolRequest,
-			});
-		} else {
-			await this.codexManager.startSession({
-				sessionId: args.sessionId,
-				cwd: workspace.localPath,
-				model: args.model,
-				serviceTier: args.serviceTier,
-				sessionToken: session.sessionToken,
-			});
+		try {
+			if (args.provider === 'claude') {
+				turn = await this.startClaudeTurn({
+					sessionId: args.sessionId,
+					localPath: workspace.localPath,
+					model: args.model,
+					effort: args.effort,
+					contextWindow: args.contextWindow,
+					planMode: args.planMode,
+					sessionToken: session.sessionToken,
+					onToolRequest,
+				});
+			} else {
+				await this.codexManager.startSession({
+					sessionId: args.sessionId,
+					cwd: workspace.localPath,
+					model: args.model,
+					serviceTier: args.serviceTier,
+					sessionToken: session.sessionToken,
+				});
 
-			turn = await this.codexManager.startTurn({
-				sessionId: args.sessionId,
-				content: buildPromptText(args.content, args.attachments),
-				model: args.model,
-				effort: args.effort as Parameters<CodexAppServerManager['startTurn']>[0]['effort'],
-				serviceTier: args.serviceTier,
-				planMode: args.planMode,
-				onToolRequest,
-			});
+				turn = await this.codexManager.startTurn({
+					sessionId: args.sessionId,
+					content: buildPromptText(args.content, args.attachments),
+					model: args.model,
+					effort: args.effort as Parameters<CodexAppServerManager['startTurn']>[0]['effort'],
+					serviceTier: args.serviceTier,
+					planMode: args.planMode,
+					onToolRequest,
+				});
+			}
+		} catch (error) {
+			return await recordStartupFailure(error);
 		}
 
 		const active: ActiveTurn = {
 			sessionId: args.sessionId,
 			provider: args.provider,
 			turn,
+			queuedMessageId: args.queuedMessageId,
 			claudeSession:
 				args.provider === 'claude' ? this.claudeSessions.get(args.sessionId) : undefined,
 			model: args.model,
@@ -1231,16 +1299,16 @@ export class AgentCoordinator {
 		// A turn is running/starting — or messages are already queued behind a settling turn — so queue
 		// this one and let it start when the session drains, instead of rejecting or jumping the line.
 		if (this.isSessionBusy(sessionId)) {
-			const queue = this.store.listQueuedSessionMessages(sessionId);
-			if (queue.length >= MAX_QUEUED_MESSAGES) {
-				throw new Error(`Too many queued messages (max ${MAX_QUEUED_MESSAGES}).`);
-			}
-			await this.store.queueSessionMessage({ ...command, sessionId });
+			await this.store.enqueueSessionMessage(sessionId, this.queuedPayload(command));
 			this.onStateChange();
 			return { sessionId };
 		}
 
-		await this.startQueuedOrDirect({ ...command, sessionId });
+		try {
+			await this.startQueuedOrDirect({ ...command, sessionId });
+		} catch (error) {
+			if (!(error instanceof RecordedTurnStartupError)) throw error;
+		}
 		return { sessionId };
 	}
 
@@ -1269,7 +1337,12 @@ export class AgentCoordinator {
 		return { sessionId };
 	}
 
-	private async startQueuedOrDirect(command: QueuedSessionSendCommand, beforeStart?: () => void) {
+	private async startQueuedOrDirect(
+		command: SendCommand & { sessionId: string },
+		beforeStart?: () => void,
+		promptEntryId?: string,
+		queuedMessageId?: string,
+	) {
 		// Reserve synchronously (before any await) so a concurrent send/instruction sees the session as
 		// busy during the async startup window — closing the check-then-start race. `activeTurns` takes
 		// over once the turn is registered.
@@ -1293,6 +1366,8 @@ export class AgentCoordinator {
 				serviceTier: settings.serviceTier,
 				planMode: settings.planMode,
 				appendUserPrompt: true,
+				promptEntryId,
+				queuedMessageId,
 			});
 		} finally {
 			this.startingSessions.delete(command.sessionId);
@@ -1301,40 +1376,136 @@ export class AgentCoordinator {
 
 	/** Start the next queued message once a session has no active turn. No-op if busy or empty. */
 	private async drainQueue(sessionId: string) {
-		if (this.activeTurns.has(sessionId) || this.startingSessions.has(sessionId)) return;
-		const next = this.store.getNextQueuedSessionMessage(sessionId);
-		if (!next) return;
-		const draining = await this.store.markQueuedSessionMessageDraining(sessionId, next.id);
-		if (!draining) return;
-		this.onStateChange();
-
+		if (
+			this.activeTurns.has(sessionId) ||
+			this.startingSessions.has(sessionId) ||
+			this.drainingQueueSessions.has(sessionId)
+		) {
+			return;
+		}
+		this.drainingQueueSessions.add(sessionId);
 		try {
-			await this.startQueuedOrDirect(next.command);
-			await this.store.completeQueuedSessionMessage(sessionId, next.id);
-			this.onStateChange();
-		} catch (error) {
-			const message = error instanceof Error ? error.message : String(error);
-			await this.store.failQueuedSessionMessage(sessionId, next.id, message);
-			await this.store.appendMessage(
-				sessionId,
-				timestamped({
+			while (!this.activeTurns.has(sessionId) && !this.startingSessions.has(sessionId)) {
+				const next = await this.store.claimNextQueuedSessionMessage(sessionId);
+				if (!next) return;
+				this.onStateChange();
+
+				try {
+					await this.startQueuedOrDirect(
+						this.queuedCommand(next),
+						undefined,
+						next.promptEntryId,
+						next.id,
+					);
+					this.onStateChange();
+					return;
+				} catch (error) {
+					if (!(error instanceof RecordedTurnStartupError) && this.store.getSession(sessionId)) {
+						await this.recordTurnFailure(sessionId, error);
+					}
+					await this.store.failQueuedSessionMessage(sessionId, next.id);
+					this.onStateChange();
+				}
+			}
+		} finally {
+			this.drainingQueueSessions.delete(sessionId);
+		}
+	}
+
+	private async recoverInterruptedQueueMessage(message: QueuedSessionMessageRecord) {
+		const transcript = this.store.getMessages(message.sessionId);
+		const promptIndex = transcript.findIndex((entry) => entry._id === message.promptEntryId);
+		if (promptIndex < 0) {
+			await this.store.requeueSessionMessage(message.sessionId, message.id);
+			return;
+		}
+
+		const terminalEntry = transcript
+			.slice(promptIndex + 1)
+			.find((entry) => entry.kind === 'result' || entry.kind === 'interrupted');
+		if (terminalEntry?.kind === 'result' && !terminalEntry.isError) {
+			await this.store.completeQueuedSessionMessage(message.sessionId, message.id);
+			return;
+		}
+		if (terminalEntry) {
+			await this.store.failQueuedSessionMessage(message.sessionId, message.id);
+			return;
+		}
+
+		const errorText =
+			'Miko restarted while this queued message was starting. It was not retried to avoid running the same task twice.';
+		await this.store.appendMessageOnce(
+			message.sessionId,
+			timestamped(
+				{
 					kind: 'result',
 					subtype: 'error',
 					isError: true,
 					durationMs: 0,
-					result: message,
-				}),
+					result: errorText,
+				},
+				Date.now(),
+				`queued-recovery:${message.id}`,
+			),
+		);
+		await this.store.recordTurnFailed(message.sessionId, errorText);
+		await this.store.failQueuedSessionMessage(message.sessionId, message.id);
+	}
+
+	async resumeQueuedMessages() {
+		let draining: QueuedSessionMessageRecord[];
+		try {
+			draining = this.store.listDrainingSessionMessages();
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			this.reportBackgroundError?.(
+				`[queue-recovery] Could not inspect draining messages: ${message}`,
 			);
-			await this.store.recordTurnFailed(sessionId, message);
-			this.onStateChange();
-			// A start failure shouldn't strand the rest of the queue.
-			await this.drainQueue(sessionId);
+			return;
 		}
+
+		for (const message of draining) {
+			try {
+				await this.recoverInterruptedQueueMessage(message);
+			} catch (error) {
+				const detail = error instanceof Error ? error.message : String(error);
+				this.reportBackgroundError?.(
+					`[queue-recovery] Session ${message.sessionId} could not recover message ${message.id}: ${detail}`,
+				);
+			}
+		}
+
+		let sessionIds: string[];
+		try {
+			sessionIds = this.store.listSessionIdsWithQueuedMessages();
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			this.reportBackgroundError?.(
+				`[queue-recovery] Could not inspect queued sessions: ${message}`,
+			);
+			return;
+		}
+
+		if (draining.length > 0 || sessionIds.length > 0) {
+			this.onStateChange();
+		}
+		await Promise.all(
+			sessionIds.map(async (sessionId) => {
+				try {
+					await this.drainQueue(sessionId);
+				} catch (error) {
+					const message = error instanceof Error ? error.message : String(error);
+					this.reportBackgroundError?.(
+						`[queue-recovery] Session ${sessionId} could not resume queued messages: ${message}`,
+					);
+				}
+			}),
+		);
 	}
 
 	/** Drop a still-queued message before it runs. */
 	async dequeueMessage(sessionId: string, messageId: string) {
-		const dropped = await this.store.dequeueQueuedSessionMessage(sessionId, messageId);
+		const dropped = await this.store.dequeueSessionMessage(sessionId, messageId);
 		if (!dropped) return;
 		this.discardQueuedUploads(sessionId, [dropped]);
 		this.onStateChange();
@@ -1352,8 +1523,8 @@ export class AgentCoordinator {
 	getQueuedMessages(sessionId: string): QueuedMessageSnapshot[] {
 		return this.store.listQueuedSessionMessages(sessionId).map((message) => ({
 			id: message.id,
-			content: message.command.content,
-			attachmentCount: message.command.attachments?.length ?? 0,
+			content: message.payload.content,
+			attachmentCount: message.payload.attachments?.length ?? 0,
 		}));
 	}
 
@@ -1534,18 +1705,7 @@ export class AgentCoordinator {
 			}
 		} catch (error) {
 			if (!active.cancelRequested) {
-				const message = error instanceof Error ? error.message : String(error);
-				await this.store.appendMessage(
-					active.sessionId,
-					timestamped({
-						kind: 'result',
-						subtype: 'error',
-						isError: true,
-						durationMs: 0,
-						result: message,
-					}),
-				);
-				await this.store.recordTurnFailed(active.sessionId, message);
+				await this.recordTurnFailure(active.sessionId, error);
 				await this.notifyActiveTurnSettled(active, 'failed');
 			}
 		} finally {
@@ -1580,21 +1740,11 @@ export class AgentCoordinator {
 						appendUserPrompt: false,
 					});
 				} catch (error) {
-					const message = error instanceof Error ? error.message : String(error);
-					await this.store.appendMessage(
-						active.sessionId,
-						timestamped({
-							kind: 'result',
-							subtype: 'error',
-							isError: true,
-							durationMs: 0,
-							result: message,
-						}),
-					);
-
-					await this.store.recordTurnFailed(active.sessionId, message);
+					if (!(error instanceof RecordedTurnStartupError)) {
+						await this.recordTurnFailure(active.sessionId, error);
+						this.onStateChange();
+					}
 					await this.notifyActiveTurnSettled(active, 'failed');
-					this.onStateChange();
 				}
 			}
 
@@ -1603,7 +1753,7 @@ export class AgentCoordinator {
 		}
 	}
 
-	async cancel(sessionId: string) {
+	async cancel(sessionId: string, options: { preserveQueue?: boolean } = {}) {
 		// Also clean up any draining stream for this session.
 		const draining = this.drainingStreams.get(sessionId);
 		if (draining) {
@@ -1613,7 +1763,9 @@ export class AgentCoordinator {
 
 		// Stop halts everything for this session: drop any queued follow-ups so they don't auto-start,
 		// and release their uploaded attachments.
-		const droppedQueue = await this.store.dequeueQueuedSessionMessages(sessionId);
+		const droppedQueue = options.preserveQueue
+			? []
+			: await this.store.clearQueuedSessionMessages(sessionId);
 		const hadQueue = droppedQueue.length > 0;
 		if (hadQueue) this.discardQueuedUploads(sessionId, droppedQueue);
 

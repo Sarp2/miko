@@ -360,6 +360,9 @@ export async function startServer(options: StartServerOptions = {}) {
 		}
 	}
 
+	void agent.resumeQueuedMessages().catch((error) => {
+		console.error('[queue-recovery] Unexpected queue recovery failure:', error);
+	});
 	cleanupStaleInstructionAttachmentsInBackground();
 	refreshStartupWorkspaceStateInBackground();
 	prRefreshPoller.start();
@@ -367,7 +370,7 @@ export async function startServer(options: StartServerOptions = {}) {
 
 	const shutdown = async () => {
 		for (const sessionId of [...agent.activeTurns.keys()]) {
-			await agent.cancel(sessionId);
+			await agent.cancel(sessionId, { preserveQueue: true });
 		}
 
 		await prRefreshPoller.stop();
