@@ -7,13 +7,12 @@
   },
   "author": "Sarp Pehlivan",
   "license": "MIT",
-  "homepage": "https://github.com/Sarp2/Miko#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Sarp2/Miko.git"
+    "url": "git+https://github.com/Sarp2/miko.git"
   },
   "bugs": {
-    "url": "https://github.com/Sarp2/Miko/issues"
+    "url": "https://github.com/Sarp2/miko/issues"
   },
   "keywords": [
     "ai",

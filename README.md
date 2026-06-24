@@ -31,7 +31,7 @@ Miko is a local web UI for orchestrating AI coding agents across isolated git wo
 
 Miko is local-first. Your workspace state, transcripts, uploads, terminals, and event history live on your machine under `~/.miko` in production and `~/.miko-dev` in development.
 
-> **Status:** Miko is in active development. Expect breaking changes to event schemas, the WebSocket protocol, on-disk layout, and UI behavior. Pin a commit if you depend on it, and do not point it at data you cannot afford to lose.
+> **Status:** Miko is in production and publicly available as `miko-code`. The project is still pre-1.0, so breaking storage or protocol changes will be released through explicit version updates and documented migrations.
 
 ## Features
 
@@ -130,6 +130,17 @@ bun test
 bun run lint
 bun run check
 ```
+
+### Releases
+
+Releases are explicit and tag-driven. Pull requests and pushes to `main` only run CI; they never publish packages.
+
+1. Update `package.json` to the next version and merge that change to `main`.
+2. Create and push the matching tag, such as `v0.2.0`.
+3. The release workflow validates, tests, packs, and smoke-tests the CLI.
+4. After every gate passes, it publishes `miko-code` to npm and creates the matching GitHub release.
+
+The npm Trusted Publisher must be configured for the `Sarp2/miko` repository and `.github/workflows/release.yml`. The workflow intentionally contains no long-lived npm token.
 
 ## Architecture
 
