@@ -1,0 +1,21 @@
+src/server/data-dir-lock.test.ts
+  s_82e93de1bb8ac8::t_3c1182a78b1404 34
+src/server/data-dir-lock.ts
+  s_82e93de1bb8ac8::t_3c1182a78b1404 3,29,32,36,40-42,48-64,66-69,76,79-80,84,86,99-100,104,108,112
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.13",
+  "base_commit_sha": "09a5fa68e82c29ab65244e7c2636a13227e1c26d",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
