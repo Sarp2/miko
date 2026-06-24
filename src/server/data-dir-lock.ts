@@ -1,12 +1,11 @@
 import { createHash } from 'node:crypto';
-import { createSocket, type Socket } from 'node:dgram';
 import { chmod, mkdir, realpath } from 'node:fs/promises';
+import { createConnection, createServer, type Server } from 'node:net';
 
 const LOCK_HOST = '127.0.0.1';
 const LOCK_PORT_START = 40_000;
 const LOCK_PORT_COUNT = 20_000;
 const MAX_LOCK_PORT_ATTEMPTS = 32;
-const LOCK_PROBE = 'miko-data-dir-lock';
 
 interface LockOwner {
 	key: string;
@@ -27,59 +26,64 @@ function lockPort(key: string, attempt: number) {
 	return LOCK_PORT_START + offset;
 }
 
-function bind(socket: Socket, port: number) {
+function listen(server: Server, port: number) {
 	return new Promise<void>((resolve, reject) => {
 		const onError = (error: Error) => {
-			socket.off('listening', onListening);
+			server.off('listening', onListening);
 			reject(error);
 		};
 		const onListening = () => {
-			socket.off('error', onError);
+			server.off('error', onError);
 			resolve();
 		};
 
-		socket.once('error', onError);
-		socket.once('listening', onListening);
-		socket.bind(port, LOCK_HOST);
+		server.once('error', onError);
+		server.once('listening', onListening);
+		server.listen(port, LOCK_HOST);
 	});
 }
 
 function readLockOwner(port: number) {
 	return new Promise<LockOwner | null>((resolve) => {
-		const socket = createSocket('udp4');
-		const timeout = setTimeout(() => {
-			socket.close();
-			resolve(null);
-		}, 300);
+		const socket = createConnection({ host: LOCK_HOST, port });
+		let response = '';
+		let settled = false;
 
-		socket.once('message', (message) => {
-			clearTimeout(timeout);
-			socket.close();
+		const finish = (owner: LockOwner | null) => {
+			if (settled) return;
+			settled = true;
+			socket.destroy();
+			resolve(owner);
+		};
+
+		socket.setEncoding('utf8');
+		socket.setTimeout(500);
+		socket.on('data', (chunk) => {
+			response += chunk;
+		});
+		socket.once('end', () => {
 			try {
-				const candidate = JSON.parse(message.toString('utf8')) as Partial<LockOwner>;
-				resolve(
-					typeof candidate.key === 'string' &&
+				const candidate = JSON.parse(response || 'null') as Partial<LockOwner> | null;
+				finish(
+					candidate &&
+						typeof candidate.key === 'string' &&
 						typeof candidate.pid === 'number' &&
 						Number.isInteger(candidate.pid)
 						? (candidate as LockOwner)
 						: null,
 				);
 			} catch {
-				resolve(null);
+				finish(null);
 			}
 		});
-		socket.once('error', () => {
-			clearTimeout(timeout);
-			socket.close();
-			resolve(null);
-		});
-		socket.send(LOCK_PROBE, port, LOCK_HOST);
+		socket.once('timeout', () => finish(null));
+		socket.once('error', () => finish(null));
 	});
 }
 
-async function closeSocket(socket: Socket) {
+async function closeServer(server: Server) {
 	await new Promise<void>((resolve) => {
-		socket.close(() => resolve());
+		server.close(() => resolve());
 	});
 }
 
@@ -92,26 +96,23 @@ export async function acquireDataDirLock(dataDir: string): Promise<DataDirLock> 
 	for (let attempt = 0; attempt < MAX_LOCK_PORT_ATTEMPTS; attempt++) {
 		const port = lockPort(key, attempt);
 		const owner: LockOwner = { key, pid: process.pid };
-		const socket = createSocket('udp4');
-		socket.on('message', (message, remote) => {
-			if (message.toString('utf8') !== LOCK_PROBE) return;
-			socket.send(JSON.stringify(owner), remote.port, remote.address);
+		const server = createServer((socket) => {
+			socket.end(`${JSON.stringify(owner)}\n`);
 		});
 
 		try {
-			await bind(socket, port);
+			await listen(server, port);
 
 			let released = false;
 			return {
-				path: `udp://${LOCK_HOST}:${port}`,
+				path: `tcp://${LOCK_HOST}:${port}`,
 				release: async () => {
 					if (released) return;
 					released = true;
-					await closeSocket(socket);
+					await closeServer(server);
 				},
 			};
 		} catch (error) {
-			socket.close();
 			if ((error as NodeJS.ErrnoException).code !== 'EADDRINUSE') throw error;
 
 			const current = await readLockOwner(port);

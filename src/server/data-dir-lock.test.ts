@@ -31,7 +31,7 @@ describe('acquireDataDirLock', () => {
 	test('releases the operating-system lease without leaving lock data on disk', async () => {
 		const dataDir = await createTempDir();
 		const lock = await acquireDataDirLock(dataDir);
-		expect(lock.path).toStartWith('udp://127.0.0.1:');
+		expect(lock.path).toStartWith('tcp://127.0.0.1:');
 		await lock.release();
 
 		const next = await acquireDataDirLock(dataDir);
