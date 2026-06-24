@@ -1,0 +1,59 @@
+src/server/event-store.ts
+  s_82e93de1bb8ac8::t_65e7840740d902 182,198
+  s_82e93de1bb8ac8::t_9da146806e3518 16
+  s_82e93de1bb8ac8::t_4a6c0707e14f64 248-250
+  s_82e93de1bb8ac8::t_4294f83a7709e5 2,245,356-376,378,380-382,384-389
+  s_82e93de1bb8ac8::t_85abbb6338f96f 643-646,1181-1185,1425-1427,1429-1433
+  s_82e93de1bb8ac8::t_365168c703cdcb 17
+  s_82e93de1bb8ac8::t_0b584657cfed57 173-176,189-190,194,196,213-214,217-237,241-244
+  s_82e93de1bb8ac8::t_788048bd87a8f6 254-270,273-284,286-294,296-307,329-330,334-335,337-338,343-355
+src/server/durable-file.ts
+  s_82e93de1bb8ac8::t_b310640ee91e17 3-23,38-45,52-53,57-74
+  s_82e93de1bb8ac8::t_365168c703cdcb 1
+  s_82e93de1bb8ac8::t_c23594a5cb6096 46-51,54-56
+  s_82e93de1bb8ac8::t_5bcacc4f990d62 2,24-37
+LICENSE
+  s_82e93de1bb8ac8::t_091f4a86c67d7e 1-21
+package.json
+  s_82e93de1bb8ac8::t_091f4a86c67d7e 6,8-25,103
+src/server/server.ts
+  s_82e93de1bb8ac8::t_0b584657cfed57 160,383-386,388-394,400
+  s_82e93de1bb8ac8::t_f50f12530fae43 172-178,185-190,365
+  s_82e93de1bb8ac8::t_034221585a2b21 395-399
+src/server/data-dir-lock.ts
+  s_82e93de1bb8ac8::t_cfb372e3856c41 3
+  s_82e93de1bb8ac8::t_b310640ee91e17 4,16-18,45-46,78-79,84-86,101,103-105,107-109,111-113,119,121-125,127
+  s_82e93de1bb8ac8::t_29d41b5c681bdf 58,60,66-67,69
+  s_82e93de1bb8ac8::t_cf9830fcf0494e 2,9,22,30,33,37,41-43,49-57,59,61,71-73,76,80,82,89-90,95-98,102,106,110,114
+  s_82e93de1bb8ac8::t_b42e2f9d7fb30f 87-88
+  s_82e93de1bb8ac8::t_42b4c603ffb051 1,5-8,10-15,19-21,23-27,47-48,62-65,68,74,91-94,117-118,120,126
+  s_82e93de1bb8ac8::t_d091bc2379dd55 28-29,31-32,34-36,38-40,44,70,75,77,81,83,99-100,115-116
+src/server/durable-file.test.ts
+  s_82e93de1bb8ac8::t_f736a7e9f3ef0c 1-45
+src/server/event-store.test.ts
+  s_82e93de1bb8ac8::t_bf1216b9b1808c 187
+  s_82e93de1bb8ac8::t_df255c063fca13 3,87-88,140,175-179,186,188,887-921
+  s_82e93de1bb8ac8::t_aad3c6c5faaea4 91-101
+README.md
+  s_82e93de1bb8ac8::t_091f4a86c67d7e 177-179
+src/server/data-dir-lock.test.ts
+  s_82e93de1bb8ac8::t_42b4c603ffb051 31,37-38
+  s_82e93de1bb8ac8::t_cf9830fcf0494e 34
+  s_82e93de1bb8ac8::t_f736a7e9f3ef0c 1-30,32-33,35-36,39-40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.13",
+  "base_commit_sha": "669bc5be20e34da87fc04eeac176473e346a0904",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
