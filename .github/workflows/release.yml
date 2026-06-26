@@ -77,9 +77,12 @@ jobs:
 
           npm pack --silent
           mkdir -p "$test_home"
-          HOME="$test_home" BUN_INSTALL="$test_home/.bun" bun install --global "$tarball"
-          HOME="$test_home" BUN_INSTALL="$test_home/.bun" "$test_home/.bun/bin/miko" --version |
-            grep --fixed-strings "$package_version"
+          export HOME="$test_home"
+          export BUN_INSTALL="$test_home/.bun"
+          export PATH="$BUN_INSTALL/bin:$PATH"
+
+          bun install --global "$tarball"
+          miko --version | grep --fixed-strings "$package_version"
 
       - name: Publish to npm
         run: |
