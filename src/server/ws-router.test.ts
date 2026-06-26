@@ -138,6 +138,15 @@ async function createRouter(overrides: Record<string, unknown> = {}) {
 
 	const workspaceManager = {
 		getWorkspaceHealthState: async () => 'healthy',
+		refreshWorkspaceGitSnapshot: async () => {
+			gitSnapshot = readyGitSnapshot();
+			return true;
+		},
+		fetchWorkspaceGitSnapshot: async () => ({
+			ok: true as const,
+			branchName: 'atlas',
+			snapshotChanged: true,
+		}),
 		markWorkspaceInstructionTurnStarted: () => {},
 		clearWorkspaceInstructionTurn: () => {},
 		createWorkspace: async () => ({ workspace: {}, session: null }),
@@ -246,6 +255,10 @@ describe('createWsRouter.refreshWorkspaceOpenState', () => {
 			},
 			workspaceManager: {
 				getWorkspaceHealthState: async () => 'branch_missing',
+				refreshWorkspaceGitSnapshot: async () => {
+					gitSnapshot = readyGitSnapshot();
+					return true;
+				},
 			},
 		});
 		const ws = new FakeWebSocket();
@@ -440,6 +453,7 @@ describe('createWsRouter.sendWorkspaceInstruction', () => {
 		let sentCommand: unknown;
 		const { router, workspaceId, sessionId } = await createRouter({
 			workspaceManager: {
+				refreshWorkspaceGitSnapshot: async () => true,
 				markWorkspaceInstructionTurnStarted: (args: unknown) => {
 					markedIntent = args;
 				},
@@ -605,6 +619,7 @@ describe('createWsRouter.sendWorkspaceInstruction', () => {
 		};
 		const { router, workspaceId, sessionId } = await createRouter({
 			workspaceManager: {
+				refreshWorkspaceGitSnapshot: async () => true,
 				markWorkspaceInstructionTurnStarted: (args: unknown) => {
 					markedIntent = args;
 				},

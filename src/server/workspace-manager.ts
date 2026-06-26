@@ -55,7 +55,8 @@ export interface WorkspaceCreateResult {
 }
 
 interface WorkspaceManagerDeps {
-	diffStore?: Pick<DiffStore, 'refreshWorkspaceGitSnapshot'>;
+	diffStore?: Pick<DiffStore, 'refreshWorkspaceGitSnapshot'> &
+		Partial<Pick<DiffStore, 'fetchWorkspaceGit' | 'getWorkspaceGitSnapshot'>>;
 	prManager?: Pick<
 		PrManager,
 		'getWorkspaceGitHubSnapshot' | 'refreshWorkspacePrState' | 'clearWorkspaceGitHubSnapshot'
@@ -294,10 +295,19 @@ export class WorkspaceManager {
 		options?: { force?: boolean },
 	): Promise<{ refreshed: boolean; snapshot: WorkspaceGitHubSnapshot | null }> {
 		if (!this.prManager) return { refreshed: false, snapshot: null };
+		const branchChanged = this.eventStore.getWorkspace(workspaceId)
+			? await this.syncWorkspaceBranchFromGitSnapshot(workspaceId).catch((error) => {
+					console.warn('[workspace-manager] failed to sync branch before PR refresh', {
+						workspaceId,
+						error,
+					});
+					return false;
+				})
+			: false;
 
 		const now = Date.now();
 		const lastRefreshedAt = this.lastPrRefreshAtByWorkspaceId.get(workspaceId) ?? 0;
-		if (!options?.force && now - lastRefreshedAt < PR_REFRESH_COOLDOWN_MS) {
+		if (!options?.force && !branchChanged && now - lastRefreshedAt < PR_REFRESH_COOLDOWN_MS) {
 			return {
 				refreshed: false,
 				snapshot: this.prManager.getWorkspaceGitHubSnapshot(workspaceId),
@@ -307,6 +317,61 @@ export class WorkspaceManager {
 		const snapshot = await this.prManager.refreshWorkspacePrState(workspaceId);
 		this.lastPrRefreshAtByWorkspaceId.set(workspaceId, Date.now());
 		return { refreshed: true, snapshot };
+	}
+
+	private async syncWorkspaceBranchFromGitSnapshot(workspaceId: string) {
+		const snapshot = this.diffStore?.getWorkspaceGitSnapshot?.(workspaceId);
+		if (!snapshot || snapshot.status !== 'ready' || !snapshot.branchName) return false;
+
+		const workspace = this.eventStore.requireWorkspace(workspaceId);
+		if (workspace.branchName === snapshot.branchName) return false;
+
+		await this.eventStore.setWorkspaceBranch(workspaceId, snapshot.branchName);
+		this.lastPrRefreshAtByWorkspaceId.delete(workspaceId);
+		this.prManager?.clearWorkspaceGitHubSnapshot(workspaceId);
+		return true;
+	}
+
+	private async refreshWorkspaceGitSnapshotDetailed(workspaceId: string) {
+		const workspace = this.eventStore.requireWorkspace(workspaceId);
+		const snapshotChanged =
+			(await this.diffStore?.refreshWorkspaceGitSnapshot(workspace.id, workspace.localPath)) ??
+			false;
+		const branchChanged = await this.syncWorkspaceBranchFromGitSnapshot(workspace.id);
+		return { snapshotChanged, branchChanged };
+	}
+
+	async refreshWorkspaceGitSnapshot(workspaceId: string) {
+		const { snapshotChanged, branchChanged } =
+			await this.refreshWorkspaceGitSnapshotDetailed(workspaceId);
+		return snapshotChanged || branchChanged;
+	}
+
+	async fetchWorkspaceGitSnapshot(workspaceId: string) {
+		const workspace = this.eventStore.requireWorkspace(workspaceId);
+		if (!this.diffStore?.fetchWorkspaceGit) {
+			const { snapshotChanged, branchChanged } = await this.refreshWorkspaceGitSnapshotDetailed(
+				workspace.id,
+			);
+			return {
+				ok: true as const,
+				branchName: this.eventStore.requireWorkspace(workspace.id).branchName,
+				snapshotChanged: snapshotChanged || branchChanged,
+			};
+		}
+
+		const result = await this.diffStore.fetchWorkspaceGit({
+			workspaceId: workspace.id,
+			workspacePath: workspace.localPath,
+		});
+		if (!result.ok) return result;
+
+		const branchChanged = await this.syncWorkspaceBranchFromGitSnapshot(workspace.id);
+		return {
+			...result,
+			branchName: this.eventStore.requireWorkspace(workspace.id).branchName,
+			snapshotChanged: result.snapshotChanged || branchChanged,
+		};
 	}
 
 	markWorkspaceInstructionTurnStarted(args: {
@@ -352,9 +417,7 @@ export class WorkspaceManager {
 
 		if (this.diffStore) {
 			try {
-				changed =
-					(await this.diffStore.refreshWorkspaceGitSnapshot(workspace.id, workspace.localPath)) ||
-					changed;
+				changed = (await this.refreshWorkspaceGitSnapshot(workspace.id)) || changed;
 			} catch (error) {
 				console.error('[workspace-manager] failed to refresh workspace git snapshot', {
 					workspaceId: workspace.id,
@@ -603,14 +666,12 @@ export class WorkspaceManager {
 
 		this.prManager?.clearWorkspaceGitHubSnapshot(workspace.id);
 
-		await this.diffStore
-			?.refreshWorkspaceGitSnapshot(workspace.id, workspace.localPath)
-			.catch((error) => {
-				console.error('[workspace-manager] failed to refresh continued workspace git snapshot', {
-					workspaceId: workspace.id,
-					error,
-				});
+		await this.refreshWorkspaceGitSnapshot(workspace.id).catch((error) => {
+			console.error('[workspace-manager] failed to refresh continued workspace git snapshot', {
+				workspaceId: workspace.id,
+				error,
 			});
+		});
 
 		if (this.prManager) {
 			this.prManager.clearWorkspaceGitHubSnapshot(workspace.id);
