@@ -1,0 +1,39 @@
+src/server/server.ts
+  s_82e93de1bb8ac8::t_48c45052b4e929 207,234
+  s_82e93de1bb8ac8::t_bd7befe5586ce3 208,235
+src/server/ws-router.test.ts
+  s_82e93de1bb8ac8::t_d1e989e3bf4252 141-149,258-261,456
+  s_82e93de1bb8ac8::t_2f137ba451be00 622
+src/server/ws-router.ts
+  s_82e93de1bb8ac8::t_088cc76a191475 471,474-479,738-739,741,743,782-783,785,787,846-847,849,851,853
+package.json
+  s_82e93de1bb8ac8::t_ebdcd333623678 3
+src/server/workspace-manager.ts
+  s_82e93de1bb8ac8::t_d4dc323a1ca907 420
+  s_82e93de1bb8ac8::t_2a6af5f93677a5 353-355
+  s_82e93de1bb8ac8::t_2baef73a457561 301-306
+  s_82e93de1bb8ac8::t_b35112a9d5b9d3 298-300,310,335,341-346,359,669-672,674
+  s_82e93de1bb8ac8::t_5e03e0ffbb7809 338-339
+  s_82e93de1bb8ac8::t_192213134e252b 58-59,322-334,336-337,340,347-352,356-358,360-375
+  s_82e93de1bb8ac8::t_b394852df1dfb2 376
+src/server/workspace-manager.test.ts
+  s_82e93de1bb8ac8::t_a731c87162cdd7 10,238,732-757
+  s_82e93de1bb8ac8::t_2a6af5f93677a5 5-9
+  s_82e93de1bb8ac8::t_4757f58f47de99 24-27,163-237
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "bbfe60dd6a1ed139b1bda8ceaaa622bcbce01f70",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
