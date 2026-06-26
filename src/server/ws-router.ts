@@ -468,18 +468,15 @@ export function createWsRouter({
 	async function refreshWorkspaceGit(workspaceId: string, fetchRemote: boolean) {
 		const workspace = requireWorkspace(workspaceId);
 		if (fetchRemote) {
-			const result = await diffStore.fetchWorkspaceGit({
-				workspaceId: workspace.id,
-				workspacePath: workspace.localPath,
-			});
-			return result;
+			return workspaceManager.fetchWorkspaceGitSnapshot(workspace.id);
 		}
 
-		const snapshotChanged = await diffStore.refreshWorkspaceGitSnapshot(
-			workspace.id,
-			workspace.localPath,
-		);
-		return { ok: true as const, branchName: workspace.branchName, snapshotChanged };
+		const snapshotChanged = await workspaceManager.refreshWorkspaceGitSnapshot(workspace.id);
+		return {
+			ok: true as const,
+			branchName: store.requireWorkspace(workspace.id).branchName,
+			snapshotChanged,
+		};
 	}
 
 	async function handleCommand(
@@ -738,11 +735,12 @@ export function createWsRouter({
 				case 'workspace.createPr': {
 					const workspace = requireWorkspace(command.workspaceId);
 					const directory = store.requireDirectory(workspace.directoryId);
-					await diffStore.refreshWorkspaceGitSnapshot(workspace.id, workspace.localPath);
+					await workspaceManager.refreshWorkspaceGitSnapshot(workspace.id);
+					const refreshedWorkspace = requireWorkspace(command.workspaceId);
 					const attachment = await writeCreatePrInstructionsAttachment({
-						workspace,
+						workspace: refreshedWorkspace,
 						directory,
-						git: diffStore.getWorkspaceGitSnapshot(workspace.id),
+						git: diffStore.getWorkspaceGitSnapshot(refreshedWorkspace.id),
 					});
 					const result = await sendWorkspaceInstruction(
 						command.workspaceId,
@@ -781,11 +779,12 @@ export function createWsRouter({
 					if (!github.hasMergeConflicts) {
 						throw new Error('Workspace does not have merge conflicts to resolve');
 					}
-					await diffStore.refreshWorkspaceGitSnapshot(workspace.id, workspace.localPath);
+					await workspaceManager.refreshWorkspaceGitSnapshot(workspace.id);
+					const refreshedWorkspace = requireWorkspace(command.workspaceId);
 					const attachment = await writeMergeConflictInstructionsAttachment({
-						workspace,
+						workspace: refreshedWorkspace,
 						directory,
-						git: diffStore.getWorkspaceGitSnapshot(workspace.id),
+						git: diffStore.getWorkspaceGitSnapshot(refreshedWorkspace.id),
 						github,
 					});
 					const result = await sendWorkspaceInstruction(
@@ -844,13 +843,14 @@ export function createWsRouter({
 				case 'workspace.reviewChanges': {
 					const workspace = requireWorkspace(command.workspaceId);
 					const directory = store.requireDirectory(workspace.directoryId);
-					await diffStore.refreshWorkspaceGitSnapshot(workspace.id, workspace.localPath);
+					await workspaceManager.refreshWorkspaceGitSnapshot(workspace.id);
+					const refreshedWorkspace = requireWorkspace(command.workspaceId);
 					const attachment = await writeReviewInstructionsAttachment({
-						workspace,
+						workspace: refreshedWorkspace,
 						directory,
-						git: diffStore.getWorkspaceGitSnapshot(workspace.id),
+						git: diffStore.getWorkspaceGitSnapshot(refreshedWorkspace.id),
 					});
-					const session = await store.createSession(workspace.id);
+					const session = await store.createSession(refreshedWorkspace.id);
 					try {
 						await sendWorkspaceInstruction(
 							command.workspaceId,

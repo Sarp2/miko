@@ -2,8 +2,12 @@ import { afterEach, describe, expect, test } from 'bun:test';
 import { mkdir, mkdtemp, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import type { WorkspaceGitHubSnapshot, WorkspaceSetupState } from 'src/shared/types';
-import { runGit } from './diff-store';
+import type {
+	WorkspaceGitHubSnapshot,
+	WorkspaceGitSnapshot,
+	WorkspaceSetupState,
+} from 'src/shared/types';
+import { DiffStore, runGit } from './diff-store';
 import { EventStore } from './event-store';
 import { WorkspaceManager } from './workspace-manager';
 
@@ -15,6 +19,10 @@ afterEach(async () => {
 
 function noPrSnapshot(): WorkspaceGitHubSnapshot {
 	return { status: 'none', owner: 'sarp', repo: 'miko', comments: [], checks: [] };
+}
+
+function readyGitSnapshot(branchName: string): WorkspaceGitSnapshot {
+	return { status: 'ready', branchName, files: [] };
 }
 
 async function createTempDir() {
@@ -151,6 +159,82 @@ describe('WorkspaceManager.refreshWorkspacePrStage', () => {
 			snapshot,
 		});
 		expect(refreshCalls).toBe(2);
+	});
+
+	test('does not perform a git refresh from the PR refresh path', async () => {
+		const { store, directory } = await createGitHubBackedDirectory();
+		const workspace = await store.createWorkspace({
+			directoryId: directory.id,
+			localPath: path.join(directory.localPath, 'atlas'),
+			branchName: 'atlas',
+		});
+		await store.markWorkspaceSetupCompleted(workspace.id);
+		let gitRefreshCalls = 0;
+		let prRefreshCalls = 0;
+		const manager = new WorkspaceManager(store, {
+			diffStore: {
+				refreshWorkspaceGitSnapshot: async () => {
+					gitRefreshCalls += 1;
+					return true;
+				},
+				getWorkspaceGitSnapshot: () => readyGitSnapshot('atlas'),
+			},
+			prManager: {
+				clearWorkspaceGitHubSnapshot: () => {},
+				getWorkspaceGitHubSnapshot: () => null,
+				refreshWorkspacePrState: async () => {
+					prRefreshCalls += 1;
+					return noPrSnapshot();
+				},
+			},
+		});
+
+		await manager.refreshWorkspacePrStage(workspace.id, { force: true });
+
+		expect(gitRefreshCalls).toBe(0);
+		expect(prRefreshCalls).toBe(1);
+	});
+
+	test('cached branch changes bypass PR cooldown without refreshing git again', async () => {
+		const { store, directory } = await createGitHubBackedDirectory();
+		const workspace = await store.createWorkspace({
+			directoryId: directory.id,
+			localPath: path.join(directory.localPath, 'atlas'),
+			branchName: 'atlas',
+		});
+		await store.markWorkspaceSetupCompleted(workspace.id);
+		let gitSnapshot = readyGitSnapshot('atlas');
+		let gitRefreshCalls = 0;
+		let prRefreshCalls = 0;
+		const clearedSnapshots: string[] = [];
+		const manager = new WorkspaceManager(store, {
+			diffStore: {
+				refreshWorkspaceGitSnapshot: async () => {
+					gitRefreshCalls += 1;
+					return true;
+				},
+				getWorkspaceGitSnapshot: () => gitSnapshot,
+			},
+			prManager: {
+				clearWorkspaceGitHubSnapshot: (workspaceId) => {
+					clearedSnapshots.push(workspaceId);
+				},
+				getWorkspaceGitHubSnapshot: () => null,
+				refreshWorkspacePrState: async () => {
+					prRefreshCalls += 1;
+					return noPrSnapshot();
+				},
+			},
+		});
+
+		await manager.refreshWorkspacePrStage(workspace.id);
+		gitSnapshot = readyGitSnapshot('workspace-scaffold');
+		await manager.refreshWorkspacePrStage(workspace.id);
+
+		expect(gitRefreshCalls).toBe(0);
+		expect(prRefreshCalls).toBe(2);
+		expect(store.requireWorkspace(workspace.id).branchName).toBe('workspace-scaffold');
+		expect(clearedSnapshots).toEqual([workspace.id]);
 	});
 });
 
@@ -645,6 +729,32 @@ describe('WorkspaceManager.continueWorkspaceOnNewBranch', () => {
 });
 
 describe('WorkspaceManager.renameWorkspaceBranch', () => {
+	test('syncs workspace metadata when an agent renames the branch directly in git', async () => {
+		const setup = await createGitHubBackedDirectory();
+		const diffStore = new DiffStore(setup.store.dataDir);
+		const clearedSnapshots: string[] = [];
+		const manager = await createWorkspaceManager(setup.store, {
+			diffStore,
+			prManager: {
+				clearWorkspaceGitHubSnapshot: (workspaceId) => {
+					clearedSnapshots.push(workspaceId);
+				},
+				getWorkspaceGitHubSnapshot: () => null,
+				refreshWorkspacePrState: async () => noPrSnapshot(),
+			},
+		});
+		const { workspace } = await manager.createWorkspace(setup.directory.id);
+
+		await runGit(['branch', '-m', 'workspace-scaffold'], workspace.localPath);
+
+		const changed = await manager.refreshWorkspaceGitSnapshot(workspace.id);
+
+		expect(changed).toBe(true);
+		expect(setup.store.requireWorkspace(workspace.id).branchName).toBe('workspace-scaffold');
+		expect(diffStore.getWorkspaceGitSnapshot(workspace.id).branchName).toBe('workspace-scaffold');
+		expect(clearedSnapshots).toEqual([workspace.id]);
+	});
+
 	test('renames a local-only workspace branch', async () => {
 		const { manager, workspace, refreshCalls } = await createReadyWorkspace();
 

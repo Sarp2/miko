@@ -204,8 +204,8 @@ export async function startServer(options: StartServerOptions = {}) {
 	function refreshStartupWorkspaceStateInBackground() {
 		void refreshStartupWorkspaceState({
 			listWorkspaces: () => store.listWorkspaces(),
-			refreshWorkspaceGitSnapshot: (workspaceId, localPath) =>
-				diffStore.refreshWorkspaceGitSnapshot(workspaceId, localPath),
+			refreshWorkspaceGitSnapshot: (workspaceId, _localPath) =>
+				workspaceManager.refreshWorkspaceGitSnapshot(workspaceId),
 			refreshWorkspacePrStage: (workspaceId, prOptions) =>
 				refreshWorkspacePrStage(workspaceId, prOptions),
 			broadcastSnapshots: () => router.broadcastSnapshots(),
@@ -231,8 +231,8 @@ export async function startServer(options: StartServerOptions = {}) {
 	});
 	const gitRefreshPoller = new GitRefreshPoller({
 		listWorkspaces: () => store.listWorkspaces(),
-		refreshWorkspaceGitSnapshot: (workspaceId, localPath) =>
-			diffStore.refreshWorkspaceGitSnapshot(workspaceId, localPath),
+		refreshWorkspaceGitSnapshot: (workspaceId, _localPath) =>
+			workspaceManager.refreshWorkspaceGitSnapshot(workspaceId),
 		broadcastSnapshots: () => router.broadcastSnapshots(),
 	});
 
