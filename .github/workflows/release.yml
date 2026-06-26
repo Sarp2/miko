@@ -85,6 +85,8 @@ jobs:
           miko --version | grep --fixed-strings "$package_version"
 
       - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           package_version="$(node -p "require('./package.json').version")"
           npm publish "miko-code-$package_version.tgz" --access public --provenance
