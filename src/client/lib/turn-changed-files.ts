@@ -29,7 +29,78 @@ function asRecord(value: unknown): Record<string, unknown> {
 }
 
 function lineCount(value: string): number {
-	return value.length > 0 ? value.split('\n').length : 0;
+	if (!value) return 0;
+	const normalized = value.endsWith('\n') ? value.slice(0, -1) : value;
+	return normalized ? normalized.split('\n').length : 0;
+}
+
+function firstRawChange(rawInput: Record<string, unknown>): Record<string, unknown> {
+	const changes = rawInput.changes;
+	if (!Array.isArray(changes)) return {};
+	return asRecord(changes[0]);
+}
+
+function rawChangeType(change: Record<string, unknown>): string {
+	const kind = change.kind;
+	if (typeof kind === 'string') return kind;
+	const kindRecord = asRecord(kind);
+	return typeof kindRecord.type === 'string' ? kindRecord.type : '';
+}
+
+function looksLikeUnifiedDiff(diff: string): boolean {
+	return diff
+		.split(/\r?\n/)
+		.some((line) => line.startsWith('@@') || line.startsWith('---') || line.startsWith('+++'));
+}
+
+function parseUnifiedDiffFragments(diff: string): { before: string; after: string } {
+	const before: string[] = [];
+	const after: string[] = [];
+
+	for (const line of diff.split(/\r?\n/)) {
+		if (!line) continue;
+		if (line.startsWith('@@') || line.startsWith('---') || line.startsWith('+++')) continue;
+		if (line === '\\ No newline at end of file') continue;
+
+		const prefix = line[0];
+		const content = line.slice(1);
+		if (prefix === ' ') {
+			before.push(content);
+			after.push(content);
+			continue;
+		}
+		if (prefix === '-') {
+			before.push(content);
+			continue;
+		}
+		if (prefix === '+') after.push(content);
+	}
+
+	return { before: before.join('\n'), after: after.join('\n') };
+}
+
+function rawChangeFragments(rawInput: Record<string, unknown>): { before: string; after: string } {
+	const change = firstRawChange(rawInput);
+	const diff = typeof change.diff === 'string' ? change.diff : '';
+	if (!diff) return { before: '', after: '' };
+
+	const kind = rawChangeType(change);
+	if (!looksLikeUnifiedDiff(diff)) {
+		if (kind === 'add') return { before: '', after: diff };
+		if (kind === 'delete') return { before: diff, after: '' };
+	}
+
+	return parseUnifiedDiffFragments(diff);
+}
+
+function stringField(records: Record<string, unknown>[], names: string[]): string {
+	for (const record of records) {
+		for (const name of names) {
+			const value = record[name];
+			if (typeof value === 'string') return value;
+		}
+	}
+	return '';
 }
 
 /**
@@ -50,17 +121,30 @@ export function turnChangedFiles(tools: ToolMessage[]): TurnChangedFile[] {
 		// A failed edit/write/delete left the file unchanged, so skip it.
 		if (tool.isError) continue;
 		const input = asRecord(tool.input);
-		const path = typeof input.filePath === 'string' ? input.filePath : '';
+		const rawInput = asRecord(tool.rawInput);
+		const inputSources = [input, rawInput];
+		const path = stringField(inputSources, ['filePath', 'file_path', 'path']);
 		if (!path) continue;
 
-		const oldString = typeof input.oldString === 'string' ? input.oldString : '';
-		const content = typeof input.content === 'string' ? input.content : '';
+		const rawFragments = rawChangeFragments(rawInput);
+		const oldString =
+			stringField(inputSources, ['oldString', 'old_string', 'before']) || rawFragments.before;
+		const content =
+			stringField(inputSources, [
+				'content',
+				'newString',
+				'new_string',
+				'fileContent',
+				'file_content',
+				'text',
+			]) || rawFragments.after;
 		// before = removed content, after = resulting content.
 		let before = '';
 		let after = '';
 		if (tool.toolKind === 'edit_file') {
 			before = oldString;
-			after = typeof input.newString === 'string' ? input.newString : '';
+			after =
+				stringField(inputSources, ['newString', 'new_string', 'content']) || rawFragments.after;
 		} else if (tool.toolKind === 'write_file') {
 			after = content;
 		} else {

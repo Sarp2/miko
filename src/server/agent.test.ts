@@ -39,6 +39,21 @@ async function collect(stream: AsyncIterable<HarnessEvent>): Promise<HarnessEven
 	return out;
 }
 
+async function waitFor(assertion: () => void | Promise<void>, timeoutMs = 1000) {
+	const startedAt = Date.now();
+	let lastError: unknown;
+	while (Date.now() - startedAt < timeoutMs) {
+		try {
+			await assertion();
+			return;
+		} catch (error) {
+			lastError = error;
+			await new Promise((resolve) => setTimeout(resolve, 5));
+		}
+	}
+	if (lastError) throw lastError;
+}
+
 function createQueryStub(messages: unknown[] = []) {
 	const calls: Array<{ prompt: AsyncIterable<unknown>; options: Record<string, unknown> }> = [];
 	const state = {
@@ -495,12 +510,14 @@ describe('AgentCoordinator.getActiveStatuses', () => {
 		expect(Array.from(coordinator.getActiveStatuses().entries())).toEqual([]);
 	});
 
-	test('returns statuses for all active session turns', () => {
+	test('returns statuses for all active and starting session turns', () => {
 		const coordinator = createCoordinator();
+		(coordinator as unknown as { startingSessions: Set<string> }).startingSessions.add('session-0');
 		coordinator.activeTurns.set('session-1', activeTurnFixture({ status: 'running' }));
 		coordinator.activeTurns.set('session-2', activeTurnFixture({ status: 'waiting_for_user' }));
 
 		expect(Array.from(coordinator.getActiveStatuses().entries())).toEqual([
+			['session-0', 'starting'],
 			['session-1', 'running'],
 			['session-2', 'waiting_for_user'],
 		]);
@@ -768,7 +785,7 @@ describe('AgentCoordinator queue', () => {
 		]);
 	});
 
-	test('reserves the session during startup so a concurrent send queues instead of racing', async () => {
+	test('acknowledges direct sends before startup finishes while preserving queue ordering', async () => {
 		const coordinator = createCoordinator({
 			store: { requireSession: () => ({ provider: 'claude' }) },
 		});
@@ -776,22 +793,27 @@ describe('AgentCoordinator queue', () => {
 		const startGate = new Promise<void>((resolve) => {
 			releaseStart = resolve;
 		});
+		let startupFinished = false;
 		(coordinator as unknown as { startTurnForSession: () => Promise<void> }).startTurnForSession =
 			async () => {
 				await startGate;
+				startupFinished = true;
 				coordinator.activeTurns.set('session-1', activeTurnFixture({}));
 			};
 
-		// First send is mid-startup (reserved, awaiting the gate).
-		const firstStart = coordinator.send(sendCommand('first'));
+		const firstSend = await coordinator.send(sendCommand('first'));
+		expect(firstSend).toEqual({ sessionId: 'session-1' });
+		expect(startupFinished).toBe(false);
 		expect(coordinator.isSessionBusy('session-1')).toBe(true);
 
-		// A send arriving during that window must queue, not start a second turn.
+		// A send arriving during that startup window must queue, not start a second turn.
 		await coordinator.send(sendCommand('second'));
 		expect(coordinator.getQueuedMessages('session-1').map((m) => m.content)).toEqual(['second']);
 
 		releaseStart();
-		await firstStart;
+		await waitFor(() => {
+			expect(startupFinished).toBe(true);
+		});
 	});
 
 	test('sendWhenIdle reserves the session before marking and rejects concurrent sends', async () => {
@@ -1271,8 +1293,10 @@ describe('AgentCoordinator.send', () => {
 		});
 
 		expect(result).toEqual({ sessionId: 'session-1' });
-		expect(startedTurns).toBe(1);
-		expect(appended.map((entry) => entry.kind)).toEqual(['user_prompt', 'result']);
+		await waitFor(() => {
+			expect(startedTurns).toBe(1);
+			expect(appended.map((entry) => entry.kind)).toEqual(['user_prompt', 'result']);
+		});
 		expect(appended[1]).toMatchObject({
 			kind: 'result',
 			subtype: 'error',
@@ -1281,7 +1305,9 @@ describe('AgentCoordinator.send', () => {
 		});
 		expect(failedTurns).toEqual(['Codex usage limit reached']);
 		expect(stoppedSessions).toEqual(['session-1']);
-		expect(coordinator.isSessionBusy('session-1')).toBe(false);
+		await waitFor(() => {
+			expect(coordinator.isSessionBusy('session-1')).toBe(false);
+		});
 	}
 
 	test('throws when creating a new session without workspaceId', async () => {
@@ -1329,12 +1355,14 @@ describe('AgentCoordinator.send', () => {
 		} as unknown as SendCommandFixture);
 
 		expect(result).toEqual({ sessionId: 'session-1' });
-		expect(startArgs).toMatchObject({
-			sessionId: 'session-1',
-			provider: 'claude',
-			content: 'ship it',
-			attachments: [],
-			appendUserPrompt: true,
+		await waitFor(() => {
+			expect(startArgs).toMatchObject({
+				sessionId: 'session-1',
+				provider: 'claude',
+				content: 'ship it',
+				attachments: [],
+				appendUserPrompt: true,
+			});
 		});
 	});
 

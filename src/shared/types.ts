@@ -916,6 +916,7 @@ export interface HydratedToolCallBase<TKind extends string, TInput, TResult> {
 	toolName: string;
 	toolId: string;
 	input: TInput;
+	rawInput?: Record<string, unknown>;
 	result?: TResult;
 	hasResult: boolean;
 	rawResult?: unknown;

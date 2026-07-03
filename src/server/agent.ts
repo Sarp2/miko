@@ -876,6 +876,9 @@ export class AgentCoordinator {
 
 	getActiveStatuses() {
 		const statuses = new Map<string, MikoStatus>();
+		for (const sessionId of this.startingSessions) {
+			statuses.set(sessionId, 'starting');
+		}
 		for (const [sessionId, turn] of this.activeTurns.entries()) {
 			statuses.set(sessionId, turn.status);
 		}
@@ -1078,6 +1081,9 @@ export class AgentCoordinator {
 		}
 
 		await this.store.recordTurnStarted(args.sessionId);
+		// Broadcast the accepted turn before harness startup so the UI can show the
+		// submitted user prompt and loader immediately while Claude/Codex initializes.
+		this.onStateChange();
 
 		if (shouldGenerateTitle) {
 			void this.generateTitleInBackground(
@@ -1304,12 +1310,25 @@ export class AgentCoordinator {
 			return { sessionId };
 		}
 
-		try {
-			await this.startQueuedOrDirect({ ...command, sessionId });
-		} catch (error) {
-			if (!(error instanceof RecordedTurnStartupError)) throw error;
-		}
+		this.startDirectSendInBackground({ ...command, sessionId });
 		return { sessionId };
+	}
+
+	private startDirectSendInBackground(command: SendCommand & { sessionId: string }) {
+		void this.startQueuedOrDirect(command).catch(async (error) => {
+			if (error instanceof RecordedTurnStartupError) return;
+			if (!this.store.getSession(command.sessionId)) return;
+
+			try {
+				await this.recordTurnFailure(command.sessionId, error);
+				this.onStateChange();
+			} catch (recordError) {
+				const message = recordError instanceof Error ? recordError.message : String(recordError);
+				this.reportBackgroundError?.(
+					`[send] Session ${command.sessionId} failed to record startup error: ${message}`,
+				);
+			}
+		});
 	}
 
 	async sendWhenIdle(
