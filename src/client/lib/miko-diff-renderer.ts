@@ -1,4 +1,8 @@
-import { registerCustomTheme } from '@pierre/diffs';
+import {
+	getFiletypeFromFileName,
+	registerCustomLanguage,
+	registerCustomTheme,
+} from '@pierre/diffs';
 import type { CSSProperties } from 'react';
 
 // Custom Shiki theme built from the app design tokens (src/index.css) so code
@@ -57,6 +61,34 @@ export function ensureMikoDiffTheme() {
 	if (themeRegistered) return;
 	themeRegistered = true;
 	registerCustomTheme('miko-dark', async () => MIKO_DIFF_THEME);
+}
+
+// Pierre resolves an unknown/extensionless file's language to Shiki's built-in
+// "text", which it deliberately never adds to its AttachedLanguages set. In the
+// non-worker render path that leaves `areLanguagesAttached` permanently false, so
+// the renderer re-fires async highlighting forever and freezes the tab. We sidestep
+// it by registering a real (empty-grammar) language and forcing plaintext diffs onto
+// it, so highlighting attaches once and the loop terminates.
+export const MIKO_PLAINTEXT_LANG = 'miko-plaintext';
+
+const MIKO_PLAINTEXT_GRAMMAR = {
+	name: MIKO_PLAINTEXT_LANG,
+	scopeName: 'source.miko-plaintext',
+	patterns: [],
+	repository: {},
+};
+
+let plainTextLanguageRegistered = false;
+
+export function ensureMikoPlainTextLanguage() {
+	if (plainTextLanguageRegistered) return;
+	plainTextLanguageRegistered = true;
+	registerCustomLanguage(MIKO_PLAINTEXT_LANG, async () => ({ default: [MIKO_PLAINTEXT_GRAMMAR] }));
+}
+
+/** Diffs whose file resolves to Shiki "text" must not be handed to Pierre as-is. */
+export function isPlainTextDiffFileName(fileName: string) {
+	return getFiletypeFromFileName(fileName) === 'text';
 }
 
 export const MIKO_CODE_FONT_VARS = {

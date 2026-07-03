@@ -1,4 +1,4 @@
-import type { DiffLineAnnotation, SelectedLineRange } from '@pierre/diffs';
+import { type DiffLineAnnotation, getSingularPatch, type SelectedLineRange } from '@pierre/diffs';
 import { FileDiff, PatchDiff } from '@pierre/diffs/react';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -8,8 +8,11 @@ import { selectedRangeFromNativeSelection } from '../lib/diff-selection';
 import { Icons } from '../lib/icons';
 import {
 	ensureMikoDiffTheme,
+	ensureMikoPlainTextLanguage,
+	isPlainTextDiffFileName,
 	MIKO_CODE_FONT_VARS,
 	MIKO_DIFF_OPTIONS,
+	MIKO_PLAINTEXT_LANG,
 } from '../lib/miko-diff-renderer';
 import { findTranscriptChangedFile, transcriptFileDiff } from '../lib/transcript-diff';
 import { useChatWindowStore } from '../stores/chat-window-store';
@@ -34,6 +37,7 @@ import {
 } from './workspace-diff-comment';
 
 ensureMikoDiffTheme();
+ensureMikoPlainTextLanguage();
 
 interface WorkspaceDiffPageProps {
 	workspaceId: string;
@@ -154,10 +158,28 @@ export function WorkspaceDiffPage({
 			workspaceRoot,
 		});
 	}, [isTranscriptDiff, path, sourceWindowMessages, turnId, workspaceRoot]);
-	const transcriptDiff = useMemo(
-		() => (transcriptChangedFile ? transcriptFileDiff(transcriptChangedFile) : null),
-		[transcriptChangedFile],
-	);
+	const transcriptDiff = useMemo(() => {
+		if (!transcriptChangedFile) return null;
+		const parsed = transcriptFileDiff(transcriptChangedFile);
+		// Same plaintext hang applies to transcript diffs; force the safe language.
+		if (isPlainTextDiffFileName(transcriptChangedFile.name)) parsed.lang = MIKO_PLAINTEXT_LANG;
+		return parsed;
+	}, [transcriptChangedFile]);
+	// Plaintext/extensionless files resolve to Shiki "text", which hangs Pierre's
+	// PatchDiff (see miko-diff-renderer). Pre-parse them and force a safe language so
+	// they render through FileDiff without the infinite highlight loop.
+	const workspacePatch =
+		!isTranscriptDiff && resource?.status === 'ready' ? (resource.data?.patch ?? null) : null;
+	const plainTextFileDiff = useMemo(() => {
+		if (!workspacePatch || !path || !isPlainTextDiffFileName(path)) return null;
+		try {
+			const parsed = getSingularPatch(workspacePatch);
+			parsed.lang = MIKO_PLAINTEXT_LANG;
+			return parsed;
+		} catch {
+			return null;
+		}
+	}, [workspacePatch, path]);
 	const copyFileContents = useCallback(async () => {
 		if (!path) return;
 		try {
@@ -383,18 +405,44 @@ export function WorkspaceDiffPage({
 		);
 	}
 
+	// An empty patch (git can emit no textual diff for a file that is still listed as
+	// changed) would make Pierre's PatchDiff throw during render. Render a calm state
+	// instead of letting it crash the diff view.
+	if (resource.data.patch.trim().length === 0) {
+		return (
+			<WorkspaceDiffPageShell path={resource.data.path || path} actions={toolbarActions}>
+				<WorkspaceDiffPageState
+					title="No changes to display"
+					message="This file has no changes to show in the diff view."
+				/>
+			</WorkspaceDiffPageShell>
+		);
+	}
+
 	return (
 		<WorkspaceDiffPageShell path={resource.data.path} actions={toolbarActions}>
 			<div className="min-w-max">
-				<PatchDiff
-					patch={resource.data.patch}
-					disableWorkerPool
-					style={MIKO_CODE_FONT_VARS}
-					lineAnnotations={commentAnnotations}
-					selectedLines={selectedLines}
-					renderAnnotation={renderCommentAnnotation}
-					options={diffOptions}
-				/>
+				{plainTextFileDiff ? (
+					<FileDiff
+						fileDiff={plainTextFileDiff}
+						disableWorkerPool
+						style={MIKO_CODE_FONT_VARS}
+						lineAnnotations={commentAnnotations}
+						selectedLines={selectedLines}
+						renderAnnotation={renderCommentAnnotation}
+						options={diffOptions}
+					/>
+				) : (
+					<PatchDiff
+						patch={resource.data.patch}
+						disableWorkerPool
+						style={MIKO_CODE_FONT_VARS}
+						lineAnnotations={commentAnnotations}
+						selectedLines={selectedLines}
+						renderAnnotation={renderCommentAnnotation}
+						options={diffOptions}
+					/>
+				)}
 			</div>
 		</WorkspaceDiffPageShell>
 	);
