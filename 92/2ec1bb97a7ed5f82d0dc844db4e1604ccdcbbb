@@ -1,0 +1,43 @@
+src/server/agent.test.ts
+  s_82e93de1bb8ac8::t_85710945cb485a 42-56,1296-1299,1308-1310,1358-1365
+  s_82e93de1bb8ac8::t_c2625fca7c6ac2 513,515,520
+  s_82e93de1bb8ac8::t_f551254d94ce5a 788,796,800,804-806,809,814-816
+src/client/lib/turn-changed-files.test.ts
+  s_82e93de1bb8ac8::t_a594699eea45ba 67-92
+  s_82e93de1bb8ac8::t_a0ba83dc12401e 43-66
+src/client/lib/hydrate-transcript-messages.ts
+  s_82e93de1bb8ac8::t_33a3402ce6fe6b 100
+src/client/lib/turn-changed-files.ts
+  s_82e93de1bb8ac8::t_a594699eea45ba 51-53,146-147
+  s_82e93de1bb8ac8::t_dfeda59c0b292a 96-97,125-126
+  s_82e93de1bb8ac8::t_df7ba29e762b15 32-34,98-103,124
+  s_82e93de1bb8ac8::t_82f7947bd03287 35,37-50,54-95,129-140
+  s_82e93de1bb8ac8::t_3ea443ca6de6d3 36
+src/client/components/transcript-turn-footer.tsx
+  s_82e93de1bb8ac8::t_3f9b03c4e0f8cb 116
+  s_82e93de1bb8ac8::t_df7ba29e762b15 33-35,113-115,117-125
+  s_82e93de1bb8ac8::t_92ad75e10f845f 2
+src/shared/types.ts
+  s_82e93de1bb8ac8::t_33a3402ce6fe6b 919
+src/server/agent.ts
+  s_82e93de1bb8ac8::t_c2625fca7c6ac2 879-881
+  s_82e93de1bb8ac8::t_8756a2896b559b 1313,1317-1331
+  s_82e93de1bb8ac8::t_04ce1883a1722d 1084-1086
+  s_82e93de1bb8ac8::t_66e096d7cb6cfd 1332-1333
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.9",
+  "base_commit_sha": "922ec1bb97a7ed5f82d0dc844db4e1604ccdcbbb",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
