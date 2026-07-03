@@ -247,20 +247,25 @@ export function WorkspaceRoute({ kind }: WorkspaceRouteProps) {
 					</div>
 				) : page?.type === 'diff' && workspaceSnapshot ? (
 					<PageWithComposer composer={composer}>
-						<WorkspaceDiffPage
-							key={`${page.source ?? 'workspace'}:${page.turnId ?? ''}:${page.path ?? 'diff'}`}
-							workspaceId={workspaceId}
-							path={page.path}
-							expectedPatchDigest={
-								page.source === 'transcript' ? undefined : activeDiffFile?.patchDigest
-							}
-							source={page.source}
-							sourceSessionId={page.sourceSessionId}
-							turnId={page.turnId}
-							workspaceRoot={workspaceSnapshot.workspace.localPath}
-							composerSessionId={composerSessionId}
-							composerSessionSnapshot={composerSessionSnapshot}
-						/>
+						<ErrorBoundary
+							resetKey={`${page.source ?? 'workspace'}:${page.turnId ?? ''}:${page.path ?? 'diff'}`}
+							message="Could not render this diff."
+						>
+							<WorkspaceDiffPage
+								key={`${page.source ?? 'workspace'}:${page.turnId ?? ''}:${page.path ?? 'diff'}`}
+								workspaceId={workspaceId}
+								path={page.path}
+								expectedPatchDigest={
+									page.source === 'transcript' ? undefined : activeDiffFile?.patchDigest
+								}
+								source={page.source}
+								sourceSessionId={page.sourceSessionId}
+								turnId={page.turnId}
+								workspaceRoot={workspaceSnapshot.workspace.localPath}
+								composerSessionId={composerSessionId}
+								composerSessionSnapshot={composerSessionSnapshot}
+							/>
+						</ErrorBoundary>
 					</PageWithComposer>
 				) : page?.type === 'file' &&
 					(page.source === 'workspace_file' ||
