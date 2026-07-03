@@ -90,6 +90,47 @@ describe('turnChangedFiles', () => {
 		});
 	});
 
+	test('does not parse plain added content with frontmatter as a unified diff', () => {
+		const write = tool('write_file', {
+			filePath: '/tmp/project/post.md',
+			content: '',
+		});
+		write.rawInput = {
+			type: 'fileChange',
+			changes: [
+				{
+					path: '/tmp/project/post.md',
+					kind: { type: 'add' },
+					diff: '---\ntitle: Hello\n---\nbody\n',
+				},
+			],
+		};
+
+		const [file] = turnChangedFiles([write]);
+
+		expect(file).toMatchObject({
+			name: 'post.md',
+			additions: 4,
+			deletions: 0,
+			after: '---\ntitle: Hello\n---\nbody\n',
+		});
+	});
+
+	test('continues past empty normalized fields to populated raw fields', () => {
+		const write = tool('write_file', {
+			filePath: '/tmp/project/raw.txt',
+			content: '',
+		});
+		write.rawInput = {
+			file_path: '/tmp/project/raw.txt',
+			content: 'from raw\n',
+		};
+
+		const [file] = turnChangedFiles([write]);
+
+		expect(file).toMatchObject({ additions: 1, after: 'from raw\n' });
+	});
+
 	test('derives deletions from a delete', () => {
 		const [file] = turnChangedFiles([
 			tool('delete_file', { filePath: 'src/gone.ts', oldString: 'a\nb\nc' }),

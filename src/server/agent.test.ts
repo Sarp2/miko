@@ -123,6 +123,10 @@ function createCoordinator(
 					branchName: string;
 					expectedCurrentBranchName?: string;
 				}) => Promise<{ branchName: string; changed: boolean }>;
+				startClaudeSession?: ConstructorParameters<
+					typeof AgentCoordinator
+				>[0]['startClaudeSession'];
+				onTurnSettled?: ConstructorParameters<typeof AgentCoordinator>[0]['onTurnSettled'];
 		  }
 		| (() => void) = {},
 ) {
@@ -220,6 +224,8 @@ function createCoordinator(
 		codexManager = {} as CodexAppServerManager,
 		generateTitle,
 		renameWorkspaceBranch,
+		startClaudeSession,
+		onTurnSettled,
 	} = normalized;
 	return new AgentCoordinator({
 		store: { ...queueStore, ...(store as Record<string, unknown>) } as unknown as EventStore,
@@ -229,6 +235,8 @@ function createCoordinator(
 			typeof AgentCoordinator
 		>[0]['generateTitle'],
 		renameWorkspaceBranch,
+		startClaudeSession,
+		onTurnSettled,
 	});
 }
 
@@ -813,6 +821,130 @@ describe('AgentCoordinator queue', () => {
 		releaseStart();
 		await waitFor(() => {
 			expect(startupFinished).toBe(true);
+		});
+	});
+
+	test('broadcasts after startup failure clears and drains queued follow-ups', async () => {
+		let coordinator: ReturnType<typeof createCoordinator>;
+		const states: Array<string | undefined> = [];
+		let releaseStartup: () => void = () => {};
+		const startupGate = new Promise<void>((resolve) => {
+			releaseStartup = resolve;
+		});
+		let startSessionCalls = 0;
+
+		coordinator = createCoordinator({
+			onStateChange: () => {
+				states.push(coordinator?.getActiveStatuses().get('session-1'));
+			},
+			store: {
+				requireSession: () => ({
+					provider: 'codex',
+					workspaceId: 'workspace-1',
+					title: 'Existing',
+				}),
+				getSession: () => ({ provider: 'codex', workspaceId: 'workspace-1', title: 'Existing' }),
+				getWorkspace: () => ({ id: 'workspace-1', localPath: '/repo/atlas' }),
+				getMessages: () => [],
+				setPlanMode: async () => {},
+				appendMessage: async () => {},
+				recordTurnStarted: async () => {},
+				recordTurnFailed: async () => {},
+			},
+			codexManager: {
+				startSession: async () => {
+					startSessionCalls += 1;
+					if (startSessionCalls === 1) await startupGate;
+					throw new Error(`startup failed ${startSessionCalls}`);
+				},
+				stopSession: () => {},
+			},
+		});
+
+		await coordinator.send({ ...sendCommand('first'), provider: 'codex' } as SendCommandFixture);
+		await coordinator.send({ ...sendCommand('second'), provider: 'codex' } as SendCommandFixture);
+		expect(coordinator.getQueuedMessages('session-1').map((message) => message.content)).toEqual([
+			'second',
+		]);
+
+		releaseStartup();
+
+		await waitFor(() => {
+			expect(startSessionCalls).toBe(2);
+			expect(coordinator.getQueuedMessages('session-1')).toEqual([]);
+			expect(coordinator.isSessionBusy('session-1')).toBe(false);
+			expect(states.at(-1)).toBeUndefined();
+		});
+	});
+
+	test('cancels a turn while startup is still reserved', async () => {
+		let releaseStartup: () => void = () => {};
+		const startupGate = new Promise<void>((resolve) => {
+			releaseStartup = resolve;
+		});
+		const appended: TranscriptEntry[] = [];
+		let cancelledTurns = 0;
+		let sendPromptCalls = 0;
+		let turnSettled: { sessionId: string; outcome: string } | null = null;
+		const coordinator = createCoordinator({
+			onStateChange: () => {},
+			store: {
+				requireSession: () => ({
+					provider: 'claude',
+					workspaceId: 'workspace-1',
+					title: 'Existing',
+					sessionToken: null,
+				}),
+				getSession: () => ({
+					provider: 'claude',
+					workspaceId: 'workspace-1',
+					title: 'Existing',
+					sessionToken: null,
+				}),
+				getWorkspace: () => ({ id: 'workspace-1', localPath: '/repo/atlas' }),
+				getMessages: () => [],
+				setPlanMode: async () => {},
+				appendMessage: async (_sessionId: string, entry: TranscriptEntry) => {
+					appended.push(entry);
+				},
+				recordTurnStarted: async () => {},
+				recordTurnCancelled: async () => {
+					cancelledTurns += 1;
+				},
+			},
+			startClaudeSession: async () => {
+				await startupGate;
+				return {
+					provider: 'claude',
+					stream: { async *[Symbol.asyncIterator]() {} },
+					interrupt: async () => {},
+					close: () => {},
+					sendPrompt: async () => {
+						sendPromptCalls += 1;
+					},
+					setModel: async () => {},
+					setPermissionMode: async () => {},
+					getCommands: async () => [],
+				};
+			},
+			onTurnSettled: (event) => {
+				turnSettled = event;
+			},
+		});
+
+		await coordinator.send(sendCommand('first'));
+		expect(coordinator.isSessionBusy('session-1')).toBe(true);
+
+		await coordinator.cancel('session-1');
+
+		releaseStartup();
+
+		await waitFor(() => {
+			expect(coordinator.isSessionBusy('session-1')).toBe(false);
+			expect(sendPromptCalls).toBe(0);
+			expect(cancelledTurns).toBe(1);
+			expect(appended.map((entry) => entry.kind)).toEqual(['user_prompt', 'interrupted']);
+			expect(turnSettled).toEqual({ sessionId: 'session-1', outcome: 'cancelled' });
 		});
 	});
 

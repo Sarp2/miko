@@ -50,7 +50,7 @@ function rawChangeType(change: Record<string, unknown>): string {
 function looksLikeUnifiedDiff(diff: string): boolean {
 	return diff
 		.split(/\r?\n/)
-		.some((line) => line.startsWith('@@') || line.startsWith('---') || line.startsWith('+++'));
+		.some((line) => /^@@\s/.test(line) || /^---\s/.test(line) || /^\+\+\+\s/.test(line));
 }
 
 function parseUnifiedDiffFragments(diff: string): { before: string; after: string } {
@@ -59,7 +59,7 @@ function parseUnifiedDiffFragments(diff: string): { before: string; after: strin
 
 	for (const line of diff.split(/\r?\n/)) {
 		if (!line) continue;
-		if (line.startsWith('@@') || line.startsWith('---') || line.startsWith('+++')) continue;
+		if (/^@@\s/.test(line) || /^---\s/.test(line) || /^\+\+\+\s/.test(line)) continue;
 		if (line === '\\ No newline at end of file') continue;
 
 		const prefix = line[0];
@@ -97,7 +97,7 @@ function stringField(records: Record<string, unknown>[], names: string[]): strin
 	for (const record of records) {
 		for (const name of names) {
 			const value = record[name];
-			if (typeof value === 'string') return value;
+			if (typeof value === 'string' && value.length > 0) return value;
 		}
 	}
 	return '';

@@ -99,6 +99,13 @@ class RecordedTurnStartupError extends Error {
 	}
 }
 
+class CancelledTurnStartupError extends Error {
+	constructor() {
+		super('Turn startup was cancelled');
+		this.name = 'CancelledTurnStartupError';
+	}
+}
+
 interface ActiveTurn {
 	sessionId: string;
 	provider: AgentProvider;
@@ -760,6 +767,7 @@ export class AgentCoordinator {
 	// Sessions whose turn is mid-startup (reserved before activeTurns is registered) so concurrent
 	// sends are treated as busy and never race past the check.
 	private readonly startingSessions = new Set<string>();
+	private readonly cancelledStartingSessions = new Set<string>();
 	private readonly drainingQueueSessions = new Set<string>();
 
 	constructor(args: AgentCoordinatorArgs) {
@@ -856,6 +864,12 @@ export class AgentCoordinator {
 		);
 		await this.store.recordTurnFailed(sessionId, message);
 		return message;
+	}
+
+	private async recordStartupCancellation(sessionId: string) {
+		await this.store.appendMessage(sessionId, timestamped({ kind: 'interrupted' }));
+		await this.store.recordTurnCancelled(sessionId);
+		await this.notifyTurnSettled(sessionId, 'cancelled');
 	}
 
 	private async autoRenameWorkspaceBranchFromTitle(args: AutoRenameWorkspaceBranchArgs) {
@@ -1085,6 +1099,12 @@ export class AgentCoordinator {
 		// submitted user prompt and loader immediately while Claude/Codex initializes.
 		this.onStateChange();
 
+		if (this.cancelledStartingSessions.delete(args.sessionId)) {
+			await this.recordStartupCancellation(args.sessionId);
+			this.onStateChange();
+			throw new CancelledTurnStartupError();
+		}
+
 		if (shouldGenerateTitle) {
 			void this.generateTitleInBackground(
 				args.sessionId,
@@ -1156,7 +1176,24 @@ export class AgentCoordinator {
 				});
 			}
 		} catch (error) {
+			if (this.cancelledStartingSessions.delete(args.sessionId)) {
+				await this.recordStartupCancellation(args.sessionId);
+				this.onStateChange();
+				throw new CancelledTurnStartupError();
+			}
 			return await recordStartupFailure(error);
+		}
+
+		if (this.cancelledStartingSessions.delete(args.sessionId)) {
+			try {
+				await turn.interrupt();
+			} catch {
+				// Best-effort: the startup cancellation has already been recorded.
+			}
+			turn.close();
+			await this.recordStartupCancellation(args.sessionId);
+			this.onStateChange();
+			throw new CancelledTurnStartupError();
 		}
 
 		const active: ActiveTurn = {
@@ -1316,16 +1353,32 @@ export class AgentCoordinator {
 
 	private startDirectSendInBackground(command: SendCommand & { sessionId: string }) {
 		void this.startQueuedOrDirect(command).catch(async (error) => {
-			if (error instanceof RecordedTurnStartupError) return;
-			if (!this.store.getSession(command.sessionId)) return;
+			if (error instanceof CancelledTurnStartupError) return;
+			if (
+				typeof this.store.getSession === 'function' &&
+				!this.store.getSession(command.sessionId)
+			) {
+				return;
+			}
+
+			if (!(error instanceof RecordedTurnStartupError)) {
+				try {
+					await this.recordTurnFailure(command.sessionId, error);
+					this.onStateChange();
+				} catch (recordError) {
+					const message = recordError instanceof Error ? recordError.message : String(recordError);
+					this.reportBackgroundError?.(
+						`[send] Session ${command.sessionId} failed to record startup error: ${message}`,
+					);
+				}
+			}
 
 			try {
-				await this.recordTurnFailure(command.sessionId, error);
-				this.onStateChange();
-			} catch (recordError) {
-				const message = recordError instanceof Error ? recordError.message : String(recordError);
+				await this.drainQueue(command.sessionId);
+			} catch (drainError) {
+				const message = drainError instanceof Error ? drainError.message : String(drainError);
 				this.reportBackgroundError?.(
-					`[send] Session ${command.sessionId} failed to record startup error: ${message}`,
+					`[send] Session ${command.sessionId} failed to drain queued messages after startup failure: ${message}`,
 				);
 			}
 		});
@@ -1389,7 +1442,10 @@ export class AgentCoordinator {
 				queuedMessageId,
 			});
 		} finally {
-			this.startingSessions.delete(command.sessionId);
+			this.cancelledStartingSessions.delete(command.sessionId);
+			if (this.startingSessions.delete(command.sessionId)) {
+				this.onStateChange();
+			}
 		}
 	}
 
@@ -1419,7 +1475,13 @@ export class AgentCoordinator {
 					this.onStateChange();
 					return;
 				} catch (error) {
-					if (!(error instanceof RecordedTurnStartupError) && this.store.getSession(sessionId)) {
+					if (
+						!(
+							error instanceof RecordedTurnStartupError ||
+							error instanceof CancelledTurnStartupError
+						) &&
+						this.store.getSession(sessionId)
+					) {
 						await this.recordTurnFailure(sessionId, error);
 					}
 					await this.store.failQueuedSessionMessage(sessionId, next.id);
@@ -1790,6 +1852,15 @@ export class AgentCoordinator {
 
 		const active = this.activeTurns.get(sessionId);
 		if (!active) {
+			if (this.startingSessions.has(sessionId)) {
+				if (this.cancelledStartingSessions.has(sessionId)) {
+					if (hadQueue) this.onStateChange();
+					return;
+				}
+				this.cancelledStartingSessions.add(sessionId);
+				this.onStateChange();
+				return;
+			}
 			if (hadQueue) this.onStateChange();
 			return;
 		}
