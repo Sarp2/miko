@@ -1,0 +1,37 @@
+src/client/lib/miko-diff-renderer.ts
+  s_719f908323ee1a::t_48cc059e6b744f 1-5
+  s_719f908323ee1a::t_ca2da63da84356 86
+  s_719f908323ee1a::t_3ab1821f1285cf 66-85,87-93
+src/client/components/workspace-diff-page.test.tsx
+  s_719f908323ee1a::t_ec7e2e466b2392 1-2,4-24,35-59
+  s_719f908323ee1a::t_1618b658df6bb9 3
+  s_719f908323ee1a::t_fd599f4f5767de 25-34
+src/client/lib/miko-diff-renderer.test.ts
+  s_719f908323ee1a::t_5ba369f93cb0ef 1-20
+src/client/components/workspace-diff-page.tsx
+  s_719f908323ee1a::t_58a7db9234d90d 1
+  s_719f908323ee1a::t_51b4c7ede3331d 168-182
+  s_719f908323ee1a::t_e094aa20e1f0e1 11-12,15
+  s_719f908323ee1a::t_689333fe725e1b 161-167
+  s_719f908323ee1a::t_4dc29e9ac1e17d 408-421
+  s_719f908323ee1a::t_82695977a5cd05 40
+  s_719f908323ee1a::t_382ef2f456a82b 425-445
+src/client/routes/workspace-route.tsx
+  s_719f908323ee1a::t_56ed119d9b868e 250-268
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.9",
+  "base_commit_sha": "3066f10c8ab16a3738e1026ac5cd007e96625534",
+  "prompts": {},
+  "sessions": {
+    "s_719f908323ee1a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4b8eefaa-3096-40f8-82fc-654ffb7d4885",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
