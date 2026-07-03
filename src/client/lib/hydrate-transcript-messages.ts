@@ -97,6 +97,7 @@ export function hydrateTranscriptEntry(entry: TranscriptEntry): HydratedTranscri
 				toolName: entry.tool.toolName,
 				toolId: entry.tool.toolId,
 				input: entry.tool.input,
+				rawInput: entry.tool.rawInput,
 				hasResult: false,
 			} as HydratedToolCall;
 		case 'tool_result':

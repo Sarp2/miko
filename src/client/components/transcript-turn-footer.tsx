@@ -1,5 +1,5 @@
 import { Copy, DotsThree } from '@phosphor-icons/react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { formatElapsed } from '../lib/format-duration';
 import type { TranscriptTurn } from '../lib/group-transcript-turns';
 import { turnChangedFiles } from '../lib/turn-changed-files';
@@ -30,8 +30,9 @@ export function TurnFooter({
 	workspaceRoot: string;
 }) {
 	const files = useMemo(() => turnChangedFiles(turn.tools), [turn.tools]);
-	const visible = files.slice(0, MAX_VISIBLE_FILES);
-	const overflow = files.slice(MAX_VISIBLE_FILES);
+	const [expandedFiles, setExpandedFiles] = useState(false);
+	const visible = expandedFiles ? files : files.slice(0, MAX_VISIBLE_FILES);
+	const overflow = expandedFiles ? [] : files.slice(MAX_VISIBLE_FILES);
 	const overflowAdditions = overflow.reduce((sum, file) => sum + file.additions, 0);
 	const overflowDeletions = overflow.reduce((sum, file) => sum + file.deletions, 0);
 
@@ -109,17 +110,19 @@ export function TurnFooter({
 				/>
 			))}
 			{overflow.length > 0 ? (
-				<ChangedFileChip
-					file={{
-						path: '__overflow',
-						name: `+${overflow.length} more`,
-						additions: overflowAdditions,
-						deletions: overflowDeletions,
-						before: '',
-						after: '',
-					}}
-					workspaceRoot={workspaceRoot}
-				/>
+				<button
+					type="button"
+					onClick={() => setExpandedFiles(true)}
+					className="inline-flex cursor-pointer appearance-none items-center gap-1 rounded-md border border-hairline bg-transparent px-1.5 py-0.5 text-[11px] font-[inherit] text-ink-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+				>
+					<span className="truncate">+{overflow.length} more</span>
+					{overflowAdditions > 0 ? (
+						<span className="font-mono tabular-nums text-success">+{overflowAdditions}</span>
+					) : null}
+					{overflowDeletions > 0 ? (
+						<span className="font-mono tabular-nums text-destructive">-{overflowDeletions}</span>
+					) : null}
+				</button>
 			) : null}
 		</div>
 	);

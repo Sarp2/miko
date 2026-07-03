@@ -40,6 +40,97 @@ describe('turnChangedFiles', () => {
 		expect(file).toMatchObject({ additions: 2, deletions: 0, before: '', after: 'x\ny' });
 	});
 
+	test('derives write additions from raw provider payloads', () => {
+		const write = tool('write_file', { filePath: 'src/new.ts' });
+		write.rawInput = { file_path: 'src/new.ts', content: 'one\ntwo\n' };
+
+		const [file] = turnChangedFiles([write]);
+
+		expect(file).toMatchObject({
+			path: 'src/new.ts',
+			additions: 2,
+			deletions: 0,
+			before: '',
+			after: 'one\ntwo\n',
+		});
+	});
+
+	test('derives edit additions from raw snake-case fields', () => {
+		const edit = tool('edit_file', { filePath: 'src/new.ts' });
+		edit.rawInput = { file_path: 'src/new.ts', old_string: '', new_string: 'created\n' };
+
+		const [file] = turnChangedFiles([edit]);
+
+		expect(file).toMatchObject({ additions: 1, deletions: 0, after: 'created\n' });
+	});
+
+	test('derives write additions from codex file-change diff payloads', () => {
+		const write = tool('write_file', {
+			filePath: '/tmp/project/readme2.md',
+			content: '',
+		});
+		write.rawInput = {
+			type: 'fileChange',
+			changes: [
+				{
+					path: '/tmp/project/readme2.md',
+					kind: { type: 'add' },
+					diff: 'hello\nworld\n',
+				},
+			],
+		};
+
+		const [file] = turnChangedFiles([write]);
+
+		expect(file).toMatchObject({
+			name: 'readme2.md',
+			additions: 2,
+			deletions: 0,
+			after: 'hello\nworld\n',
+		});
+	});
+
+	test('does not parse plain added content with frontmatter as a unified diff', () => {
+		const write = tool('write_file', {
+			filePath: '/tmp/project/post.md',
+			content: '',
+		});
+		write.rawInput = {
+			type: 'fileChange',
+			changes: [
+				{
+					path: '/tmp/project/post.md',
+					kind: { type: 'add' },
+					diff: '---\ntitle: Hello\n---\nbody\n',
+				},
+			],
+		};
+
+		const [file] = turnChangedFiles([write]);
+
+		expect(file).toMatchObject({
+			name: 'post.md',
+			additions: 4,
+			deletions: 0,
+			after: '---\ntitle: Hello\n---\nbody\n',
+		});
+	});
+
+	test('continues past empty normalized fields to populated raw fields', () => {
+		const write = tool('write_file', {
+			filePath: '/tmp/project/raw.txt',
+			content: '',
+		});
+		write.rawInput = {
+			file_path: '/tmp/project/raw.txt',
+			content: 'from raw\n',
+		};
+
+		const [file] = turnChangedFiles([write]);
+
+		expect(file).toMatchObject({ additions: 1, after: 'from raw\n' });
+	});
+
 	test('derives deletions from a delete', () => {
 		const [file] = turnChangedFiles([
 			tool('delete_file', { filePath: 'src/gone.ts', oldString: 'a\nb\nc' }),
