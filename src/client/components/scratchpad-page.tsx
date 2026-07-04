@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useScratchpadAutosave } from '../hooks/use-scratchpad-autosave';
+import { Icons } from '../lib/icons';
 import { cn } from '../lib/utils';
 import { useScratchpadStore } from '../stores/scratchpad-store';
-import { Button } from './ui/button';
 
 type ScratchpadMode = 'edit' | 'preview';
 
@@ -19,35 +19,84 @@ function ScratchpadModeToggle({
 	onModeChange: (mode: ScratchpadMode) => void;
 }) {
 	return (
-		<div className="inline-flex items-center gap-1">
-			<Button
+		<div className="inline-flex items-center gap-0.5 rounded-md border border-hairline bg-surface-1 p-0.5">
+			<button
 				type="button"
-				variant={mode === 'edit' ? 'secondary' : 'ghost'}
-				size="xs"
 				className={cn(
-					'h-6 rounded-md px-2.5 text-[12px] font-medium',
+					'h-5 rounded-[5px] px-2 text-[11px] font-medium leading-none transition-colors',
 					mode === 'edit'
-						? 'bg-surface-3 text-ink hover:bg-surface-3'
-						: 'bg-transparent text-ink-tertiary hover:bg-transparent hover:text-ink-subtle',
+						? 'bg-surface-2 text-ink'
+						: 'text-ink-tertiary hover:bg-surface-2/70 hover:text-ink-subtle',
 				)}
 				onClick={() => onModeChange('edit')}
 			>
-				Markdown
-			</Button>
-			<Button
+				Write
+			</button>
+			<button
 				type="button"
-				variant={mode === 'preview' ? 'secondary' : 'ghost'}
-				size="xs"
 				className={cn(
-					'h-6 rounded-md px-2.5 text-[12px] font-medium',
+					'h-5 rounded-[5px] px-2 text-[11px] font-medium leading-none transition-colors',
 					mode === 'preview'
-						? 'bg-surface-3 text-ink hover:bg-surface-3'
-						: 'bg-transparent text-ink-tertiary hover:bg-transparent hover:text-ink-subtle',
+						? 'bg-surface-2 text-ink'
+						: 'text-ink-tertiary hover:bg-surface-2/70 hover:text-ink-subtle',
 				)}
 				onClick={() => onModeChange('preview')}
 			>
 				Preview
-			</Button>
+			</button>
+		</div>
+	);
+}
+
+function resizeScratchpadTextarea(textarea: HTMLTextAreaElement | null) {
+	if (!textarea) return;
+	textarea.style.height = 'auto';
+	textarea.style.height = `${textarea.scrollHeight}px`;
+}
+
+function ScratchpadEditor({
+	value,
+	onChange,
+}: {
+	value: string;
+	onChange: (value: string) => void;
+}) {
+	const containerRef = useRef<HTMLDivElement | null>(null);
+	const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+	useLayoutEffect(() => {
+		resizeScratchpadTextarea(textareaRef.current);
+	});
+
+	useLayoutEffect(() => {
+		const container = containerRef.current;
+		if (!container) return;
+		let animationFrame = 0;
+		const scheduleResize = () => {
+			cancelAnimationFrame(animationFrame);
+			animationFrame = requestAnimationFrame(() => resizeScratchpadTextarea(textareaRef.current));
+		};
+		const resizeObserver = new ResizeObserver(scheduleResize);
+		resizeObserver.observe(container);
+		window.addEventListener('resize', scheduleResize);
+
+		return () => {
+			cancelAnimationFrame(animationFrame);
+			resizeObserver.disconnect();
+			window.removeEventListener('resize', scheduleResize);
+		};
+	}, []);
+
+	return (
+		<div ref={containerRef} className="px-8 py-7">
+			<textarea
+				ref={textareaRef}
+				className="block min-h-[520px] w-full resize-none overflow-hidden bg-transparent p-0 text-[14px] leading-7 text-ink outline-none placeholder:text-ink-tertiary"
+				value={value}
+				placeholder="Write a note, paste an idea, sketch the next step…"
+				spellCheck
+				onChange={(event) => onChange(event.target.value)}
+			/>
 		</div>
 	);
 }
@@ -55,65 +104,94 @@ function ScratchpadModeToggle({
 function ScratchpadPreview({ content }: { content: string }) {
 	if (!content.trim()) {
 		return (
-			<div className="flex h-full items-center justify-center text-center text-body-sm text-ink-tertiary">
-				Write notes in Edit mode, then switch to Preview to read them as Markdown.
+			<div className="flex min-h-[520px] items-center justify-center px-8 text-center text-[13px] leading-6 text-ink-tertiary">
+				Write a few notes, then switch to Preview when you want to read them back.
 			</div>
 		);
 	}
 
 	return (
-		<div className="scrollbar-miko h-full overflow-y-auto">
-			<div className="mx-auto w-full max-w-5xl px-2 pt-3 pb-6 text-ink">
-				<ReactMarkdown
-					remarkPlugins={[remarkGfm]}
-					components={{
-						h1: ({ children }) => (
-							<h1 className="mb-5 text-headline text-ink first:mt-0">{children}</h1>
-						),
-						h2: ({ children }) => (
-							<h2 className="mt-7 mb-3 text-card-title text-ink">{children}</h2>
-						),
-						h3: ({ children }) => (
-							<h3 className="mt-6 mb-2 text-body-lg font-medium text-ink">{children}</h3>
-						),
-						p: ({ children }) => (
-							<p className="mb-4 text-body leading-7 text-ink-muted">{children}</p>
-						),
-						ul: ({ children }) => (
-							<ul className="mb-4 ml-5 list-disc space-y-2 text-ink-muted">{children}</ul>
-						),
-						ol: ({ children }) => (
-							<ol className="mb-4 ml-5 list-decimal space-y-2 text-ink-muted">{children}</ol>
-						),
-						li: ({ children }) => <li className="pl-1 text-body leading-7">{children}</li>,
-						strong: ({ children }) => <strong className="font-medium text-ink">{children}</strong>,
-						em: ({ children }) => <em className="text-ink">{children}</em>,
-						blockquote: ({ children }) => (
-							<blockquote className="my-5 border-l border-hairline-strong pl-4 text-ink-subtle">
+		<div className="min-h-[520px] px-8 py-7 text-ink">
+			<ReactMarkdown
+				remarkPlugins={[remarkGfm]}
+				components={{
+					h1: ({ children }) => (
+						<h1 className="mb-5 text-[22px] font-semibold leading-tight tracking-[-0.02em] text-ink first:mt-0">
+							{children}
+						</h1>
+					),
+					h2: ({ children }) => (
+						<h2 className="mt-8 mb-3 text-[17px] font-semibold leading-6 tracking-[-0.01em] text-ink">
+							{children}
+						</h2>
+					),
+					h3: ({ children }) => (
+						<h3 className="mt-6 mb-2 text-[14px] font-semibold leading-5 text-ink">{children}</h3>
+					),
+					p: ({ children }) => (
+						<p className="mb-4 text-[14px] leading-7 text-ink-muted">{children}</p>
+					),
+					ul: ({ children }) => (
+						<ul className="mb-4 ml-5 list-disc space-y-1.5 text-[14px] leading-7 text-ink-muted">
+							{children}
+						</ul>
+					),
+					ol: ({ children }) => (
+						<ol className="mb-4 ml-5 list-decimal space-y-1.5 text-[14px] leading-7 text-ink-muted">
+							{children}
+						</ol>
+					),
+					li: ({ children }) => <li className="pl-1">{children}</li>,
+					strong: ({ children }) => <strong className="font-semibold text-ink">{children}</strong>,
+					em: ({ children }) => <em className="text-ink">{children}</em>,
+					blockquote: ({ children }) => (
+						<blockquote className="my-5 border-l border-hairline-strong pl-4 text-[14px] leading-7 text-ink-subtle">
+							{children}
+						</blockquote>
+					),
+					code: ({ children }) => (
+						<code className="rounded-sm bg-surface-2 px-1 py-0.5 font-mono text-[12.5px] text-ink">
+							{children}
+						</code>
+					),
+					pre: ({ children }) => (
+						<pre className="scrollbar-miko my-5 overflow-x-auto rounded-md border border-hairline bg-surface-2 p-3 font-mono text-[12.5px] leading-6 text-ink">
+							{children}
+						</pre>
+					),
+					table: ({ children }) => (
+						<div className="scrollbar-miko my-5 overflow-x-auto rounded-lg border border-hairline bg-surface-1">
+							<table className="w-full min-w-max border-collapse text-left text-[13px] leading-5">
 								{children}
-							</blockquote>
-						),
-						code: ({ children }) => (
-							<code className="rounded-sm bg-surface-2 px-1 py-0.5 font-mono text-[13px] text-ink">
-								{children}
-							</code>
-						),
-						pre: ({ children }) => (
-							<pre className="scrollbar-miko my-5 overflow-x-auto rounded-lg border border-hairline bg-surface-1 p-4 font-mono text-[13px] leading-6 text-ink">
-								{children}
-							</pre>
-						),
-						a: ({ children, href }) => (
-							<a className="text-primary underline-offset-4 hover:underline" href={href}>
-								{children}
-							</a>
-						),
-						hr: () => <hr className="my-6 border-hairline" />,
-					}}
-				>
-					{content}
-				</ReactMarkdown>
-			</div>
+							</table>
+						</div>
+					),
+					thead: ({ children }) => <thead className="bg-surface-2">{children}</thead>,
+					tbody: ({ children }) => <tbody className="divide-y divide-hairline">{children}</tbody>,
+					tr: ({ children }) => <tr className="divide-x divide-hairline align-top">{children}</tr>,
+					th: ({ children, className, ...props }) => (
+						<th {...props} scope="col" className={cn('px-3 py-2 font-medium text-ink', className)}>
+							{children}
+						</th>
+					),
+					td: ({ children, className, ...props }) => (
+						<td
+							{...props}
+							className={cn('px-3 py-2 text-ink-muted [&_code]:text-[12px]', className)}
+						>
+							{children}
+						</td>
+					),
+					a: ({ children, href }) => (
+						<a className="text-primary underline-offset-4 hover:underline" href={href}>
+							{children}
+						</a>
+					),
+					hr: () => <hr className="my-7 border-hairline" />,
+				}}
+			>
+				{content}
+			</ReactMarkdown>
 		</div>
 	);
 }
@@ -124,27 +202,35 @@ export function ScratchpadPage({ workspaceId }: ScratchpadPageProps) {
 	const [mode, setMode] = useState<ScratchpadMode>('edit');
 
 	return (
-		<div className="flex h-full min-h-0 flex-col bg-canvas">
-			<header className="flex h-10 shrink-0 items-center justify-end px-4">
-				<ScratchpadModeToggle mode={mode} onModeChange={setMode} />
-			</header>
-
-			<div className="min-h-0 flex-1">
-				{!loaded ? (
-					<div className="flex h-full items-center justify-center text-caption text-ink-tertiary">
-						Loading scratchpad…
+		<div className="scrollbar-miko h-full min-h-0 overflow-y-auto bg-canvas">
+			<div className="mx-auto flex min-h-full w-full max-w-5xl flex-col px-6 pb-10">
+				<header className="sticky top-0 z-10 -mx-6 mb-3 flex shrink-0 items-center justify-between gap-3 bg-canvas px-6 pt-6 pb-3">
+					<div className="min-w-0">
+						<div className="text-[13px] font-medium leading-5 text-ink">Scratchpad</div>
+						<div className="text-[11px] leading-4 text-ink-tertiary">
+							Private notes for this workspace
+						</div>
 					</div>
-				) : mode === 'edit' ? (
-					<textarea
-						className="h-full w-full resize-none overflow-y-auto bg-transparent px-6 pt-3 pb-6 font-mono text-[14px] leading-7 text-ink outline-none placeholder:text-ink-tertiary [scrollbar-gutter:auto] [scrollbar-width:auto]"
-						value={draft}
-						placeholder="Write Markdown notes for this workspace…"
-						spellCheck={false}
-						onChange={(event) => setDraft(event.target.value)}
-					/>
-				) : (
-					<ScratchpadPreview content={draft} />
-				)}
+					<ScratchpadModeToggle mode={mode} onModeChange={setMode} />
+				</header>
+
+				<div className="min-h-[520px] flex-1 rounded-xl border border-hairline bg-surface-1 shadow-sm">
+					{!loaded ? (
+						<div className="flex min-h-[520px] items-center justify-center px-6">
+							<div className="inline-flex items-center gap-2 text-[12px] text-ink-subtle">
+								{Icons.activeIcon({
+									ariaLabel: 'Loading scratchpad',
+									className: 'size-3.5 text-ink-subtle',
+								})}
+								<span>Loading scratchpad</span>
+							</div>
+						</div>
+					) : mode === 'edit' ? (
+						<ScratchpadEditor value={draft} onChange={setDraft} />
+					) : (
+						<ScratchpadPreview content={draft} />
+					)}
+				</div>
 			</div>
 		</div>
 	);
