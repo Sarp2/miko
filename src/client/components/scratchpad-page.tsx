@@ -48,10 +48,22 @@ function ScratchpadModeToggle({
 	);
 }
 
-function resizeScratchpadTextarea(textarea: HTMLTextAreaElement | null) {
+function resizeScratchpadTextarea(
+	textarea: HTMLTextAreaElement | null,
+	scrollContainer: HTMLElement | null,
+) {
 	if (!textarea) return;
+	const distanceFromBottom = scrollContainer
+		? scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight
+		: null;
+
 	textarea.style.height = 'auto';
 	textarea.style.height = `${textarea.scrollHeight}px`;
+
+	if (scrollContainer && distanceFromBottom !== null) {
+		scrollContainer.scrollTop =
+			scrollContainer.scrollHeight - scrollContainer.clientHeight - distanceFromBottom;
+	}
 }
 
 function ScratchpadEditor({
@@ -65,7 +77,10 @@ function ScratchpadEditor({
 	const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
 	useLayoutEffect(() => {
-		resizeScratchpadTextarea(textareaRef.current);
+		resizeScratchpadTextarea(
+			textareaRef.current,
+			containerRef.current?.closest('[data-scratchpad-scroll]') ?? null,
+		);
 	});
 
 	useLayoutEffect(() => {
@@ -74,7 +89,12 @@ function ScratchpadEditor({
 		let animationFrame = 0;
 		const scheduleResize = () => {
 			cancelAnimationFrame(animationFrame);
-			animationFrame = requestAnimationFrame(() => resizeScratchpadTextarea(textareaRef.current));
+			animationFrame = requestAnimationFrame(() =>
+				resizeScratchpadTextarea(
+					textareaRef.current,
+					container.closest('[data-scratchpad-scroll]'),
+				),
+			);
 		};
 		const resizeObserver = new ResizeObserver(scheduleResize);
 		resizeObserver.observe(container);
@@ -202,7 +222,10 @@ export function ScratchpadPage({ workspaceId }: ScratchpadPageProps) {
 	const [mode, setMode] = useState<ScratchpadMode>('edit');
 
 	return (
-		<div className="scrollbar-miko h-full min-h-0 overflow-y-auto bg-canvas">
+		<div
+			data-scratchpad-scroll="true"
+			className="scrollbar-miko h-full min-h-0 overflow-y-auto bg-canvas"
+		>
 			<div className="mx-auto flex min-h-full w-full max-w-5xl flex-col px-6 pb-10">
 				<header className="sticky top-0 z-10 -mx-6 mb-3 flex shrink-0 items-center justify-between gap-3 bg-canvas px-6 pt-6 pb-3">
 					<div className="min-w-0">

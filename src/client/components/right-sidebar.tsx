@@ -257,7 +257,7 @@ export function RightSidebar({ workspaceId }: RightSidebarProps) {
 				aria-label="Workspace detail sidebar"
 			>
 				<div className="relative flex size-full flex-col bg-surface-1">
-					<SidebarPrimitiveHeader className="flex h-11 shrink-0 flex-row items-center gap-2 border-b border-hairline bg-surface-1 p-0 px-3">
+					<SidebarPrimitiveHeader className="flex h-11 shrink-0 flex-row items-center gap-2 bg-surface-1 p-0 px-3">
 						<RightSidebarHeader
 							action={condition?.primaryAction ?? null}
 							condition={condition}
@@ -274,8 +274,8 @@ export function RightSidebar({ workspaceId }: RightSidebarProps) {
 						/>
 					</SidebarPrimitiveHeader>
 
-					<div className="flex h-10 shrink-0 items-center px-3">
-						<div className="flex min-w-0 items-center gap-2">
+					<div className="flex h-10 shrink-0 items-end border-t border-hairline px-3">
+						<div className="flex min-w-0 items-end gap-3">
 							{RIGHT_SIDEBAR_TABS.map((item) => {
 								const count = item.value === 'changes' ? formatCount(changeCount) : '';
 								const active = tab === item.value;
@@ -284,10 +284,10 @@ export function RightSidebar({ workspaceId }: RightSidebarProps) {
 										key={item.value}
 										type="button"
 										className={cn(
-											'h-7 max-w-[76px] truncate whitespace-nowrap rounded-md px-2.5 text-[11px] font-medium leading-4 transition-colors',
+											'relative h-8 max-w-[76px] cursor-pointer truncate whitespace-nowrap px-0.5 pb-2 text-[11px] font-medium leading-4 transition-colors after:absolute after:right-0 after:bottom-0 after:left-0 after:h-px after:rounded-full after:content-[""]',
 											active
-												? 'bg-surface-2 text-ink'
-												: 'text-ink-subtle hover:bg-surface-2 hover:text-ink',
+												? 'text-ink after:bg-ink-subtle'
+												: 'text-ink-tertiary after:bg-transparent hover:text-ink-subtle',
 										)}
 										onClick={() => setTab(workspaceId, item.value)}
 									>
@@ -298,7 +298,7 @@ export function RightSidebar({ workspaceId }: RightSidebarProps) {
 							})}
 							<button
 								type="button"
-								className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2 text-[11px] font-medium leading-4 text-ink-subtle transition-colors hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-60"
+								className="inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 px-0.5 pb-2 text-[11px] font-medium leading-4 text-ink-tertiary transition-colors hover:text-ink-subtle disabled:cursor-not-allowed disabled:opacity-60"
 								aria-label="Start a code review in a new session"
 								disabled={reviewing}
 								onClick={() => void startReview()}

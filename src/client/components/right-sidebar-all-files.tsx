@@ -18,9 +18,16 @@ interface RightSidebarAllFilesProps {
 function FileTreeRow({ depth, children }: { depth: number; children: ReactNode }) {
 	return (
 		<div
-			className="min-w-0"
-			style={{ paddingLeft: depth > 0 ? `${Math.min(depth, 8) * 14}px` : undefined }}
+			className="relative min-w-0"
+			style={{ paddingLeft: depth > 0 ? `${Math.min(depth, 8) * 12}px` : undefined }}
 		>
+			{depth > 0 ? (
+				<span
+					aria-hidden="true"
+					className="absolute top-1 bottom-1 w-px bg-hairline/70"
+					style={{ left: `${Math.min(depth, 8) * 12 - 6}px` }}
+				/>
+			) : null}
 			{children}
 		</div>
 	);
@@ -40,11 +47,11 @@ function FolderNode({
 	return (
 		<Collapsible open={open} onOpenChange={setOpen}>
 			<FileTreeRow depth={depth}>
-				<CollapsibleTrigger className="group flex h-[26px] w-full min-w-0 cursor-pointer items-center gap-1.5 rounded-md px-2 text-left font-mono text-[11px] font-normal leading-4 text-ink outline-none hover:bg-surface-2 hover:text-ink focus-visible:ring-1 focus-visible:ring-primary">
+				<CollapsibleTrigger className="group flex h-[25px] w-full min-w-0 cursor-pointer items-center gap-1.5 rounded-md px-2 text-left font-mono text-[11px] font-normal leading-4 text-ink-muted outline-none transition-colors hover:bg-surface-2/70 hover:text-ink focus-visible:ring-1 focus-visible:ring-primary">
 					{open ? (
-						<FolderOpenIcon className="size-3.5 shrink-0 text-ink-subtle" />
+						<FolderOpenIcon className="size-3.5 shrink-0 text-ink-tertiary transition-colors group-hover:text-ink-subtle" />
 					) : (
-						<FolderIcon className="size-3.5 shrink-0 text-ink-subtle" />
+						<FolderIcon className="size-3.5 shrink-0 text-ink-tertiary transition-colors group-hover:text-ink-subtle" />
 					)}
 					<span className="min-w-0 truncate">{node.name}</span>
 				</CollapsibleTrigger>
@@ -71,11 +78,11 @@ function FileNode({
 		<FileTreeRow depth={depth}>
 			<button
 				type="button"
-				className="group flex h-[26px] w-full min-w-0 cursor-pointer items-center gap-1.5 rounded-md px-2 text-left font-mono text-[11px] font-normal leading-4 text-ink outline-none hover:bg-surface-2 hover:text-ink focus-visible:ring-1 focus-visible:ring-primary"
+				className="group flex h-[25px] w-full min-w-0 cursor-pointer items-center gap-1.5 rounded-md px-2 text-left font-mono text-[11px] font-normal leading-4 text-ink outline-none transition-colors hover:bg-surface-2/70 hover:text-ink focus-visible:ring-1 focus-visible:ring-primary"
 				title={node.path}
 				onClick={() => onOpenFile(node.path)}
 			>
-				<FileNameIcon name={node.name} className="size-3.5 shrink-0" />
+				<FileNameIcon name={node.name} className="size-3.5 shrink-0 opacity-90" />
 				<span className="min-w-0 truncate">{node.name}</span>
 			</button>
 		</FileTreeRow>
@@ -165,7 +172,7 @@ export function RightSidebarAllFiles({
 	if (nodes.length === 0) return <AllFilesEmptyState />;
 
 	return (
-		<div className="min-w-0 space-y-0.5 px-2 py-2">
+		<div className="min-w-0 space-y-0.5 px-2.5 py-2">
 			{nodes.map((node) => (
 				<FileTreeNode key={node.id} node={node} depth={0} onOpenFile={onOpenFile} />
 			))}
