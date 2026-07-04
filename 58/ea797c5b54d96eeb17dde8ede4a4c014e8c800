@@ -1,0 +1,28 @@
+src/client/components/scratchpad-page.tsx
+  s_82e93de1bb8ac8::t_3069134a89b1fc 5,22-23,26,28-29,33-35,38,40-41,46,85,92-105,107-138,153-162,176-180,182-184,186,188-196,198-201
+  s_82e93de1bb8ac8::t_669dabc29a5fc2 68,71,84,91,173,185,187
+  s_82e93de1bb8ac8::t_f85ecb54b09787 65
+  s_82e93de1bb8ac8::t_233d447fb5a4bc 174
+  s_82e93de1bb8ac8::t_43a2e253f03df7 106
+  s_82e93de1bb8ac8::t_5e22fbad97f5a1 1,51-64,66-67,69-70,72-76,197
+  s_82e93de1bb8ac8::t_c055c0e444ae28 139-141,143-147,150-152
+  s_82e93de1bb8ac8::t_f676d209d9270a 175
+  s_82e93de1bb8ac8::t_674ab6d69df1c4 148-149
+  s_82e93de1bb8ac8::t_46103dffede17a 47-50
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "58ea797c5b54d96eeb17dde8ede4a4c014e8c800",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
