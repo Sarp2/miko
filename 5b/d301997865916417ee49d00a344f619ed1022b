@@ -1,0 +1,21 @@
+.github/releases/v0.1.4.md
+  s_82e93de1bb8ac8::t_c96891294ed757 1-7
+package.json
+  s_82e93de1bb8ac8::t_29ebf92ae51c03 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "5bd301997865916417ee49d00a344f619ed1022b",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
