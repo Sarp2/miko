@@ -294,66 +294,6 @@ function WorkspaceIndicatorIcon({
 	});
 }
 
-function workspaceStatusDotClass(indicator: WorkspaceSidebarIndicator) {
-	if (indicator === 'agent_active' || indicator === 'workspace_creating') return 'bg-primary';
-	if (
-		indicator === 'pr_opened' ||
-		indicator === 'draft_pr' ||
-		indicator === 'create_pr' ||
-		indicator === 'commit_and_push'
-	) {
-		return 'bg-success';
-	}
-	if (
-		indicator === 'ci_failed' ||
-		indicator === 'merge_conflicts' ||
-		indicator === 'workspace_failed' ||
-		indicator === 'closed'
-	) {
-		return 'bg-destructive';
-	}
-	if (indicator === 'merged') return 'bg-[#a12df2]';
-	return 'bg-ink-tertiary';
-}
-
-// Legible per-row status: a single dot whose color encodes state, with a soft
-// ping while an agent is live. Replaces the cryptic slash glyph.
-function WorkspaceStatusDot({
-	indicator,
-	className,
-}: {
-	indicator: WorkspaceSidebarIndicator;
-	className?: string;
-}) {
-	const isLive = indicator === 'agent_active' || indicator === 'workspace_creating';
-	const isIdle = indicator === 'none';
-	const dotClass = workspaceStatusDotClass(indicator);
-
-	return (
-		<span
-			role="img"
-			className={cn('relative flex size-2.5 items-center justify-center', className)}
-			aria-label={indicatorLabel(indicator)}
-		>
-			{isLive && (
-				<span
-					className={cn(
-						'absolute inline-flex size-2.5 rounded-full opacity-50 motion-safe:animate-ping',
-						dotClass,
-					)}
-				/>
-			)}
-			<span
-				className={cn(
-					'relative rounded-full',
-					dotClass,
-					isIdle ? 'size-[5px] opacity-60' : 'size-[6px]',
-				)}
-			/>
-		</span>
-	);
-}
-
 function workspaceTimeAt(workspace: SidebarWorkspaceRow) {
 	return workspace.hasPullRequest
 		? (workspace.prCreatedAt ?? workspace.lastActivityAt)
@@ -703,21 +643,15 @@ function WorkspaceRow({
 						<button
 							type="button"
 							className={cn(
-								'relative grid h-[30px] w-full cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-1 rounded-md px-2 text-left outline-none transition-[background-color,color] duration-100 ease-out focus-visible:ring-1 focus-visible:ring-primary',
+								'grid h-[30px] w-full cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-1 rounded-md px-2 text-left outline-none transition-colors focus-visible:ring-1 focus-visible:ring-primary',
 								isActive
-									? 'bg-primary/15 text-ink'
+									? 'bg-surface-3 text-ink'
 									: 'text-ink-muted hover:bg-surface-2 hover:text-ink',
 							)}
 							onClick={onSelect}
 						>
-							{isActive && (
-								<span
-									aria-hidden
-									className="absolute top-1/2 left-0 h-[15px] w-[2px] -translate-y-1/2 rounded-r-full bg-primary"
-								/>
-							)}
-							<span className="grid min-w-0 grid-cols-[10px_minmax(0,1fr)] items-center gap-2.5">
-								<WorkspaceStatusDot
+							<span className="grid min-w-0 grid-cols-[16px_minmax(0,1fr)] items-center gap-2">
+								<WorkspaceIndicatorIcon
 									indicator={workspace.indicator}
 									className="justify-self-center"
 								/>
@@ -812,7 +746,7 @@ function DirectoryGroup({
 					{isExpanded ? <CaretDown className="size-3" /> : <CaretRight className="size-3" />}
 				</button>
 
-				<div className="flex size-5 items-center justify-center overflow-hidden rounded-[5px] bg-surface-4 text-[11px] font-medium leading-none text-ink ring-1 ring-white/10 ring-inset">
+				<div className="flex size-5 items-center justify-center overflow-hidden rounded-md bg-surface-4 text-[11px] font-medium leading-none text-ink">
 					{directory.avatarUrl ? (
 						<img
 							src={directory.avatarUrl}
@@ -851,11 +785,7 @@ function DirectoryGroup({
 			</div>
 
 			{isExpanded && (
-				<div className="relative flex flex-col gap-px pl-[17px]">
-					<span
-						aria-hidden
-						className="pointer-events-none absolute top-0.5 bottom-0.5 left-[9px] w-px bg-hairline"
-					/>
+				<div className="flex flex-col gap-px">
 					{directory.workspaces.map((workspace) => (
 						<WorkspaceRow
 							key={workspace.workspaceId}
@@ -1184,8 +1114,8 @@ export function Sidebar({
 									onWorkspaceRename={setRenameWorkspace}
 								/>
 
-								<div className="mb-1.5 flex items-center justify-between px-2">
-									<span className="text-[10.5px] font-semibold uppercase leading-4 tracking-[0.06em] text-ink-tertiary">
+								<div className="mb-1 flex items-center justify-between px-2">
+									<span className="text-[11px] font-medium leading-4 text-ink-subtle">
 										Projects
 									</span>
 								</div>

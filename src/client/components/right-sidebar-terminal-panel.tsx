@@ -127,7 +127,7 @@ export function RightSidebarTerminalPanel({
 
 	return (
 		<section
-			className="relative shrink-0 border-t border-hairline/50 bg-surface-1 text-ink"
+			className="relative shrink-0 border-t border-hairline/70 bg-surface-1 text-ink"
 			style={{ height: TERMINAL_HEADER_HEIGHT + bodyHeight }}
 			aria-label="Workspace terminal"
 		>
@@ -138,7 +138,7 @@ export function RightSidebarTerminalPanel({
 					aria-valuemin={MIN_TERMINAL_HEIGHT}
 					aria-valuemax={MAX_TERMINAL_HEIGHT}
 					aria-valuenow={panel.height}
-					className="absolute top-0 left-0 z-10 h-1 w-full cursor-row-resize touch-none border-0 bg-transparent hover:bg-primary/30"
+					className="absolute top-0 left-0 z-10 h-1 w-full cursor-row-resize touch-none border-0 bg-transparent hover:bg-hairline-tertiary"
 					onPointerDown={onResizePointerDown}
 					onPointerMove={onResizePointerMove}
 					onPointerUp={onResizePointerUp}
@@ -146,10 +146,10 @@ export function RightSidebarTerminalPanel({
 				/>
 			) : null}
 
-			<div className="flex h-8 items-center border-b border-hairline/80 bg-surface-1 px-3">
+			<div className="flex h-8 items-center border-b border-hairline/50 bg-surface-1 px-3">
 				<button
 					type="button"
-					className="mr-4 inline-flex size-5 shrink-0 cursor-pointer items-center justify-center text-ink-muted"
+					className="-ml-1 inline-flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-md text-ink-tertiary transition-colors hover:bg-surface-2/70 hover:text-ink-subtle"
 					onClick={openOrToggleTerminal}
 					aria-label={expanded ? 'Collapse terminal' : 'Open terminal'}
 					disabled={!terminalReady}
@@ -157,52 +157,66 @@ export function RightSidebarTerminalPanel({
 					<ToggleIcon className="size-3.5" />
 				</button>
 
-				<div className="scrollbar-miko flex min-w-0 flex-1 items-center gap-6 overflow-x-auto">
-					{tabs.map((tab) => {
-						const active = tab.terminalId === activeTab?.terminalId;
-						return (
-							<div key={tab.terminalId} className="group relative flex h-8 shrink-0 items-center">
-								<button
-									type="button"
-									className={cn(
-										'h-8 cursor-pointer border-b-2 border-transparent text-[12px] font-medium leading-8 text-ink-muted',
-										active && 'border-ink-muted text-ink',
-									)}
-									onClick={() => {
-										setActiveTerminal(workspaceId, tab.terminalId);
-										setTerminalPanelCollapsed(workspaceId, false);
-									}}
-								>
-									{tab.title}
-								</button>
-								<button
-									type="button"
-									className="ml-1 inline-flex size-4 cursor-pointer items-center justify-center text-ink-subtle opacity-0 focus-visible:opacity-100 group-hover:opacity-100"
-									onClick={() => {
-										void closeTab(tab.terminalId);
-									}}
-									aria-label={`Close ${tab.title}`}
-								>
-									<X className="size-2.5" />
-								</button>
-							</div>
-						);
-					})}
+				<div className="ml-1.5 flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+					<span className="shrink-0 text-[11px] font-medium leading-none text-ink-muted">
+						Terminal
+					</span>
+					{tabs.length > 1 ? (
+						<div className="scrollbar-miko flex min-w-0 items-center gap-1 overflow-x-auto">
+							{tabs.map((tab, index) => {
+								const active = tab.terminalId === activeTab?.terminalId;
+								const label = String(index + 1);
+								return (
+									<button
+										key={tab.terminalId}
+										type="button"
+										className={cn(
+											'inline-flex h-4 min-w-4 shrink-0 cursor-pointer items-center justify-center rounded-sm px-1 font-mono text-[10px] leading-none text-ink-tertiary transition-colors hover:bg-surface-2/70 hover:text-ink-subtle',
+											active && 'bg-surface-2 text-ink-muted',
+										)}
+										onClick={() => {
+											setActiveTerminal(workspaceId, tab.terminalId);
+											setTerminalPanelCollapsed(workspaceId, false);
+										}}
+										aria-label={`Open terminal ${label}`}
+									>
+										{label}
+									</button>
+								);
+							})}
+						</div>
+					) : null}
 				</div>
 
-				<Button
-					type="button"
-					variant="ghost"
-					size="icon-sm"
-					className="ml-3 size-6 shrink-0 text-ink-subtle"
-					disabled={!terminalReady}
-					onClick={() => {
-						void openNewTerminal();
-					}}
-					aria-label="New terminal"
-				>
-					<Plus className="size-3.5" />
-				</Button>
+				<div className="flex shrink-0 items-center gap-1">
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon-sm"
+						className="size-5 rounded-md text-ink-tertiary hover:bg-surface-2/70 hover:text-ink-subtle"
+						disabled={!terminalReady}
+						onClick={() => {
+							void openNewTerminal();
+						}}
+						aria-label="New terminal"
+					>
+						<Plus className="size-3" />
+					</Button>
+					{activeTab ? (
+						<Button
+							type="button"
+							variant="ghost"
+							size="icon-sm"
+							className="size-5 rounded-md text-ink-tertiary hover:bg-surface-2/70 hover:text-ink-subtle"
+							onClick={() => {
+								void closeTab(activeTab.terminalId);
+							}}
+							aria-label="Close active terminal"
+						>
+							<X className="size-2.5" />
+						</Button>
+					) : null}
+				</div>
 			</div>
 			{expanded ? (
 				activeTab ? (

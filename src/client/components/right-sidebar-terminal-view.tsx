@@ -93,7 +93,7 @@ export function RightSidebarTerminalView({ terminalId }: RightSidebarTerminalVie
 			disableStdin: false,
 			fontFamily: 'JetBrains Mono Variable, JetBrains Mono, monospace',
 			fontSize: 12,
-			lineHeight: 1.0,
+			lineHeight: 1.04,
 			scrollback: 10_000,
 			theme: terminalTheme(terminalBackground),
 		});
@@ -208,7 +208,7 @@ export function RightSidebarTerminalView({ terminalId }: RightSidebarTerminalVie
 	return (
 		<div
 			ref={containerRef}
-			className="terminal-miko size-full overflow-hidden bg-surface-1 px-2 py-2 [&_.xterm]:h-full"
+			className="terminal-miko size-full overflow-hidden bg-surface-1 px-3 py-2 [&_.xterm]:h-full"
 		/>
 	);
 }
