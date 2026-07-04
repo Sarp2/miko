@@ -1,0 +1,25 @@
+src/client/components/left-sidebar-view.tsx
+  s_719f908323ee1a::t_4fa3a779add7ef 815
+  s_719f908323ee1a::t_d9569428ee718d 854-858
+  s_719f908323ee1a::t_bde63b3501fbe4 329
+  s_719f908323ee1a::t_aade6f5d6e25f0 297-328,330-333,335-356
+  s_719f908323ee1a::t_7a09d37d17486b 706,708,713-720
+  s_719f908323ee1a::t_04d01e55e482bd 334
+  s_719f908323ee1a::t_353dacbe3ed5c0 1187-1188
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "bf8e65f9f9523a404e13a771fcf646797a677359",
+  "prompts": {},
+  "sessions": {
+    "s_719f908323ee1a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4b8eefaa-3096-40f8-82fc-654ffb7d4885",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
