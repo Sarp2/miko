@@ -48,6 +48,12 @@ function ScratchpadModeToggle({
 	);
 }
 
+function resizeScratchpadTextarea(textarea: HTMLTextAreaElement | null) {
+	if (!textarea) return;
+	textarea.style.height = 'auto';
+	textarea.style.height = `${textarea.scrollHeight}px`;
+}
+
 function ScratchpadEditor({
 	value,
 	onChange,
@@ -55,17 +61,34 @@ function ScratchpadEditor({
 	value: string;
 	onChange: (value: string) => void;
 }) {
+	const containerRef = useRef<HTMLDivElement | null>(null);
 	const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
 	useLayoutEffect(() => {
-		const textarea = textareaRef.current;
-		if (!textarea) return;
-		textarea.style.height = 'auto';
-		textarea.style.height = `${textarea.scrollHeight}px`;
+		resizeScratchpadTextarea(textareaRef.current);
 	});
 
+	useLayoutEffect(() => {
+		const container = containerRef.current;
+		if (!container) return;
+		let animationFrame = 0;
+		const scheduleResize = () => {
+			cancelAnimationFrame(animationFrame);
+			animationFrame = requestAnimationFrame(() => resizeScratchpadTextarea(textareaRef.current));
+		};
+		const resizeObserver = new ResizeObserver(scheduleResize);
+		resizeObserver.observe(container);
+		window.addEventListener('resize', scheduleResize);
+
+		return () => {
+			cancelAnimationFrame(animationFrame);
+			resizeObserver.disconnect();
+			window.removeEventListener('resize', scheduleResize);
+		};
+	}, []);
+
 	return (
-		<div className="px-8 py-7">
+		<div ref={containerRef} className="px-8 py-7">
 			<textarea
 				ref={textareaRef}
 				className="block min-h-[520px] w-full resize-none overflow-hidden bg-transparent p-0 text-[14px] leading-7 text-ink outline-none placeholder:text-ink-tertiary"
@@ -146,9 +169,18 @@ function ScratchpadPreview({ content }: { content: string }) {
 					thead: ({ children }) => <thead className="bg-surface-2">{children}</thead>,
 					tbody: ({ children }) => <tbody className="divide-y divide-hairline">{children}</tbody>,
 					tr: ({ children }) => <tr className="divide-x divide-hairline align-top">{children}</tr>,
-					th: ({ children }) => <th className="px-3 py-2 font-medium text-ink">{children}</th>,
-					td: ({ children }) => (
-						<td className="px-3 py-2 text-ink-muted [&_code]:text-[12px]">{children}</td>
+					th: ({ children, className, ...props }) => (
+						<th {...props} scope="col" className={cn('px-3 py-2 font-medium text-ink', className)}>
+							{children}
+						</th>
+					),
+					td: ({ children, className, ...props }) => (
+						<td
+							{...props}
+							className={cn('px-3 py-2 text-ink-muted [&_code]:text-[12px]', className)}
+						>
+							{children}
+						</td>
 					),
 					a: ({ children, href }) => (
 						<a className="text-primary underline-offset-4 hover:underline" href={href}>
