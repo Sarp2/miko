@@ -1,0 +1,21 @@
+src/client/hooks/use-inline-prompt-editor.ts
+  s_82e93de1bb8ac8::t_c912bf8f63d7d0 111-115,451-459
+src/client/components/messages/changed-file-line.tsx
+  s_82e93de1bb8ac8::t_7f1ed63a5984c9 10,83,88-89
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "6857bfa37c1b706f20fae97da2b4a14dee766e24",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
