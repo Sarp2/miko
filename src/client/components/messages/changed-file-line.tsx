@@ -7,6 +7,7 @@ import { toRelativePath } from '../../lib/relative-path';
 import { turnChangedFiles } from '../../lib/turn-changed-files';
 import { cn } from '../../lib/utils';
 import { resolveChangedFileDiffOpenTarget } from '../../lib/workspace-file-open-target';
+import { FileNameIcon } from '../icons/file-name-icon';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '../ui/hover-card';
 import { ChangedFileDiff } from './changed-file-diff';
 
@@ -79,12 +80,13 @@ export function ChangedFileLine({
 		<button
 			type="button"
 			className={cn(
-				'min-w-0 truncate appearance-none rounded-md border border-hairline bg-transparent px-1.5 py-0.5 font-[inherit] text-[11px] text-ink-muted focus-visible:ring-1 focus-visible:ring-primary focus-visible:outline-none',
+				'inline-flex min-w-0 appearance-none items-center gap-1.5 rounded-md border border-hairline bg-transparent px-1.5 py-0.5 font-[inherit] text-[11px] text-ink-muted focus-visible:ring-1 focus-visible:ring-primary focus-visible:outline-none',
 				canOpenDiff ? 'cursor-pointer' : 'cursor-default',
 			)}
 			onClick={openDiff}
 		>
-			{file.name}
+			<FileNameIcon name={file.name} className="size-3.5 shrink-0" />
+			<span className="min-w-0 truncate">{file.name}</span>
 		</button>
 	);
 

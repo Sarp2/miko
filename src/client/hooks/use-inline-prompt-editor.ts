@@ -108,6 +108,11 @@ function promptTextFromDom(
 		.replace(/ /g, '');
 }
 
+function isEditorVisiblyEmpty(root: HTMLElement) {
+	if (root.querySelector('[data-token-key]')) return false;
+	return (root.textContent ?? '').replace(/ /g, '').trim().length === 0;
+}
+
 function boundaryOffset(
 	root: HTMLElement,
 	targetNode: Node,
@@ -443,6 +448,15 @@ export function useInlinePromptEditor({
 	const syncPartsFromDom = useCallback(() => {
 		const editor = editorRef.current;
 		if (!editor) return;
+
+		if (isEditorVisiblyEmpty(editor)) {
+			editor.innerHTML = '';
+			skipNextDomSyncRef.current = false;
+			setParts([]);
+			requestAnimationFrame(refreshMentionRange);
+			return;
+		}
+
 		skipNextDomSyncRef.current = true;
 		setParts(parseEditorParts(editor, tokenPartsByKey, attachmentTokens));
 		requestAnimationFrame(refreshMentionRange);
