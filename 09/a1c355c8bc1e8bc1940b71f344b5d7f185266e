@@ -1,0 +1,37 @@
+src/client/components/transcript-turn-footer.tsx
+  s_82e93de1bb8ac8::t_f33751fe19781f 1-2,34,40-53,80,82,84,87
+README.md
+  s_82e93de1bb8ac8::t_f33751fe19781f 72
+.agents/memory/architecture.md
+  s_82e93de1bb8ac8::t_1e8ce03094001d 1-54
+.agents/memory/current-state.md
+  s_82e93de1bb8ac8::t_554dfa9f99e1ce 1-23
+.agents/memory/decisions.md
+  s_82e93de1bb8ac8::t_1f0fca5dc77b81 1-20
+.agents/memory/fragile-areas.md
+  s_82e93de1bb8ac8::t_088bd48ebc91a4 1-77
+.agents/memory/glossary.md
+  s_82e93de1bb8ac8::t_7a9eb407878e01 1-61
+.agents/memory/product.md
+  s_82e93de1bb8ac8::t_1f9c3b9589a2aa 1-24
+.agents/memory/workflows.md
+  s_82e93de1bb8ac8::t_b754a5812b102c 1-89
+package.json
+  s_82e93de1bb8ac8::t_a41ca5ae9c768c 30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "09a1c355c8bc1e8bc1940b71f344b5d7f185266e",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
