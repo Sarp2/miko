@@ -69,6 +69,7 @@ miko --help                    # show all options
 ### Requirements
 
 - [Bun](https://bun.com) `>=1.3.5`
+- [GitHub CLI](https://cli.github.com/) (`gh`) installed and authenticated for pull request and GitHub metadata workflows
 - macOS or Linux
 - A local git repository connected to GitHub
 - Claude Code and/or Codex installed and authenticated, depending on which agent you want to run
