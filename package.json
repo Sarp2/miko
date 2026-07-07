@@ -27,7 +27,7 @@
     "check": "tsc --noEmit && vite build",
     "dev": "bun run ./scripts/dev.ts",
     "dev:client": "vite dev",
-    "dev:server": "bun run ./src/server/server.ts",
+    "dev:server": "bun run ./scripts/dev-server.ts",
     "lint": "bunx biome check",
     "lint:fix": "bunx biome check --write",
     "format": "bunx biome format --write",
