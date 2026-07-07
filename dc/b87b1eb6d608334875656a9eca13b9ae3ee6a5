@@ -1,0 +1,21 @@
+src/client/components/transcript-turn-footer.tsx
+  s_82e93de1bb8ac8::t_d9cab46488e654 1-2,34,40-53,80,82,84,87
+README.md
+  s_82e93de1bb8ac8::t_d9cab46488e654 72
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "dcb87b1eb6d608334875656a9eca13b9ae3ee6a5",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
