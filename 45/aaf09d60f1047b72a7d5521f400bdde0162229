@@ -1,0 +1,38 @@
+.agents/memory/fragile-areas.md
+  s_82e93de1bb8ac8::t_c954747f630244 1-77
+.agents/memory/decisions.md
+  s_82e93de1bb8ac8::t_c954747f630244 1-20
+.agents/memory/workflows.md
+  s_82e93de1bb8ac8::t_e0a5ce107bc668 63
+  s_82e93de1bb8ac8::t_09541e3d10b289 28-44
+  s_82e93de1bb8ac8::t_05dc35f4c07ead 65
+  s_82e93de1bb8ac8::t_c954747f630244 1-27,45-54,56,58,60-62,64,66-89
+  s_82e93de1bb8ac8::t_db6893d2c01a93 55,57,59
+.agents/memory/architecture.md
+  s_82e93de1bb8ac8::t_c954747f630244 1-54
+.agents/memory/product.md
+  s_82e93de1bb8ac8::t_c954747f630244 1-24
+package.json
+  s_82e93de1bb8ac8::t_db6893d2c01a93 30
+.agents/memory/current-state.md
+  s_82e93de1bb8ac8::t_c954747f630244 1-23
+.agents/memory/glossary.md
+  s_82e93de1bb8ac8::t_c954747f630244 1-20,22-61
+  s_82e93de1bb8ac8::t_db6893d2c01a93 21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "45aaf09d60f1047b72a7d5521f400bdde0162229",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": null
+    }
+  }
+}
