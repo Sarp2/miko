@@ -1,0 +1,155 @@
+src/client/components/chat-composer/chat-composer.tsx
+  s_a9cac5dac95839::t_a01600ce8812ad 196-197,199
+  s_a9cac5dac95839::t_96315cc1db0de8 362
+src/client/components/transcript-running-timer.tsx
+  s_a9cac5dac95839::t_85299851417df4 21
+src/client/components/right-sidebar-terminal-panel.tsx
+  s_a9cac5dac95839::t_88c3959f1af4aa 161
+src/client/components/transcript-message-view.tsx
+  s_a9cac5dac95839::t_ddaa622a0c627b 38-39
+src/client/components/right-sidebar-checks.tsx
+  s_a9cac5dac95839::t_41a082d82df6d5 69
+src/client/components/workspace-stage-badge.tsx
+  s_a9cac5dac95839::t_1547bfc565ec6a 16
+src/client/components/right-sidebar.tsx
+  s_a9cac5dac95839::t_296404bbf8d510 289
+src/client/components/session-history-menu.tsx
+  s_a9cac5dac95839::t_1547bfc565ec6a 61
+src/client/components/right-sidebar-changes.tsx
+  s_a9cac5dac95839::t_e7cf4fea53b0f8 32,34
+src/client/components/ui/tooltip.tsx
+  s_a9cac5dac95839::t_931de2a3cdb972 43
+  s_a9cac5dac95839::t_a1455d4499b8a0 49
+src/client/components/transcript-turn-footer.tsx
+  s_a9cac5dac95839::t_7affda5f351458 90
+src/client/lib/miko-diff-renderer.ts
+  s_a9cac5dac95839::t_2e8eb920e6a723 14-15,20,48,50,53
+  s_a9cac5dac95839::t_2d5e22672b7742 24,28,32,36,44
+src/client/components/messages/bash-line.tsx
+  s_a9cac5dac95839::t_020129f746726b 41-45
+  s_a9cac5dac95839::t_a7374a9e09d263 8-10,13-18
+  s_a9cac5dac95839::t_6d57d6ba6b700f 11-12
+src/client/lib/icons.tsx
+  s_a9cac5dac95839::t_31a27a30002e42 60,62,64,67,70,74,76,78,81,84,90,92,95,98,104,106,109,113,116
+  s_a9cac5dac95839::t_410664fb5c6f44 41-42,50
+  s_a9cac5dac95839::t_ccc1cdd732756b 44-49
+  s_a9cac5dac95839::t_a03ad765981b05 53-56,59,88
+  s_a9cac5dac95839::t_80a04a873705b8 43
+  s_a9cac5dac95839::t_8de6ef4dbb1a49 51-52
+src/client/components/messages/bash-line.test.ts
+  s_a9cac5dac95839::t_ecbbcf91bd2920 8
+  s_a9cac5dac95839::t_867d7c5e09b11b 1-7,9-15
+src/client/components/right-sidebar-terminal-view.tsx
+  s_a9cac5dac95839::t_a6e60521a910f5 94
+  s_a9cac5dac95839::t_2e8eb920e6a723 16-18,27,79
+  s_a9cac5dac95839::t_3fea5369783fef 20-21,23-26,28-29,31-34
+  s_a9cac5dac95839::t_bdbde4b354814b 22,30
+src/client/components/scratchpad-page.tsx
+  s_a9cac5dac95839::t_1e3cf6656996b0 240
+src/index.css
+  s_a9cac5dac95839::t_f78d6fac6bbedc 154-156
+  s_a9cac5dac95839::t_145a4492008041 171,176-177,183-184
+  s_a9cac5dac95839::t_4beb6c670d9f3b 187-189
+  s_a9cac5dac95839::t_77da61b7ab8fc8 60,62
+  s_a9cac5dac95839::t_6a2b3c7a47dfd7 38-48
+  s_a9cac5dac95839::t_5e80f9472374b5 317-318,321-331
+  s_a9cac5dac95839::t_d01b505f8a2016 100-102
+  s_a9cac5dac95839::t_42d95196f99a70 97-98
+  s_a9cac5dac95839::t_cbc934516befc8 179-182,186
+  s_a9cac5dac95839::t_3a54de41d1c01d 343-346
+  s_a9cac5dac95839::t_4a59937b593b4d 94-96,99,103
+  s_a9cac5dac95839::t_2523b70d0fb8a4 147-153,157-169,172-174
+  s_a9cac5dac95839::t_0ea61ba9fcf66b 4-7
+src/client/lib/workspace-visuals.ts
+  s_a9cac5dac95839::t_047c2fbbe62899 1-3,5
+src/client/components/workspace-file-page.tsx
+  s_a9cac5dac95839::t_1547bfc565ec6a 45,74
+src/client/components/chat-page.test.tsx
+  s_a9cac5dac95839::t_2dc89a7af603d1 120,153,182,195
+  s_a9cac5dac95839::t_0aad0e68bf8e46 227
+src/client/components/chat-composer/composer-session-picker.tsx
+  s_a9cac5dac95839::t_7affda5f351458 52
+src/client/components/left-sidebar-view.tsx
+  s_a9cac5dac95839::t_ad76eac8333428 526,531
+  s_a9cac5dac95839::t_ca04d3a4f9c029 130,185,365,517
+  s_a9cac5dac95839::t_f7373c07a0abee 834
+  s_a9cac5dac95839::t_3c8af0a580bedf 9,175,780,1080,1166
+  s_a9cac5dac95839::t_6d57d6ba6b700f 1099-1102
+  s_a9cac5dac95839::t_e9754d7c00df70 1121
+src/client/components/chat-composer/composer-effort-menu.tsx
+  s_a9cac5dac95839::t_7affda5f351458 44
+src/client/components/messages/read-line.tsx
+  s_a9cac5dac95839::t_be6cfb4c76b47a 88
+src/client/components/workspace-diff-page.tsx
+  s_a9cac5dac95839::t_1547bfc565ec6a 80
+src/client/components/messages/assistant-text.tsx
+  s_a9cac5dac95839::t_e05184c80187cf 81
+  s_a9cac5dac95839::t_e2cbe06d516b97 20,26
+  s_a9cac5dac95839::t_1547bfc565ec6a 74
+src/client/components/chat-composer/composer-model-menu.tsx
+  s_a9cac5dac95839::t_7affda5f351458 83
+src/client/components/ui/dialog.tsx
+  s_a9cac5dac95839::t_7111f4d4369959 55
+src/client/components/chat-empty-state.tsx
+  s_a9cac5dac95839::t_5618b9dbd95a72 1,14-26,43-47,49-52,54-63,65-68,70-71,73-75
+src/client/components/messages/user-prompt.tsx
+  s_a9cac5dac95839::t_928a01b2886ffe 73
+package.json
+  s_a9cac5dac95839::t_ac85e4da72ffc7 44-45
+src/client/components/messages/changed-file-line.tsx
+  s_a9cac5dac95839::t_b3b86ef9583b34 82
+src/client/routes/history-route.tsx
+  s_a9cac5dac95839::t_c5bcae020794ef 1,5
+  s_a9cac5dac95839::t_4b3ec472289241 130
+  s_a9cac5dac95839::t_761b09f28064cb 248,250
+  s_a9cac5dac95839::t_1c6d310a7046dd 148
+src/client/components/prompt-token.tsx
+  s_a9cac5dac95839::t_d76006a88c24d7 18-22,24
+  s_a9cac5dac95839::t_6d57d6ba6b700f 23
+  s_a9cac5dac95839::t_0eb1f3a6a48621 70-78
+src/client/components/left-sidebar.tsx
+  s_a9cac5dac95839::t_1547bfc565ec6a 115
+src/client/routes/home-route.tsx
+  s_a9cac5dac95839::t_1ca87ffab10366 36
+  s_a9cac5dac95839::t_c56ce8ba504856 52
+src/client/components/workspace-action-button.tsx
+  s_a9cac5dac95839::t_7affda5f351458 117
+src/client/routes/settings-route.tsx
+  s_a9cac5dac95839::t_a47e7fefc9200b 264-268
+  s_a9cac5dac95839::t_6d57d6ba6b700f 324,341
+  s_a9cac5dac95839::t_becc51ab8975d2 108,113,117-149
+  s_a9cac5dac95839::t_a58abb9bf37ef1 325-328
+  s_a9cac5dac95839::t_635ba2aae5f3e6 308-312
+  s_a9cac5dac95839::t_d13d628df93750 4-5,14
+  s_a9cac5dac95839::t_20f3ac5589a998 342-345
+  s_a9cac5dac95839::t_1ad661188b3d64 253-254
+  s_a9cac5dac95839::t_3e0553d6d16813 296,331
+src/client/components/connection-lost-overlay.tsx
+  s_a9cac5dac95839::t_1547bfc565ec6a 40
+src/client/components/transcript-turn.tsx
+  s_a9cac5dac95839::t_1befc253589f6a 63,65,68
+src/client/components/ui/hover-card.tsx
+  s_a9cac5dac95839::t_ebec80cb847a5d 27
+src/client/components/messages/tool-line.tsx
+  s_a9cac5dac95839::t_66d1d582742c66 127-129
+bun.lock
+  s_a9cac5dac95839::t_56dbefef51c97e 9-10,228,230
+src/client/components/ui/dropdown-menu.tsx
+  s_a9cac5dac95839::t_fa30374d35d7fb 37,225
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "bfb8bf8c304726a546db9185193429195ce3855f",
+  "prompts": {},
+  "sessions": {
+    "s_a9cac5dac95839": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "889c36b1-04e7-42a6-95aa-7a620b544bb4",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
