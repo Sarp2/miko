@@ -237,7 +237,7 @@ export function ScratchpadPage({ workspaceId }: ScratchpadPageProps) {
 					<ScratchpadModeToggle mode={mode} onModeChange={setMode} />
 				</header>
 
-				<div className="min-h-[520px] flex-1 rounded-xl border border-hairline bg-surface-1 shadow-sm">
+				<div className="min-h-[520px] flex-1 rounded-xl border border-hairline bg-surface-1 shadow-raised">
 					{!loaded ? (
 						<div className="flex min-h-[520px] items-center justify-center px-6">
 							<div className="inline-flex items-center gap-2 text-[12px] text-ink-subtle">

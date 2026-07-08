@@ -17,13 +17,13 @@ export interface AssistantTextProps {
  */
 export function AssistantText({ text, mode = 'plain', className }: AssistantTextProps) {
 	const renderPlainText = (value: string) => (
-		<div className="whitespace-pre-wrap text-[14px] font-normal leading-[1.55] text-ink">
+		<div className="whitespace-pre-wrap break-words text-[14px] font-normal leading-[1.55] text-ink">
 			{value}
 		</div>
 	);
 
 	const renderMarkdown = (value: string) => (
-		<div className="text-[14px] font-normal leading-[1.65] text-ink">
+		<div className="break-words text-[14px] font-normal leading-[1.65] text-ink">
 			<ReactMarkdown
 				remarkPlugins={[remarkGfm]}
 				components={{
@@ -71,14 +71,14 @@ export function AssistantText({ text, mode = 'plain', className }: AssistantText
 						</code>
 					),
 					pre: ({ children }) => (
-						<div className="mb-3 rounded-lg border border-hairline bg-surface-1 p-2 shadow-sm last:mb-0">
+						<div className="mb-3 rounded-lg border border-hairline bg-surface-1 p-2 last:mb-0">
 							<pre className="scrollbar-miko overflow-x-auto rounded-md bg-surface-2/80 px-3 py-2.5 font-mono text-[13px] leading-6 text-ink-muted [&_code]:border-0 [&_code]:bg-transparent [&_code]:p-0 [&_code]:text-inherit">
 								{children}
 							</pre>
 						</div>
 					),
 					table: ({ children }) => (
-						<div className="mb-3 overflow-hidden rounded-lg border border-hairline bg-surface-1 shadow-sm last:mb-0">
+						<div className="mb-3 overflow-hidden rounded-lg border border-hairline bg-surface-1 last:mb-0">
 							<div className="overflow-x-auto">
 								<table className="w-full text-left text-[13px] leading-5 [&_tr:last-child_td]:border-b-0">
 									{children}

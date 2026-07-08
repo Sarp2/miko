@@ -58,7 +58,7 @@ export function SessionHistoryMenu({
 				<Popover.Content
 					align="end"
 					sideOffset={6}
-					className="z-50 w-72 rounded-lg border border-hairline bg-surface-1 p-1 shadow-lg outline-none"
+					className="z-50 w-72 rounded-lg border border-hairline bg-surface-1 p-1 shadow-popover outline-none"
 				>
 					{ordered.length === 0 ? (
 						<div className="px-3 py-6 text-center text-[12px] text-ink-subtle">No chats yet</div>

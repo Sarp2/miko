@@ -79,7 +79,7 @@ export function ChangedFileLine({
 		<button
 			type="button"
 			className={cn(
-				'min-w-0 truncate appearance-none rounded-md border border-hairline bg-transparent px-1.5 py-0.5 font-[inherit] text-[11px] text-ink-muted focus-visible:ring-1 focus-visible:ring-primary focus-visible:outline-none',
+				'min-w-0 truncate appearance-none rounded-md border border-hairline bg-transparent px-1.5 py-0.5 font-mono text-[11px] text-ink-muted focus-visible:ring-1 focus-visible:ring-primary focus-visible:outline-none',
 				canOpenDiff ? 'cursor-pointer' : 'cursor-default',
 			)}
 			onClick={openDiff}

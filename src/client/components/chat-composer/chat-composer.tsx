@@ -193,9 +193,10 @@ export function ChatComposer({
 						// biome-ignore lint/a11y/noStaticElementInteractions: drag-and-drop is scoped to the composer shell while keyboard input remains on the textbox.
 						<div
 							className={cn(
-								'overflow-hidden rounded-lg border border-hairline bg-surface-1 text-ink transition-colors',
+								'overflow-hidden rounded-xl border border-hairline-strong bg-surface-1 text-ink shadow-raised transition-colors',
+								'focus-within:border-hairline-tertiary',
 								'data-[disabled=true]:opacity-60',
-								isFileDragActive && 'border-accent ring-2 ring-accent/20',
+								isFileDragActive && 'border-primary/60 ring-2 ring-primary/20',
 							)}
 							data-disabled={composerReadonly}
 							onDragEnter={handleDragEnter}
@@ -358,7 +359,7 @@ export function ChatComposer({
 										type="button"
 										size="icon-sm"
 										disabled={!composer.canSubmit}
-										className="size-7 rounded-md bg-ink text-canvas hover:bg-ink/90 disabled:bg-surface-3 disabled:text-ink-tertiary disabled:opacity-100"
+										className="size-7 rounded-md bg-primary text-primary-foreground hover:bg-primary-hover disabled:bg-surface-3 disabled:text-ink-tertiary disabled:opacity-100"
 										onClick={() => void composer.submit()}
 									>
 										<ArrowUp className="size-4" weight="bold" />

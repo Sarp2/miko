@@ -37,7 +37,7 @@ export function ConnectionLostOverlay() {
 			<DialogContent
 				showCloseButton={false}
 				overlayClassName="bg-canvas/95 backdrop-blur-sm"
-				className="max-w-[460px] gap-0 overflow-hidden rounded-xl p-0 shadow-[0_32px_120px_rgba(0,0,0,0.55)]"
+				className="max-w-[460px] gap-0 overflow-hidden rounded-xl p-0 shadow-dialog"
 			>
 				<div className="flex flex-col gap-5 px-6 py-6">
 					<div className="flex items-start gap-4">

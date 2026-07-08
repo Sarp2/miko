@@ -158,9 +158,7 @@ export function RightSidebarTerminalPanel({
 				</button>
 
 				<div className="ml-1.5 flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
-					<span className="shrink-0 text-[11px] font-medium leading-none text-ink-muted">
-						Terminal
-					</span>
+					<span className="text-label-mono shrink-0 leading-none text-ink-tertiary">Terminal</span>
 					{tabs.length > 1 ? (
 						<div className="scrollbar-miko flex min-w-0 items-center gap-1 overflow-x-auto">
 							{tabs.map((tab, index) => {

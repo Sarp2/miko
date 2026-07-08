@@ -15,6 +15,13 @@ export const PROMPT_TOKEN_NAME_CLASS = 'min-w-0 truncate px-1';
 export const PROMPT_TOKEN_REMOVE_CLASS =
 	'mr-0.5 inline-flex size-2.5 shrink-0 items-center justify-center rounded-sm text-ink-tertiary opacity-0 transition-opacity hover:text-ink group-hover/token:opacity-100';
 
+// Quiet inline reference used in the read-only transcript. Unlike the composer's
+// input chip, this blends into the surrounding muted prompt text: no hard border
+// or icon divider, monospace filename, tone-matched to the quote.
+const PROMPT_TOKEN_READONLY_CLASS =
+	'inline-flex max-w-[220px] cursor-pointer items-center gap-1 rounded-[5px] bg-surface-2 px-1.5 py-[1px] align-baseline text-ink-muted transition-colors hover:bg-surface-3 hover:text-ink';
+const PROMPT_TOKEN_READONLY_NAME_CLASS = 'min-w-0 truncate font-mono text-[12px] leading-[1.4]';
+
 function escapeHtml(value: string) {
 	return value
 		.replaceAll('&', '&amp;')
@@ -60,8 +67,15 @@ export function PromptToken({
 }: PromptTokenProps) {
 	const tooltip = promptPartTooltip(part, attachments);
 	const name = promptPartLabel(part, attachments);
-	const tokenClassName = cn(PROMPT_TOKEN_CHIP_CLASS, !readOnly && 'select-none', className);
-	const tokenContent = (
+	const tokenClassName = readOnly
+		? cn(PROMPT_TOKEN_READONLY_CLASS, className)
+		: cn(PROMPT_TOKEN_CHIP_CLASS, 'select-none', className);
+	const tokenContent = readOnly ? (
+		<>
+			<FileNameIcon name={tooltip} className="size-3 shrink-0 opacity-80" />
+			<span className={PROMPT_TOKEN_READONLY_NAME_CLASS}>{name}</span>
+		</>
+	) : (
 		<>
 			<span className={PROMPT_TOKEN_ICON_WRAP_CLASS}>
 				<FileNameIcon name={tooltip} className="size-3" />

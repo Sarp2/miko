@@ -85,7 +85,7 @@ export function ReadLine({
 			<button
 				type="button"
 				className={cn(
-					'inline-flex min-w-0 items-center gap-1 appearance-none rounded-md border border-hairline bg-transparent px-1.5 py-0.5 font-[inherit] text-[11px] text-ink-muted focus-visible:ring-1 focus-visible:ring-primary focus-visible:outline-none',
+					'inline-flex min-w-0 items-center gap-1 appearance-none rounded-md border border-hairline bg-transparent px-1.5 py-0.5 font-mono text-[11px] text-ink-muted focus-visible:ring-1 focus-visible:ring-primary focus-visible:outline-none',
 					canOpenFile ? 'cursor-pointer' : 'cursor-default',
 				)}
 				onClick={openFile}

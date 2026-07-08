@@ -29,9 +29,9 @@ function changeStatusMeta(file: WorkspaceDiffFile): ChangeStatusMeta {
 		case 'deleted':
 			return { letter: 'D', className: 'text-destructive', label: 'Deleted' };
 		case 'renamed':
-			return { letter: 'R', className: 'text-[#5e9eff]', label: 'Renamed' };
+			return { letter: 'R', className: 'text-vcs-renamed', label: 'Renamed' };
 		default:
-			return { letter: 'M', className: 'text-[#d99e3a]', label: 'Modified' };
+			return { letter: 'M', className: 'text-vcs-modified', label: 'Modified' };
 	}
 }
 

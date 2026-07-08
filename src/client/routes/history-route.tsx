@@ -1,7 +1,8 @@
-import { Archive, ClockCounterClockwise, GitBranch, MagnifyingGlass } from '@phosphor-icons/react';
+import { Archive, ClockCounterClockwise, MagnifyingGlass } from '@phosphor-icons/react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { DirectoryListSnapshot, DirectorySummary, WorkspaceSummary } from '../../shared/types';
+import { Icons } from '../lib/icons';
 import { cn } from '../lib/utils';
 import { useDirectoryListStore } from '../stores/directory-list-store';
 import { useSidebarStore } from '../stores/sidebar-store';
@@ -126,7 +127,7 @@ function HistoryWorkspaceRowView({
 				{isArchived ? (
 					<Archive className="size-3.5 justify-self-center text-ink-subtle" />
 				) : (
-					<GitBranch className="size-3.5 justify-self-center text-ink-subtle" />
+					Icons.idleIcon({ className: 'justify-self-center text-ink-subtle' })
 				)}
 				<span className="truncate font-medium text-ink group-hover:text-ink">
 					{row.directory.title}
@@ -144,7 +145,7 @@ function HistoryWorkspaceRowView({
 
 			<span className="flex min-w-[76px] items-center justify-end gap-2 text-[12px] text-ink-subtle">
 				{prNumber ? <span className="font-mono">#{prNumber}</span> : null}
-				<span className="tabular-nums group-hover:hidden">
+				<span className="font-mono text-[11px] tabular-nums group-hover:hidden">
 					{dateFormatter.format(row.activityAt)}
 				</span>
 				<span className="hidden text-[12px] text-ink-muted group-hover:inline">Go to →</span>
@@ -244,9 +245,9 @@ export function HistoryRoute() {
 					<div className="flex w-full flex-col gap-6">
 						{groups.map((group) => (
 							<section key={group.key} className="flex flex-col gap-2.5">
-								<div className="flex items-center gap-2 px-2 text-[13px] font-semibold leading-5 text-ink-subtle">
+								<div className="text-label-mono flex items-center gap-2 px-2 text-ink-tertiary">
 									<span>{group.label}</span>
-									<span className="text-ink-tertiary">{group.rows.length}</span>
+									<span className="tabular-nums">{group.rows.length}</span>
 								</div>
 								<div className="flex flex-col gap-0.5">
 									{group.rows.map((row) => (

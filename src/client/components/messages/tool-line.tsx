@@ -124,7 +124,9 @@ export function ToolLine({
 				<ToolStatusIcon tool={tool} />
 			</span>
 			<span className="shrink-0 font-medium text-ink">{name}</span>
-			{detail ? <span className="min-w-0 truncate text-ink-muted">{detail}</span> : null}
+			{detail ? (
+				<span className="min-w-0 truncate font-mono text-[12px] text-ink-subtle">{detail}</span>
+			) : null}
 		</div>
 	);
 }

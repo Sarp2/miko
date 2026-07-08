@@ -38,109 +38,83 @@ type IdleIconProps = IconProps & {
 
 export const Icons = {
 	activeIcon: ({ ariaLabel = 'streaming', className }: ActiveIconProps = {}) => (
-		<svg
-			viewBox="0 0 16 16"
+		<span
+			role="img"
 			aria-label={ariaLabel}
-			className={cn('size-3.5 animate-pulse text-ink-muted', className)}
+			className={cn('flex size-3.5 shrink-0 items-center justify-center text-ink', className)}
 		>
-			<path
-				d="M3 10.5 6 7.5"
-				fill="none"
-				stroke="currentColor"
-				strokeLinecap="round"
-				strokeWidth="1.6"
-			/>
-			<path
-				d="M7 10.5 10 7.5"
-				fill="none"
-				stroke="currentColor"
-				strokeLinecap="round"
-				strokeWidth="1.6"
-				opacity="0.72"
-			/>
-			<path
-				d="M11 10.5 14 7.5"
-				fill="none"
-				stroke="currentColor"
-				strokeLinecap="round"
-				strokeWidth="1.6"
-				opacity="0.44"
-			/>
-		</svg>
+			<span className="relative h-[3px] w-full overflow-hidden rounded-full">
+				<span className="absolute inset-0 rounded-full bg-current opacity-25" />
+				<span className="animate-agent-scan absolute top-0 left-0 h-full w-[5px] rounded-full bg-current" />
+			</span>
+		</span>
 	),
 
-	mergedIcon: ({ className }: IconProps = {}) => (
-		<svg viewBox="0 0 16 16" aria-hidden="true" className={cn('size-3.5', className)}>
+	/* Stage glyphs share one compact node-and-curve motif (a git-graph branch):
+	   state is told by color and small variations, never by a different silhouette. */
+
+	idleIcon: ({ className, muted = false }: IdleIconProps = {}) => (
+		<svg
+			viewBox="0 0 16 16"
+			aria-hidden="true"
+			className={cn('size-3.5', muted ? 'opacity-45' : 'opacity-85', className)}
+		>
+			<circle cx="4" cy="12" r="1.8" fill="none" stroke="currentColor" strokeWidth="1.15" />
 			<path
-				d="M4 10.5 8 6.5"
+				d="M4 9.3 C4 6.4 6.4 4 9.3 4"
 				fill="none"
 				stroke="currentColor"
+				strokeWidth="1.15"
 				strokeLinecap="round"
-				strokeWidth="1.55"
-				opacity="0.86"
 			/>
-			<path
-				d="M7.25 9.75 9.25 11.75 12.5 5.25"
-				fill="none"
-				stroke="currentColor"
-				strokeLinecap="round"
-				strokeLinejoin="round"
-				strokeWidth="1.55"
-				opacity="0.8"
-			/>
+			<circle cx="12" cy="4" r="1.8" fill="none" stroke="currentColor" strokeWidth="1.15" />
 		</svg>
 	),
 
 	prIcon: ({ className }: IconProps = {}) => (
 		<svg viewBox="0 0 16 16" aria-hidden="true" className={cn('size-3.5', className)}>
+			<circle cx="4" cy="12" r="1.8" fill="none" stroke="currentColor" strokeWidth="1.15" />
 			<path
-				d="M4 10.5 8 6.5"
+				d="M4 9.3 C4 6.4 6.4 4 9.3 4"
 				fill="none"
 				stroke="currentColor"
+				strokeWidth="1.15"
 				strokeLinecap="round"
-				strokeWidth="1.55"
-				opacity="0.86"
 			/>
+			<circle cx="12" cy="4" r="2.1" fill="currentColor" stroke="none" />
+		</svg>
+	),
+
+	mergedIcon: ({ className }: IconProps = {}) => (
+		<svg viewBox="0 0 16 16" aria-hidden="true" className={cn('size-3.5', className)}>
+			<circle cx="4" cy="4" r="1.8" fill="none" stroke="currentColor" strokeWidth="1.15" />
 			<path
-				d="M8 10.5 12 6.5"
+				d="M4 6.7 C4 9.6 6.4 12 9.3 12"
 				fill="none"
 				stroke="currentColor"
+				strokeWidth="1.15"
 				strokeLinecap="round"
-				strokeLinejoin="round"
-				strokeWidth="1.55"
-				opacity="0.62"
 			/>
+			<circle cx="12" cy="12" r="2.1" fill="currentColor" stroke="none" />
 		</svg>
 	),
 
 	errorIcon: ({ className }: IconProps = {}) => (
 		<svg viewBox="0 0 16 16" aria-hidden="true" className={cn('size-3.5', className)}>
+			<circle cx="4" cy="12" r="1.8" fill="none" stroke="currentColor" strokeWidth="1.15" />
 			<path
-				d="M5 5 11 11"
+				d="M4 9.3 C4 6.4 6.4 4 9.3 4"
 				fill="none"
 				stroke="currentColor"
+				strokeWidth="1.15"
 				strokeLinecap="round"
-				strokeWidth="1.55"
 			/>
 			<path
-				d="M11 5 5 11"
+				d="M10.4 2.4 13.6 5.6 M13.6 2.4 10.4 5.6"
 				fill="none"
 				stroke="currentColor"
+				strokeWidth="1.25"
 				strokeLinecap="round"
-				strokeWidth="1.55"
-			/>
-		</svg>
-	),
-
-	idleIcon: ({ className, muted = false }: IdleIconProps = {}) => (
-		<svg viewBox="0 0 16 16" aria-hidden="true" className={cn('size-3.5', className)}>
-			<path
-				d="M5 10.5 11 4.5"
-				fill="none"
-				stroke="currentColor"
-				strokeLinecap="round"
-				strokeWidth="1.55"
-				opacity={muted ? '0.38' : '0.9'}
 			/>
 		</svg>
 	),

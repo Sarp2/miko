@@ -1,8 +1,10 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/inter";
-@import "@fontsource-variable/jetbrains-mono";
+@import "@fontsource-variable/instrument-sans";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+@import "@fontsource/ibm-plex-mono/600.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -33,6 +35,17 @@
 	}
 }
 
+/* Agent scanner — a segment sweeping its track while the agent works. */
+@keyframes agent-scan {
+	0%,
+	100% {
+		transform: translateX(0);
+	}
+	50% {
+		transform: translateX(9px);
+	}
+}
+
 @media (prefers-reduced-motion) {
 	*,
 	::before,
@@ -44,11 +57,9 @@
 
 @theme inline {
 	--font-sans:
-		"Inter Variable", "Inter", "SF Pro Display", -apple-system, system-ui, "Segoe UI", Roboto,
+		"Instrument Sans Variable", "Instrument Sans", -apple-system, system-ui, "Segoe UI", Roboto,
 		sans-serif;
-	--font-mono:
-		"JetBrains Mono Variable", "JetBrains Mono", "Geist Mono", ui-monospace, "SF Mono", Menlo,
-		monospace;
+	--font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
 	--font-heading: var(--font-sans);
 
 	--color-canvas: var(--canvas);
@@ -79,6 +90,16 @@
 
 	--color-success: var(--semantic-success);
 	--color-overlay: var(--semantic-overlay);
+
+	--color-diff-addition: var(--diff-addition);
+	--color-diff-deletion: var(--diff-deletion);
+	--color-merged: var(--merged);
+	--color-vcs-modified: var(--vcs-modified);
+	--color-vcs-renamed: var(--vcs-renamed);
+
+	--shadow-popover: var(--elevation-popover);
+	--shadow-dialog: var(--elevation-dialog);
+	--shadow-raised: var(--elevation-raised);
 
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);
@@ -123,35 +144,49 @@
 }
 
 :root {
-	--canvas: #070707;
-	--surface-1: #111112;
-	--surface-2: #1b1b1d;
-	--surface-3: #242426;
-	--surface-4: #2e2f32;
+	/* Achromatic ramp — pure black and gray, no temperature, aligned with the mark. */
+	--canvas: #0a0a0a;
+	--surface-1: #131313;
+	--surface-2: #1b1b1b;
+	--surface-3: #242424;
+	--surface-4: #2e2e2e;
 
-	--hairline: #222326;
-	--hairline-strong: #303135;
-	--hairline-tertiary: #3b3d42;
+	--hairline: #262626;
+	--hairline-strong: #333333;
+	--hairline-tertiary: #414141;
 
-	--primary: #5e6ad2;
-	--primary-hover: #828fff;
-	--primary-focus: #5e69d1;
-	--brand-secure: #7a7fad;
+	/* Monochrome signal — white is the accent: primary action, focus, live agent. */
+	--primary: #f2f2f2;
+	--primary-hover: #ffffff;
+	--primary-focus: #f2f2f2;
+	--brand-secure: #9a9a9a;
 
-	--ink: #f4f4f5;
-	--ink-muted: #b8b8bd;
-	--ink-subtle: #8f9095;
-	--ink-tertiary: #67686e;
+	--ink: #f2f2f2;
+	--ink-muted: #b5b5b5;
+	--ink-subtle: #8a8a8a;
+	--ink-tertiary: #646464;
 
-	--on-primary: #ffffff;
+	--on-primary: #0a0a0a;
 
 	--inverse-canvas: #ffffff;
-	--inverse-surface-1: #f7f8f8;
-	--inverse-surface-2: #eeeff1;
-	--inverse-ink: #010102;
+	--inverse-surface-1: #f7f7f7;
+	--inverse-surface-2: #eeeeee;
+	--inverse-ink: #0a0a0a;
 
-	--semantic-success: #27a644;
-	--semantic-overlay: rgba(0, 0, 0, 0.8);
+	--semantic-success: #3fbe63;
+	--semantic-overlay: rgba(0, 0, 0, 0.75);
+
+	/* Git-state colors — state owns its color; chrome stays quiet. */
+	--diff-addition: #4ec77e;
+	--diff-deletion: #f07681;
+	--merged: #a985f0;
+	--vcs-modified: #d3a43e;
+	--vcs-renamed: #6fa5f5;
+
+	/* Elevation — soft, layered, barely-there. */
+	--elevation-popover: 0 4px 14px rgba(0, 0, 0, 0.38), 0 14px 40px rgba(0, 0, 0, 0.3);
+	--elevation-dialog: 0 8px 24px rgba(0, 0, 0, 0.42), 0 32px 90px rgba(0, 0, 0, 0.45);
+	--elevation-raised: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 28px rgba(0, 0, 0, 0.26);
 
 	--radius-xs: 4px;
 	--radius-sm: 6px;
@@ -279,10 +314,21 @@
 	}
 
 	.text-eyebrow {
-		font-size: 13px;
+		font-family: var(--font-mono);
+		font-size: 11px;
 		font-weight: 500;
 		line-height: 1.3;
-		letter-spacing: 0.4px;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+	}
+
+	/* Structural label — machine text: section headers, panel names, meta. */
+	.text-label-mono {
+		font-family: var(--font-mono);
+		font-size: 10.5px;
+		font-weight: 500;
+		line-height: 1.4;
+		letter-spacing: 0.09em;
 		text-transform: uppercase;
 	}
 
@@ -292,6 +338,10 @@
 		font-weight: 400;
 		line-height: 1.5;
 		letter-spacing: 0;
+	}
+
+	.animate-agent-scan {
+		animation: agent-scan 1.3s cubic-bezier(0.45, 0, 0.55, 1) infinite;
 	}
 
 	.scrollbar-miko {

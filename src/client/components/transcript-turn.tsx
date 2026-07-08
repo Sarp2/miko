@@ -60,12 +60,12 @@ function TurnActivity({ turn, context }: { turn: TranscriptTurn; context: ToolLi
 
 	return (
 		<Collapsible open={open} onOpenChange={setOpen}>
-			<CollapsibleTrigger className="group flex items-center gap-2 text-body-sm text-ink-subtle transition-colors hover:text-ink-muted">
+			<CollapsibleTrigger className="group flex items-center gap-2 text-body-sm text-ink-subtle transition-colors hover:text-ink">
 				<CaretRight
-					className="size-3.5 shrink-0 text-ink-tertiary transition-transform group-data-[state=open]:rotate-90"
+					className="size-3.5 shrink-0 text-ink-tertiary transition-transform group-hover:text-ink-subtle group-data-[state=open]:rotate-90"
 					weight="bold"
 				/>
-				<span>{summarizeTurn(turn.toolCount, turn.messageCount)}</span>
+				<span className="tabular-nums">{summarizeTurn(turn.toolCount, turn.messageCount)}</span>
 				<span className="flex items-center gap-1 text-ink-tertiary">
 					{distinctToolKinds(turn.tools).map((kind) => (
 						<ToolKindIcon key={kind} kind={kind} className="size-3.5" />

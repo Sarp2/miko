@@ -13,7 +13,7 @@ export function WorkspaceStageBadge({ snapshot, className }: WorkspaceStageBadge
 	if (!prNumber) return null;
 
 	const classes = cn(
-		'inline-flex h-6 shrink-0 items-center gap-1 rounded-md border px-2 font-mono text-[12px] font-medium leading-4 tabular-nums shadow-sm transition-colors',
+		'inline-flex h-6 shrink-0 items-center gap-1 rounded-md border px-2 font-mono text-[12px] font-medium leading-4 tabular-nums transition-colors',
 		className ?? 'border-hairline bg-surface-1 text-ink-subtle hover:bg-surface-2 hover:text-ink',
 	);
 

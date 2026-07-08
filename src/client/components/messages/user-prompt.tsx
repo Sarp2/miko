@@ -70,7 +70,7 @@ function PromptPartsView({
 	);
 
 	return (
-		<div className="whitespace-pre-wrap break-words text-[14px] font-normal leading-[1.4] text-ink">
+		<div className="whitespace-pre-wrap break-words text-[14px] font-normal leading-[1.5] text-ink-muted">
 			{parts.map((part, index) => {
 				if (part.type === 'text')
 					// biome-ignore lint/suspicious/noArrayIndexKey: parts render in order and are never reordered.

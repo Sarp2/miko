@@ -35,8 +35,8 @@ export function TranscriptItemView({
 }) {
 	if (item.type === 'user') {
 		return (
-			<div data-transcript-item-id={item.id} className="mb-5 flex justify-end">
-				<div className="inline-flex max-w-[80%] flex-col rounded-lg border border-hairline bg-surface-1 px-[15px] py-[11px]">
+			<div data-transcript-item-id={item.id} className="mb-6 flex justify-end">
+				<div className="max-w-[80%] border-r-2 border-hairline-tertiary pr-3.5 text-right">
 					<UserPrompt
 						content={item.message.content}
 						attachments={item.message.attachments}

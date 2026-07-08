@@ -41,7 +41,7 @@ export function ComposerEffortMenu({
 					<CaretDown className="size-3 text-ink-subtle" />
 				</Button>
 			</DropdownMenuTrigger>
-			<DropdownMenuContent className="w-44 rounded-[10px] border-hairline bg-surface-1 p-1 shadow-none">
+			<DropdownMenuContent className="w-44 rounded-[10px] border-hairline bg-surface-1 p-1 shadow-popover">
 				{efforts.map((effort) => (
 					<DropdownMenuItem
 						key={effort.id}

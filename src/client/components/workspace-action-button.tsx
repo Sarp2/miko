@@ -114,7 +114,7 @@ export function WorkspaceActionButton({
 				<DropdownMenuContent
 					align="start"
 					sideOffset={4}
-					className="w-[176px] rounded-md border-hairline bg-surface-1 p-1 shadow-none"
+					className="w-[176px] rounded-md border-hairline bg-surface-1 p-1 shadow-popover"
 				>
 					<DropdownMenuItem
 						className="cursor-pointer rounded-md px-1.5 py-0.5 text-[11.5px] font-medium leading-5 text-ink focus:bg-surface-2 focus:text-ink"
