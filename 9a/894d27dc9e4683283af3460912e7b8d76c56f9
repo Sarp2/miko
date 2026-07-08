@@ -1,0 +1,49 @@
+.agents/memory/glossary.md
+  s_52f9df52b1f487::t_8ad15f8f818765 1-61
+.github/releases/v0.1.6.md
+  s_52f9df52b1f487::t_8ad15f8f818765 1-7
+.agents/memory/current-state.md
+  s_52f9df52b1f487::t_8ad15f8f818765 1-23
+package.json
+  s_52f9df52b1f487::t_8ad15f8f818765 3,30
+.agents/memory/workflows.md
+  s_52f9df52b1f487::t_8ad15f8f818765 1-89
+.agents/memory/fragile-areas.md
+  s_52f9df52b1f487::t_8ad15f8f818765 1-77
+src/server/diff-store.test.ts
+  s_52f9df52b1f487::t_8ad15f8f818765 21,364-379,381-382
+  s_52f9df52b1f487::t_bd43d89ae32042 380,383-386
+.agents/memory/product.md
+  s_52f9df52b1f487::t_8ad15f8f818765 1-24
+.agents/memory/architecture.md
+  s_52f9df52b1f487::t_8ad15f8f818765 1-54
+src/client/components/transcript-turn-footer.tsx
+  s_52f9df52b1f487::t_8ad15f8f818765 1-2,34,40-53,80,82,84,87
+README.md
+  s_52f9df52b1f487::t_8ad15f8f818765 72
+.agents/memory/decisions.md
+  s_52f9df52b1f487::t_8ad15f8f818765 1-20
+src/client/hooks/use-inline-prompt-editor.ts
+  s_52f9df52b1f487::t_8ad15f8f818765 111-115,451-459
+src/server/diff-store.ts
+  s_52f9df52b1f487::t_8ad15f8f818765 596-639,641,646
+src/client/components/messages/changed-file-line.tsx
+  s_52f9df52b1f487::t_32edc4fb3c18e6 83
+  s_52f9df52b1f487::t_8ad15f8f818765 10,88-89
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "9a894d27dc9e4683283af3460912e7b8d76c56f9",
+  "prompts": {},
+  "sessions": {
+    "s_52f9df52b1f487": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f4079-02db-7e93-843c-acb9e4068582",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
