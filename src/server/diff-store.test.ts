@@ -18,6 +18,7 @@ import {
 	normalizeRepoRelativePath,
 	parseNameStatusEntries,
 	parseStatusLine,
+	parseStatusPorcelainZEntries,
 	readPatchForEntry,
 	resolveDefaultBranchName,
 	resolveRepo,
@@ -353,6 +354,29 @@ describe('parseNameStatusEntries', () => {
 			{
 				path: 'new.ts',
 				previousPath: 'old.ts',
+				changeType: 'renamed',
+				isUntracked: false,
+			},
+		]);
+	});
+});
+
+describe('parseStatusPorcelainZEntries', () => {
+	test('parses NUL-delimited git status porcelain z output including renames', () => {
+		expect(parseStatusPorcelainZEntries(' M src/app.ts\0?? scratch.log\0R  after.txt\0before.txt\0')).toEqual([
+			{
+				path: 'src/app.ts',
+				changeType: 'modified',
+				isUntracked: false,
+			},
+			{
+				path: 'scratch.log',
+				changeType: 'added',
+				isUntracked: true,
+			},
+			{
+				path: 'after.txt',
+				previousPath: 'before.txt',
 				changeType: 'renamed',
 				isUntracked: false,
 			},
