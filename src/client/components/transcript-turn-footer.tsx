@@ -1,5 +1,5 @@
-import { Copy, DotsThree } from '@phosphor-icons/react';
-import { useMemo, useState } from 'react';
+import { Check, Copy, DotsThree } from '@phosphor-icons/react';
+import { useEffect, useMemo, useState } from 'react';
 import { formatElapsed } from '../lib/format-duration';
 import type { TranscriptTurn } from '../lib/group-transcript-turns';
 import { turnChangedFiles } from '../lib/turn-changed-files';
@@ -31,13 +31,26 @@ export function TurnFooter({
 }) {
 	const files = useMemo(() => turnChangedFiles(turn.tools), [turn.tools]);
 	const [expandedFiles, setExpandedFiles] = useState(false);
+	const [copiedMessage, setCopiedMessage] = useState(false);
 	const visible = expandedFiles ? files : files.slice(0, MAX_VISIBLE_FILES);
 	const overflow = expandedFiles ? [] : files.slice(MAX_VISIBLE_FILES);
 	const overflowAdditions = overflow.reduce((sum, file) => sum + file.additions, 0);
 	const overflowDeletions = overflow.reduce((sum, file) => sum + file.deletions, 0);
 
-	const copyMessage = () => {
-		if (turn.finalText) void navigator.clipboard?.writeText(turn.finalText.text);
+	useEffect(() => {
+		if (!copiedMessage) return;
+		const timeoutId = window.setTimeout(() => setCopiedMessage(false), 1200);
+		return () => window.clearTimeout(timeoutId);
+	}, [copiedMessage]);
+
+	const copyMessage = async () => {
+		try {
+			if (!turn.finalText || !navigator.clipboard) return;
+			await navigator.clipboard.writeText(turn.finalText.text);
+			setCopiedMessage(true);
+		} catch {
+			setCopiedMessage(false);
+		}
 	};
 	const hasMeta =
 		Boolean(turn.model) || turn.usage !== null || !Number.isNaN(Date.parse(turn.startTimestamp));
@@ -64,14 +77,14 @@ export function TurnFooter({
 					<TooltipTrigger asChild>
 						<button
 							type="button"
-							onClick={copyMessage}
+							onClick={() => void copyMessage()}
 							className="rounded p-0.5 text-ink-tertiary transition-colors hover:text-ink-muted"
-							aria-label="Copy final message"
+							aria-label={copiedMessage ? 'Copied final message' : 'Copy final message'}
 						>
-							<Copy className="size-3.5" />
+							{copiedMessage ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
 						</button>
 					</TooltipTrigger>
-					<TooltipContent>Copy final message</TooltipContent>
+					<TooltipContent>{copiedMessage ? 'Copied' : 'Copy final message'}</TooltipContent>
 				</Tooltip>
 			) : null}
 
