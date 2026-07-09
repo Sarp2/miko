@@ -27,11 +27,11 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 22
           registry-url: https://registry.npmjs.org
 
-      - name: Update npm for trusted publishing
-        run: npm install --global npm@latest
+      - name: Install npm for trusted publishing
+        run: npm install --global npm@11.6.2
 
       - name: Cache bun install
         uses: actions/cache@v4
@@ -87,7 +87,7 @@ jobs:
       - name: Publish to npm
         run: |
           package_version="$(node -p "require('./package.json').version")"
-          npm publish "miko-code-$package_version.tgz" --access public --provenance
+          npm publish "miko-code-$package_version.tgz" --access public
 
       - name: Create GitHub release
         env:
