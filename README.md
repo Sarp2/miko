@@ -25,10 +25,6 @@
   <video src="https://msjrpoysnyqzlwfsajqj.supabase.co/storage/v1/object/public/Link/product-demo.mp4" controls muted playsinline width="900" aria-label="Miko product demo"></video>
 </p>
 
-<p align="center">
-  <a href="https://msjrpoysnyqzlwfsajqj.supabase.co/storage/v1/object/public/Link/product-demo.mp4">Watch the product demo</a>
-</p>
-
 ## What is Miko?
 
 Miko is a local web UI for orchestrating AI coding agents across isolated git workspaces. It gives Claude Code, Codex, and future agents a shared product surface: chat, files, diffs, checks, terminals, pull requests, and workspace history — without juggling a pile of terminal windows.
