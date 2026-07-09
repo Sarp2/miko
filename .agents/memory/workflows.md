@@ -80,6 +80,7 @@ Tool Row File Icons — Edit and write tool-call rows now show extension-aware f
 - Package uses Trusted Publishing through GitHub Actions OIDC.
 - npm trusted publisher is configured for repo `Sarp2/miko` and workflow `release.yml`.
 - Do not require an npm token in CI unless the publishing model changes.
+- Do not use `npm@latest` or explicit `npm publish --provenance` in the release workflow; trusted publishing generates provenance automatically, and recent npm/Node 24 combinations have failed with missing `sigstore`.
 - The package supports Bun. Users install/run with Bun/npm tooling, but the runtime engine is Bun.
 
 ## Local data cleanup
