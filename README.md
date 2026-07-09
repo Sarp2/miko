@@ -22,7 +22,7 @@
 </p>
 
 <p align="center">
-  <video src="https://msjrpoysnyqzlwfsajqj.supabase.co/storage/v1/object/public/Link/product-demo.mp4" controls muted playsinline width="900" aria-label="Miko product demo"></video>
+  <video src="https://github.com/user-attachments/assets/b47ad771-120c-4fec-a0b1-6ad6c8c6216f" controls muted playsinline width="900" aria-label="Miko product demo"></video>
 </p>
 
 ## What is Miko?
