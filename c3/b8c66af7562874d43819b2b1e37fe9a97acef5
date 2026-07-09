@@ -1,0 +1,21 @@
+src/server/diff-store.test.ts
+  s_a9cac5dac95839::t_d4288944f24258 366-368
+src/server/diff-store.ts
+  s_a9cac5dac95839::t_d4288944f24258 641-644,649-653
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "c3b8c66af7562874d43819b2b1e37fe9a97acef5",
+  "prompts": {},
+  "sessions": {
+    "s_a9cac5dac95839": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "889c36b1-04e7-42a6-95aa-7a620b544bb4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
