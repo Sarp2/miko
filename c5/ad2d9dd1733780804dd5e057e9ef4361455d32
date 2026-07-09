@@ -1,0 +1,20 @@
+README.md
+  s_82e93de1bb8ac8::t_069b4df9576ef7 25,29
+  s_82e93de1bb8ac8::t_4a9dd70a611fac 26-28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "c5ad2d9dd1733780804dd5e057e9ef4361455d32",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": null
+    }
+  }
+}
