@@ -6,7 +6,7 @@ import {
 	Check,
 	ClockCounterClockwise,
 	FolderSimplePlus,
-	GearSix,
+	Gear,
 	GitPullRequest,
 	PencilSimple,
 	Plus,
@@ -172,7 +172,7 @@ function SidebarFilterPopover({
 							className="size-7 text-ink-subtle hover:text-ink"
 							aria-label="Filter workspaces"
 						>
-							<SlidersHorizontal className="size-4" weight="fill" />
+							<SlidersHorizontal className="size-4" />
 						</Button>
 					</Popover.Trigger>
 				</TooltipTrigger>
@@ -1077,7 +1077,7 @@ export function Sidebar({
 												aria-label="Add directory"
 												onClick={onAddDirectory}
 											>
-												<FolderSimplePlus className="size-4" weight="fill" />
+												<FolderSimplePlus className="size-4" />
 											</Button>
 										</TooltipTrigger>
 										<TooltipContent>Add directory</TooltipContent>
@@ -1163,7 +1163,7 @@ export function Sidebar({
 											aria-label="Settings"
 											onClick={onOpenSettings}
 										>
-											<GearSix className="size-4" weight="fill" />
+											<Gear className="size-4" />
 										</Button>
 									</TooltipTrigger>
 									<TooltipContent>Settings</TooltipContent>
