@@ -22,7 +22,11 @@
 </p>
 
 <p align="center">
-  <img src="public/images/github.png" alt="Miko workspace UI" width="900" />
+  <video src="https://msjrpoysnyqzlwfsajqj.supabase.co/storage/v1/object/public/Link/product-demo.mp4" controls muted playsinline width="900" aria-label="Miko product demo"></video>
+</p>
+
+<p align="center">
+  <a href="https://msjrpoysnyqzlwfsajqj.supabase.co/storage/v1/object/public/Link/product-demo.mp4">Watch the product demo</a>
 </p>
 
 ## What is Miko?
