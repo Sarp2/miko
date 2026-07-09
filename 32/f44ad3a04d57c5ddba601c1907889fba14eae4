@@ -1,0 +1,22 @@
+src/client/components/left-sidebar-view.tsx
+  s_a9cac5dac95839::t_5663acc7c6e874 1166
+  s_a9cac5dac95839::t_98806667290c00 175
+  s_a9cac5dac95839::t_32561e07261220 1080
+  s_a9cac5dac95839::t_e76498dde197f9 9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "32f44ad3a04d57c5ddba601c1907889fba14eae4",
+  "prompts": {},
+  "sessions": {
+    "s_a9cac5dac95839": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "889c36b1-04e7-42a6-95aa-7a620b544bb4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
