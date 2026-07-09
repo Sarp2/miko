@@ -363,7 +363,9 @@ describe('parseNameStatusEntries', () => {
 
 describe('parseStatusPorcelainZEntries', () => {
 	test('parses NUL-delimited git status porcelain z output including renames', () => {
-		expect(parseStatusPorcelainZEntries(' M src/app.ts\0?? scratch.log\0R  after.txt\0before.txt\0')).toEqual([
+		expect(
+			parseStatusPorcelainZEntries(' M src/app.ts\0?? scratch.log\0R  after.txt\0before.txt\0'),
+		).toEqual([
 			{
 				path: 'src/app.ts',
 				changeType: 'modified',

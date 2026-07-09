@@ -638,17 +638,19 @@ export function parseStatusPorcelainZEntries(output: string): DirtyPathEntry[] {
 }
 
 export async function listDirtyPaths(repoRoot: string) {
-	const status = await runGit(['status', '--porcelain=v1', '-z', '--untracked-files=all'], repoRoot);
+	const status = await runGit(
+		['status', '--porcelain=v1', '-z', '--untracked-files=all'],
+		repoRoot,
+	);
 	if (status.exitCode !== 0) {
 		throw new Error(formatGitFailure(status) || 'Failed to list git changes');
 	}
 
-	return parseStatusPorcelainZEntries(status.stdout)
-		.map((entry) => ({
-			...entry,
-			path: normalizeRepoRelativePath(entry.path),
-			previousPath: entry.previousPath ? normalizeRepoRelativePath(entry.previousPath) : undefined,
-		}));
+	return parseStatusPorcelainZEntries(status.stdout).map((entry) => ({
+		...entry,
+		path: normalizeRepoRelativePath(entry.path),
+		previousPath: entry.previousPath ? normalizeRepoRelativePath(entry.previousPath) : undefined,
+	}));
 }
 
 export async function findDirtyPath(repoRoot: string, relativePath: string) {

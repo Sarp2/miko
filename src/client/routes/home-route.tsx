@@ -33,7 +33,7 @@ export function HomeRoute() {
 		>
 			<div className="flex w-full max-w-[560px] flex-col items-center">
 				<div className="mb-8 flex flex-col items-center gap-3">
-					<div className="flex size-14 items-center justify-center rounded-[18px] border border-hairline bg-surface-1 shadow-[0_16px_48px_rgba(0,0,0,0.2)]">
+					<div className="flex size-14 items-center justify-center rounded-[18px] border border-hairline bg-surface-1 shadow-raised">
 						<img src="/logo.svg" alt="Miko" className="size-11 rounded-[14px]" />
 					</div>
 					<div className="text-[15px] font-medium leading-5 text-ink">Miko</div>
@@ -49,7 +49,7 @@ export function HomeRoute() {
 								className={
 									action.disabled
 										? 'group flex h-[136px] w-full flex-col items-start justify-between rounded-lg border border-hairline/70 bg-surface-1/55 px-3.5 py-3 text-left opacity-55 transition-colors disabled:cursor-not-allowed'
-										: 'group flex h-[136px] w-full flex-col items-start justify-between rounded-lg border border-hairline-strong bg-surface-1 px-3.5 py-3 text-left shadow-[0_18px_54px_rgba(0,0,0,0.24)] transition-colors hover:border-hairline-tertiary hover:bg-surface-2'
+										: 'group flex h-[136px] w-full flex-col items-start justify-between rounded-lg border border-hairline-strong bg-surface-1 px-3.5 py-3 text-left shadow-raised transition-colors hover:border-primary/40 hover:bg-surface-2'
 								}
 							>
 								<Icon className="size-4 text-ink-muted transition-colors group-enabled:group-hover:text-ink" />

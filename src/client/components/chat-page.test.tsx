@@ -117,7 +117,7 @@ describe('ChatPage', () => {
 
 		const html = renderChatPage();
 
-		expect(html).toContain('new worktree');
+		expect(html).toContain('New worktree');
 		expect(html).toContain('atlas');
 		expect(html).toContain('origin/main');
 		expect(html).toContain('Ready for your first prompt');
@@ -150,7 +150,7 @@ describe('ChatPage', () => {
 
 		expect(html).toContain('New Chat in');
 		expect(html).toContain('/atlas');
-		expect(html).not.toContain('new worktree');
+		expect(html).not.toContain('New worktree');
 	});
 
 	test('shows creating copy while workspace setup is still running', () => {
@@ -179,7 +179,7 @@ describe('ChatPage', () => {
 
 		const html = renderChatPage();
 
-		expect(html).toContain('new worktree');
+		expect(html).toContain('New worktree');
 		expect(html).not.toContain('hidden');
 	});
 
@@ -192,7 +192,7 @@ describe('ChatPage', () => {
 
 		expect(html).toContain('<strong');
 		expect(html).toContain('Done');
-		expect(html).not.toContain('new worktree');
+		expect(html).not.toContain('New worktree');
 	});
 
 	test('renders a load older control when transcript history has older messages', () => {
@@ -224,7 +224,7 @@ describe('ChatPage', () => {
 		const html = renderChatPage();
 
 		expect(html).toContain('Load older messages');
-		expect(html).not.toContain('new worktree');
+		expect(html).not.toContain('New worktree');
 		expect(html).not.toContain('hidden');
 	});
 

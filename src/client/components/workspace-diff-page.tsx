@@ -77,7 +77,7 @@ function WorkspaceDiffPageShell({
 function WorkspaceDiffPageState({ title, message }: { title: string; message: string }) {
 	return (
 		<div className="flex h-full items-center justify-center px-6 text-center">
-			<div className="max-w-sm rounded-lg border border-hairline-strong bg-surface-2 px-4 py-3 shadow-sm">
+			<div className="max-w-sm rounded-lg border border-hairline-strong bg-surface-2 px-4 py-3 shadow-raised">
 				<div className="text-[12px] font-medium text-ink">{title}</div>
 				<div className="mt-1 text-[11px] leading-relaxed text-ink-subtle">{message}</div>
 			</div>

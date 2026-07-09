@@ -1,6 +1,8 @@
 import {
 	Archive,
 	ArrowLeft,
+	CaretUpDown,
+	Check,
 	Database,
 	Folder,
 	GearSix,
@@ -9,6 +11,7 @@ import {
 	Robot,
 	Trash,
 } from '@phosphor-icons/react';
+import * as Select from '@radix-ui/react-select';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -102,23 +105,48 @@ function SettingRow({
 function SettingsSelect({
 	value,
 	onChange,
-	children,
+	options,
 	ariaLabel,
 }: {
 	value: string;
 	onChange: (value: string) => void;
-	children: React.ReactNode;
+	options: Array<{ value: string; label: string }>;
 	ariaLabel: string;
 }) {
 	return (
-		<select
-			aria-label={ariaLabel}
-			value={value}
-			onChange={(event) => onChange(event.target.value)}
-			className="h-8 w-full rounded-md border border-hairline bg-surface-1 px-2 text-[12px] font-medium text-ink outline-none focus:border-hairline-tertiary"
-		>
-			{children}
-		</select>
+		<Select.Root value={value} onValueChange={onChange}>
+			<Select.Trigger
+				aria-label={ariaLabel}
+				className="flex h-8 w-full items-center justify-between gap-2 rounded-md border border-hairline bg-surface-1 px-2.5 text-left text-[12px] font-medium leading-4 text-ink outline-none transition-colors hover:border-hairline-strong focus-visible:ring-1 focus-visible:ring-primary"
+			>
+				<Select.Value />
+				<Select.Icon asChild>
+					<CaretUpDown className="size-3 shrink-0 text-ink-subtle" />
+				</Select.Icon>
+			</Select.Trigger>
+			<Select.Portal>
+				<Select.Content
+					position="popper"
+					sideOffset={4}
+					className="z-50 min-w-(--radix-select-trigger-width) overflow-hidden rounded-md border border-hairline bg-surface-1 p-0.5 shadow-popover"
+				>
+					<Select.Viewport>
+						{options.map((option) => (
+							<Select.Item
+								key={option.value}
+								value={option.value}
+								className="flex h-7 cursor-default select-none items-center justify-between gap-3 rounded-sm px-2 text-[12px] leading-4 text-ink outline-none data-[highlighted]:bg-surface-2"
+							>
+								<Select.ItemText>{option.label}</Select.ItemText>
+								<Select.ItemIndicator>
+									<Check className="size-3 text-ink-muted" />
+								</Select.ItemIndicator>
+							</Select.Item>
+						))}
+					</Select.Viewport>
+				</Select.Content>
+			</Select.Portal>
+		</Select.Root>
 	);
 }
 
@@ -222,13 +250,8 @@ function GeneralSettings() {
 						ariaLabel="Default provider"
 						value={provider}
 						onChange={(value) => preferences.setProviderPreference(value as AgentProvider)}
-					>
-						{PROVIDERS.map((entry) => (
-							<option key={entry.id} value={entry.id}>
-								{entry.label}
-							</option>
-						))}
-					</SettingsSelect>
+						options={PROVIDERS.map((entry) => ({ value: entry.id, label: entry.label }))}
+					/>
 				</SettingRow>
 				<SettingRow
 					title="Default model"
@@ -238,13 +261,11 @@ function GeneralSettings() {
 						ariaLabel="Default model"
 						value={selectedModel}
 						onChange={(value) => preferences.setModelPreference(provider, value)}
-					>
-						{providerCatalog?.models.map((model) => (
-							<option key={model.id} value={model.id}>
-								{model.label}
-							</option>
-						))}
-					</SettingsSelect>
+						options={(providerCatalog?.models ?? []).map((model) => ({
+							value: model.id,
+							label: model.label,
+						}))}
+					/>
 				</SettingRow>
 				<SettingRow
 					title="Plan mode"
@@ -272,7 +293,7 @@ function ModelSettings() {
 				description="Tune provider-specific defaults. These values are applied before a session has its own runtime choices."
 			/>
 			<div className="max-w-4xl">
-				<div className="mb-2 flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-ink-subtle">
+				<div className="mb-2 flex items-center gap-2 text-label-mono text-ink-subtle">
 					<ProviderIcon provider="claude" className="size-3" /> Claude
 				</div>
 				<SettingRow title="Reasoning effort" description="Default Claude thinking budget.">
@@ -284,13 +305,11 @@ function ModelSettings() {
 						onChange={(value) =>
 							preferences.setClaudeReasoningEffortPreference(value as ClaudeReasoningEffort)
 						}
-					>
-						{CLAUDE_REASONING_OPTIONS.map((option) => (
-							<option key={option.id} value={option.id}>
-								{option.label}
-							</option>
-						))}
-					</SettingsSelect>
+						options={CLAUDE_REASONING_OPTIONS.map((option) => ({
+							value: option.id,
+							label: option.label,
+						}))}
+					/>
 				</SettingRow>
 				<SettingRow
 					title="Context window"
@@ -302,16 +321,14 @@ function ModelSettings() {
 						onChange={(value) =>
 							preferences.setClaudeContextWindowPreference(value as ClaudeContextWindow)
 						}
-					>
-						{CLAUDE_CONTEXT_WINDOW_OPTIONS.map((option) => (
-							<option key={option.id} value={option.id}>
-								{option.label}
-							</option>
-						))}
-					</SettingsSelect>
+						options={CLAUDE_CONTEXT_WINDOW_OPTIONS.map((option) => ({
+							value: option.id,
+							label: option.label,
+						}))}
+					/>
 				</SettingRow>
 
-				<div className="mt-8 mb-2 flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-ink-subtle">
+				<div className="mt-8 mb-2 flex items-center gap-2 text-label-mono text-ink-subtle">
 					<ProviderIcon provider="codex" className="size-3" /> Codex
 				</div>
 				<SettingRow title="Reasoning effort" description="Default Codex reasoning effort.">
@@ -321,13 +338,11 @@ function ModelSettings() {
 						onChange={(value) =>
 							preferences.setCodexReasoningEffortPreference(value as CodexReasoningEffort)
 						}
-					>
-						{CODEX_REASONING_OPTIONS.map((option) => (
-							<option key={option.id} value={option.id}>
-								{option.label}
-							</option>
-						))}
-					</SettingsSelect>
+						options={CODEX_REASONING_OPTIONS.map((option) => ({
+							value: option.id,
+							label: option.label,
+						}))}
+					/>
 				</SettingRow>
 				<SettingRow
 					title="Fast mode"
