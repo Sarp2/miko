@@ -24,6 +24,7 @@ Use targeted `bun test path/to/file.test.ts` when changing fragile logic.
 - Use conventional titles: `fix: ...`, `feat: ...`, `refactor: ...`, `chore: ...`.
 - Keep PRs focused. Avoid giant rewrite PRs unless explicitly requested.
 - Do not push unrelated user changes.
+- Do not use hard pushes or history-rewriting pushes (`git push --force`, `git push --force-with-lease`) unless the user explicitly asks for it. Prefer a normal follow-up commit.
 - If the user asks for a PR, create the branch/commit/push/PR and provide the PR URL.
 - PR descriptions should use this layout:
 
