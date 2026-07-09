@@ -1,0 +1,21 @@
+.agents/memory/design.md
+  s_a9cac5dac95839::t_09d8cbbdf6b64a 3,7-80,84
+  s_a9cac5dac95839::t_d12257a727775b 82
+  s_a9cac5dac95839::t_b3aa53a7972e2f 1-2,4-6,81,83
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "4bacbe437768be08aa365221ab47af1b21db27c5",
+  "prompts": {},
+  "sessions": {
+    "s_a9cac5dac95839": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "889c36b1-04e7-42a6-95aa-7a620b544bb4",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
