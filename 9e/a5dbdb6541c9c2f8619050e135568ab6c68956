@@ -1,0 +1,23 @@
+src/shared/types.ts
+  s_82e93de1bb8ac8::t_375d0442926507 160,163-164
+src/server/provider-catalog.test.ts
+  s_82e93de1bb8ac8::t_9267d7d12e2e11 17,22-28
+src/server/provider-catalog.ts
+  s_82e93de1bb8ac8::t_9267d7d12e2e11 19-20,29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.11",
+  "base_commit_sha": "9ea5dbdb6541c9c2f8619050e135568ab6c68956",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
