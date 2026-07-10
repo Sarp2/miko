@@ -1,0 +1,21 @@
+.agents/memory/current-state.md
+  s_82e93de1bb8ac8::t_bec917177b3ebb 3,9,17
+package.json
+  s_82e93de1bb8ac8::t_5afb03e130d64d 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.11",
+  "base_commit_sha": "c90b663e9190acdfffe3c845cd31507e8bfd4d89",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
