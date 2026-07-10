@@ -16,6 +16,8 @@ import {
 } from 'src/shared/types';
 
 const HARD_CODED_CODEX_MODELS: ProviderModelOption[] = [
+	{ id: 'gpt-5.6-terra', label: 'GPT-5.6 Terra', supportsEffort: false, badge: 'NEW' },
+	{ id: 'gpt-5.6-luna', label: 'GPT-5.6 Luna', supportsEffort: false, badge: 'NEW' },
 	{ id: 'gpt-5.5', label: 'GPT-5.5', supportsEffort: false },
 	{ id: 'gpt-5.4', label: 'GPT-5.4', supportsEffort: false },
 ];
@@ -24,7 +26,7 @@ export const SERVER_PROVIDERS: ProviderCatalogEntry[] = PROVIDERS.map((provider)
 	provider.id === 'codex'
 		? {
 				...provider,
-				defaultModel: 'gpt-5.5',
+				defaultModel: 'gpt-5.6-terra',
 				models: HARD_CODED_CODEX_MODELS,
 			}
 		: provider,
