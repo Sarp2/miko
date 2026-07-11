@@ -14,16 +14,22 @@ describe('SERVER_PROVIDERS', () => {
 			(model) => model.id,
 		);
 
-		expect(codexModelIds).toEqual(['gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.5', 'gpt-5.4']);
+		expect(codexModelIds).toEqual([
+			'gpt-5.6-sol',
+			'gpt-5.6-terra',
+			'gpt-5.6-luna',
+			'gpt-5.5',
+			'gpt-5.4',
+		]);
 	});
 });
 
 describe('normalizeServerModel', () => {
-	test('uses Terra as the default Codex model', () => {
+	test('uses Sol as the default Codex model', () => {
 		const codexProvider = SERVER_PROVIDERS.find((provider) => provider.id === 'codex');
 
-		expect(codexProvider?.defaultModel).toBe('gpt-5.6-terra');
-		expect(normalizeServerModel('codex')).toBe('gpt-5.6-terra');
+		expect(codexProvider?.defaultModel).toBe('gpt-5.6-sol');
+		expect(normalizeServerModel('codex')).toBe('gpt-5.6-sol');
 	});
 
 	test('accepts every catalog model id and falls back for unknown ids', () => {
