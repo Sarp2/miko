@@ -1,0 +1,29 @@
+src/server/provider-catalog.test.ts
+  s_82e93de1bb8ac8::t_61d8f129800228 17-23,28,31-32
+.github/releases/v0.1.9.md
+  s_82e93de1bb8ac8::t_61d8f129800228 1-9
+src/server/provider-catalog.ts
+  s_82e93de1bb8ac8::t_61d8f129800228 19,30
+src/shared/types.ts
+  s_82e93de1bb8ac8::t_61d8f129800228 160,163
+.agents/memory/current-state.md
+  s_82e93de1bb8ac8::t_61d8f129800228 3,9,18
+package.json
+  s_82e93de1bb8ac8::t_61d8f129800228 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.11",
+  "base_commit_sha": "543ef9265ec5a394f7ba6e797caecae84ba8f648",
+  "prompts": {},
+  "sessions": {
+    "s_82e93de1bb8ac8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e30a6-cac7-7993-9a1f-11bc7b71b15a",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
