@@ -1,12 +1,12 @@
 # Miko Current State
 
-Last updated: 2026-07-10.
+Last updated: 2026-07-11.
 
 ## Production status
 
 Miko is in production as npm package `miko-code`.
 
-Current package version in `package.json`: `0.1.8`.
+Current package version in `package.json`: `0.1.9`.
 
 Recent release chain:
 - `v0.1.2`: fixed diff view hang on plaintext files.
@@ -15,6 +15,7 @@ Recent release chain:
 - `v0.1.6`: composer placeholder recovery and write/edit tool row file icons.
 - `v0.1.7`: app visual-system refresh, safer git status parsing, transcript copy feedback, and curated agent memory docs.
 - `v0.1.8`: adds GPT-5.6 Terra and GPT-5.6 Luna to Codex model selection, with Terra as the default Codex model.
+- `v0.1.9`: adds GPT-5.6 Sol to Codex model selection and makes it the default Codex model.
 
 ## Near-term priorities
 
