@@ -36,6 +36,36 @@ export function getAgentInstructionFilePath(fileName: string) {
 	return path.join(getAgentInstructionsDir(), fileName);
 }
 
+function joinLines(lines: Array<string | null>) {
+	return lines.filter((line): line is string => line !== null).join('\n');
+}
+
+async function writeInstructionAttachment(args: {
+	id: string;
+	fileName: string;
+	displayName: string;
+	mimeType: string;
+	body: string;
+}): Promise<ChatAttachment> {
+	const instructionsDir = getAgentInstructionsDir();
+	await mkdir(instructionsDir, { recursive: true });
+
+	const absolutePath = path.join(instructionsDir, args.fileName);
+	await Bun.write(absolutePath, args.body);
+	const info = await stat(absolutePath);
+
+	return {
+		id: args.id,
+		kind: 'file',
+		displayName: args.displayName,
+		absolutePath,
+		relativePath: args.displayName,
+		contentUrl: agentInstructionContentUrl(path.basename(absolutePath)),
+		mimeType: args.mimeType,
+		size: info.size,
+	};
+}
+
 export function buildCreatePrInstructionsMarkdown(args: {
 	workspaceId: string;
 	directoryPath: string;
@@ -98,10 +128,6 @@ export async function writeCreatePrInstructionsAttachment(args: {
 	git: WorkspaceGitSnapshot;
 }): Promise<ChatAttachment> {
 	const { workspace, directory, git } = args;
-	const instructionsDir = getAgentInstructionsDir();
-	await mkdir(instructionsDir, { recursive: true });
-
-	const absolutePath = path.join(instructionsDir, `create-pr-${workspace.id}.md`);
 	const markdown = buildCreatePrInstructionsMarkdown({
 		workspaceId: workspace.id,
 		directoryPath: directory.localPath,
@@ -114,19 +140,13 @@ export async function writeCreatePrInstructionsAttachment(args: {
 		branchPublishState: git.branchPublishState,
 	});
 
-	await Bun.write(absolutePath, markdown);
-	const info = await stat(absolutePath);
-
-	return {
+	return writeInstructionAttachment({
 		id: `create-pr-${workspace.id}`,
-		kind: 'file',
+		fileName: `create-pr-${workspace.id}.md`,
 		displayName: CREATE_PR_INSTRUCTIONS_FILE_NAME,
-		absolutePath,
-		relativePath: CREATE_PR_INSTRUCTIONS_FILE_NAME,
-		contentUrl: agentInstructionContentUrl(path.basename(absolutePath)),
 		mimeType: 'text/markdown',
-		size: info.size,
-	};
+		body: markdown,
+	});
 }
 
 export function buildReviewInstructionsMarkdown(args: {
@@ -191,10 +211,6 @@ export async function writeReviewInstructionsAttachment(args: {
 	git: WorkspaceGitSnapshot;
 }): Promise<ChatAttachment> {
 	const { workspace, directory, git } = args;
-	const instructionsDir = getAgentInstructionsDir();
-	await mkdir(instructionsDir, { recursive: true });
-
-	const absolutePath = path.join(instructionsDir, `review-${workspace.id}.md`);
 	const markdown = buildReviewInstructionsMarkdown({
 		workspaceId: workspace.id,
 		directoryPath: directory.localPath,
@@ -205,19 +221,13 @@ export async function writeReviewInstructionsAttachment(args: {
 		hasUncommittedChanges: git.files.length > 0,
 	});
 
-	await Bun.write(absolutePath, markdown);
-	const info = await stat(absolutePath);
-
-	return {
+	return writeInstructionAttachment({
 		id: `review-${workspace.id}`,
-		kind: 'file',
+		fileName: `review-${workspace.id}.md`,
 		displayName: REVIEW_INSTRUCTIONS_FILE_NAME,
-		absolutePath,
-		relativePath: REVIEW_INSTRUCTIONS_FILE_NAME,
-		contentUrl: agentInstructionContentUrl(path.basename(absolutePath)),
 		mimeType: 'text/markdown',
-		size: info.size,
-	};
+		body: markdown,
+	});
 }
 
 export async function writeFailingCiLogsAttachment(args: {
@@ -230,38 +240,26 @@ export async function writeFailingCiLogsAttachment(args: {
 		log: string;
 	}>;
 }): Promise<ChatAttachment> {
-	const instructionsDir = getAgentInstructionsDir();
-	await mkdir(instructionsDir, { recursive: true });
-
-	const absolutePath = path.join(instructionsDir, `failing-ci-${args.workspace.id}.txt`);
 	const body = args.logs
 		.map((entry) =>
-			[
+			joinLines([
 				`Run ID: ${entry.runId}`,
 				entry.workflowName ? `Workflow: ${entry.workflowName}` : null,
 				entry.title ? `Title: ${entry.title}` : null,
 				entry.url ? `URL: ${entry.url}` : null,
 				'',
 				entry.log || 'No failing log output was returned.',
-			]
-				.filter((line): line is string => line !== null)
-				.join('\n'),
+			]),
 		)
 		.join('\n\n---\n\n');
 
-	await Bun.write(absolutePath, body || 'No failing CI logs were found.');
-	const info = await stat(absolutePath);
-
-	return {
+	return writeInstructionAttachment({
 		id: `failing-ci-${args.workspace.id}`,
-		kind: 'file',
+		fileName: `failing-ci-${args.workspace.id}.txt`,
 		displayName: FAILING_CI_LOGS_FILE_NAME,
-		absolutePath,
-		relativePath: FAILING_CI_LOGS_FILE_NAME,
-		contentUrl: agentInstructionContentUrl(path.basename(absolutePath)),
 		mimeType: 'text/plain',
-		size: info.size,
-	};
+		body: body || 'No failing CI logs were found.',
+	});
 }
 
 export function buildMergeConflictInstructionsMarkdown(args: {
@@ -333,10 +331,6 @@ export async function writeMergeConflictInstructionsAttachment(args: {
 	} | null;
 }): Promise<ChatAttachment> {
 	const { workspace, directory, git, github } = args;
-	const instructionsDir = getAgentInstructionsDir();
-	await mkdir(instructionsDir, { recursive: true });
-
-	const absolutePath = path.join(instructionsDir, `merge-conflict-${workspace.id}.md`);
 	const markdown = buildMergeConflictInstructionsMarkdown({
 		workspaceId: workspace.id,
 		directoryPath: directory.localPath,
@@ -353,19 +347,13 @@ export async function writeMergeConflictInstructionsAttachment(args: {
 		hasUnpushedCommits: (git.aheadCount ?? 0) > 0,
 	});
 
-	await Bun.write(absolutePath, markdown);
-	const info = await stat(absolutePath);
-
-	return {
+	return writeInstructionAttachment({
 		id: `merge-conflict-${workspace.id}`,
-		kind: 'file',
+		fileName: `merge-conflict-${workspace.id}.md`,
 		displayName: MERGE_CONFLICT_INSTRUCTIONS_FILE_NAME,
-		absolutePath,
-		relativePath: MERGE_CONFLICT_INSTRUCTIONS_FILE_NAME,
-		contentUrl: `file://${absolutePath}`,
 		mimeType: 'text/markdown',
-		size: info.size,
-	};
+		body: markdown,
+	});
 }
 
 export async function writeSelectedReviewCommentsAttachment(args: {
@@ -374,25 +362,16 @@ export async function writeSelectedReviewCommentsAttachment(args: {
 	prNumber?: number;
 	prTitle?: string;
 }): Promise<ChatAttachment> {
-	const instructionsDir = getAgentInstructionsDir();
-	await mkdir(instructionsDir, { recursive: true });
-
-	const absolutePath = path.join(
-		instructionsDir,
-		`selected-review-comments-${args.workspace.id}.txt`,
-	);
-	const header = [
+	const header = joinLines([
 		'The user selected these PR review comments to address.',
 		args.prNumber ? `PR: #${args.prNumber}${args.prTitle ? ` ${args.prTitle}` : ''}` : null,
 		`Workspace ID: ${args.workspace.id}`,
 		`Branch: ${args.workspace.branchName}`,
-	]
-		.filter((line): line is string => line !== null)
-		.join('\n');
+	]);
 
 	const body = args.comments
 		.map((comment, index) =>
-			[
+			joinLines([
 				`Comment ${index + 1}`,
 				`ID: ${comment.id}`,
 				comment.author ? `Author: ${comment.author}` : null,
@@ -404,25 +383,17 @@ export async function writeSelectedReviewCommentsAttachment(args: {
 				comment.isBot ? 'Bot: yes' : 'Bot: no',
 				'',
 				comment.body,
-			]
-				.filter((line): line is string => line !== null)
-				.join('\n'),
+			]),
 		)
 		.join('\n\n---\n\n');
 
-	await Bun.write(absolutePath, `${header}\n\n${body}`);
-	const info = await stat(absolutePath);
-
-	return {
+	return writeInstructionAttachment({
 		id: `selected-review-comments-${args.workspace.id}`,
-		kind: 'file',
+		fileName: `selected-review-comments-${args.workspace.id}.txt`,
 		displayName: SELECTED_REVIEW_COMMENTS_FILE_NAME,
-		absolutePath,
-		relativePath: SELECTED_REVIEW_COMMENTS_FILE_NAME,
-		contentUrl: agentInstructionContentUrl(path.basename(absolutePath)),
 		mimeType: 'text/plain',
-		size: info.size,
-	};
+		body: `${header}\n\n${body}`,
+	});
 }
 
 export async function cleanupStaleInstructionAttachments(workspaces: WorkspaceRecord[]) {

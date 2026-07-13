@@ -197,6 +197,7 @@ describe('writeMergeConflictInstructionsAttachment', () => {
 			displayName: 'merge-conflict-instructions.md',
 			mimeType: 'text/markdown',
 			absolutePath: filePath,
+			contentUrl: '/api/agent-instructions/merge-conflict-workspace-test-attachment.md/content',
 		});
 		const body = await Bun.file(filePath).text();
 		expect(body).toContain('resolving pull request merge conflicts');
