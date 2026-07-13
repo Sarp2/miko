@@ -18,7 +18,7 @@ export function RunningTimer({ startMs }: { startMs?: number }) {
 	return (
 		<span className="inline-flex items-center gap-1.5 text-caption text-ink-tertiary">
 			{Icons.activeIcon({ className: 'size-3.5' })}
-			<span className="tabular-nums">{formatElapsed(elapsed)}</span>
+			<span className="font-mono text-[11px] tabular-nums">{formatElapsed(elapsed)}</span>
 		</span>
 	);
 }

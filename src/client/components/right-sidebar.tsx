@@ -286,7 +286,7 @@ export function RightSidebar({ workspaceId }: RightSidebarProps) {
 										className={cn(
 											'relative h-8 max-w-[76px] cursor-pointer truncate whitespace-nowrap px-0.5 pb-2 text-[11px] font-medium leading-4 transition-colors after:absolute after:right-0 after:bottom-0 after:left-0 after:h-px after:rounded-full after:content-[""]',
 											active
-												? 'text-ink after:bg-ink-subtle'
+												? 'text-ink after:bg-ink'
 												: 'text-ink-tertiary after:bg-transparent hover:text-ink-subtle',
 										)}
 										onClick={() => setTab(workspaceId, item.value)}

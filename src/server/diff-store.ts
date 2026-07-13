@@ -593,24 +593,64 @@ export function parseStatusLine(line: string): DirtyPathEntry | null {
 	};
 }
 
+export function parseStatusPorcelainZEntries(output: string): DirtyPathEntry[] {
+	const parts = output.split('\0');
+	const entries: DirtyPathEntry[] = [];
+
+	for (let index = 0; index < parts.length; ) {
+		const entry = parts[index++];
+		if (!entry) continue;
+
+		const status = entry.slice(0, 2);
+		const rawPath = entry.slice(3);
+		const isUntracked = status === '??';
+
+		let changeType: WorkspaceDiffFile['changeType'] = 'modified';
+		if (isUntracked || status.includes('A')) {
+			changeType = 'added';
+		} else if (status.includes('D')) {
+			changeType = 'deleted';
+		} else if (status.includes('R')) {
+			changeType = 'renamed';
+		}
+
+		if (changeType === 'renamed') {
+			const originalPath = parts[index++];
+			if (originalPath) {
+				entries.push({
+					path: rawPath,
+					previousPath: originalPath,
+					changeType: 'renamed',
+					isUntracked: false,
+				});
+			}
+			continue;
+		}
+
+		entries.push({
+			path: rawPath,
+			changeType,
+			isUntracked,
+		});
+	}
+
+	return entries;
+}
+
 export async function listDirtyPaths(repoRoot: string) {
-	// TODO: switch to `git status --porcelain=v1 -z` and parse NUL-delimited records
-	// before this powers broad external use. The current line parser is acceptable for
-	// normal code paths, but quoted paths/newlines can produce incorrect diff rows.
-	const status = await runGit(['status', '--porcelain=v1', '--untracked-files=all'], repoRoot);
+	const status = await runGit(
+		['status', '--porcelain=v1', '-z', '--untracked-files=all'],
+		repoRoot,
+	);
 	if (status.exitCode !== 0) {
 		throw new Error(formatGitFailure(status) || 'Failed to list git changes');
 	}
 
-	return status.stdout
-		.split(/\r?\n/u)
-		.map((line) => parseStatusLine(line))
-		.filter((entry): entry is DirtyPathEntry => Boolean(entry))
-		.map((entry) => ({
-			...entry,
-			path: normalizeRepoRelativePath(entry.path),
-			previousPath: entry.previousPath ? normalizeRepoRelativePath(entry.previousPath) : undefined,
-		}));
+	return parseStatusPorcelainZEntries(status.stdout).map((entry) => ({
+		...entry,
+		path: normalizeRepoRelativePath(entry.path),
+		previousPath: entry.previousPath ? normalizeRepoRelativePath(entry.previousPath) : undefined,
+	}));
 }
 
 export async function findDirtyPath(repoRoot: string, relativePath: string) {

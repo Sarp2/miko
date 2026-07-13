@@ -112,7 +112,7 @@ export function LeftSidebar() {
 			/>
 			<AddDirectoryDialog open={addDirectoryOpen} onOpenChange={setAddDirectoryOpen} />
 			{workspaceCreateError && (
-				<div className="fixed bottom-3 left-3 z-50 max-w-[360px] rounded-lg border border-destructive/30 bg-surface-1 px-3 py-2 text-[12px] leading-5 text-destructive shadow-lg">
+				<div className="fixed bottom-3 left-3 z-50 max-w-[360px] rounded-lg border border-destructive/30 bg-surface-1 px-3 py-2 text-[12px] leading-5 text-destructive shadow-popover">
 					{workspaceCreateError}
 				</div>
 			)}

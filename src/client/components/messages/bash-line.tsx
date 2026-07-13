@@ -5,6 +5,17 @@ import { cn } from '../../lib/utils';
 
 type BashMessage = Extract<HydratedTranscriptMessage, { kind: 'tool'; toolKind: 'bash' }>;
 
+// Providers wrap commands in a shell invocation (`/bin/zsh -lc '…'`). That prefix
+// is machine noise in the transcript: strip it for display and surface the inner
+// command; the raw command stays available via the title tooltip.
+const SHELL_WRAPPER_PATTERN =
+	/^(?:\/(?:usr\/)?bin\/)?(?:zsh|bash|sh)\s+(?:-[a-z]+\s+)*(['"])([\s\S]+)\1$/;
+
+export function displayBashCommand(command: string): string {
+	const match = SHELL_WRAPPER_PATTERN.exec(command.trim());
+	return match ? match[2] : command.trim();
+}
+
 function BashStatusIcon({ tool }: { tool: BashMessage }) {
 	if (!tool.hasResult)
 		return Icons.activeIcon({ ariaLabel: 'running', className: 'size-3.5 text-ink-subtle' });
@@ -27,8 +38,11 @@ export function BashLine({ tool, className }: { tool: BashMessage; className?: s
 			</span>
 			<span className="shrink-0 font-medium text-ink">Bash</span>
 			{command ? (
-				<code className="min-w-0 truncate font-mono text-[13px] leading-none text-ink-muted">
-					{command}
+				<code
+					className="min-w-0 truncate font-mono text-[12px] leading-5 text-ink-subtle"
+					title={command}
+				>
+					{displayBashCommand(command)}
 				</code>
 			) : (
 				<span className="min-w-0 truncate text-ink-muted">Run terminal command</span>

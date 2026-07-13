@@ -24,6 +24,7 @@ Use targeted `bun test path/to/file.test.ts` when changing fragile logic.
 - Use conventional titles: `fix: ...`, `feat: ...`, `refactor: ...`, `chore: ...`.
 - Keep PRs focused. Avoid giant rewrite PRs unless explicitly requested.
 - Do not push unrelated user changes.
+- Do not use hard pushes or history-rewriting pushes (`git push --force`, `git push --force-with-lease`) unless the user explicitly asks for it. Prefer a normal follow-up commit.
 - If the user asks for a PR, create the branch/commit/push/PR and provide the PR URL.
 - PR descriptions should use this layout:
 
@@ -79,6 +80,7 @@ Tool Row File Icons — Edit and write tool-call rows now show extension-aware f
 - Package uses Trusted Publishing through GitHub Actions OIDC.
 - npm trusted publisher is configured for repo `Sarp2/miko` and workflow `release.yml`.
 - Do not require an npm token in CI unless the publishing model changes.
+- Do not use `npm@latest` or explicit `npm publish --provenance` in the release workflow; trusted publishing generates provenance automatically, and recent npm/Node 24 combinations have failed with missing `sigstore`.
 - The package supports Bun. Users install/run with Bun/npm tooling, but the runtime engine is Bun.
 
 ## Local data cleanup

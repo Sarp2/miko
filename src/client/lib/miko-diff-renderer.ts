@@ -11,29 +11,29 @@ const MIKO_DIFF_THEME = {
 	name: 'miko-dark',
 	type: 'dark' as const,
 	colors: {
-		'editor.background': '#070707',
-		'editor.foreground': '#f4f4f5',
+		'editor.background': '#0a0a0a',
+		'editor.foreground': '#f2f2f2',
 	},
 	tokenColors: [
 		{
 			scope: ['comment', 'punctuation.definition.comment'],
-			settings: { foreground: '#67686e', fontStyle: 'italic' },
+			settings: { foreground: '#6e6e6e', fontStyle: 'italic' },
 		},
 		{
 			scope: ['keyword', 'storage', 'storage.type', 'keyword.control', 'modifier'],
-			settings: { foreground: '#828fff' },
+			settings: { foreground: '#7cb3e8' },
 		},
 		{
 			scope: ['string', 'string.quoted', 'punctuation.definition.string'],
-			settings: { foreground: '#7fc99a' },
+			settings: { foreground: '#86c793' },
 		},
 		{
 			scope: ['constant.numeric', 'constant.language', 'constant.character'],
-			settings: { foreground: '#d6a87a' },
+			settings: { foreground: '#d0b183' },
 		},
 		{
 			scope: ['entity.name.function', 'support.function', 'meta.function-call.generic'],
-			settings: { foreground: '#9aa6ff' },
+			settings: { foreground: '#9ccbef' },
 		},
 		{
 			scope: ['entity.name.type', 'support.type', 'support.class', 'entity.name.class'],
@@ -41,16 +41,16 @@ const MIKO_DIFF_THEME = {
 		},
 		{
 			scope: ['entity.other.attribute-name', 'entity.name.tag'],
-			settings: { foreground: '#828fff' },
+			settings: { foreground: '#7cb3e8' },
 		},
 		{
 			scope: ['variable', 'variable.other', 'meta.definition.variable'],
-			settings: { foreground: '#f4f4f5' },
+			settings: { foreground: '#f2f2f2' },
 		},
-		{ scope: ['variable.parameter'], settings: { foreground: '#d8d8dd' } },
+		{ scope: ['variable.parameter'], settings: { foreground: '#d6d6d6' } },
 		{
 			scope: ['keyword.operator', 'punctuation', 'meta.brace'],
-			settings: { foreground: '#8f9095' },
+			settings: { foreground: '#8a8a8a' },
 		},
 	],
 };

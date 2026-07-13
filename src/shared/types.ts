@@ -157,9 +157,12 @@ export const PROVIDERS: ProviderCatalogEntry[] = [
 	{
 		id: 'codex',
 		label: 'Codex',
-		defaultModel: 'gpt-5.5',
+		defaultModel: 'gpt-5.6-sol',
 		supportsPlanMode: true,
 		models: [
+			{ id: 'gpt-5.6-sol', label: 'GPT-5.6 Sol', supportsEffort: false, badge: 'NEW' },
+			{ id: 'gpt-5.6-terra', label: 'GPT-5.6 Terra', supportsEffort: false, badge: 'NEW' },
+			{ id: 'gpt-5.6-luna', label: 'GPT-5.6 Luna', supportsEffort: false, badge: 'NEW' },
 			{ id: 'gpt-5.5', label: 'GPT-5.5', supportsEffort: false },
 			{ id: 'gpt-5.4', label: 'GPT-5.4', supportsEffort: false },
 		],

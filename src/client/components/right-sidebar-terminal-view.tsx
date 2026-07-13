@@ -13,25 +13,25 @@ interface RightSidebarTerminalViewProps {
 function terminalTheme(background: string) {
 	return {
 		background,
-		foreground: '#d4d4d8',
-		cursor: '#a1a1aa',
-		selectionBackground: '#27272a',
+		foreground: '#d6d6d6',
+		cursor: '#f2f2f2',
+		selectionBackground: '#2e2e2e',
 		black: background,
-		red: '#f87171',
-		green: '#4ade80',
-		yellow: '#facc15',
-		blue: '#60a5fa',
-		magenta: '#c084fc',
-		cyan: '#67e8f9',
-		white: '#e4e4e7',
-		brightBlack: '#52525b',
-		brightRed: '#fca5a5',
-		brightGreen: '#86efac',
-		brightYellow: '#fde047',
-		brightBlue: '#93c5fd',
-		brightMagenta: '#d8b4fe',
-		brightCyan: '#a5f3fc',
-		brightWhite: '#fafafa',
+		red: '#f2756c',
+		green: '#7ec87f',
+		yellow: '#d9b35c',
+		blue: '#74a8f2',
+		magenta: '#c79ce8',
+		cyan: '#77c4cf',
+		white: '#e4e4e8',
+		brightBlack: '#6e6e6e',
+		brightRed: '#f7a09a',
+		brightGreen: '#a6dba4',
+		brightYellow: '#e8cc85',
+		brightBlue: '#9fc4f7',
+		brightMagenta: '#dbbef0',
+		brightCyan: '#a4dbe2',
+		brightWhite: '#f4f4f6',
 	};
 }
 
@@ -76,7 +76,7 @@ export function RightSidebarTerminalView({ terminalId }: RightSidebarTerminalVie
 
 		lastSerializedStateRef.current = null;
 		restoredInitialSnapshotRef.current = false;
-		const terminalBackground = cssVariable('--surface-1', '#111112');
+		const terminalBackground = cssVariable('--surface-1', '#131313');
 		paintXtermBackground(container, terminalBackground);
 
 		restoredInitialSnapshotRef.current = false;
@@ -91,7 +91,7 @@ export function RightSidebarTerminalView({ terminalId }: RightSidebarTerminalVie
 			cursorWidth: 1,
 			customGlyphs: false,
 			disableStdin: false,
-			fontFamily: 'JetBrains Mono Variable, JetBrains Mono, monospace',
+			fontFamily: 'IBM Plex Mono, ui-monospace, monospace',
 			fontSize: 12,
 			lineHeight: 1.04,
 			scrollback: 10_000,

@@ -80,7 +80,7 @@ export function ComposerModelMenu({
 					<CaretDown className="size-3 text-ink-subtle" />
 				</Button>
 			</DropdownMenuTrigger>
-			<DropdownMenuContent className="w-60 rounded-[10px] border-hairline bg-surface-1 p-1 shadow-none">
+			<DropdownMenuContent className="w-60 rounded-[10px] border-hairline bg-surface-1 p-1 shadow-popover">
 				{providers.map((entry, index) => (
 					<DropdownMenuGroup key={entry.id}>
 						{index > 0 ? <DropdownMenuSeparator className="bg-hairline" /> : null}

@@ -66,9 +66,7 @@ function commentChatText(comment: PullRequestCommentSnapshot) {
 function SectionHeader({ title, action }: { title: string; action?: ReactNode }) {
 	return (
 		<div className="flex h-7 items-center justify-between px-1">
-			<span className="text-[11px] font-medium uppercase tracking-wide text-ink-tertiary">
-				{title}
-			</span>
+			<span className="text-label-mono text-ink-tertiary">{title}</span>
 			{action}
 		</div>
 	);
