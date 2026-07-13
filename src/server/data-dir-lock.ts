@@ -2,6 +2,20 @@ import { createHash } from 'node:crypto';
 import { chmod, mkdir, realpath } from 'node:fs/promises';
 import { createConnection, createServer, type Server } from 'node:net';
 
+// Single-owner lock for a data directory, implemented as a bound TCP loopback
+// socket rather than a lockfile. The OS lets only one process listen on a port
+// at a time (that IS the mutual exclusion) and frees the port automatically when
+// the process exits — even on crash — so there is never a stale lock to clean up.
+//
+// The port is derived deterministically from the data-dir path (sha256 -> port),
+// so two instances collide only when they target the same directory. When a port
+// is already bound, we connect and read the owner's { key, pid }: a matching key
+// means another Miko already owns this dir (fatal); a non-matching key (or no
+// reply) means an UNRELATED process happens to hold the port and we retry the
+// next port. That retry is essential: LOCK_PORT_START..+COUNT overlaps the OS
+// ephemeral port range, so an outbound connection elsewhere can transiently grab
+// "our" port. Do not remove the retry loop — without it Miko would refuse to
+// start for a spurious, unrelated port collision.
 const LOCK_HOST = '127.0.0.1';
 const LOCK_PORT_START = 40_000;
 const LOCK_PORT_COUNT = 20_000;
