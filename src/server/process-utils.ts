@@ -2,8 +2,12 @@ import { spawn, spawnSync } from 'node:child_process';
 
 export function spawnDetached(command: string, args: string[]) {
 	const child = spawn(command, args, { stdio: 'ignore', detached: true });
-	// Swallow ENOENT/EACCES so a missing binary cannot crash the server.
-	child.on('error', () => {});
+	// A failed launch (e.g. ENOENT/EACCES) must not crash the server, but it must
+	// not be silent either — a swallowed error here looks like "nothing happened"
+	// to the user. Log it so the failure is diagnosable.
+	child.on('error', (error) => {
+		console.warn('[miko] spawnDetached failed', { command, args, error });
+	});
 	child.unref();
 }
 

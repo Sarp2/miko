@@ -113,6 +113,17 @@ describe('buildPresetEditorCommand', () => {
 			),
 		).toEqual({ command: 'cursor', args: ['--goto', '/repo/x.ts:42:8'] });
 	});
+
+	test('never passes --goto to `open -a` when the CLI is missing on darwin', () => {
+		spyOn(processUtils, 'hasCommand').mockReturnValue(false);
+		spyOn(processUtils, 'canOpenMacApp').mockReturnValue(true);
+		expect(
+			buildPresetEditorCommand(
+				{ localPath: '/repo/x.ts', isDirectory: false, line: 42, column: 8, platform: 'darwin' },
+				'cursor',
+			),
+		).toEqual({ command: 'open', args: ['-a', 'Cursor', '/repo/x.ts'] });
+	});
 });
 
 describe('resolveEditorExecutable', () => {
@@ -121,51 +132,48 @@ describe('resolveEditorExecutable', () => {
 		spyOn(processUtils, 'canOpenMacApp').mockRestore();
 	});
 
-	test('uses CLI shim when present on PATH', () => {
+	test('uses the CLI on linux', () => {
 		spyOn(processUtils, 'hasCommand').mockImplementation((cmd) => cmd === 'cursor');
-		expect(resolveEditorExecutable('cursor', 'linux')).toEqual({ command: 'cursor', args: [] });
-	});
-
-	test('supports Warp and Antigravity presets', () => {
-		spyOn(processUtils, 'hasCommand').mockImplementation((cmd) => cmd === 'warp');
-		spyOn(processUtils, 'canOpenMacApp').mockReturnValue(false);
-
-		expect(resolveEditorExecutable('warp', 'linux')).toEqual({ command: 'warp', args: [] });
-		expect(resolveEditorExecutable('antigravity', 'linux')).toEqual({
-			command: 'antigravity',
+		expect(resolveEditorExecutable('cursor', 'linux')).toEqual({
+			command: 'cursor',
 			args: [],
+			supportsGoto: true,
+		});
+		expect(resolveEditorExecutable('vscode', 'linux')).toEqual({
+			command: 'code',
+			args: [],
+			supportsGoto: true,
 		});
 	});
 
-	test('falls back to `open -a` on darwin when CLI missing but app installed', () => {
-		spyOn(processUtils, 'hasCommand').mockReturnValue(false);
-		spyOn(processUtils, 'canOpenMacApp').mockImplementation((app) => app === 'Visual Studio Code');
-		expect(resolveEditorExecutable('vscode', 'darwin')).toEqual({
+	test('prefers `open -a` on darwin even when the CLI exists (agent shims lie)', () => {
+		spyOn(processUtils, 'hasCommand').mockReturnValue(true);
+		spyOn(processUtils, 'canOpenMacApp').mockReturnValue(true);
+		expect(resolveEditorExecutable('cursor', 'darwin')).toEqual({
 			command: 'open',
-			args: ['-a', 'Visual Studio Code'],
+			args: ['-a', 'Cursor'],
+			supportsGoto: false,
 		});
 	});
 
-	test('falls back to macOS apps for Warp and Antigravity', () => {
-		spyOn(processUtils, 'hasCommand').mockReturnValue(false);
-		spyOn(processUtils, 'canOpenMacApp').mockImplementation((app) =>
-			['Warp', 'Antigravity'].includes(app),
-		);
-
-		expect(resolveEditorExecutable('warp', 'darwin')).toEqual({
-			command: 'open',
-			args: ['-a', 'Warp'],
-		});
-		expect(resolveEditorExecutable('antigravity', 'darwin')).toEqual({
-			command: 'open',
-			args: ['-a', 'Antigravity'],
+	test('prefers the CLI on darwin when a goto jump is requested', () => {
+		spyOn(processUtils, 'hasCommand').mockReturnValue(true);
+		spyOn(processUtils, 'canOpenMacApp').mockReturnValue(true);
+		expect(resolveEditorExecutable('cursor', 'darwin', { preferCli: true })).toEqual({
+			command: 'cursor',
+			args: [],
+			supportsGoto: true,
 		});
 	});
 
-	test('returns bare preset name on linux when nothing detected', () => {
-		spyOn(processUtils, 'hasCommand').mockReturnValue(false);
+	test('falls back to the CLI on darwin when the app is not registered', () => {
+		spyOn(processUtils, 'hasCommand').mockReturnValue(true);
 		spyOn(processUtils, 'canOpenMacApp').mockReturnValue(false);
-		expect(resolveEditorExecutable('vscode', 'linux')).toEqual({ command: 'code', args: [] });
+		expect(resolveEditorExecutable('vscode', 'darwin')).toEqual({
+			command: 'code',
+			args: [],
+			supportsGoto: true,
+		});
 	});
 });
 

@@ -108,58 +108,59 @@ export function buildPresetEditorCommand(
 	},
 	preset: Exclude<EditorPreset, 'custom'>,
 ): CommandSpec {
-	const gotoTarget = `${args.localPath}:${args.line ?? 1}:${args.column ?? 1}`;
-	const opener = resolveEditorExecutable(preset, args.platform);
+	const wantsGoto = !args.isDirectory && Boolean(args.line);
+	const opener = resolveEditorExecutable(preset, args.platform, { preferCli: wantsGoto });
 
-	if (args.isDirectory || !args.line) {
+	// Never feed --goto to a launcher that cannot forward CLI flags (open -a):
+	// open(1) would treat it as its own argument and fail.
+	if (!wantsGoto || !opener.supportsGoto) {
 		return { command: opener.command, args: [...opener.args, args.localPath] };
 	}
-	return { command: opener.command, args: [...opener.args, '--goto', gotoTarget] };
+	return {
+		command: opener.command,
+		args: [...opener.args, '--goto', `${args.localPath}:${args.line ?? 1}:${args.column ?? 1}`],
+	};
+}
+
+const EDITOR_LAUNCHERS: Record<Exclude<EditorPreset, 'custom'>, { cli: string; macApp: string }> = {
+	cursor: { cli: 'cursor', macApp: 'Cursor' },
+	vscode: { cli: 'code', macApp: 'Visual Studio Code' },
+	warp: { cli: 'warp', macApp: 'Warp' },
+	antigravity: { cli: 'antigravity', macApp: 'Antigravity' },
+};
+
+export interface EditorExecutable {
+	command: string;
+	args: string[];
+	supportsGoto: boolean;
 }
 
 export function resolveEditorExecutable(
 	preset: Exclude<EditorPreset, 'custom'>,
 	platform: NodeJS.Platform,
-) {
-	if (preset === 'cursor') {
-		if (hasCommand('cursor')) return { command: 'cursor', args: [] };
-		if (platform === 'darwin' && canOpenMacApp('Cursor'))
-			return { command: 'open', args: ['-a', 'Cursor'] };
+	options: { preferCli?: boolean } = {},
+): EditorExecutable {
+	const { cli, macApp } = EDITOR_LAUNCHERS[preset];
+	const cliExecutable: EditorExecutable = { command: cli, args: [], supportsGoto: true };
+
+	if (platform !== 'darwin') {
+		return cliExecutable;
 	}
 
-	if (preset === 'vscode') {
-		if (hasCommand('code')) return { command: 'code', args: [] };
-		if (platform === 'darwin' && canOpenMacApp('Visual Studio Code'))
-			return { command: 'open', args: ['-a', 'Visual Studio Code'] };
-	}
-
-	if (preset === 'warp') {
-		if (hasCommand('warp')) return { command: 'warp', args: [] };
-		if (platform === 'darwin' && canOpenMacApp('Warp'))
-			return { command: 'open', args: ['-a', 'Warp'] };
-	}
-
-	if (preset === 'antigravity') {
-		if (hasCommand('antigravity')) return { command: 'antigravity', args: [] };
-		if (platform === 'darwin' && canOpenMacApp('Antigravity'))
-			return { command: 'open', args: ['-a', 'Antigravity'] };
-	}
-
-	if (platform === 'darwin') {
-		switch (preset) {
-			case 'cursor':
-				return { command: 'open', args: ['-a', 'Cursor'] };
-			case 'vscode':
-				return { command: 'open', args: ['-a', 'Visual Studio Code'] };
-			case 'warp':
-				return { command: 'open', args: ['-a', 'Warp'] };
-			case 'antigravity':
-				return { command: 'open', args: ['-a', 'Antigravity'] };
-		}
-	}
-
-	if (preset === 'vscode') return { command: 'code', args: [] };
-	return { command: preset, args: [] };
+	// On macOS, `open -a` (LaunchServices) is the reliable way to launch the app.
+	// A CLI on PATH can lie: e.g. Cursor's agent installs a `cursor` shim that
+	// exits 1 with "No Cursor IDE installation found" instead of opening the IDE,
+	// and spawnDetached cannot see that exit code. Prefer the CLI only when the
+	// caller needs a --goto line/column jump, which open(1) cannot express.
+	const openExecutable: EditorExecutable = {
+		command: 'open',
+		args: ['-a', macApp],
+		supportsGoto: false,
+	};
+	if (options.preferCli && hasCommand(cli)) return cliExecutable;
+	if (canOpenMacApp(macApp)) return openExecutable;
+	if (hasCommand(cli)) return cliExecutable;
+	return openExecutable;
 }
 
 export function buildCustomEditorCommand(args: {
