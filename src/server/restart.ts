@@ -1,20 +1,11 @@
 export const CLI_CHILD_MODE_ENV_VAR = 'MIKO_CLI_MODE';
 export const CLI_CHILD_MODE = 'child';
 export const CLI_STARTUP_UPDATE_RESTART_EXIT_CODE = 75;
-export const CLI_UI_UPDATE_RESTART_EXIT_CODE = 76;
 export const CLI_CHILD_COMMAND_ENV_VAR = 'MIKO_CLI_CHILD_COMMAND';
 export const CLI_CHILD_ARGS_ENV_VAR = 'MIKO_CLI_CHILD_ARGS';
-export const CLI_SUPPRESS_OPEN_ONCE_ENV_VAR = 'MIKO_SUPPRESS_OPEN_ONCE';
 
 export function shouldRestartCliProcess(code: number | null, signal: NodeJS.Signals | null) {
-	return (
-		signal === null &&
-		(code === CLI_STARTUP_UPDATE_RESTART_EXIT_CODE || code === CLI_UI_UPDATE_RESTART_EXIT_CODE)
-	);
-}
-
-export function isUiUpdateRestart(code: number | null, signal: NodeJS.Signals | null) {
-	return signal === null && code === CLI_UI_UPDATE_RESTART_EXIT_CODE;
+	return signal === null && code === CLI_STARTUP_UPDATE_RESTART_EXIT_CODE;
 }
 
 export function parseChildArgsEnv(value: string | undefined) {

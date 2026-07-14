@@ -225,7 +225,6 @@ async function createRouter(overrides: Record<string, unknown> = {}) {
 			}),
 		} as never,
 		machineDisplayName: 'Local Machine',
-		updateManager: null,
 		refreshWorkspacePrStage: async () => ({ refreshed: true, snapshot: prSnapshot }),
 		...overrides,
 	} as never);
@@ -1457,7 +1456,6 @@ describe('createWsRouter.dispose', () => {
 		let clearedReporter: unknown;
 		let terminalDisposed = false;
 		let keybindingsDisposed = false;
-		let updateDisposed = false;
 		const { router } = await createRouter({
 			agent: {
 				getActiveStatuses: () => new Map(),
@@ -1487,20 +1485,6 @@ describe('createWsRouter.dispose', () => {
 					keybindingsDisposed = true;
 				},
 			},
-			updateManager: {
-				getSnapshot: () => ({
-					currentVersion: '1.0.0',
-					latestVersion: null,
-					status: 'idle',
-					updateAvailable: false,
-					lastCheckedAt: null,
-					error: null,
-					installAction: 'restart',
-				}),
-				onChange: () => () => {
-					updateDisposed = true;
-				},
-			},
 		});
 
 		router.dispose();
@@ -1508,6 +1492,5 @@ describe('createWsRouter.dispose', () => {
 		expect(clearedReporter).toBeNull();
 		expect(terminalDisposed).toBe(true);
 		expect(keybindingsDisposed).toBe(true);
-		expect(updateDisposed).toBe(true);
 	});
 });

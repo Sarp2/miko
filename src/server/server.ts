@@ -1,13 +1,12 @@
 import { realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
-import { APP_NAME, getRuntimeProfile } from '../shared/branding';
+import { APP_NAME } from '../shared/branding';
 import type { ChatAttachment } from '../shared/types';
 import { AgentCoordinator } from './agent';
 import {
 	cleanupStaleInstructionAttachments,
 	getAgentInstructionFilePath,
 } from './agent-instruction-attachments';
-import type { UpdateInstallAttemptResult } from './cli-runtime';
 import { DiffStore } from './diff-store';
 import type { WorkspaceRecord } from './event';
 import { EventStore } from './event-store';
@@ -20,7 +19,6 @@ import { PrManager } from './pr-manager';
 import { PrRefreshPoller } from './pr-refresh-poller';
 import { ScratchpadManager } from './scratchpad-manager';
 import { TerminalManager } from './terminal-manager';
-import { UpdateManager } from './update-manager';
 import {
 	deleteWorkspaceUpload,
 	inferAttachmentContentType,
@@ -145,11 +143,6 @@ export interface StartServerOptions {
 	host?: string;
 	strictPort?: boolean;
 	onMigrationProgress?: (message: string) => void;
-	update?: {
-		version: string;
-		fetchLatestVersion: (packageName: string) => Promise<string>;
-		installVersion: (packageName: string, version: string) => UpdateInstallAttemptResult;
-	};
 }
 
 export async function startServer(options: StartServerOptions = {}) {
@@ -188,14 +181,6 @@ export async function startServer(options: StartServerOptions = {}) {
 		await store.releaseDataDirLock();
 		throw error;
 	}
-	const updateManager = options.update
-		? new UpdateManager({
-				currentVersion: options.update.version,
-				fetchLatestVersion: options.update.fetchLatestVersion,
-				installVersion: options.update.installVersion,
-				devMode: getRuntimeProfile() === 'dev',
-			})
-		: null;
 
 	async function refreshWorkspacePrStage(workspaceId: string, options?: { force?: boolean }) {
 		return workspaceManager.refreshWorkspacePrStage(workspaceId, options);
@@ -278,7 +263,6 @@ export async function startServer(options: StartServerOptions = {}) {
 		terminals,
 		keybindings,
 		machineDisplayName,
-		updateManager,
 		refreshWorkspacePrStage,
 	});
 
@@ -406,7 +390,6 @@ export async function startServer(options: StartServerOptions = {}) {
 		diffStore,
 		workspaceManager,
 		prManager,
-		updateManager,
 		stop: shutdown,
 	};
 }

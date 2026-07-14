@@ -7,7 +7,6 @@ import {
 	CLI_CHILD_COMMAND_ENV_VAR,
 	CLI_CHILD_MODE,
 	CLI_CHILD_MODE_ENV_VAR,
-	CLI_SUPPRESS_OPEN_ONCE_ENV_VAR,
 } from './restart';
 
 const originalChildCommand = process.env[CLI_CHILD_COMMAND_ENV_VAR];
@@ -73,7 +72,7 @@ describe('spawnChild', () => {
 			return fakeChild;
 		}) as never);
 
-		const result = await spawnChild(['--port', '4000'], true);
+		const result = await spawnChild(['--port', '4000']);
 
 		expect(spawn).toHaveBeenCalledWith(
 			'bun',
@@ -82,7 +81,6 @@ describe('spawnChild', () => {
 				stdio: 'inherit',
 				env: expect.objectContaining({
 					[CLI_CHILD_MODE_ENV_VAR]: CLI_CHILD_MODE,
-					[CLI_SUPPRESS_OPEN_ONCE_ENV_VAR]: '1',
 				}),
 			}),
 		);

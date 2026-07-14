@@ -6,8 +6,6 @@ import {
 	CLI_CHILD_COMMAND_ENV_VAR,
 	CLI_CHILD_MODE,
 	CLI_CHILD_MODE_ENV_VAR,
-	CLI_SUPPRESS_OPEN_ONCE_ENV_VAR,
-	isUiUpdateRestart,
 	parseChildArgsEnv,
 	shouldRestartCliProcess,
 } from './restart';
@@ -23,7 +21,7 @@ export function getChildProcessSpec(env: NodeJS.ProcessEnv = process.env) {
 	return { command, args };
 }
 
-export function spawnChild(argv: string[], suppressOpenThisChild: boolean) {
+export function spawnChild(argv: string[]) {
 	const childProcess = getChildProcessSpec();
 	return new Promise<ChildExit>((resolve, reject) => {
 		const child = spawn(childProcess.command, [...childProcess.args, ...argv], {
@@ -31,7 +29,6 @@ export function spawnChild(argv: string[], suppressOpenThisChild: boolean) {
 			env: {
 				...process.env,
 				[CLI_CHILD_MODE_ENV_VAR]: CLI_CHILD_MODE,
-				...(suppressOpenThisChild ? { [CLI_SUPPRESS_OPEN_ONCE_ENV_VAR]: '1' } : {}),
 			},
 		});
 
@@ -66,15 +63,9 @@ export function spawnChild(argv: string[], suppressOpenThisChild: boolean) {
 }
 
 export async function runCliSupervisor(argv: string[]) {
-	let suppressOpenOnNextChild = false;
-
 	while (true) {
-		const suppressOpenThisChild = suppressOpenOnNextChild;
-		suppressOpenOnNextChild = false;
-
-		const result = await spawnChild(argv, suppressOpenThisChild);
+		const result = await spawnChild(argv);
 		if (shouldRestartCliProcess(result.code, result.signal)) {
-			suppressOpenOnNextChild = isUiUpdateRestart(result.code, result.signal);
 			console.log(
 				`${LOG_PREFIX} supervisor restarting ${CLI_COMMAND} in the same terminal session`,
 			);

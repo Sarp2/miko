@@ -36,7 +36,6 @@ import {
 } from './read-models';
 import type { ScratchpadManager } from './scratchpad-manager';
 import type { TerminalManager } from './terminal-manager';
-import type { UpdateManager } from './update-manager';
 import { listWorkspaceFiles, searchWorkspaceFiles } from './workspace-file-search';
 import type { WorkspaceManager, WorkspaceTurnIntent } from './workspace-manager';
 
@@ -72,7 +71,6 @@ interface CreateWsRouterArgs {
 	terminals: TerminalManager;
 	keybindings: KeybindingsManager;
 	machineDisplayName: string;
-	updateManager: UpdateManager | null;
 	refreshWorkspacePrStage: (workspaceId: string, options?: { force?: boolean }) => Promise<unknown>;
 }
 
@@ -152,7 +150,6 @@ export function createWsRouter({
 	terminals,
 	keybindings,
 	machineDisplayName,
-	updateManager,
 	refreshWorkspacePrStage,
 }: CreateWsRouterArgs) {
 	const sockets = new Set<ServerWebSocket<ClientState>>();
@@ -277,25 +274,6 @@ export function createWsRouter({
 			};
 		}
 
-		if (topic.type === 'update') {
-			return {
-				type: 'snapshot',
-				id,
-				snapshot: {
-					type: 'update',
-					data: updateManager?.getSnapshot() ?? {
-						currentVersion: 'unknown',
-						latestVersion: null,
-						status: 'idle',
-						updateAvailable: false,
-						lastCheckedAt: null,
-						error: null,
-						installAction: 'restart',
-					},
-				},
-			};
-		}
-
 		return {
 			type: 'snapshot',
 			id,
@@ -403,11 +381,6 @@ export function createWsRouter({
 		void pushSubscribedSnapshot('keybindings');
 	});
 
-	const disposeUpdateEvents =
-		updateManager?.onChange(() => {
-			void pushSubscribedSnapshot('update');
-		}) ?? (() => {});
-
 	agent.setBackgroundErrorReporter?.(broadcastError);
 
 	function requireWorkspace(workspaceId: string) {
@@ -493,27 +466,6 @@ export function createWsRouter({
 				case 'system.openExternal': {
 					await openExternal(command);
 					send(ws, { type: 'ack', id });
-					return;
-				}
-				case 'update.check': {
-					const snapshot = updateManager
-						? await updateManager.checkForUpdates({ force: command.force })
-						: {
-								currentVersion: 'unknown',
-								latestVersion: null,
-								status: 'error' as const,
-								updateAvailable: false,
-								lastCheckedAt: Date.now(),
-								error: 'Update manager unavailable.',
-								installAction: 'restart' as const,
-							};
-					send(ws, { type: 'ack', id, result: snapshot });
-					return;
-				}
-				case 'update.install': {
-					if (!updateManager) throw new Error('Update manager unavailable.');
-					const result = await updateManager.installUpdate();
-					send(ws, { type: 'ack', id, result });
 					return;
 				}
 				case 'settings.readKeybindings': {
@@ -1033,7 +985,6 @@ export function createWsRouter({
 			agent.setBackgroundErrorReporter?.(null);
 			disposeTerminalEvents();
 			disposeKeybindingEvents();
-			disposeUpdateEvents();
 		},
 	};
 }

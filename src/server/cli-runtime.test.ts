@@ -10,21 +10,14 @@ import {
 	runCli,
 } from './cli-runtime';
 import * as processUtils from './process-utils';
-import { CLI_SUPPRESS_OPEN_ONCE_ENV_VAR } from './restart';
 
 const originalRuntimeProfile = process.env.MIKO_RUNTIME_PROFILE;
-const originalSuppressOpen = process.env[CLI_SUPPRESS_OPEN_ONCE_ENV_VAR];
 
 afterEach(() => {
 	if (originalRuntimeProfile === undefined) {
 		delete process.env.MIKO_RUNTIME_PROFILE;
 	} else {
 		process.env.MIKO_RUNTIME_PROFILE = originalRuntimeProfile;
-	}
-	if (originalSuppressOpen === undefined) {
-		delete process.env[CLI_SUPPRESS_OPEN_ONCE_ENV_VAR];
-	} else {
-		process.env[CLI_SUPPRESS_OPEN_ONCE_ENV_VAR] = originalSuppressOpen;
 	}
 });
 
@@ -35,11 +28,6 @@ function createDeps(overrides: Partial<Parameters<typeof runCli>[1]> = {}) {
 			host: string;
 			openBrowser: boolean;
 			strictPort: boolean;
-			update: {
-				version: string;
-				argv: string[];
-				command: string;
-			};
 		}>,
 		fetchLatestVersion: [] as string[],
 		installVersion: [] as Array<{ packageName: string; version: string }>,
@@ -284,17 +272,7 @@ describe('runCli', () => {
 		);
 	});
 
-	test('suppresses browser open for a ui-triggered restarted child', async () => {
-		process.env[CLI_SUPPRESS_OPEN_ONCE_ENV_VAR] = '1';
-		const { calls, deps } = createDeps();
-
-		await runCli(['--port', '4000'], deps);
-
-		expect(calls.openUrl).toEqual([]);
-	});
-
 	test('starts a share tunnel and prints qr/public/local urls', async () => {
-		delete process.env[CLI_SUPPRESS_OPEN_ONCE_ENV_VAR];
 		const { calls, deps } = createDeps();
 
 		const result = await runCli(['--share', '--port', '4000'], deps);

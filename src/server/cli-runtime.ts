@@ -8,9 +8,7 @@ import {
 	PACKAGE_NAME,
 } from '../shared/branding';
 import { PROD_SERVER_PORT } from '../shared/ports';
-import type { UpdateInstallErrorCode } from '../shared/types';
 import { hasCommand, spawnDetached } from './process-utils';
-import { CLI_SUPPRESS_OPEN_ONCE_ENV_VAR } from './restart';
 import {
 	logShareDetails,
 	renderTerminalQr,
@@ -26,14 +24,6 @@ export interface CliOptions {
 	strictPort: boolean;
 }
 
-export interface CliUpdateOptions {
-	version: string;
-	fetchLatestVersion: (packageName: string) => Promise<string>;
-	installVersion: (packageName: string, version: string) => UpdateInstallAttemptResult;
-	argv: string[];
-	command: string;
-}
-
 export interface StartedCli {
 	kind: 'started';
 	stop: () => Promise<void>;
@@ -41,7 +31,7 @@ export interface StartedCli {
 
 export interface RestartingCli {
 	kind: 'restarting';
-	reason: 'startup_update' | 'ui_update';
+	reason: 'startup_update';
 }
 
 export interface ExitedCli {
@@ -56,7 +46,6 @@ export interface CliRuntimeDeps {
 	bunVersion: string;
 	startServer: (
 		options: CliOptions & {
-			update: CliUpdateOptions;
 			onMigrationProgress?: (message: string) => void;
 		},
 	) => Promise<{ port: number; stop: () => Promise<void> }>;
@@ -68,6 +57,8 @@ export interface CliRuntimeDeps {
 	renderShareQr?: (url: string) => Promise<string>;
 	startShareTunnel?: (localUrl: string) => Promise<StartedShareTunnel>;
 }
+
+export type UpdateInstallErrorCode = 'version_not_live_yet' | 'install_failed' | 'command_missing';
 
 export interface UpdateInstallAttemptResult {
 	ok: boolean;
@@ -273,13 +264,6 @@ export async function runCli(argv: string[], deps: CliRuntimeDeps): Promise<CliR
 	const { port, stop } = await deps.startServer({
 		...parsedArgs.options,
 		onMigrationProgress: deps.log,
-		update: {
-			version: deps.version,
-			fetchLatestVersion: deps.fetchLatestVersion,
-			installVersion: deps.installVersion,
-			argv,
-			command: CLI_COMMAND,
-		},
 	});
 
 	const bindHost = parsedArgs.options.host;
@@ -294,7 +278,6 @@ export async function runCli(argv: string[], deps: CliRuntimeDeps): Promise<CliR
 	deps.log(`${LOG_PREFIX} listening on http://${bindHost}:${port}`);
 	deps.log(`${LOG_PREFIX} data dir: ${getDataDirDisplay()}`);
 
-	const suppressOpenBrowser = process.env[CLI_SUPPRESS_OPEN_ONCE_ENV_VAR] === '1';
 	if (parsedArgs.options.share) {
 		try {
 			const shareTunnel = await (
@@ -322,7 +305,7 @@ export async function runCli(argv: string[], deps: CliRuntimeDeps): Promise<CliR
 		}
 	}
 
-	if (parsedArgs.options.openBrowser && !parsedArgs.options.share && !suppressOpenBrowser) {
+	if (parsedArgs.options.openBrowser && !parsedArgs.options.share) {
 		deps.openUrl(launchUrl);
 	}
 

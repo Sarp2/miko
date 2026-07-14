@@ -13,7 +13,6 @@ import type {
 	SessionHistoryPage,
 	SessionSnapshot,
 	SidebarSnapshot,
-	UpdateSnapshot,
 	WorkspaceFileSearchResult,
 	WorkspaceSnapshot,
 	WorkspaceVisibilityState,
@@ -28,7 +27,6 @@ export type EditorOpenSettings =
 export type SubscriptionTopic =
 	| { type: 'sidebar' }
 	| { type: 'directories' }
-	| { type: 'update' }
 	| { type: 'keybindings' }
 	| { type: 'workspace'; workspaceId: string }
 	| { type: 'session'; sessionId: string; recentLimit?: number }
@@ -107,8 +105,6 @@ export type ClientCommand =
 	| { type: 'workspace.reviewChanges'; workspaceId: string }
 	| { type: 'workspace.updateScratchpad'; workspaceId: string; content: string }
 	| { type: 'system.ping' }
-	| { type: 'update.check'; force?: boolean }
-	| { type: 'update.install' }
 	| { type: 'settings.readKeybindings' }
 	| { type: 'settings.writeKeybindings'; bindings: KeybindingsSnapshot['bindings'] }
 	| {
@@ -161,7 +157,6 @@ export type ClientEnvelope =
 export type ServerSnapshot =
 	| { type: 'sidebar'; data: SidebarSnapshot }
 	| { type: 'directories'; data: DirectoryListSnapshot }
-	| { type: 'update'; data: UpdateSnapshot }
 	| { type: 'keybindings'; data: KeybindingsSnapshot }
 	| { type: 'workspace'; data: WorkspaceSnapshot | null }
 	| { type: 'session'; data: SessionSnapshot | null }

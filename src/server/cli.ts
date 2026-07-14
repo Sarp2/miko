@@ -1,7 +1,6 @@
 import process from 'node:process';
-import { LOG_PREFIX } from '../shared/branding';
 import { fetchLatestPackageVersion, installPackageVersion, openUrl, runCli } from './cli-runtime';
-import { CLI_STARTUP_UPDATE_RESTART_EXIT_CODE, CLI_UI_UPDATE_RESTART_EXIT_CODE } from './restart';
+import { CLI_STARTUP_UPDATE_RESTART_EXIT_CODE } from './restart';
 import { startServer } from './server';
 
 // Read version from package.json at the package root.
@@ -9,22 +8,6 @@ const pkg = await Bun.file(new URL('../../package.json', import.meta.url)).json(
 const VERSION: string = pkg.version ?? '0.0.0';
 
 const argv = process.argv.slice(2);
-let resolveExitAction: ((action: 'ui_restart' | 'exit') => void) | null = null;
-let pendingExitAction: 'ui_restart' | 'exit' | null = null;
-
-function triggerExitAction(action: 'ui_restart' | 'exit') {
-	if (resolveExitAction) {
-		const resolve = resolveExitAction;
-		resolveExitAction = null;
-		resolve(action);
-		return;
-	}
-
-	// Buffer early actions until the exit promise is armed.
-	if (pendingExitAction === null || action === 'ui_restart') {
-		pendingExitAction = action;
-	}
-}
 
 const result = await runCli(argv, {
 	version: VERSION,
@@ -35,22 +18,7 @@ const result = await runCli(argv, {
 			host: options.host,
 			strictPort: options.strictPort,
 			onMigrationProgress: options.onMigrationProgress,
-			update: options.update,
 		});
-
-		const maybeUpdateManager = started as {
-			updateManager?: {
-				onChange: (listener: (snapshot: { status: string }) => void) => void;
-			};
-		};
-
-		if (maybeUpdateManager.updateManager && options.update) {
-			maybeUpdateManager.updateManager.onChange((snapshot) => {
-				if (snapshot.status !== 'restart_pending') return;
-				console.log(`${LOG_PREFIX} update installed, shutting down current process for restart`);
-				triggerExitAction('ui_restart');
-			});
-		}
 
 		return {
 			port: started.port,
@@ -69,34 +37,13 @@ if (result.kind === 'exited') {
 }
 
 if (result.kind === 'restarting') {
-	process.exit(
-		result.reason === 'startup_update'
-			? CLI_STARTUP_UPDATE_RESTART_EXIT_CODE
-			: CLI_UI_UPDATE_RESTART_EXIT_CODE,
-	);
+	process.exit(CLI_STARTUP_UPDATE_RESTART_EXIT_CODE);
 }
 
-const exitAction = await new Promise<'ui_restart' | 'exit'>((resolve) => {
-	resolveExitAction = resolve;
-
-	if (pendingExitAction) {
-		const action = pendingExitAction;
-		pendingExitAction = null;
-		triggerExitAction(action);
-		return;
-	}
-
-	const shutdown = () => {
-		triggerExitAction('exit');
-	};
-
-	process.once('SIGINT', shutdown);
-	process.once('SIGTERM', shutdown);
+await new Promise<void>((resolve) => {
+	process.once('SIGINT', () => resolve());
+	process.once('SIGTERM', () => resolve());
 });
 
 await result.stop();
-if (exitAction === 'ui_restart') {
-	console.log(`${LOG_PREFIX} current process stopped, handing restart back to supervisor`);
-}
-
-process.exit(exitAction === 'ui_restart' ? CLI_UI_UPDATE_RESTART_EXIT_CODE : 0);
+process.exit(0);
