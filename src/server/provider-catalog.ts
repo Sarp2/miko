@@ -1,6 +1,5 @@
 import {
 	type AgentProvider,
-	type ClaudeContextWindow,
 	type ClaudeModelOptions,
 	type CodexModelOptions,
 	DEFAULT_CLAUDE_MODEL_OPTIONS,
@@ -11,27 +10,13 @@ import {
 	normalizeClaudeContextWindow,
 	PROVIDERS,
 	type ProviderCatalogEntry,
-	type ProviderModelOption,
 	type ServiceTier,
 } from 'src/shared/types';
 
-const HARD_CODED_CODEX_MODELS: ProviderModelOption[] = [
-	{ id: 'gpt-5.6-sol', label: 'GPT-5.6 Sol', supportsEffort: false, badge: 'NEW' },
-	{ id: 'gpt-5.6-terra', label: 'GPT-5.6 Terra', supportsEffort: false, badge: 'NEW' },
-	{ id: 'gpt-5.6-luna', label: 'GPT-5.6 Luna', supportsEffort: false, badge: 'NEW' },
-	{ id: 'gpt-5.5', label: 'GPT-5.5', supportsEffort: false },
-	{ id: 'gpt-5.4', label: 'GPT-5.4', supportsEffort: false },
-];
-
-export const SERVER_PROVIDERS: ProviderCatalogEntry[] = PROVIDERS.map((provider) =>
-	provider.id === 'codex'
-		? {
-				...provider,
-				defaultModel: 'gpt-5.6-sol',
-				models: HARD_CODED_CODEX_MODELS,
-			}
-		: provider,
-);
+// The server exposes the shared catalog as-is. If the server ever needs to
+// diverge from what the client bundle ships (e.g. a server-only beta model),
+// reintroduce a mapped override here — do not fork the model list by hand.
+export const SERVER_PROVIDERS: ProviderCatalogEntry[] = PROVIDERS;
 
 export function getServerProviderCatalog(provider: AgentProvider): ProviderCatalogEntry {
 	const entry = SERVER_PROVIDERS.find((candidate) => candidate.id === provider);
@@ -61,10 +46,7 @@ export function normalizeClaudeModelOptions(
 			: isClaudeReasoningEffort(legacyEffort)
 				? legacyEffort
 				: DEFAULT_CLAUDE_MODEL_OPTIONS.reasoningEffort,
-		contextWindow: normalizeClaudeContextWindow(
-			model,
-			modelOptions?.claude?.contextWindow as ClaudeContextWindow | undefined,
-		),
+		contextWindow: normalizeClaudeContextWindow(model, modelOptions?.claude?.contextWindow),
 	};
 }
 
