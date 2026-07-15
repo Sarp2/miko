@@ -41,6 +41,20 @@ describe('normalizeToolCall', () => {
 		expect(tool.input.runInBackground).toBe(true);
 	});
 
+	test('maps Grep input to grep tool kind', () => {
+		const tool = normalizeToolCall({
+			toolName: 'Grep',
+			toolId: 'tool-grep',
+			input: { pattern: 'foo.*bar', output_mode: 'content' },
+		});
+
+		expect(tool.toolKind).toBe('grep');
+		if (tool.toolKind !== 'grep') throw new Error('unexpected tool kind');
+
+		expect(tool.input.pattern).toBe('foo.*bar');
+		expect(tool.input.outputMode).toBe('content');
+	});
+
 	test('maps unknown MCP tools to mcp_generic', () => {
 		const tool = normalizeToolCall({
 			toolName: 'mcp__sentry__search_issues',

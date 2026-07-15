@@ -19,12 +19,6 @@ export type PromptPart =
 	| { type: 'attachment'; attachmentId: string }
 	| { type: 'pasted_text'; id: string; text: string };
 
-export interface InternalUserAttachmentsData {
-	userText: string;
-	attachments: ChatAttachment[];
-	llmHintText: string;
-}
-
 export interface ProviderModelOption {
 	id: string;
 	label: string;
@@ -170,7 +164,7 @@ export const PROVIDERS: ProviderCatalogEntry[] = [
 	},
 ];
 
-export function getProviderCatalog(provider: AgentProvider): ProviderCatalogEntry {
+function getProviderCatalog(provider: AgentProvider): ProviderCatalogEntry {
 	const entry = PROVIDERS.find((candidate) => candidate.id === provider);
 	if (!entry) {
 		throw new Error(`Unknown provider: ${provider}`);
@@ -178,11 +172,11 @@ export function getProviderCatalog(provider: AgentProvider): ProviderCatalogEntr
 	return entry;
 }
 
-export function getClaudeModelOption(modelId: string): ProviderModelOption | undefined {
+function getClaudeModelOption(modelId: string): ProviderModelOption | undefined {
 	return getProviderCatalog('claude').models.find((candidate) => candidate.id === modelId);
 }
 
-export function getClaudeContextWindowOptions(
+function getClaudeContextWindowOptions(
 	modelId: string,
 ): readonly ProviderContextWindowOption[] {
 	return getClaudeModelOption(modelId)?.contextWindowOptions ?? [];
@@ -198,17 +192,6 @@ export function normalizeClaudeContextWindow(
 	return options.some((option) => option.id === contextWindow)
 		? (contextWindow as ClaudeContextWindow)
 		: DEFAULT_CLAUDE_MODEL_OPTIONS.contextWindow;
-}
-
-export function resolveClaudeContextWindowTokens(contextWindow: ClaudeContextWindow): number {
-	switch (contextWindow) {
-		case '1m':
-			return 1_000_000;
-		case '200k':
-			return 200_000;
-		default:
-			return 200_000;
-	}
 }
 
 export type MikoStatus = 'idle' | 'starting' | 'running' | 'waiting_for_user' | 'failed';
@@ -647,34 +630,6 @@ export interface WorkspaceBranchHistorySnapshot {
 	entries: WorkspaceBranchHistoryEntry[];
 }
 
-export type WorkspaceBranchListEntryKind = 'local' | 'remote' | 'pull_request';
-
-export interface WorkspaceBranchListEntry {
-	id: string;
-	kind: WorkspaceBranchListEntryKind;
-	name: string;
-	displayName: string;
-	updatedAt?: string;
-	description?: string;
-	prNumber?: number;
-	prTitle: string;
-	headRefName?: string;
-	headLabel?: string;
-	headRepoCloneUrl?: string;
-	isCrossRepository?: boolean;
-}
-
-export interface WorkspaceBranchListResult {
-	currentBranchName?: string;
-	defaultBranchName?: string;
-	recent: WorkspaceBranchListEntry[];
-	local: WorkspaceBranchListEntry[];
-	remote: WorkspaceBranchListEntry[];
-	pullRequests: WorkspaceBranchListEntry[];
-	pullRequestsStatus: 'available' | 'unavailable' | 'error';
-	pullRequestsError?: string;
-}
-
 export interface GithubPublishInfo {
 	ghInstalled: boolean;
 	authenticated: boolean;
@@ -794,55 +749,6 @@ export interface BranchActionFailure {
 	cancelled?: boolean;
 	snapshotChanged?: boolean;
 }
-
-export type WorkspaceSyncSuccess = BranchActionSuccess & {
-	action: 'fetch' | 'pull' | 'push' | 'publish';
-	aheadCount?: number;
-	behindCount?: number;
-};
-
-export type WorkspaceSyncFailure = BranchActionFailure & {
-	action: 'fetch' | 'pull' | 'push' | 'publish';
-};
-
-export type WorkspaceSyncResult = WorkspaceSyncSuccess | WorkspaceSyncFailure;
-
-export type DiffCommitMode = 'commit_and_push' | 'commit_only';
-
-export type WorkspaceCheckoutBranchSuccess = BranchActionSuccess;
-export type WorkspaceCheckoutBranchFailure = BranchActionFailure;
-export type WorkspaceCheckoutBranchResult =
-	| WorkspaceCheckoutBranchSuccess
-	| WorkspaceCheckoutBranchFailure;
-export type WorkspaceCreateBranchSuccess = BranchActionSuccess & { branchName: string };
-export type WorkspaceCreateBranchFailure = BranchActionFailure;
-export type WorkspaceCreateBranchResult =
-	| WorkspaceCreateBranchSuccess
-	| WorkspaceCreateBranchFailure;
-export type WorkspaceMergePreviewStatus = 'up_to_date' | 'mergeable' | 'conflicts' | 'error';
-
-export interface WorkspaceMergePreviewResult {
-	currentBranchName?: string;
-	targetBranchName: string;
-	targetDisplayName: string;
-	status: WorkspaceMergePreviewStatus;
-	commitCount: number;
-	hasConflicts: boolean;
-	message: string;
-	detail?: string;
-}
-export type WorkspaceMergeBranchSuccess = BranchActionSuccess;
-export type WorkspaceMergeBranchFailure = BranchActionFailure;
-export type WorkspaceMergeBranchResult = WorkspaceMergeBranchSuccess | WorkspaceMergeBranchFailure;
-export type DiffCommitSuccess = BranchActionSuccess & { mode: DiffCommitMode; pushed: boolean };
-
-export type DiffCommitFailure = BranchActionFailure & {
-	mode: DiffCommitMode;
-	phase: 'commit' | 'push';
-	localCommitCreated?: boolean;
-};
-
-export type DiffCommitResult = DiffCommitSuccess | DiffCommitFailure;
 
 export interface ContextWindowUpdatedEntry extends TranscriptEntryBase {
 	kind: 'context_window_updated';
@@ -1164,11 +1070,6 @@ export interface SessionHistoryPage {
 	messages: TranscriptEntry[];
 	hasOlder: boolean;
 	olderCursor: string | null;
-}
-
-export interface WorkspaceAppSnapshot {
-	sidebar: SidebarSnapshot;
-	session?: SessionSnapshot | null;
 }
 
 export type PendingToolSnapshot =

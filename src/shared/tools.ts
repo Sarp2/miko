@@ -79,6 +79,18 @@ export function normalizeToolCall(args: {
 				},
 				rawInput: input,
 			};
+		case 'Grep':
+			return {
+				kind: 'tool',
+				toolKind: 'grep',
+				toolName,
+				toolId,
+				input: {
+					pattern: typeof input.pattern === 'string' ? input.pattern : '',
+					outputMode: typeof input.output_mode === 'string' ? input.output_mode : undefined,
+				},
+				rawInput: input,
+			};
 		case 'Bash':
 			return {
 				kind: 'tool',

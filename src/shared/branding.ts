@@ -21,7 +21,7 @@ function getRuntimeEnv(): RuntimeEnv {
 			env?: Record<string, string | undefined>;
 		};
 	};
-	return candidate.process.env;
+	return candidate.process?.env;
 }
 
 export function getRuntimeProfile(env: RuntimeEnv = getRuntimeEnv()): RuntimeProfile {
