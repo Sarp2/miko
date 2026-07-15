@@ -32,3 +32,9 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # Finder (MacOS) folder config
 .DS_Store
+
+# Confable memory (team mode: shared NOTES.md is committed, the rest is local)
+.claude/memory/*
+!.claude/memory/NOTES.md
+.claude/backups/
+.claude/settings.local.json
