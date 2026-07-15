@@ -1,4 +1,4 @@
-import { mkdir, stat } from 'node:fs/promises';
+import { stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { getDataDir } from '../shared/branding';
@@ -34,16 +34,6 @@ export async function requireExistingDirectoryPath(localPath: string) {
 	}
 
 	return resolvedPath;
-}
-
-export async function ensureDirectoryPath(localPath: string) {
-	const resolvedPath = resolveLocalPath(localPath);
-	await mkdir(resolvedPath, { recursive: true });
-
-	const info = await stat(resolvedPath);
-	if (!info.isDirectory()) {
-		throw new Error('Directory path must be a directory');
-	}
 }
 
 export function getWorkspaceUploadDir(workspaceId: string, dataDir = getDataDir(homedir())) {
