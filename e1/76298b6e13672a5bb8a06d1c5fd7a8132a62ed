@@ -1,0 +1,33 @@
+.gitignore
+  s_dac134782ba053::t_7c39a8f7629555 35-39
+  s_1ee488e69a23b0::t_1a9b5b6938973f 40
+.claude/memory/NOTES.md
+  s_dac134782ba053::t_97a5e126244d66 1-5
+  s_1ee488e69a23b0::t_9e8992795d6950 6-12
+CLAUDE.md
+  s_dac134782ba053::t_3901040440e98e 1-18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "e176298b6e13672a5bb8a06d1c5fd7a8132a62ed",
+  "prompts": {},
+  "sessions": {
+    "s_1ee488e69a23b0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d70dee7a-3a5c-4ab1-a05f-d28d69e6b583",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    },
+    "s_dac134782ba053": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "354c115b-cae7-480d-a5aa-43cb4e695414",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
