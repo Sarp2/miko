@@ -1,0 +1,27 @@
+src/shared/types.ts
+  s_1ee488e69a23b0::t_61f6c50b5c2b53 179
+  s_1ee488e69a23b0::t_186315d7249d6d 167
+  s_1ee488e69a23b0::t_14108fd7f0ef60 175
+src/shared/branding.ts
+  s_1ee488e69a23b0::t_19cb14d4bd2937 24
+src/shared/tools.test.ts
+  s_1ee488e69a23b0::t_1baa791d688475 44-57
+src/shared/tools.ts
+  s_1ee488e69a23b0::t_654e79b87ca627 82-93
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "e2ee33604510f702c1565d250b993b43a39d8660",
+  "prompts": {},
+  "sessions": {
+    "s_1ee488e69a23b0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d70dee7a-3a5c-4ab1-a05f-d28d69e6b583",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
