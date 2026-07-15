@@ -1,19 +1,13 @@
 import type {
 	AgentProvider,
-	BranchActionFailure,
-	BranchActionSuccess,
 	ChatAttachment,
 	DirectoryListSnapshot,
-	GitHubRepoAvailabilityResult,
-	GithubPublishInfo,
 	KeybindingsSnapshot,
 	ModelOptions,
 	PromptPart,
 	ScratchpadSnapshot,
-	SessionHistoryPage,
 	SessionSnapshot,
 	SidebarSnapshot,
-	WorkspaceFileSearchResult,
 	WorkspaceSnapshot,
 	WorkspaceVisibilityState,
 } from './types';
@@ -50,8 +44,6 @@ export interface TerminalSnapshot {
 export type TerminalEvent =
 	| { type: 'terminal.output'; terminalId: string; data: string }
 	| { type: 'terminal.exit'; terminalId: string; exitCode: number; signal?: number };
-
-export type DirectoryOnboardingResult = BranchActionSuccess | BranchActionFailure;
 
 export type ClientCommand =
 	| {
@@ -169,13 +161,12 @@ export type ServerEnvelope =
 	| {
 			type: 'ack';
 			id: string;
-			result?:
-				| unknown
-				| SessionHistoryPage
-				| DirectoryOnboardingResult
-				| GithubPublishInfo
-				| GitHubRepoAvailabilityResult
-				| WorkspaceFileSearchResult[];
+			/**
+			 * Command results are untyped on the wire; each client call site casts to the
+			 * result type it expects for its command (e.g. session.loadHistory →
+			 * SessionHistoryPage). A typed command→result map is a planned protocol change.
+			 */
+			result?: unknown;
 	  }
 	| { type: 'error'; id?: string; message: string };
 
