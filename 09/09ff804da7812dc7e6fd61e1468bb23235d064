@@ -1,0 +1,28 @@
+src/server/process-utils.test.ts
+  s_1ee488e69a23b0::t_e4884f2e4217e5 5,61-68
+  s_1ee488e69a23b0::t_c45d3dd5e85c10 69-70
+src/server/diff-store.ts
+  s_1ee488e69a23b0::t_09b60c043079ec 19
+src/server/pr-manager.ts
+  s_1ee488e69a23b0::t_b76d4d330bf589 15
+src/server/process-utils.ts
+  s_1ee488e69a23b0::t_db7afbb2b5d393 14-28
+src/server/github-rest-client.ts
+  s_1ee488e69a23b0::t_547ffd4d4d149d 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "0909ff804da7812dc7e6fd61e1468bb23235d064",
+  "prompts": {},
+  "sessions": {
+    "s_1ee488e69a23b0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d70dee7a-3a5c-4ab1-a05f-d28d69e6b583",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
