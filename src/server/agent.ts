@@ -1615,14 +1615,13 @@ export class AgentCoordinator {
 		let streamFailed = false;
 		try {
 			for await (const event of session.session.stream) {
-				if (event.type === 'session_token' && event.sessionToken) {
+				if (event.type === 'session_token') {
 					session.sessionToken = event.sessionToken;
 					await this.store.setSessionToken(session.sessionId, event.sessionToken);
 					this.onStateChange();
 					continue;
 				}
 
-				if (!event.entry) continue;
 				await this.store.appendMessage(session.sessionId, event.entry);
 
 				const active = this.activeTurns.get(session.sessionId);
@@ -1736,13 +1735,12 @@ export class AgentCoordinator {
 				// cancel() already removed us from activeTurns and notified the UI.
 				if (active.cancelRequested) break;
 
-				if (event.type === 'session_token' && event.sessionToken) {
+				if (event.type === 'session_token') {
 					await this.store.setSessionToken(active.sessionId, event.sessionToken);
 					this.onStateChange();
 					continue;
 				}
 
-				if (!event.entry) continue;
 				await this.store.appendMessage(active.sessionId, event.entry);
 
 				if (event.entry.kind === 'system_init') {

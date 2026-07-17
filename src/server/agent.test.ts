@@ -376,13 +376,13 @@ describe('createClaudeHarnessStream', () => {
 		);
 
 		const usage = events.find(
-			(e) => e.type === 'transcript' && e.entry?.kind === 'context_window_updated',
+			(e) => e.type === 'transcript' && e.entry.kind === 'context_window_updated',
 		);
-		expect(usage?.entry?.kind).toBe('context_window_updated');
-		if (usage?.entry?.kind === 'context_window_updated') {
-			expect(usage.entry.usage.maxTokens).toBe(200000);
-			expect(usage.entry.usage.usedTokens).toBe(30);
+		if (usage?.type !== 'transcript' || usage.entry.kind !== 'context_window_updated') {
+			throw new Error('expected a context_window_updated transcript event');
 		}
+		expect(usage.entry.usage.maxTokens).toBe(200000);
+		expect(usage.entry.usage.usedTokens).toBe(30);
 	});
 });
 

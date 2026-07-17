@@ -1003,7 +1003,7 @@ export class CodexAppServerManager {
 			});
 
 			for await (const event of turn.stream) {
-				if (event.type !== 'transcript' || !event.entry) continue;
+				if (event.type !== 'transcript') continue;
 				if (event.entry.kind === 'assistant_text') {
 					assistantText += assistantText ? `\n${event.entry.text}` : event.entry.text;
 				}

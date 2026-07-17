@@ -5,11 +5,9 @@ import type {
 	TranscriptEntry,
 } from '../shared/types';
 
-export interface HarnessEvent {
-	type: 'transcript' | 'session_token';
-	entry?: TranscriptEntry;
-	sessionToken?: string;
-}
+export type HarnessEvent =
+	| { type: 'transcript'; entry: TranscriptEntry }
+	| { type: 'session_token'; sessionToken: string };
 
 export interface HarnessToolRequest {
 	tool: NormalizedToolCall & { toolKind: 'ask_user_question' | 'exit_plan_mode' };
