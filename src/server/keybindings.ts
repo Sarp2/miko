@@ -179,15 +179,9 @@ function createDefaultSnapshot(
 	warning: string | null = null,
 ): KeybindingsSnapshot {
 	return {
-		bindings: {
-			toggleLeftSidebar: [...DEFAULT_KEYBINDINGS.toggleLeftSidebar],
-			toggleEmbeddedTerminal: [...DEFAULT_KEYBINDINGS.toggleEmbeddedTerminal],
-			toggleRightSidebar: [...DEFAULT_KEYBINDINGS.toggleRightSidebar],
-			addSplitTerminal: [...DEFAULT_KEYBINDINGS.addSplitTerminal],
-			createSessionInCurrentWorkspace: [...DEFAULT_KEYBINDINGS.createSessionInCurrentWorkspace],
-			createWorkspaceInCurrentDirectory: [...DEFAULT_KEYBINDINGS.createWorkspaceInCurrentDirectory],
-			switchToNextWorkspace: [...DEFAULT_KEYBINDINGS.switchToNextWorkspace],
-		},
+		bindings: Object.fromEntries(
+			KEYBINDING_ACTIONS.map((action) => [action, [...DEFAULT_KEYBINDINGS[action]]]),
+		) as Record<KeybindingAction, string[]>,
 		warning,
 		filePathDisplay: formatDisplayPath(filePath),
 	};
