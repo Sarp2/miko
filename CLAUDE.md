@@ -18,6 +18,10 @@ durable facts there, not in NOTES.md, unless they must be always-loaded.
 - On finishing a task or before /compact → update the session file and
   this stream's line in INDEX.md.
 
+**Resume:** at session start and right after any compaction, read
+`.claude/memory/sessions/<current-branch>.md` (if it exists) before
+continuing work — the dead ends recorded there are not in your context.
+
 **Context watch:** every turn, estimate your context usage. Past ~200K
 tokens: checkpoint to memory NOW, then tell the user: "Context ~200K —
 everything is saved to disk, run /compact." If usage is already past 200K
