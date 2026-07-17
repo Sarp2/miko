@@ -13,7 +13,7 @@ import {
 	type GitHubRestResult,
 } from './github-rest-client';
 import { runCommand } from './process-utils';
-import { inferWorkspaceFileContentType } from './uploads';
+import { inferAttachmentContentType } from './uploads';
 
 type GhResult = Awaited<ReturnType<typeof runCommand>>;
 
@@ -373,7 +373,7 @@ function mapPrFiles(files: GitHubPullRequestFile[] | undefined): WorkspaceDiffFi
 				mimeType:
 					normalizePrFileStatus(file.status) === 'deleted'
 						? undefined
-						: inferWorkspaceFileContentType(filePath),
+						: inferAttachmentContentType(filePath),
 			} satisfies WorkspaceDiffFile;
 		})
 		.sort((left, right) => left.path.localeCompare(right.path));

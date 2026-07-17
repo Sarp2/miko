@@ -22,7 +22,6 @@ import { TerminalManager } from './terminal-manager';
 import {
 	deleteWorkspaceUpload,
 	inferAttachmentContentType,
-	inferWorkspaceFileContentType,
 	persistWorkspaceUpload,
 } from './uploads';
 import { WorkspaceManager } from './workspace-manager';
@@ -621,7 +620,7 @@ export async function handleWorkspaceFileContent(req: Request, url: URL, store: 
 	const file = Bun.file(targetRealPath);
 	return new Response(file, {
 		headers: {
-			'Content-Type': inferWorkspaceFileContentType(targetRealPath, file.type),
+			'Content-Type': inferAttachmentContentType(targetRealPath, file.type),
 			'Content-Disposition': 'inline',
 			'X-Content-Type-Options': 'nosniff',
 		},
@@ -664,7 +663,7 @@ export async function handleExternalFileContent(req: Request, url: URL) {
 	}
 
 	const file = Bun.file(targetRealPath);
-	const inferredContentType = inferWorkspaceFileContentType(targetRealPath, file.type);
+	const inferredContentType = inferAttachmentContentType(targetRealPath, file.type);
 	const contentType =
 		inferredContentType.toLowerCase() === 'image/svg+xml'
 			? 'text/plain; charset=utf-8'

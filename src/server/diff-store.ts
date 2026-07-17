@@ -17,7 +17,7 @@ import type {
 } from '../shared/types';
 import { registerExternalFileAccess } from './external-file-access';
 import { runCommand } from './process-utils';
-import { inferWorkspaceFileContentType } from './uploads';
+import { inferAttachmentContentType } from './uploads';
 
 interface StoredWorkspaceGitState extends BranchMetadata, UpstreamStatus {
 	status: WorkspaceGitSnapshot['status'];
@@ -733,7 +733,7 @@ async function previewFileAtPath(args: {
 		throw new Error(`File is too large to preview: ${args.displayPath}`);
 	}
 
-	let mimeType = inferWorkspaceFileContentType(args.filePath);
+	let mimeType = inferAttachmentContentType(args.filePath);
 	const metadataDigest = hashFileMetadata(args.displayPath, info.size, info.mtimeMs);
 
 	if (args.contentUrl && isPreviewableImageMimeType(mimeType)) {
@@ -884,7 +884,7 @@ async function diffFileFromEntry(
 		additions,
 		deletions,
 		patchDigest: hashPatch(patch),
-		mimeType: exists ? inferWorkspaceFileContentType(entry.path) : undefined,
+		mimeType: exists ? inferAttachmentContentType(entry.path) : undefined,
 		size,
 	};
 }

@@ -161,10 +161,6 @@ export function inferAttachmentContentType(fileName: string, fallbackType?: stri
 	return fallbackType || DEFAULT_BINARY_MIME_TYPE;
 }
 
-export function inferWorkspaceFileContentType(fileName: string, fallbackType?: string): string {
-	return inferAttachmentContentType(fileName, fallbackType);
-}
-
 export async function deleteWorkspaceUpload(args: {
 	workspaceId: string;
 	dataDir?: string;
