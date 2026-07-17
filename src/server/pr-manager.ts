@@ -5,7 +5,6 @@ import type {
 	WorkspaceDiffFile,
 	WorkspaceGitHubSnapshot,
 } from 'src/shared/types';
-import { runCommand } from './diff-store';
 import type { WorkspaceRecord } from './event';
 import type { EventStore } from './event-store';
 import {
@@ -13,6 +12,7 @@ import {
 	GitHubRestClient,
 	type GitHubRestResult,
 } from './github-rest-client';
+import { runCommand } from './process-utils';
 import { inferWorkspaceFileContentType } from './uploads';
 
 type GhResult = Awaited<ReturnType<typeof runCommand>>;

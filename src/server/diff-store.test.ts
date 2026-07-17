@@ -22,7 +22,6 @@ import {
 	readPatchForEntry,
 	resolveDefaultBranchName,
 	resolveRepo,
-	runCommand,
 	runGit,
 	sanitizeRepoName,
 	snapshotsEqual,
@@ -187,16 +186,6 @@ describe('runGit', () => {
 		expect(result.exitCode).toBe(0);
 		expect(result.stderr).toBe('');
 		expect(result.stdout.trim()).toBe(resolvedRepoRoot);
-	});
-});
-
-describe('runCommand', () => {
-	test('runs a regular command and returns stdout and exit code', async () => {
-		const result = await runCommand(['git', '--version']);
-
-		expect(result.exitCode).toBe(0);
-		expect(result.stderr).toBe('');
-		expect(result.stdout).toContain('git version');
 	});
 });
 

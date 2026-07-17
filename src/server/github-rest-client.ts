@@ -1,4 +1,4 @@
-import { runCommand } from './diff-store';
+import { runCommand } from './process-utils';
 
 export type GitHubRestResult<T> = { status: 'ok'; data: T } | { status: 'not_modified' };
 

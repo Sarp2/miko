@@ -11,6 +11,21 @@ export function spawnDetached(command: string, args: string[]) {
 	child.unref();
 }
 
+export async function runCommand(args: string[]) {
+	const process = Bun.spawn(args, {
+		stdout: 'pipe',
+		stderr: 'pipe',
+	});
+
+	const [stdout, stderr, exitCode] = await Promise.all([
+		new Response(process.stdout).text(),
+		new Response(process.stderr).text(),
+		process.exited,
+	]);
+
+	return { stdout, stderr, exitCode };
+}
+
 export function hasCommand(command: string) {
 	const result = spawnSync('sh', ['-lc', 'command -v "$1"', 'sh', command], { stdio: 'ignore' });
 	return result.status === 0;

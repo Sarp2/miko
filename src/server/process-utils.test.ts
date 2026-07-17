@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { canOpenMacApp, hasCommand, spawnDetached } from './process-utils';
+import { canOpenMacApp, hasCommand, runCommand, spawnDetached } from './process-utils';
 
 describe('spawnDetached', () => {
 	test('runs the command with args', async () => {
@@ -56,5 +56,15 @@ describe.skipIf(process.platform !== 'darwin')('canOpenMacApp', () => {
 
 	test('returns false for a missing app', () => {
 		expect(canOpenMacApp('DefinitelyNotARealAppXyz')).toBe(false);
+	});
+});
+
+describe('runCommand', () => {
+	test('runs a regular command and returns stdout and exit code', async () => {
+		const result = await runCommand(['git', '--version']);
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stderr).toBe('');
+		expect(result.stdout).toContain('git version');
 	});
 });

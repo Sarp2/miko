@@ -16,6 +16,7 @@ import type {
 	WorkspaceGitSnapshot,
 } from '../shared/types';
 import { registerExternalFileAccess } from './external-file-access';
+import { runCommand } from './process-utils';
 import { inferWorkspaceFileContentType } from './uploads';
 
 interface StoredWorkspaceGitState extends BranchMetadata, UpstreamStatus {
@@ -185,21 +186,6 @@ async function fileExists(filePath: string) {
 
 export async function runGit(args: string[], cwd: string) {
 	const process = Bun.spawn(['git', '-C', cwd, ...args], {
-		stdout: 'pipe',
-		stderr: 'pipe',
-	});
-
-	const [stdout, stderr, exitCode] = await Promise.all([
-		new Response(process.stdout).text(),
-		new Response(process.stderr).text(),
-		process.exited,
-	]);
-
-	return { stdout, stderr, exitCode };
-}
-
-export async function runCommand(args: string[]) {
-	const process = Bun.spawn(args, {
 		stdout: 'pipe',
 		stderr: 'pipe',
 	});
