@@ -164,23 +164,3 @@ describe('QuickResponseAdapter.generateStructuredWithDiagnostics', () => {
 		]);
 	});
 });
-
-describe('QuickResponseAdapter.generateStructured', () => {
-	test('returns just the parsed value, dropping diagnostics', async () => {
-		const adapter = new QuickResponseAdapter({
-			runClaudeStructured: async () => ({ title: 'plain' }),
-			runCodexStructured: async () => null,
-		});
-
-		expect(await adapter.generateStructured(titleArgs())).toBe('plain');
-	});
-
-	test('returns null when both providers fail', async () => {
-		const adapter = new QuickResponseAdapter({
-			runClaudeStructured: async () => null,
-			runCodexStructured: async () => null,
-		});
-
-		expect(await adapter.generateStructured(titleArgs())).toBeNull();
-	});
-});

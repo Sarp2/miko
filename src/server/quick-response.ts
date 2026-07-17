@@ -174,11 +174,6 @@ export class QuickResponseAdapter {
 			((structuredArgs) => runCodexStructured(this.codexManager, structuredArgs));
 	}
 
-	async generateStructured<T>(args: StructuredQuickResponseArgs<T>): Promise<T | null> {
-		const result = await this.generateStructuredWithDiagnostics(args);
-		return result.value;
-	}
-
 	async generateStructuredWithDiagnostics<T>(
 		args: StructuredQuickResponseArgs<T>,
 	): Promise<StructuredQuickResponseResult<T>> {

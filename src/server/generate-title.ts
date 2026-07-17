@@ -36,14 +36,6 @@ function summarizeFailures(failures: Array<{ provider: 'claude' | 'codex'; reaso
 	return failures.map((failure) => failure.reason).join('; ');
 }
 
-export async function generateTitleForSession(
-	messageContent: string,
-	adapter = new QuickResponseAdapter(),
-): Promise<string | null> {
-	const result = await generateTitleForSessionDetailed(messageContent, adapter);
-	return result.title;
-}
-
 export async function generateTitleForSessionDetailed(
 	messageContent: string,
 	adapter = new QuickResponseAdapter(),

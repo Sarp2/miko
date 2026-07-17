@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import {
 	fallbackTitleFromMessage,
-	generateTitleForSession,
 	generateTitleForSessionDetailed,
 } from './generate-title';
 import { QuickResponseAdapter } from './quick-response';
@@ -72,16 +71,5 @@ describe('generateTitleForSessionDetailed', () => {
 		expect(result.usedFallback).toBe(true);
 		expect(result.failureMessage).toContain('claude');
 		expect(result.failureMessage).toContain('codex');
-	});
-});
-
-describe('generateTitleForSession', () => {
-	test('unwraps the title from the detailed result', async () => {
-		const adapter = new QuickResponseAdapter({
-			runClaudeStructured: async () => ({ title: 'Picked Title' }),
-			runCodexStructured: async () => null,
-		});
-
-		expect(await generateTitleForSession('hello', adapter)).toBe('Picked Title');
 	});
 });
