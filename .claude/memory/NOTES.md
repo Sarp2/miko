@@ -12,3 +12,4 @@
 - Perf watchlist: event-store deep-clones transcript on reads; snapshots rewrite full file
 - src/server/uploads.ts contentUrl shape (/api/workspaces/:id/uploads/:name/content) is parsed by client chat-composer-utils.ts to recover storedName for deletion — changing the URL shape silently breaks upload delete
 - src/server/uploads.ts maps .svg to text/plain on purpose (stored-XSS guard: inline image/svg+xml can execute scripts) — don't "fix" it
+- scratchpad file layout (dataDir/scratchpads/{id}.md) is duplicated in scratchpad-manager.ts and event-store.ts:~667 (removal path) — change one, orphan the other
