@@ -1319,13 +1319,22 @@ export class EventStore {
 	}
 
 	getMessages(sessionId: string) {
+		return cloneTranscriptEntries(this.readEntries(sessionId));
+	}
+
+	/**
+	 * Internal no-clone read of the session transcript (loading the cache on miss).
+	 * Callers must not mutate or leak the returned array — public readers clone
+	 * (getMessages clones everything; pagination clones only the returned page).
+	 */
+	private readEntries(sessionId: string) {
 		if (this.cachedTranscript?.sessionId === sessionId) {
-			return cloneTranscriptEntries(this.cachedTranscript.entries);
+			return this.cachedTranscript.entries;
 		}
 
 		const entries = this.loadTranscriptFromDisk(sessionId);
 		this.cachedTranscript = { sessionId, entries };
-		return cloneTranscriptEntries(entries);
+		return entries;
 	}
 
 	private getMessagesPageFromEntries(
@@ -1349,7 +1358,7 @@ export class EventStore {
 	getRecentMessagesPage(sessionId: string, limit: number): SessionHistoryPage {
 		if (limit <= 0) return { messages: [], hasOlder: false, olderCursor: null };
 		const { entries, ...rest } = this.getMessagesPageFromEntries(
-			this.getMessages(sessionId),
+			this.readEntries(sessionId),
 			limit,
 		);
 		return { messages: entries, ...rest };
@@ -1363,7 +1372,7 @@ export class EventStore {
 		if (limit <= 0) return { messages: [], hasOlder: false, olderCursor: null };
 		const beforeIndex = decodeCursor(beforeCursor);
 		const { entries, ...rest } = this.getMessagesPageFromEntries(
-			this.getMessages(sessionId),
+			this.readEntries(sessionId),
 			limit,
 			beforeIndex,
 		);
