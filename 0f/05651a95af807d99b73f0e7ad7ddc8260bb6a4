@@ -1,0 +1,19 @@
+CLAUDE.md
+  s_dac134782ba053::t_84401788965d9e 21-24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "0f05651a95af807d99b73f0e7ad7ddc8260bb6a4",
+  "prompts": {},
+  "sessions": {
+    "s_dac134782ba053": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "354c115b-cae7-480d-a5aa-43cb4e695414",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
