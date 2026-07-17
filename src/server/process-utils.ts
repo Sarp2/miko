@@ -26,6 +26,10 @@ export async function runCommand(args: string[]) {
 	return { stdout, stderr, exitCode };
 }
 
+export function runGit(args: string[], cwd: string) {
+	return runCommand(['git', '-C', cwd, ...args]);
+}
+
 export function hasCommand(command: string) {
 	const result = spawnSync('sh', ['-lc', 'command -v "$1"', 'sh', command], { stdio: 'ignore' });
 	return result.status === 0;

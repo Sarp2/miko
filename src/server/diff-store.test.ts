@@ -22,11 +22,11 @@ import {
 	readPatchForEntry,
 	resolveDefaultBranchName,
 	resolveRepo,
-	runGit,
 	sanitizeRepoName,
 	snapshotsEqual,
 	stripTrailingSlash,
 } from './diff-store';
+import { runGit } from './process-utils';
 import { persistWorkspaceUpload } from './uploads';
 
 type StoredSnapshot = Parameters<typeof snapshotsEqual>[1];

@@ -1,7 +1,7 @@
 import path from 'node:path';
 
 import type { WorkspaceFileSearchResult } from 'src/shared/types';
-import { runGit } from './diff-store';
+import { runGit } from './process-utils';
 
 const DEFAULT_FILE_SEARCH_LIMIT = 20;
 const MAX_FILE_SEARCH_LIMIT = 50;

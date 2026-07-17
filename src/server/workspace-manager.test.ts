@@ -7,7 +7,8 @@ import type {
 	WorkspaceGitSnapshot,
 	WorkspaceSetupState,
 } from 'src/shared/types';
-import { DiffStore, runGit } from './diff-store';
+import { DiffStore } from './diff-store';
+import { runGit } from './process-utils';
 import { EventStore } from './event-store';
 import { WorkspaceManager } from './workspace-manager';
 

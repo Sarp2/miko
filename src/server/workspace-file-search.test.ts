@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from 'bun:test';
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import path from 'node:path';
 
-import { runGit } from './diff-store';
+import { runGit } from './process-utils';
 import { clearWorkspaceFileSearchCache, searchWorkspaceFiles } from './workspace-file-search';
 
 const roots: string[] = [];
