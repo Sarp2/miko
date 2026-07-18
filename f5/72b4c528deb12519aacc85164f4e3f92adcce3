@@ -1,0 +1,31 @@
+src/server/agent.ts
+  s_1ee488e69a23b0::t_3e761c2f8d94a7 34-38
+  s_1ee488e69a23b0::t_5986bcc9b06330 33
+src/server/codex-app-server.test.ts
+  s_1ee488e69a23b0::t_3e761c2f8d94a7 23
+src/server/harness-types.ts
+  s_1ee488e69a23b0::t_a84f73de85fcc0 8-20
+src/server/codex-app-server.ts
+  s_1ee488e69a23b0::t_1c4cd2e8eb4e79 153
+  s_1ee488e69a23b0::t_7a4a2f3eacdbee 941-943
+  s_1ee488e69a23b0::t_b69e45a6dadc70 142
+  s_1ee488e69a23b0::t_3e761c2f8d94a7 54-59
+  s_1ee488e69a23b0::t_fd9ea2d6fb4154 85
+  s_1ee488e69a23b0::t_046b36e3fd749b 134
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "f572b4c528deb12519aacc85164f4e3f92adcce3",
+  "prompts": {},
+  "sessions": {
+    "s_1ee488e69a23b0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d70dee7a-3a5c-4ab1-a05f-d28d69e6b583",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
