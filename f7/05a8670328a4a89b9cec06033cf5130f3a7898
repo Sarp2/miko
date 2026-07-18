@@ -1,0 +1,19 @@
+src/server/agent.ts
+  s_1ee488e69a23b0::t_e1979ede651e7d 1645
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "f705a8670328a4a89b9cec06033cf5130f3a7898",
+  "prompts": {},
+  "sessions": {
+    "s_1ee488e69a23b0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d70dee7a-3a5c-4ab1-a05f-d28d69e6b583",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
