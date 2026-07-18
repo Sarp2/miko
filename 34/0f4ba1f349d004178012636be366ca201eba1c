@@ -1,0 +1,21 @@
+src/server/event-store.test.ts
+  s_1ee488e69a23b0::t_0e0b3ecbbce9f1 836-879
+src/server/event-store.ts
+  s_1ee488e69a23b0::t_ab43121cb25186 1418-1421,1424-1432
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "340f4ba1f349d004178012636be366ca201eba1c",
+  "prompts": {},
+  "sessions": {
+    "s_1ee488e69a23b0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d70dee7a-3a5c-4ab1-a05f-d28d69e6b583",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
