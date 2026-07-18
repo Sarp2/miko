@@ -1,0 +1,21 @@
+src/server/server.ts
+  s_1ee488e69a23b0::t_0a09826446aa73 492-493
+  s_1ee488e69a23b0::t_04468ae058febf 210
+  s_1ee488e69a23b0::t_b3844e9400c38a 192
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "0e604ab1068a32fdad1e681f68a40672b70bf653",
+  "prompts": {},
+  "sessions": {
+    "s_1ee488e69a23b0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d70dee7a-3a5c-4ab1-a05f-d28d69e6b583",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
