@@ -487,7 +487,7 @@ function shouldExposeKnownPrSnapshot(workspace: WorkspaceRecord) {
 
 export class PrManager {
 	private readonly snapshots = new Map<string, WorkspaceGitHubSnapshot>();
-	private readonly runGhCommand: (args: string[]) => Promise<GhResult>;
+	private readonly runGh: (args: string[]) => Promise<GhResult>;
 	private readonly github: GitHubApiClient | null;
 	private readonly useGhForPrRefresh: boolean;
 
@@ -495,7 +495,7 @@ export class PrManager {
 		private readonly eventStore: EventStore,
 		deps: PrManagerDeps = {},
 	) {
-		this.runGhCommand = deps.runGh ?? ((args) => runCommand(['gh', ...args]));
+		this.runGh = deps.runGh ?? ((args) => runCommand(['gh', ...args]));
 		this.github = deps.github ?? (deps.runGh ? null : new GitHubRestClient());
 		this.useGhForPrRefresh = Boolean(deps.runGh && !deps.github);
 	}
@@ -523,10 +523,6 @@ export class PrManager {
 
 		this.snapshots.set(workspace.id, knownSnapshot);
 		return knownSnapshot;
-	}
-
-	private async runGh(args: string[]) {
-		return this.runGhCommand(args);
 	}
 
 	private async requestGitHub<T>(cacheKey: string, path: string): Promise<GitHubRestResult<T>> {
@@ -1060,26 +1056,6 @@ export class PrManager {
 		const snapshot = createNoneSnapshot(owner, repo);
 		this.snapshots.set(workspace.id, snapshot);
 		return snapshot;
-	}
-
-	async refreshActiveWorkspaces() {
-		const results = new Map<string, WorkspaceGitHubSnapshot>();
-		for (const workspace of this.eventStore.listWorkspaces()) {
-			if (workspace.visibilityState !== 'active') continue;
-			if (workspace.reviewState === 'done' || workspace.reviewState === 'closed') continue;
-			results.set(workspace.id, await this.refreshWorkspacePrState(workspace.id));
-		}
-		return results;
-	}
-
-	async refreshOpenPullRequests() {
-		const results = new Map<string, WorkspaceGitHubSnapshot>();
-		for (const workspace of this.eventStore.listWorkspaces()) {
-			if (workspace.visibilityState !== 'active') continue;
-			if (workspace.reviewState !== 'in_review') continue;
-			results.set(workspace.id, await this.refreshWorkspacePrState(workspace.id));
-		}
-		return results;
 	}
 
 	async fetchFailingCheckLogs(workspaceId: string) {

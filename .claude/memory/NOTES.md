@@ -13,4 +13,5 @@
 - src/server/uploads.ts contentUrl shape (/api/workspaces/:id/uploads/:name/content) is parsed by client chat-composer-utils.ts to recover storedName for deletion — changing the URL shape silently breaks upload delete
 - src/server/uploads.ts maps .svg to text/plain on purpose (stored-XSS guard: inline image/svg+xml can execute scripts) — don't "fix" it
 - scratchpad file layout (dataDir/scratchpads/{id}.md) is duplicated in scratchpad-manager.ts and event-store.ts:~667 (removal path) — change one, orphan the other
+- src/server/pr-manager.ts: production PR refresh always uses the REST client; the gh-CLI branches of findPrForBranch/viewPr are production-dead but serve as the mock seam for most tests (REST path has few tests) — migrate tests to GitHubApiClient mocks before deleting those branches; gh CLI IS production-real for merge/ready/check-logs actions
 - persisted events + snapshot.json have NO schema version field (src/server/event.ts) — evolve additively only: new optional fields / new event types + tolerant readers; never rename or retype existing fields
