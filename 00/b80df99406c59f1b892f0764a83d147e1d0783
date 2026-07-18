@@ -1,0 +1,30 @@
+.claude/memory/NOTES.md
+  s_1ee488e69a23b0::t_3d25827a99f4a6 12
+src/server/server.ts
+  s_1ee488e69a23b0::t_770dcd8d73a77f 153
+src/server/diff-store.test.ts
+  s_1ee488e69a23b0::t_7c3fb45d44c17c 564,583,595,611,625,638,653,669,691,711,727,746,765,785,809,831,849,866,889,918,936,954,969,989,1006,1024,1041
+src/server/diff-store.ts
+  s_1ee488e69a23b0::t_b8e46789b1326a 18
+  s_1ee488e69a23b0::t_bbd2a2d0e9a87f 523
+  s_1ee488e69a23b0::t_e354c19ee5d393 784
+  s_1ee488e69a23b0::t_9b9072d9493b3c 226-227
+src/server/workspace-manager.test.ts
+  s_1ee488e69a23b0::t_7c3fb45d44c17c 735
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "00b80df99406c59f1b892f0764a83d147e1d0783",
+  "prompts": {},
+  "sessions": {
+    "s_1ee488e69a23b0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d70dee7a-3a5c-4ab1-a05f-d28d69e6b583",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Sarp <sarppehlivan444@gmail.com>"
+    }
+  }
+}
