@@ -15,6 +15,7 @@ import type {
 	WorkspaceFileContentsResult,
 	WorkspaceGitSnapshot,
 } from '../shared/types';
+import { DATA_ROOT_NAME, DEV_DATA_ROOT_NAME } from '../shared/branding';
 import { registerExternalFileAccess } from './external-file-access';
 import { runCommand, runGit } from './process-utils';
 import { inferAttachmentContentType } from './uploads';
@@ -222,8 +223,8 @@ const SAFE_INITIAL_GITIGNORE_ENTRIES = [
 	'*.pfx',
 	'node_modules/',
 	'.DS_Store',
-	'.miko/',
-	'.miko-dev/',
+	`${DATA_ROOT_NAME}/`,
+	`${DEV_DATA_ROOT_NAME}/`,
 ] as const;
 
 async function ensureSafeInitialGitignore(repoRoot: string) {
@@ -519,7 +520,7 @@ export function parseNameStatusEntries(output: string) {
 	return entries;
 }
 
-export async function listBranchDiffPaths(repoRoot: string, comparisonRef: string) {
+async function listBranchDiffPaths(repoRoot: string, comparisonRef: string) {
 	const result = await runGit(
 		['diff', '--name-status', '--find-renames', '-z', `${comparisonRef}...HEAD`],
 		repoRoot,
@@ -527,41 +528,6 @@ export async function listBranchDiffPaths(repoRoot: string, comparisonRef: strin
 
 	if (result.exitCode !== 0) return [];
 	return parseNameStatusEntries(result.stdout);
-}
-
-export function parseStatusLine(line: string): DirtyPathEntry | null {
-	if (!line.trim()) return null;
-
-	const status = line.slice(0, 2);
-	const rawPath = line.slice(3);
-	const renameIndex = rawPath.indexOf(' -> ');
-	const isUntracked = status === '??';
-
-	if (renameIndex >= 0) {
-		const previousPath = rawPath.slice(0, renameIndex).trim();
-		const nextPath = rawPath.slice(renameIndex + 4).trim();
-		return {
-			path: nextPath,
-			previousPath,
-			changeType: 'renamed',
-			isUntracked: false,
-		};
-	}
-
-	let changeType: WorkspaceDiffFile['changeType'] = 'modified';
-	if (isUntracked || status.includes('A')) {
-		changeType = 'added';
-	} else if (status.includes('D')) {
-		changeType = 'deleted';
-	} else if (status.includes('R')) {
-		changeType = 'renamed';
-	}
-
-	return {
-		path: rawPath.trim(),
-		changeType,
-		isUntracked,
-	};
 }
 
 export function parseStatusPorcelainZEntries(output: string): DirtyPathEntry[] {
@@ -815,7 +781,7 @@ export async function readPatchForEntry(
 	return result.stdout;
 }
 
-export async function readPatchForBranchEntry(
+async function readPatchForBranchEntry(
 	repoRoot: string,
 	comparisonRef: string,
 	entry: DirtyPathEntry,
@@ -1057,11 +1023,6 @@ export function appendGitIgnoreEntry(currentContents: string | null, entry: stri
 
 export class DiffStore {
 	private readonly states = new Map<string, StoredWorkspaceGitState>();
-
-	// biome-ignore lint/complexity/noUselessConstructor: constructor kept for server wiring compatibility.
-	constructor(_: string) {}
-
-	async initialize() {}
 
 	async initializeGit(args: {
 		localPath: string;

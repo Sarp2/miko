@@ -732,7 +732,7 @@ describe('WorkspaceManager.continueWorkspaceOnNewBranch', () => {
 describe('WorkspaceManager.renameWorkspaceBranch', () => {
 	test('syncs workspace metadata when an agent renames the branch directly in git', async () => {
 		const setup = await createGitHubBackedDirectory();
-		const diffStore = new DiffStore(setup.store.dataDir);
+		const diffStore = new DiffStore();
 		const clearedSnapshots: string[] = [];
 		const manager = await createWorkspaceManager(setup.store, {
 			diffStore,

@@ -17,7 +17,6 @@ import {
 	listDirtyPaths,
 	normalizeRepoRelativePath,
 	parseNameStatusEntries,
-	parseStatusLine,
 	parseStatusPorcelainZEntries,
 	readPatchForEntry,
 	resolveDefaultBranchName,
@@ -311,27 +310,6 @@ describe('getMainAheadCount', () => {
 	});
 });
 
-describe('parseStatusLine', () => {
-	test('parses modified, untracked, and renamed git status lines', () => {
-		expect(parseStatusLine('M  src/app.ts')).toEqual({
-			path: 'src/app.ts',
-			changeType: 'modified',
-			isUntracked: false,
-		});
-		expect(parseStatusLine('?? scratch.log')).toEqual({
-			path: 'scratch.log',
-			changeType: 'added',
-			isUntracked: true,
-		});
-		expect(parseStatusLine('R  before.txt -> after.txt')).toEqual({
-			path: 'after.txt',
-			previousPath: 'before.txt',
-			changeType: 'renamed',
-			isUntracked: false,
-		});
-	});
-});
-
 describe('parseNameStatusEntries', () => {
 	test('parses branch diff name-status output including renames', () => {
 		expect(parseNameStatusEntries('M\0src/app.ts\0R100\0old.ts\0new.ts\0')).toEqual([
@@ -583,7 +561,7 @@ describe('DiffStore.initializeGit', () => {
 		const localPath = await createTempDir();
 		await Bun.write(path.join(localPath, 'README.md'), 'hello\n');
 		await Bun.write(path.join(localPath, '.env'), 'SECRET=1\n');
-		const store = new DiffStore(localPath);
+		const store = new DiffStore();
 
 		const result = await store.initializeGit({ localPath });
 		const head = await runGit(['rev-parse', 'HEAD'], localPath);
@@ -602,7 +580,7 @@ describe('DiffStore.initializeGit', () => {
 	test('creates an initial commit for an existing unborn repo', async () => {
 		const localPath = await createTempDir();
 		await runGit(['init', '-b', 'main'], localPath);
-		const store = new DiffStore(localPath);
+		const store = new DiffStore();
 
 		const result = await store.initializeGit({ localPath });
 		const head = await runGit(['rev-parse', 'HEAD'], localPath);
@@ -614,7 +592,7 @@ describe('DiffStore.initializeGit', () => {
 
 describe('DiffStore.getWorkspaceGitSnapshot', () => {
 	test('returns the empty unknown state before a workspace has been refreshed', () => {
-		const store = new DiffStore('/tmp/miko');
+		const store = new DiffStore();
 
 		expect(store.getWorkspaceGitSnapshot('workspace-1')).toMatchObject({
 			status: 'unknown',
@@ -630,7 +608,7 @@ describe('DiffStore.inspectGitHubBackedRepo', () => {
 			branch: 'main',
 			remote: 'git@github.com:sarp/miko.git',
 		});
-		const store = new DiffStore(repoRoot);
+		const store = new DiffStore();
 
 		await expect(store.inspectGitHubBackedRepo(repoRoot)).resolves.toMatchObject({
 			ok: true,
@@ -644,7 +622,7 @@ describe('DiffStore.inspectGitHubBackedRepo', () => {
 
 	test('rejects directories without a GitHub origin remote', async () => {
 		const repoRoot = await createRepoWithInitialCommit();
-		const store = new DiffStore(repoRoot);
+		const store = new DiffStore();
 
 		await expect(store.inspectGitHubBackedRepo(repoRoot)).resolves.toMatchObject({
 			ok: false,
@@ -657,7 +635,7 @@ describe('DiffStore.readPatch', () => {
 	test('returns the patch for a changed file in a workspace', async () => {
 		const repoRoot = await createRepoWithInitialCommit();
 		await Bun.write(path.join(repoRoot, 'README.md'), 'hello\nsecond line\n');
-		const store = new DiffStore(repoRoot);
+		const store = new DiffStore();
 
 		const result = await store.readPatch({ workspacePath: repoRoot, path: './README.md' });
 
@@ -672,7 +650,7 @@ describe('DiffStore.readPatch', () => {
 		await runGit(['update-ref', 'refs/remotes/origin/main', 'main'], repoRoot);
 		await runGit(['checkout', '-b', 'feature'], repoRoot);
 		await commitFile(repoRoot, 'feature.txt', 'feature\n', 'feature');
-		const store = new DiffStore(repoRoot);
+		const store = new DiffStore();
 
 		const result = await store.readPatch({ workspacePath: repoRoot, path: 'feature.txt' });
 
@@ -688,7 +666,7 @@ describe('DiffStore.readFileContents', () => {
 		const repoRoot = await createRepoWithInitialCommit();
 		await mkdir(path.join(repoRoot, 'src'), { recursive: true });
 		await Bun.write(path.join(repoRoot, 'src', 'index.css'), 'body { color: red; }\n');
-		const store = new DiffStore(repoRoot);
+		const store = new DiffStore();
 
 		const result = await store.readFileContents({
 			workspaceId: 'workspace-1',
@@ -710,7 +688,7 @@ describe('DiffStore.readFileContents', () => {
 	test('returns sniffed text contents for extensionless repo files', async () => {
 		const repoRoot = await createRepoWithInitialCommit();
 		await Bun.write(path.join(repoRoot, 'Dockerfile'), 'FROM oven/bun:latest\n');
-		const store = new DiffStore(repoRoot);
+		const store = new DiffStore();
 
 		const result = await store.readFileContents({
 			workspaceId: 'workspace-1',
@@ -730,7 +708,7 @@ describe('DiffStore.readFileContents', () => {
 
 	test('rejects paths outside the repository', async () => {
 		const repoRoot = await createRepoWithInitialCommit();
-		const store = new DiffStore(repoRoot);
+		const store = new DiffStore();
 
 		await expect(
 			store.readFileContents({
@@ -746,7 +724,7 @@ describe('DiffStore.readFileContents', () => {
 		const outsidePath = path.join(await createTempDir(), 'outside.txt');
 		await Bun.write(outsidePath, 'secret\n');
 		await symlink(outsidePath, path.join(repoRoot, 'escape.txt'));
-		const store = new DiffStore(repoRoot);
+		const store = new DiffStore();
 
 		await expect(
 			store.readFileContents({
@@ -765,7 +743,7 @@ describe('DiffStore.readFileContents', () => {
 			new Uint8Array([0, 97, 115, 109]),
 		);
 		await symlink(path.join(repoRoot, 'target', 'module.wasm'), path.join(repoRoot, 'config.ts'));
-		const store = new DiffStore(repoRoot);
+		const store = new DiffStore();
 
 		const result = await store.readFileContents({
 			workspaceId: 'workspace-1',
@@ -784,7 +762,7 @@ describe('DiffStore.readFileContents', () => {
 	test('returns binary metadata for non-text files', async () => {
 		const repoRoot = await createRepoWithInitialCommit();
 		await Bun.write(path.join(repoRoot, 'asset.bin'), new Uint8Array([0, 1, 2]));
-		const store = new DiffStore(repoRoot);
+		const store = new DiffStore();
 
 		const result = await store.readFileContents({
 			workspaceId: 'workspace-1',
@@ -804,7 +782,7 @@ describe('DiffStore.readFileContents', () => {
 	test('returns image metadata with a workspace file content URL', async () => {
 		const repoRoot = await createRepoWithInitialCommit();
 		await Bun.write(path.join(repoRoot, 'avatar.png'), new Uint8Array([137, 80, 78, 71]));
-		const store = new DiffStore(repoRoot);
+		const store = new DiffStore();
 
 		const result = await store.readFileContents({
 			workspaceId: 'workspace-1',
@@ -828,7 +806,7 @@ describe('DiffStore.readFileContents', () => {
 	test('returns svg files as text instead of previewable images', async () => {
 		const repoRoot = await createRepoWithInitialCommit();
 		await Bun.write(path.join(repoRoot, 'icon.svg'), '<svg onload="alert(1)"></svg>');
-		const store = new DiffStore(repoRoot);
+		const store = new DiffStore();
 
 		const result = await store.readFileContents({
 			workspaceId: 'workspace-1',
@@ -850,7 +828,7 @@ describe('DiffStore.readFileContents', () => {
 		const tempDir = await createTempDir();
 		const filePath = path.join(tempDir, 'plan.md');
 		await Bun.write(filePath, '# plan');
-		const store = new DiffStore(tempDir);
+		const store = new DiffStore();
 
 		const result = await store.readExternalFileContents({ path: filePath });
 
@@ -868,7 +846,7 @@ describe('DiffStore.readFileContents', () => {
 		const tempDir = await createTempDir();
 		const filePath = path.join(tempDir, 'avatar.png');
 		await Bun.write(filePath, new Uint8Array([137, 80, 78, 71]));
-		const store = new DiffStore(tempDir);
+		const store = new DiffStore();
 
 		const result = await store.readExternalFileContents({ path: filePath });
 
@@ -885,8 +863,7 @@ describe('DiffStore.readFileContents', () => {
 	});
 
 	test('rejects relative external file paths', async () => {
-		const tempDir = await createTempDir();
-		const store = new DiffStore(tempDir);
+		const store = new DiffStore();
 
 		await expect(store.readExternalFileContents({ path: 'notes.md' })).rejects.toThrow(
 			'External file path must be absolute.',
@@ -909,7 +886,7 @@ describe('DiffStore.refreshWorkspaceGitSnapshot', () => {
 		await runGit(['update-ref', 'refs/remotes/origin/main', 'main'], repoRoot);
 		await runGit(['checkout', 'atlas'], repoRoot);
 		await Bun.write(path.join(repoRoot, 'feature.txt'), 'feature\nchanged\n');
-		const store = new DiffStore(repoRoot);
+		const store = new DiffStore();
 
 		const changed = await store.refreshWorkspaceGitSnapshot('workspace-1', repoRoot);
 		const snapshot = store.getWorkspaceGitSnapshot('workspace-1');
@@ -938,7 +915,7 @@ describe('DiffStore.refreshWorkspaceGitSnapshot', () => {
 
 	test('stores no_repo when the workspace path is not a git repository', async () => {
 		const workspacePath = await createTempDir();
-		const store = new DiffStore(workspacePath);
+		const store = new DiffStore();
 
 		const changed = await store.refreshWorkspaceGitSnapshot('workspace-1', workspacePath);
 
@@ -956,7 +933,7 @@ describe('DiffStore.refreshWorkspaceGitSnapshot', () => {
 		const expectedFetchedAt = (
 			await stat(path.join(repoRoot, '.git', 'FETCH_HEAD'))
 		).mtime.toISOString();
-		const store = new DiffStore(repoRoot);
+		const store = new DiffStore();
 
 		await store.refreshWorkspaceGitSnapshot('workspace-1', repoRoot);
 
@@ -974,7 +951,7 @@ describe('DiffStore.refreshWorkspaceGitSnapshot', () => {
 		expect(path.isAbsolute(fetchHeadPath)).toBe(true);
 		await Bun.write(fetchHeadPath, 'fetch data\n');
 		const expectedFetchedAt = (await stat(fetchHeadPath)).mtime.toISOString();
-		const store = new DiffStore(worktreePath);
+		const store = new DiffStore();
 
 		await store.refreshWorkspaceGitSnapshot('workspace-1', worktreePath);
 
@@ -989,7 +966,7 @@ describe('DiffStore.fetchWorkspaceGit', () => {
 		await runGit(['init', '--bare'], remoteRoot);
 		await runGit(['remote', 'add', 'origin', remoteRoot], repoRoot);
 		await runGit(['push', '-u', 'origin', 'main'], repoRoot);
-		const store = new DiffStore(repoRoot);
+		const store = new DiffStore();
 
 		const result = await store.fetchWorkspaceGit({
 			workspaceId: 'workspace-1',
@@ -1009,7 +986,7 @@ describe('DiffStore.discardFile', () => {
 	test('restores a modified tracked file to the last commit', async () => {
 		const repoRoot = await createRepoWithInitialCommit();
 		await Bun.write(path.join(repoRoot, 'README.md'), 'after\n');
-		const store = new DiffStore(repoRoot);
+		const store = new DiffStore();
 
 		const result = await store.discardFile({
 			workspaceId: 'workspace-1',
@@ -1026,7 +1003,7 @@ describe('DiffStore.discardFile', () => {
 		const repoRoot = await createRepo();
 		await Bun.write(path.join(repoRoot, 'new-file.txt'), 'new\n');
 		await runGit(['add', 'new-file.txt'], repoRoot);
-		const store = new DiffStore(repoRoot);
+		const store = new DiffStore();
 
 		const result = await store.discardFile({
 			workspaceId: 'workspace-1',
@@ -1044,7 +1021,7 @@ describe('DiffStore.ignoreFile', () => {
 	test('adds an untracked file to gitignore and removes it from dirty paths', async () => {
 		const repoRoot = await createRepoWithInitialCommit();
 		await Bun.write(path.join(repoRoot, 'debug.log'), 'debug\n');
-		const store = new DiffStore(repoRoot);
+		const store = new DiffStore();
 
 		const result = await store.ignoreFile({
 			workspaceId: 'workspace-1',
@@ -1061,7 +1038,7 @@ describe('DiffStore.ignoreFile', () => {
 		const repoRoot = await createRepoWithInitialCommit();
 		await mkdir(path.join(repoRoot, 'foobar'));
 		await Bun.write(path.join(repoRoot, 'foobar', 'baz.txt'), 'baz\n');
-		const store = new DiffStore(repoRoot);
+		const store = new DiffStore();
 
 		await expect(
 			store.ignoreFile({

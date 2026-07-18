@@ -150,7 +150,7 @@ export async function startServer(options: StartServerOptions = {}) {
 	const strictPort = options.strictPort ?? false;
 
 	const store = new EventStore(undefined, { lockDataDir: true });
-	const diffStore = new DiffStore(store.dataDir);
+	const diffStore = new DiffStore();
 	const prManager = new PrManager(store);
 	const scratchpadManager = new ScratchpadManager(store.dataDir);
 	const workspaceManager = new WorkspaceManager(store, {
@@ -163,7 +163,6 @@ export async function startServer(options: StartServerOptions = {}) {
 
 	try {
 		await store.initialize();
-		await diffStore.initialize();
 	} catch (error) {
 		await store.releaseDataDirLock();
 		throw error;
