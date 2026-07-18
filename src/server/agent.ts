@@ -30,7 +30,12 @@ import {
 	type GenerateSessionTitleResult,
 	generateTitleForSessionDetailed,
 } from './generate-title';
-import type { HarnessEvent, HarnessToolRequest, HarnessTurn } from './harness-types';
+import {
+	type HarnessEvent,
+	type HarnessToolRequest,
+	type HarnessTurn,
+	timestamped,
+} from './harness-types';
 import {
 	codexServiceTierFromModelOptions,
 	getServerProviderCatalog,
@@ -187,18 +192,6 @@ interface AgentCoordinatorArgs {
 
 interface StartClaudeSessionDeps {
 	queryFn?: typeof query;
-}
-
-function timestamped<T extends Omit<TranscriptEntry, '_id' | 'createdAt'>>(
-	entry: T,
-	createdAt = Date.now(),
-	id: string = crypto.randomUUID(),
-): TranscriptEntry {
-	return {
-		_id: id,
-		createdAt,
-		...entry,
-	} as TranscriptEntry;
 }
 
 function stringFromUnknown(value: unknown) {

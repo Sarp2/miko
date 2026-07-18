@@ -51,7 +51,12 @@ import {
 	type TurnStartParams,
 	type TurnStartResponse,
 } from './codex-app-server-protocol';
-import type { HarnessEvent, HarnessToolRequest, HarnessTurn } from './harness-types';
+import {
+	type HarnessEvent,
+	type HarnessToolRequest,
+	type HarnessTurn,
+	timestamped,
+} from './harness-types';
 
 /** Minimal shape of the codex app-server `skills/list` response (see reference-codex-slash-commands). */
 interface CodexSkillsListResponse {
@@ -77,7 +82,7 @@ export interface CodexAppServerProcess {
 	once(event: 'error', listener: (error: Error) => void): this;
 }
 
-export type SpawnCodexAppServer = (cwd: string) => CodexAppServerProcess;
+type SpawnCodexAppServer = (cwd: string) => CodexAppServerProcess;
 
 interface PendingRequest<TResult> {
 	method: string;
@@ -126,7 +131,7 @@ interface SessionContext {
 	closed: boolean;
 }
 
-export interface StartCodexSessionArgs {
+interface StartCodexSessionArgs {
 	sessionId: string;
 	cwd: string;
 	model: string;
@@ -134,7 +139,7 @@ export interface StartCodexSessionArgs {
 	sessionToken: string | null;
 }
 
-export interface StartCodexTurnArgs {
+interface StartCodexTurnArgs {
 	sessionId: string;
 	model: string;
 	effort?: CodexReasoningEffort;
@@ -145,23 +150,12 @@ export interface StartCodexTurnArgs {
 	onApprovalRequest?: PendingTurn['onApprovalRequest'];
 }
 
-export interface GenerateStructuredArgs {
+interface GenerateStructuredArgs {
 	cwd: string;
 	prompt: string;
 	model?: string;
 	effort?: CodexReasoningEffort;
 	serviceTier?: ServiceTier;
-}
-
-export function timestamped<T extends Omit<TranscriptEntry, '_id' | 'createdAt'>>(
-	entry: T,
-	createdAt = Date.now(),
-): TranscriptEntry {
-	return {
-		_id: randomUUID(),
-		createdAt,
-		...entry,
-	} as TranscriptEntry;
 }
 
 function codexSystemInitEntry(model: string): TranscriptEntry {
@@ -944,11 +938,9 @@ export class CodexAppServerManager {
 				},
 			} satisfies TurnStartParams);
 
-			if (context.pendingTurn) {
-				context.pendingTurn.turnId = response.turn.id;
-			} else {
-				pendingTurn.turnId = response.turn.id;
-			}
+			// Stamp the turn that made this request — context.pendingTurn may already
+			// be a newer turn if this one was interrupted while turn/start was in flight.
+			pendingTurn.turnId = response.turn.id;
 		} catch (error) {
 			context.pendingTurn = null;
 			queue.finish();

@@ -13,7 +13,6 @@ import {
 	normalizeCodexTokenUsage,
 	parseUnifiedDiff,
 	renderPlanMarkdownFromSteps,
-	timestamped,
 	toToolRequestUserInputResponse,
 } from './codex-app-server';
 import type {
@@ -21,6 +20,7 @@ import type {
 	ThreadItem,
 	ToolRequestUserInputQuestion,
 } from './codex-app-server-protocol';
+import { timestamped } from './harness-types';
 
 class FakeCodexAppServerProcess extends EventEmitter implements CodexAppServerProcess {
 	stdin: Writable;
