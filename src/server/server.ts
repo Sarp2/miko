@@ -189,8 +189,7 @@ export async function startServer(options: StartServerOptions = {}) {
 			listWorkspaces: () => store.listWorkspaces(),
 			refreshWorkspaceGitSnapshot: (workspaceId, _localPath) =>
 				workspaceManager.refreshWorkspaceGitSnapshot(workspaceId),
-			refreshWorkspacePrStage: (workspaceId, prOptions) =>
-				refreshWorkspacePrStage(workspaceId, prOptions),
+			refreshWorkspacePrStage,
 			broadcastSnapshots: () => router.broadcastSnapshots(),
 		}).catch((error) => {
 			console.warn('[miko] failed to refresh startup workspace state', error);
@@ -208,8 +207,7 @@ export async function startServer(options: StartServerOptions = {}) {
 	const prRefreshPoller = new PrRefreshPoller({
 		listWorkspaces: () => store.listWorkspaces(),
 		getWorkspaceGitHubSnapshot: (workspaceId) => prManager.getWorkspaceGitHubSnapshot(workspaceId),
-		refreshWorkspacePrStage: (workspaceId, prOptions) =>
-			refreshWorkspacePrStage(workspaceId, prOptions),
+		refreshWorkspacePrStage,
 		broadcastSnapshots: () => router.broadcastSnapshots(),
 	});
 	const gitRefreshPoller = new GitRefreshPoller({
@@ -491,6 +489,8 @@ export async function handleAttachmentContent(req: Request, url: URL, store: Eve
 	return new Response(file, {
 		headers: {
 			'Content-Type': inferAttachmentContentType(storedName, file.type),
+			'Content-Disposition': 'inline',
+			'X-Content-Type-Options': 'nosniff',
 		},
 	});
 }
