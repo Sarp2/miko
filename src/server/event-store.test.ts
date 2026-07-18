@@ -833,6 +833,50 @@ describe('EventStore.listWorkspaces', () => {
 });
 
 describe('EventStore.compact', () => {
+	test('drops removed records from the snapshot', async () => {
+		const dataDir = await createTempDataDir();
+		const store = new EventStore(dataDir);
+		await store.initialize();
+		const { directory, workspace } = await createReadyWorkspace(store);
+		const session = await store.createSession(workspace.id);
+
+		await store.removeWorkspace(workspace.id);
+		await store.compact();
+
+		const snapshot = JSON.parse(
+			await Bun.file(join(dataDir, 'snapshot.json')).text(),
+		) as SnapshotFile;
+		expect(snapshot.directories.map((candidate) => candidate.id)).toEqual([directory.id]);
+		expect(snapshot.workspaces).toEqual([]);
+		expect(snapshot.sessions).toEqual([]);
+
+		const reloaded = new EventStore(dataDir);
+		await reloaded.initialize();
+		expect(reloaded.getDirectory(directory.id)?.title).toBe('Miko');
+		expect(reloaded.getWorkspace(workspace.id)).toBeNull();
+		expect(reloaded.getSession(session.id)).toBeNull();
+	});
+
+	test('replaying a removal event for an entity missing from the snapshot is a no-op', async () => {
+		const dataDir = await createTempDataDir();
+		const store = new EventStore(dataDir);
+		await store.initialize();
+		const { workspace } = await createReadyWorkspace(store);
+		await store.compact();
+
+		// Simulate a crash between snapshot write and log truncation: a stale
+		// removal event for an entity the snapshot no longer knows about.
+		await Bun.write(
+			join(dataDir, 'workspaces.jsonl'),
+			`${JSON.stringify({ type: 'workspace_removed', timestamp: Date.now(), workspaceId: 'ghost' })}\n`,
+		);
+
+		const reloaded = new EventStore(dataDir);
+		await reloaded.initialize();
+		expect(reloaded.getWorkspace(workspace.id)).toMatchObject({ setupState: 'ready' });
+		expect(reloaded.getWorkspace('ghost')).toBeNull();
+	});
+
 	test('compacts logs into a snapshot and reloads state without transcript loss', async () => {
 		const dataDir = await createTempDataDir();
 		const store = new EventStore(dataDir);

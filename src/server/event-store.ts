@@ -1415,13 +1415,21 @@ export class EventStore {
 	}
 
 	private createSnapshot(): SnapshotFile {
+		// Tombstoned records are only needed while log events may still reference
+		// them; compact() empties the logs right after writing this snapshot, and
+		// applyEvent no-ops on unknown ids, so dropping them here is safe and keeps
+		// snapshot.json (and post-restart memory) from growing forever.
 		return {
 			generatedAt: Date.now(),
-			directories: [...this.state.directoriesById.values()].map((directory) => ({
-				...directory,
-			})),
-			workspaces: [...this.state.workspacesById.values()].map((workspace) => ({ ...workspace })),
-			sessions: [...this.state.sessionsById.values()].map((session) => ({ ...session })),
+			directories: [...this.state.directoriesById.values()]
+				.filter((directory) => !directory.removedAt)
+				.map((directory) => ({ ...directory })),
+			workspaces: [...this.state.workspacesById.values()]
+				.filter((workspace) => !workspace.removedAt)
+				.map((workspace) => ({ ...workspace })),
+			sessions: [...this.state.sessionsById.values()]
+				.filter((session) => !session.removedAt)
+				.map((session) => ({ ...session })),
 			queuedMessages: [...this.state.queuedMessagesById.values()].map((message) =>
 				structuredClone(message),
 			),
