@@ -4,10 +4,10 @@ import path from 'node:path';
 import { getWorktreesDir } from 'src/shared/branding';
 import type { WorkspaceGitHubSnapshot, WorkspaceHealthState } from 'src/shared/types';
 import { type DiffStore, extractGitHubRepoSlug } from './diff-store';
-import { runGit } from './process-utils';
 import type { SessionRecord, WorkspaceRecord } from './event';
 import type { EventStore } from './event-store';
 import type { PrManager } from './pr-manager';
+import { runGit } from './process-utils';
 
 const WORKSPACE_CODE_NAMES = [
 	'atlas',
@@ -41,16 +41,28 @@ const WORKSPACE_CODE_NAMES = [
 const PR_REFRESH_COOLDOWN_MS = 60 * 1000;
 const MAX_WORKSPACE_NAME_SUFFIX = 100;
 
-export type WorkspaceTurnIntent =
-	| 'commit_and_push'
-	| 'pull_latest_main'
-	| 'create_pr'
-	| 'fix_ci'
-	| 'resolve_merge_conflicts'
-	| 'address_review_comments'
-	| 'review';
+const WORKSPACE_TURN_INTENTS = [
+	'commit_and_push',
+	'pull_latest_main',
+	'create_pr',
+	'fix_ci',
+	'resolve_merge_conflicts',
+	'address_review_comments',
+	'review',
+] as const;
 
-export interface WorkspaceCreateResult {
+export type WorkspaceTurnIntent = (typeof WORKSPACE_TURN_INTENTS)[number];
+
+/** Intents that force a PR-stage refresh when the turn settles. */
+const PR_TURN_INTENTS: ReadonlySet<WorkspaceTurnIntent> = new Set([
+	'create_pr',
+	'fix_ci',
+	'resolve_merge_conflicts',
+	'address_review_comments',
+	'review',
+]);
+
+interface WorkspaceCreateResult {
 	workspace: WorkspaceRecord;
 	session: SessionRecord | null;
 }
@@ -385,15 +397,7 @@ export class WorkspaceManager {
 			throw new Error('Session does not belong to workspace');
 		}
 
-		if (
-			args.intent !== 'commit_and_push' &&
-			args.intent !== 'pull_latest_main' &&
-			args.intent !== 'create_pr' &&
-			args.intent !== 'fix_ci' &&
-			args.intent !== 'resolve_merge_conflicts' &&
-			args.intent !== 'address_review_comments' &&
-			args.intent !== 'review'
-		) {
+		if (!(WORKSPACE_TURN_INTENTS as readonly string[]).includes(args.intent)) {
 			throw new Error('Unknown workspace instruction turn intent');
 		}
 
@@ -427,22 +431,12 @@ export class WorkspaceManager {
 			}
 		}
 
-		const shouldRefreshPrStage =
-			intent === 'create_pr' ||
-			intent === 'fix_ci' ||
-			intent === 'resolve_merge_conflicts' ||
-			intent === 'address_review_comments' ||
-			intent === 'review' ||
-			workspace.reviewState === 'in_review';
+		const forcePrRefresh = intent !== undefined && PR_TURN_INTENTS.has(intent);
+		const shouldRefreshPrStage = forcePrRefresh || workspace.reviewState === 'in_review';
 		if (shouldRefreshPrStage) {
 			try {
 				const prResult = await this.refreshWorkspacePrStage(workspace.id, {
-					force:
-						intent === 'create_pr' ||
-						intent === 'fix_ci' ||
-						intent === 'resolve_merge_conflicts' ||
-						intent === 'address_review_comments' ||
-						intent === 'review',
+					force: forcePrRefresh,
 				});
 				changed = prResult.refreshed || changed;
 			} catch (error) {
@@ -664,8 +658,6 @@ export class WorkspaceManager {
 			}
 			throw error;
 		}
-
-		this.prManager?.clearWorkspaceGitHubSnapshot(workspace.id);
 
 		await this.refreshWorkspaceGitSnapshot(workspace.id).catch((error) => {
 			console.error('[workspace-manager] failed to refresh continued workspace git snapshot', {
