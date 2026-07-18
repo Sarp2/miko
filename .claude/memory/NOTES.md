@@ -7,7 +7,7 @@
 - src/shared/tools.ts normalizeToolCall is Claude-path only (agent.ts); Codex path never calls it — becomes Claude-adapter code in future provider abstraction
 - src/client instruction-attachment unwrap keeps legacy `file://` branch — old persisted events depend on it, don't remove
 - --share exposes unauthenticated WS (terminal.create = remote shell) — known, deferred until mobile work
-- workspace-manager + diff-store git tests fail on clean origin/main (~5s timeouts) — pre-existing, not regressions
+- workspace-manager + diff-store git tests flake under load (5s per-test timeout vs many git spawns): failures rotate between unrelated tests across runs, pass in isolation and on unloaded runs — pre-existing, not regressions; fix would be raising per-test timeout on the git-heavy tests
 - src/shared/workspace-file-previews.ts hardcodes '.miko'/'.miko-dev' instead of branding constants (fix on client pass)
 - Perf watchlist: session broadcasts use the clone-light paginated path (read-models injects getRecentSessionHistory — fixed); full-clone getMessages remains only on on-demand paths (ws-router:115 file-access check, agent.ts); snapshots rewrite full file; git+pr pollers hit every active workspace every 2s in parallel — diff-store refreshWorkspaceGitSnapshot spawns ~15-20 git procs/cycle (+2 per changed file, ~8 sequential); snapshotsEqual gates downstream churn
 - src/server/uploads.ts contentUrl shape (/api/workspaces/:id/uploads/:name/content) is parsed by client chat-composer-utils.ts to recover storedName for deletion — changing the URL shape silently breaks upload delete
