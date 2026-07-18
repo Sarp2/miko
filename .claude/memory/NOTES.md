@@ -9,7 +9,8 @@
 - --share exposes unauthenticated WS (terminal.create = remote shell) — known, deferred until mobile work
 - workspace-manager + diff-store git tests fail on clean origin/main (~5s timeouts) — pre-existing, not regressions
 - src/shared/workspace-file-previews.ts hardcodes '.miko'/'.miko-dev' instead of branding constants (fix on client pass)
-- Perf watchlist: event-store deep-clones transcript on reads; snapshots rewrite full file; git+pr pollers hit every active workspace every 2s in parallel (scaling ceiling for many workspaces)
+- Perf watchlist: event-store getMessages still full-clones the transcript (pagination path fixed — clones page only); read-models.ts:303 calls getMessages per broadcast; snapshots rewrite full file; git+pr pollers hit every active workspace every 2s in parallel
 - src/server/uploads.ts contentUrl shape (/api/workspaces/:id/uploads/:name/content) is parsed by client chat-composer-utils.ts to recover storedName for deletion — changing the URL shape silently breaks upload delete
 - src/server/uploads.ts maps .svg to text/plain on purpose (stored-XSS guard: inline image/svg+xml can execute scripts) — don't "fix" it
 - scratchpad file layout (dataDir/scratchpads/{id}.md) is duplicated in scratchpad-manager.ts and event-store.ts:~667 (removal path) — change one, orphan the other
+- persisted events + snapshot.json have NO schema version field (src/server/event.ts) — evolve additively only: new optional fields / new event types + tolerant readers; never rename or retype existing fields
