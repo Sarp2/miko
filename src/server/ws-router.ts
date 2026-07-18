@@ -176,11 +176,7 @@ export function createWsRouter({
 		const workspace = store.getWorkspace(workspaceId);
 		if (workspace?.reviewState !== 'in_review') return;
 
-		if (refreshWorkspacePrStage) {
-			await refreshWorkspacePrStage(workspace.id);
-		} else {
-			await prManager.refreshWorkspacePrState(workspace.id);
-		}
+		await refreshWorkspacePrStage(workspace.id);
 	}
 
 	async function createEnvelope(id: string, topic: SubscriptionTopic): Promise<ServerEnvelope> {
@@ -310,11 +306,11 @@ export function createWsRouter({
 		}
 	}
 
-	async function pushSubscribedSnapshot(topicType: SubscriptionTopic['type']) {
+	async function pushSnapshotsWhere(matches: (topic: SubscriptionTopic) => boolean) {
 		for (const ws of sockets) {
 			const snapshotSignatures = ensureSnapshotSignatures(ws);
 			for (const [id, topic] of ws.data.subscriptions.entries()) {
-				if (topic.type !== topicType) continue;
+				if (!matches(topic)) continue;
 				const envelope = await createEnvelope(id, topic);
 				if (envelope.type !== 'snapshot') continue;
 
@@ -327,38 +323,20 @@ export function createWsRouter({
 		}
 	}
 
-	async function pushScratchpadSnapshot(workspaceId: string) {
-		for (const ws of sockets) {
-			const snapshotSignatures = ensureSnapshotSignatures(ws);
-			for (const [id, topic] of ws.data.subscriptions.entries()) {
-				if (topic.type !== 'scratchpad' || topic.workspaceId !== workspaceId) continue;
-				const envelope = await createEnvelope(id, topic);
-				if (envelope.type !== 'snapshot') continue;
-
-				const signature = JSON.stringify(envelope.snapshot);
-				if (snapshotSignatures.get(id) === signature) continue;
-
-				snapshotSignatures.set(id, signature);
-				send(ws, envelope);
-			}
-		}
+	function pushSubscribedSnapshot(topicType: SubscriptionTopic['type']) {
+		return pushSnapshotsWhere((topic) => topic.type === topicType);
 	}
 
-	async function pushTerminalSnapshot(terminalId: string) {
-		for (const ws of sockets) {
-			const snapshotSignatures = ensureSnapshotSignatures(ws);
-			for (const [id, topic] of ws.data.subscriptions.entries()) {
-				if (topic.type !== 'terminal' || topic.terminalId !== terminalId) continue;
-				const envelope = await createEnvelope(id, topic);
-				if (envelope.type !== 'snapshot') continue;
+	function pushScratchpadSnapshot(workspaceId: string) {
+		return pushSnapshotsWhere(
+			(topic) => topic.type === 'scratchpad' && topic.workspaceId === workspaceId,
+		);
+	}
 
-				const signature = JSON.stringify(envelope.snapshot);
-				if (snapshotSignatures.get(id) === signature) continue;
-
-				snapshotSignatures.set(id, signature);
-				send(ws, envelope);
-			}
-		}
+	function pushTerminalSnapshot(terminalId: string) {
+		return pushSnapshotsWhere(
+			(topic) => topic.type === 'terminal' && topic.terminalId === terminalId,
+		);
 	}
 
 	function pushTerminalEvent(
