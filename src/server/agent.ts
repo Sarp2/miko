@@ -126,7 +126,6 @@ interface ActiveTurn {
 	status: MikoStatus;
 	pendingTool: PendingToolRequest | null;
 	postToolFollowUp: { content: string; planMode: boolean } | null;
-	hasFinalResult: boolean;
 	cancelRequested: boolean;
 	cancelRecorded: boolean;
 	settled: boolean;
@@ -1203,7 +1202,6 @@ export class AgentCoordinator {
 			status: args.provider === 'claude' ? 'running' : 'starting',
 			pendingTool: null,
 			postToolFollowUp: null,
-			hasFinalResult: false,
 			cancelRequested: false,
 			cancelRecorded: false,
 			settled: false,
@@ -1623,7 +1621,6 @@ export class AgentCoordinator {
 				}
 
 				if (event.entry.kind === 'result' && active) {
-					active.hasFinalResult = true;
 					if (event.entry.isError && !active.cancelRequested) {
 						await this.store.recordTurnFailed(
 							session.sessionId,
@@ -1645,18 +1642,7 @@ export class AgentCoordinator {
 			const active = this.activeTurns.get(session.sessionId);
 			if (active && !active.cancelRequested) {
 				streamFailed = true;
-				const message = error instanceof Error ? error.message : String(error);
-				await this.store.appendMessage(
-					session.sessionId,
-					timestamped({
-						kind: 'result',
-						subtype: 'error',
-						isError: true,
-						durationMs: 0,
-						result: message,
-					}),
-				);
-				await this.store.recordTurnFailed(session.sessionId, message);
+				await this.recordTurnFailure(session.sessionId, error);
 				await this.notifyActiveTurnSettled(active, 'failed');
 			}
 		} finally {
@@ -1741,8 +1727,6 @@ export class AgentCoordinator {
 				}
 
 				if (event.entry.kind === 'result') {
-					active.hasFinalResult = true;
-
 					if (event.entry.isError && !active.cancelRequested) {
 						await this.store.recordTurnFailed(
 							active.sessionId,
@@ -1880,8 +1864,6 @@ export class AgentCoordinator {
 		await this.store.appendMessage(sessionId, timestamped({ kind: 'interrupted' }));
 		await this.store.recordTurnCancelled(sessionId);
 		await this.notifyActiveTurnSettled(active, 'cancelled');
-
-		active.hasFinalResult = true;
 
 		// Remove from activeTurns immediately so the UI reflects the cancellation
 		// right away, rather than waiting for interrupt() which may hang.

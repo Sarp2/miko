@@ -1951,7 +1951,6 @@ describe('AgentCoordinator.cancel', () => {
 				},
 				cancelRequested: false,
 				cancelRecorded: false,
-				hasFinalResult: false,
 				turn: {
 					interrupt: async () => {
 						interruptCalls += 1;
@@ -2003,7 +2002,6 @@ describe('AgentCoordinator.cancel', () => {
 				},
 				cancelRequested: false,
 				cancelRecorded: false,
-				hasFinalResult: false,
 				turn: {
 					interrupt: async () => {},
 					close: () => {},
